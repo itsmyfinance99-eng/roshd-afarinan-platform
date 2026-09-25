@@ -38,6 +38,7 @@ model User {
   auditLogs       AuditLog[]
   serviceRequests ServiceRequest[]
   files           FileObject[]
+  tickets         Ticket[]
 
   @@map("users")
 }
@@ -347,4 +348,66 @@ model FileObject {
   @@index([ownerId, createdAt])
   @@index([entityType, entityId])
   @@map("files")
+}
+
+// ────────────────────────────────── Tickets ──────────────────────────────────
+
+enum TicketStatus {
+  OPEN
+  PENDING
+  ANSWERED
+  CLOSED
+}
+
+enum TicketPriority {
+  LOW
+  NORMAL
+  HIGH
+}
+
+enum TicketCategory {
+  GENERAL
+  REQUEST
+  TECHNICAL
+  BILLING
+}
+
+/// Support conversation between a user and staff (EPIC-12). Optional link to a service request.
+model Ticket {
+  id               String         @id @default(uuid(7)) @db.Uuid
+  /// Human-friendly reference, e.g. TK-7K3M9Q.
+  code             String         @unique
+  userId           String         @db.Uuid
+  subject          String
+  category         TicketCategory @default(GENERAL)
+  priority         TicketPriority @default(NORMAL)
+  status           TicketStatus   @default(OPEN)
+  serviceRequestId String?        @db.Uuid
+  lastMessageAt    DateTime       @default(now())
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  user     User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages TicketMessage[]
+
+  @@index([userId, lastMessageAt])
+  @@index([status, lastMessageAt])
+  @@map("tickets")
+}
+
+model TicketMessage {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  ticketId  String   @db.Uuid
+  authorId  String?  @db.Uuid
+  /// True when written by staff (shown as «پشتیبانی» to the user).
+  fromStaff Boolean  @default(false)
+  /// Internal staff notes are never shown to the ticket owner.
+  internal  Boolean  @default(false)
+  body      String
+  createdAt DateTime @default(now())
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId, createdAt])
+  @@map("ticket_messages")
 }

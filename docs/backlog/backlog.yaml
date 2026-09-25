@@ -637,6 +637,7 @@ epics:
     goal: 'ارتباط کاربر و پشتیبانی از طریق تیکت.'
     stories:
       - id: ST-12.01
+        status: done
         title: 'مدل و API Ticket و TicketMessage'
         sprint: S7
         points: 5
@@ -646,6 +647,7 @@ epics:
         acceptance:
           - 'کاربر فقط تیکت خودش (تست منفی)؛ پیام داخلی برای کاربر نمایش داده نشود'
       - id: ST-12.02
+        status: done
         title: 'رابط تیکت در داشبورد'
         sprint: S7
         points: 3

@@ -112,6 +112,16 @@ export class UsersService {
     return toView(row);
   }
 
+  /** Display names for a set of users (other modules must not query User directly). */
+  async namesByIds(ids: readonly string[]): Promise<Map<string, string>> {
+    if (ids.length === 0) return new Map();
+    const rows = await this.prisma.user.findMany({
+      where: { id: { in: [...new Set(ids)] } },
+      select: { id: true, fullName: true },
+    });
+    return new Map(rows.map((r) => [r.id, r.fullName]));
+  }
+
   async markLoggedIn(userId: string): Promise<void> {
     await this.prisma.user.update({ where: { id: userId }, data: { lastLoginAt: new Date() } });
   }
