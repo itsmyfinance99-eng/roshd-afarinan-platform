@@ -20,6 +20,7 @@ import { PaymentsModule } from './modules/payments/payments.module';
 import { PermissionsGuard } from './modules/rbac/permissions.guard';
 import { RbacModule } from './modules/rbac/rbac.module';
 import { ServiceRequestsModule } from './modules/service-requests/service-requests.module';
+import { TicketsModule } from './modules/tickets/tickets.module';
 import { UsersModule } from './modules/users/users.module';
 import { HealthModule } from './modules/health/health.module';
 
@@ -79,6 +80,7 @@ import { HealthModule } from './modules/health/health.module';
     // Domain modules (Phase 1)
     ServiceRequestsModule,
     CmsModule,
+    TicketsModule,
   ],
   providers: [
     // Guard order matters: rate limit → authenticate (default deny) → authorize.

@@ -178,6 +178,12 @@ export class ServiceRequestsService {
     return status;
   }
 
+  /** For other modules (e.g. tickets): does this request belong to the user? */
+  async isOwnedBy(id: string, userId: string): Promise<boolean> {
+    const count = await this.prisma.serviceRequest.count({ where: { id, userId } });
+    return count === 1;
+  }
+
   async listMine(
     userId: string,
     query: ListServiceRequestsQuery,

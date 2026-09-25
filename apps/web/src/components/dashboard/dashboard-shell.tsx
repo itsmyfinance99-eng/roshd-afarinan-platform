@@ -23,6 +23,7 @@ interface NavItem {
 const NAV: NavItem[] = [
   { href: '/dashboard', label: 'پیشخوان' },
   { href: '/dashboard/requests', label: 'درخواست‌های من' },
+  { href: '/dashboard/tickets', label: 'پشتیبانی' },
   { href: '/dashboard/files', label: 'فایل‌های من' },
   { href: '/dashboard/profile', label: 'پروفایل' },
   {
@@ -30,6 +31,7 @@ const NAV: NavItem[] = [
     label: 'مدیریت درخواست‌ها',
     permission: 'requests:read-all',
   },
+  { href: '/dashboard/manage/tickets', label: 'مدیریت تیکت‌ها', permission: 'tickets:read-all' },
   { href: '/dashboard/content', label: 'مدیریت محتوا', permission: 'cms:write' },
 ];
 
