@@ -25,7 +25,7 @@
     "test:e2e": {
       "dependsOn": ["^build", "generate"],
       "cache": false,
-      "passThroughEnv": ["TEST_DATABASE_URL", "JWT_ACCESS_SECRET"]
+      "passThroughEnv": ["TEST_DATABASE_URL", "JWT_ACCESS_SECRET", "FILE_URL_SECRET"]
     },
     "generate": {
       "outputs": ["src/generated/**"],

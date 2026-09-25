@@ -29,6 +29,13 @@ export interface ServiceRequestItem {
 }
 
 export interface ServiceRequestDetail extends ServiceRequestItem {
+  attachments: {
+    id: string;
+    originalName: string;
+    mimeType: string;
+    size: number;
+    createdAt: string;
+  }[];
   events: {
     fromStatus: ServiceRequestStatus | null;
     toStatus: ServiceRequestStatus;

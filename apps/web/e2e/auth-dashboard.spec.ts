@@ -292,3 +292,32 @@ test.describe('content editor', () => {
     await expect(page.getByText(/نامک فقط می‌تواند/)).toBeVisible();
   });
 });
+
+test.describe('dashboard layout', () => {
+  for (const path of [
+    '/dashboard',
+    '/dashboard/requests',
+    '/dashboard/files',
+    '/dashboard/profile',
+    '/dashboard/content/new',
+  ]) {
+    test(`${path} has no horizontal overflow`, async ({ page }) => {
+      await page.goto('/');
+      await signIn(
+        page,
+        me(['cms:write', 'cms:publish', 'requests:read-all'], ['user', 'editor', 'support']),
+      );
+      await page.route('**/api/v1/**', (route) =>
+        route.request().url().includes('/auth/me')
+          ? route.fallback()
+          : route.fulfill({ status: 200, contentType: 'application/json', body: envelope([]) }),
+      );
+      await page.goto(path);
+      await expect(page.getByRole('navigation', { name: 'منوی داشبورد' })).toBeVisible();
+      const overflow = await page.evaluate(
+        () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      );
+      expect(overflow).toBeLessThanOrEqual(1);
+    });
+  }
+});

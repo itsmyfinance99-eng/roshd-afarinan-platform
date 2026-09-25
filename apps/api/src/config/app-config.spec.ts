@@ -4,6 +4,7 @@ import { ConfigValidationError, loadConfig } from './app-config';
 const BASE = {
   DATABASE_URL: 'postgresql://u:p@127.0.0.1:5432/db',
   JWT_ACCESS_SECRET: 'x'.repeat(32),
+  FILE_URL_SECRET: 'f'.repeat(32),
 };
 
 describe('loadConfig', () => {

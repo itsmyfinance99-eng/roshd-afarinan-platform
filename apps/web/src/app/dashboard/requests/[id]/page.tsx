@@ -9,6 +9,7 @@ import {
   RequestDetails,
   StatusTimeline,
 } from '@/components/dashboard/ui';
+import { FileList } from '@/components/files/files';
 import { useApi } from '@/lib/use-api';
 
 export default function MyRequestDetailPage() {
@@ -30,7 +31,20 @@ export default function MyRequestDetailPage() {
       <AsyncBoundary state={state} reload={reload}>
         {(item) => (
           <div className="grid gap-8 lg:grid-cols-[1fr_280px]">
-            <RequestDetails item={item} />
+            <div className="flex flex-col gap-6">
+              <RequestDetails item={item} />
+              {item.attachments?.length ? (
+                <section aria-labelledby="attachments-title">
+                  <h2
+                    id="attachments-title"
+                    className="mb-3 text-base font-extrabold text-brand-900"
+                  >
+                    پیوست‌ها
+                  </h2>
+                  <FileList files={item.attachments} />
+                </section>
+              ) : null}
+            </div>
             <section aria-labelledby="timeline-title">
               <h2 id="timeline-title" className="mb-4 text-base font-extrabold text-brand-900">
                 روند بررسی

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { emailSchema, MESSAGES, mobileSchema, paginationQuerySchema, text } from './common';
+import { attachmentIdsSchema } from './files';
 
 /** Kinds of request the public site can submit (EPIC-11). Pricing/booking are open questions. */
 export const SERVICE_REQUEST_TYPES = [
@@ -65,6 +66,8 @@ const contactFields = {
   mobile: mobileSchema,
   email: emailSchema.optional(),
   website: z.string().max(0, { error: MESSAGES.required }).optional(),
+  /** Files uploaded beforehand by the signed-in submitter (purpose SERVICE_REQUEST_ATTACHMENT). */
+  attachmentIds: attachmentIdsSchema.optional(),
 };
 
 const messageField = text(10, 4000);

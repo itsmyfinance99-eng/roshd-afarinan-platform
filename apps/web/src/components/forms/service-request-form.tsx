@@ -17,11 +17,14 @@ import {
   type ServiceRequestType,
 } from '@roshd/validation';
 import Link from 'next/link';
-import { useId } from 'react';
+import { useId, useState } from 'react';
 import type { Path } from 'react-hook-form';
 import { consultingServices } from '@/content/site';
 import { useApiForm } from './use-api-form';
 import { useHydrated } from './use-hydrated';
+import { FileList, FileUploader, type FileItem } from '@/components/files/files';
+import { apiFetch } from '@/lib/api-client';
+import { useSessionHint } from '@/lib/session';
 
 type FormType = Extract<ServiceRequestType, 'FEASIBILITY' | 'CONSULTING' | 'RESEARCH' | 'CONTACT'>;
 
@@ -76,11 +79,17 @@ export function ServiceRequestForm({
 }) {
   const uid = useId();
   const hydrated = useHydrated();
+  const signedIn = useSessionHint();
+  const [attachments, setAttachments] = useState<FileItem[]>([]);
   const id = (name: string) => `${uid}-${name}`;
   const { form, status, onSubmit, reset, fieldError, submitting } = useApiForm<FormValues, Receipt>(
     {
       schema: createServiceRequestSchema,
       path: '/service-requests',
+      transform: (values) =>
+        attachments.length > 0
+          ? { ...values, attachmentIds: attachments.map((a) => a.id) }
+          : values,
       defaultValues: {
         type,
         fullName: '',
@@ -123,7 +132,13 @@ export function ServiceRequestForm({
           <Link href="/track" className={buttonClasses('primary', 'md')}>
             پیگیری درخواست
           </Link>
-          <Button variant="outline" onClick={reset}>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setAttachments([]);
+              reset();
+            }}
+          >
             ثبت درخواست جدید
           </Button>
         </div>
@@ -294,6 +309,36 @@ export function ServiceRequestForm({
         />,
         'col-span-full',
       )}
+
+      <div className="col-span-full flex flex-col gap-2">
+        <span className="text-sm font-semibold text-ink-2">پیوست مدارک (اختیاری)</span>
+        {signedIn ? (
+          <>
+            <FileList
+              files={attachments}
+              removeLabel="حذف"
+              onRemove={(file) => {
+                setAttachments((list) => list.filter((f) => f.id !== file.id));
+                void apiFetch(`/files/${file.id}`, { method: 'DELETE' });
+              }}
+            />
+            {attachments.length < 5 ? (
+              <FileUploader
+                purpose="SERVICE_REQUEST_ATTACHMENT"
+                onUploaded={(file) => setAttachments((list) => [...list, file])}
+              />
+            ) : null}
+          </>
+        ) : (
+          <p className="text-sm text-ink-4">
+            برای پیوست مدارک ابتدا{' '}
+            <Link href="/login" className="font-bold">
+              وارد حساب کاربری شوید
+            </Link>
+            ؛ ثبت درخواست بدون پیوست هم امکان‌پذیر است.
+          </p>
+        )}
+      </div>
 
       {/* Honeypot: hidden from people and assistive tech; bots that fill it are rejected. */}
       <div aria-hidden="true" className="sr-only">

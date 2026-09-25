@@ -23,6 +23,7 @@ interface NavItem {
 const NAV: NavItem[] = [
   { href: '/dashboard', label: 'پیشخوان' },
   { href: '/dashboard/requests', label: 'درخواست‌های من' },
+  { href: '/dashboard/files', label: 'فایل‌های من' },
   { href: '/dashboard/profile', label: 'پروفایل' },
   {
     href: '/dashboard/manage/requests',
@@ -104,7 +105,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
           </div>
         </header>
         <div className="mx-auto grid max-w-(--container-page) gap-6 px-6 py-8 md:grid-cols-[220px_1fr]">
-          <nav aria-label="منوی داشبورد" className="md:self-start">
+          <nav aria-label="منوی داشبورد" className="min-w-0 md:self-start">
             <ul className="flex gap-2 overflow-x-auto md:flex-col">
               {items.map((item) => (
                 <li key={item.href} className="shrink-0">

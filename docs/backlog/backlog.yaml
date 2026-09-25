@@ -662,6 +662,7 @@ epics:
     goal: 'فایل به‌عنوان entity مستقل، خصوصی، با URL امضاشده.'
     stories:
       - id: ST-13.01
+        status: done
         title: 'آپلود فایل خصوصی با اعتبارسنجی نوع و حجم'
         sprint: S5
         points: 5
@@ -672,6 +673,7 @@ epics:
           - 'MIME allowlist + بررسی magic bytes + سقف حجم؛ checksum SHA-256'
           - 'ذخیره خارج از web root؛ metadata کامل (owner، purpose، access، version)'
       - id: ST-13.02
+        status: done
         title: 'دانلود با URL امضاشده و زمان‌دار'
         sprint: S5
         points: 3
