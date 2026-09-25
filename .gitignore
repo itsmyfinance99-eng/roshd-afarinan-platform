@@ -1,0 +1,49 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# build outputs
+dist/
+build/
+.next/
+out/
+coverage/
+*.tsbuildinfo
+next-env.d.ts
+
+# turbo
+.turbo/
+
+# generated
+apps/api/src/generated/
+
+# env
+.env
+.env.*
+!.env.example
+!.env.test.example
+
+# local storage (private uploaded files in development)
+storage/
+apps/api/storage/
+
+# test artifacts
+playwright-report/
+test-results/
+blob-report/
+
+# logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# claude local settings
+.claude/settings.local.json
