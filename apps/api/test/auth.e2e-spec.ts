@@ -43,6 +43,10 @@ describe('Auth (e2e)', () => {
       expect(cookies).toMatch(/ra_at=[^;]+;.*HttpOnly/i);
       expect(cookies).toMatch(/ra_rt=[^;]+;.*Path=\/api\/v1\/auth.*HttpOnly/i);
       expect(cookies).toMatch(/SameSite=Lax/i);
+      // The session hint is readable by the web app but carries no secret
+      const hint = cookiesOf(res).find((c) => c.startsWith('ra_session='));
+      expect(hint).toMatch(/^ra_session=1;.*Path=\//);
+      expect(hint).not.toMatch(/HttpOnly/i);
 
       const stored = await prisma.user.findUniqueOrThrow({ where: { email } });
       expect(stored.passwordHash).toMatch(/^\$argon2id\$/);

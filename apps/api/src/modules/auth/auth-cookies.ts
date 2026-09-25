@@ -3,6 +3,11 @@ import type { AppConfig } from '../../config/app-config';
 
 export const ACCESS_COOKIE = 'ra_at';
 export const REFRESH_COOKIE = 'ra_rt';
+/**
+ * Non-secret session indicator (value '1', readable by the web app). It lets the web UI and
+ * route proxy know a session exists without exposing any token. Authorization never trusts it.
+ */
+export const SESSION_HINT_COOKIE = 'ra_session';
 /** Refresh cookie is only sent to the auth endpoints. */
 export const REFRESH_COOKIE_PATH = '/api/v1/auth';
 
@@ -37,11 +42,18 @@ export function setAuthCookies(
     path: REFRESH_COOKIE_PATH,
     expires: tokens.refreshExpiresAt,
   });
+  res.cookie(SESSION_HINT_COOKIE, '1', {
+    ...base(config),
+    httpOnly: false,
+    path: '/',
+    expires: tokens.refreshExpiresAt,
+  });
 }
 
 export function clearAuthCookies(res: Response, config: AppConfig): void {
   res.clearCookie(ACCESS_COOKIE, { ...base(config), path: '/' });
   res.clearCookie(REFRESH_COOKIE, { ...base(config), path: REFRESH_COOKIE_PATH });
+  res.clearCookie(SESSION_HINT_COOKIE, { ...base(config), httpOnly: false, path: '/' });
 }
 
 export function cookieValue(req: Request, name: string): string | undefined {

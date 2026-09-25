@@ -135,3 +135,14 @@ export const listServiceRequestsQuerySchema = paginationQuerySchema.extend({
 export type TrackServiceRequestInput = z.infer<typeof trackServiceRequestSchema>;
 export type UpdateServiceRequestStatusInput = z.infer<typeof updateServiceRequestStatusSchema>;
 export type ListServiceRequestsQuery = z.infer<typeof listServiceRequestsQuerySchema>;
+
+/** Allowed staff status changes; shared by the API policy and the staff dashboard. */
+export const SERVICE_REQUEST_TRANSITIONS: Record<
+  ServiceRequestStatus,
+  readonly ServiceRequestStatus[]
+> = {
+  NEW: ['IN_REVIEW', 'CLOSED'],
+  IN_REVIEW: ['RESPONDED', 'CLOSED'],
+  RESPONDED: ['IN_REVIEW', 'CLOSED'],
+  CLOSED: ['IN_REVIEW'],
+};
