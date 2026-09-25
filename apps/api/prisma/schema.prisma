@@ -196,3 +196,107 @@ model ServiceRequestStatusEvent {
   @@index([requestId, createdAt])
   @@map("service_request_status_events")
 }
+
+// ──────────────────────────────────── CMS ────────────────────────────────────
+
+enum ContentKind {
+  ARTICLE
+  KNOWLEDGE
+}
+
+enum ContentStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum CategoryScope {
+  ARTICLE
+  KNOWLEDGE
+  RESEARCH
+  COURSE
+}
+
+model Author {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  name      String
+  bio       String?
+  /// Optional link to a platform account (editor/expert).
+  userId    String?  @unique @db.Uuid
+  createdAt DateTime @default(now())
+
+  entries ContentEntry[]
+
+  @@map("authors")
+}
+
+model Category {
+  id        String        @id @default(uuid(7)) @db.Uuid
+  scope     CategoryScope
+  slug      String
+  name      String
+  createdAt DateTime      @default(now())
+
+  entries ContentEntry[]
+
+  @@unique([scope, slug])
+  @@map("categories")
+}
+
+/// Articles and knowledge-base entries are distinct content kinds (separate APIs, routes,
+/// sitemaps; ADR-0005) that share one editorial lifecycle and the same SEO fields.
+model ContentEntry {
+  id              String        @id @default(uuid(7)) @db.Uuid
+  kind            ContentKind
+  slug            String
+  title           String
+  excerpt         String?
+  /// Markdown; rendered without raw HTML.
+  body            String
+  coverImageUrl   String?
+  status          ContentStatus @default(DRAFT)
+  publishedAt     DateTime?
+  authorId        String?       @db.Uuid
+  categoryId      String?       @db.Uuid
+  tags            String[]      @default([])
+  /// Sources for reference content: [{ title, url? }]
+  references      Json          @default("[]")
+  // SEO
+  metaTitle       String?
+  metaDescription String?
+  canonicalUrl    String?
+  noIndex         Boolean       @default(false)
+  ogImageUrl      String?
+  /// Sample content (never presented as real).
+  isDemo          Boolean       @default(false)
+  createdById     String?       @db.Uuid
+  updatedById     String?       @db.Uuid
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  author   Author?   @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  category Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  @@unique([kind, slug])
+  @@index([kind, status, publishedAt])
+  @@map("content_entries")
+}
+
+/// Institutional pages with structured sections (moves copy out of the web content layer).
+model Page {
+  id              String        @id @default(uuid(7)) @db.Uuid
+  slug            String        @unique
+  title           String
+  /// [{ type, ...fields }] — rendered by typed web components.
+  sections        Json          @default("[]")
+  status          ContentStatus @default(DRAFT)
+  publishedAt     DateTime?
+  metaTitle       String?
+  metaDescription String?
+  noIndex         Boolean       @default(false)
+  updatedById     String?       @db.Uuid
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@map("pages")
+}

@@ -11,6 +11,9 @@
 - **Interim:** institutional copy (home hero, service descriptions, company facts) lives in the typed content layer `apps/web/src/content/*`. Components never hard-code copy. This layer moves into CMS `Page` sections in a later story (EPIC-03), and the components don't change.
 - If the API is unreachable, public pages render a graceful error/empty state instead of failing the build.
 
+- **Storage (implemented in ST-03.01):** articles and knowledge entries are distinct content kinds with separate APIs (`/articles`, `/knowledge`), routes and sitemap entries. They share one `ContentEntry` table discriminated by `kind`, because they share the editorial lifecycle (DRAFT → PUBLISHED → ARCHIVED) and the SEO fields. Knowledge entries use `references` for their sources.
+- Demo content is flagged `isDemo`, rendered with «نمونه نمایشی», marked `noindex` and excluded from the sitemap. It is loaded only in development with `pnpm --filter @roshd/api db:seed:demo`.
+
 ## Consequences
 
 - Copy changes need a deploy until the Page-sections migration. This is accepted for the MVP.

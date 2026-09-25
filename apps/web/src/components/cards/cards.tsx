@@ -1,6 +1,6 @@
 import { DemoBadge, formatDateFa, ImagePlaceholder } from '@roshd/ui';
 import Link from 'next/link';
-import type { DemoCourse, DemoEntry, DemoProject } from '@/content/types';
+import type { DemoCourse, DemoProject, EntryCardData } from '@/content/types';
 
 export function CourseCard({ course }: { course: DemoCourse }) {
   return (
@@ -26,7 +26,15 @@ export function CourseCard({ course }: { course: DemoCourse }) {
 }
 
 /** `href` is optional: demo entries have no detail page until the CMS (EPIC-03) publishes them. */
-export function ContentCard({ item, cta, href }: { item: DemoEntry; cta?: string; href?: string }) {
+export function ContentCard({
+  item,
+  cta,
+  href,
+}: {
+  item: EntryCardData;
+  cta?: string;
+  href?: string;
+}) {
   return (
     <article className="flex h-full flex-col gap-2.5 rounded-card border border-line bg-white p-[22px] hover:border-line-hover">
       <div className="flex items-center justify-between gap-3 text-[13px]">

@@ -8,6 +8,7 @@ import { resolveRequestId } from './common/http/request-id';
 import { APP_CONFIG, type AppConfig } from './config/app-config';
 import { AppConfigModule } from './config/config.module';
 import { AuditModule } from './modules/audit/audit.module';
+import { CmsModule } from './modules/cms/cms.module';
 import { AuthGuard } from './modules/auth/auth.guard';
 import { skipUnlessStrictThrottled } from './common/http/strict-rate-limit';
 import { AuthModule } from './modules/auth/auth.module';
@@ -77,6 +78,7 @@ import { HealthModule } from './modules/health/health.module';
     IranSahamdarModule,
     // Domain modules (Phase 1)
     ServiceRequestsModule,
+    CmsModule,
   ],
   providers: [
     // Guard order matters: rate limit → authenticate (default deny) → authorize.

@@ -1,11 +1,5 @@
 import { normalizePersianText } from '@roshd/validation';
-import {
-  demoArticles,
-  demoCourses,
-  demoKnowledge,
-  demoProjects,
-  demoResearch,
-} from '@/content/demo';
+import { demoCourses, demoProjects, demoResearch } from '@/content/demo';
 import { consultingServices, journeys } from '@/content/site';
 
 export interface LocalHit {
@@ -41,12 +35,6 @@ export function searchLocalContent(query: string, limit = 30): LocalHit[] {
     ...demoResearch
       .filter((r) => match(r.title, r.summary, r.category))
       .map((r) => ({ title: r.title, type: 'پژوهش', href: '/research', isDemo: r.isDemo })),
-    ...demoKnowledge
-      .filter((k) => match(k.title, k.summary, k.category))
-      .map((k) => ({ title: k.title, type: 'دانشنامه', href: '/knowledge', isDemo: k.isDemo })),
-    ...demoArticles
-      .filter((a) => match(a.title, a.summary, a.category))
-      .map((a) => ({ title: a.title, type: 'مقاله', href: '/articles', isDemo: a.isDemo })),
   ];
   return hits.slice(0, limit);
 }

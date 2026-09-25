@@ -212,3 +212,83 @@ test.describe('dashboard', () => {
     expect(patched).toEqual({ status: 'RESPONDED', note: 'با متقاضی تماس گرفته شد.' });
   });
 });
+
+test.describe('content editor', () => {
+  test('an editor creates a draft with parsed tags and references', async ({ page }) => {
+    await page.goto('/');
+    await signIn(page, me(['cms:write', 'cms:publish'], ['user', 'editor']));
+    await page.route('**/api/v1/categories**', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: envelope([
+          { id: '0192f0a4-0000-7000-8000-000000000001', name: 'امکان‌سنجی', slug: 'feasibility' },
+        ]),
+      }),
+    );
+    let posted: Record<string, unknown> | undefined;
+    await page.route('**/api/v1/cms/entries', async (route) => {
+      posted = route.request().postDataJSON() as Record<string, unknown>;
+      await route.fulfill({
+        status: 201,
+        contentType: 'application/json',
+        body: envelope({ id: 'e1', ...posted, status: 'DRAFT' }),
+      });
+    });
+    await page.route('**/api/v1/cms/entries/e1', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: envelope({
+          id: 'e1',
+          kind: 'ARTICLE',
+          status: 'DRAFT',
+          slug: 'feasibility-basics',
+          title: 'مبانی امکان‌سنجی',
+          excerpt: null,
+          body: '## مقدمه',
+          coverImageUrl: null,
+          categoryId: null,
+          tags: [],
+          references: [],
+          metaTitle: null,
+          metaDescription: null,
+          canonicalUrl: null,
+          noIndex: false,
+        }),
+      }),
+    );
+
+    await page.goto('/dashboard/content/new');
+    await page.getByRole('textbox', { name: 'عنوان', exact: true }).fill('مبانی امکان‌سنجی');
+    await page.getByLabel(/نامک/).fill('feasibility-basics');
+    await page.getByLabel(/متن \(Markdown\)/).fill('## مقدمه\nمتن مقاله');
+    await page.getByLabel(/برچسب‌ها/).fill('امکان‌سنجی، سرمایه‌گذاری');
+    await page.getByLabel(/منابع/).fill('کتاب مرجع | https://example.org/book');
+    await page.getByRole('button', { name: 'ایجاد پیش‌نویس' }).click();
+
+    await expect(page).toHaveURL(/\/dashboard\/content\/e1$/);
+    expect(posted).toMatchObject({
+      kind: 'ARTICLE',
+      slug: 'feasibility-basics',
+      tags: ['امکان‌سنجی', 'سرمایه‌گذاری'],
+      references: [{ title: 'کتاب مرجع', url: 'https://example.org/book' }],
+      noIndex: false,
+    });
+    await expect(page.getByRole('button', { name: 'انتشار' })).toBeVisible();
+  });
+
+  test('invalid slug is caught before calling the API', async ({ page }) => {
+    await page.goto('/');
+    await signIn(page, me(['cms:write'], ['user', 'editor']));
+    await page.route('**/api/v1/categories**', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: envelope([]) }),
+    );
+    await page.goto('/dashboard/content/new');
+    await page.getByRole('textbox', { name: 'عنوان', exact: true }).fill('عنوان');
+    await page.getByLabel(/نامک/).fill('Bad Slug');
+    await page.getByLabel(/متن \(Markdown\)/).fill('متن');
+    await page.getByRole('button', { name: 'ایجاد پیش‌نویس' }).click();
+    await expect(page.getByText(/نامک فقط می‌تواند/)).toBeVisible();
+  });
+});
