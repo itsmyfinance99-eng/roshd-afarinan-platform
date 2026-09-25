@@ -1,0 +1,61 @@
+/*
+ * Roshd design tokens — extracted from the Claude Design handoff (design/INTEGRATION.md).
+ * Tailwind v4 turns every --color-*, --radius-*, --font-* token into utilities
+ * (e.g. bg-brand-900, text-ink-3, rounded-card). Change values here, not in components.
+ */
+@theme {
+  --font-sans: 'Vazirmatn Variable', Vazirmatn, Tahoma, sans-serif;
+
+  /* Brand */
+  --color-brand-950: #081a44;
+  --color-brand-900: #0b2257;
+  --color-brand-800: #1c3163;
+  --color-brand-700: #2e4b8c;
+  --color-primary: #1450c8;
+  --color-primary-hover: #0f3e9e;
+  --color-primary-soft: #f2f6fd;
+  --color-accent: #0ba5e0;
+  --color-accent-soft: #7fd6f5;
+
+  /* Ink (text) */
+  --color-ink: #0e1a33;
+  --color-ink-2: #1b2740;
+  --color-ink-3: #3a4660;
+  --color-ink-4: #4a5670;
+  --color-ink-5: #5b667d;
+  --color-on-dark: #c9d4ea;
+  --color-on-dark-2: #a9b8d8;
+
+  /* Surfaces & lines */
+  --color-surface: #f3f6fa;
+  --color-surface-2: #eef2f8;
+  --color-surface-hover: #f7faff;
+  --color-surface-muted: #fbfcfe;
+  --color-line: #e3e7ef;
+  --color-line-2: #dde3ee;
+  --color-line-3: #d5dce8;
+  --color-line-strong: #c9d2e3;
+  --color-line-hover: #9fb6e6;
+
+  /* Status */
+  --color-demo-bg: #fff4dc;
+  --color-demo-fg: #7a4b00;
+  --color-demo-border: #d9a441;
+  --color-notice-bg: #fff8e8;
+  --color-notice-fg: #5e3c00;
+  --color-notice-border: #efd9a6;
+  --color-success-bg: #eaf6ef;
+  --color-success-fg: #155b34;
+  --color-danger: #b42318;
+
+  /* Radii */
+  --radius-chip: 4px;
+  --radius-control: 6px;
+  --radius-card: 8px;
+  --radius-panel: 10px;
+
+  /* Layout */
+  --container-page: 1280px;
+  /* Desktop navigation appears from 1180px (design SiteHeader). Enables the nav: variant. */
+  --breakpoint-nav: 73.75rem;
+}
