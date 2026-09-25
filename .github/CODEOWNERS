@@ -1,0 +1,8 @@
+# Default owner for everything
+* @itsmyfinance99-eng
+
+# Security-sensitive areas
+/apps/api/src/modules/auth/ @itsmyfinance99-eng
+/apps/api/prisma/ @itsmyfinance99-eng
+/docs/security/ @itsmyfinance99-eng
+/.github/workflows/ @itsmyfinance99-eng
