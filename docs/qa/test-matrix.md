@@ -4,9 +4,9 @@ Legend: ✅ automated · 🟡 manual · ⬜ not yet covered
 
 | Area       | Scenario                           | Level      | Status |
 | ---------- | ---------------------------------- | ---------- | ------ |
-| Foundation | Health live/ready                  | API e2e    | ⬜     |
-| Foundation | Invalid env fails boot             | Unit       | ⬜     |
-| Foundation | Error envelope + request ID        | API e2e    | ⬜     |
+| Foundation | Health live/ready                  | API e2e    | ✅     |
+| Foundation | Invalid env fails boot             | Unit       | ✅     |
+| Foundation | Error envelope + request ID        | API e2e    | ✅     |
 | Auth       | Register / duplicate email 409     | API e2e    | ⬜     |
 | Auth       | Login / wrong password generic 401 | API e2e    | ⬜     |
 | Auth       | Refresh rotation + reuse detection | API e2e    | ⬜     |

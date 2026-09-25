@@ -125,6 +125,7 @@ epics:
           - 'قالب‌های Epic، Story، Bug، Task، Spike و PR ساخته شده باشند'
           - 'backlog.yaml با اسکریپت sync به Issues، Labels و Milestones منتقل شود'
       - id: ST-01.03
+        status: done
         title: 'Monorepo tooling: pnpm، Turborepo، TypeScript، ESLint، Prettier و commitlint'
         sprint: S1
         points: 5
@@ -136,6 +137,7 @@ epics:
           - 'پکیج‌های tsconfig، eslint-config، types و validation ساخته شده باشند'
           - 'commit با پیام غیر استاندارد توسط commitlint رد شود'
       - id: ST-01.04
+        status: done
         title: 'CI روی GitHub Actions و Dependabot'
         sprint: S1
         points: 3
@@ -147,6 +149,7 @@ epics:
           - 'تست‌های e2e API با سرویس PostgreSQL اجرا شوند'
           - 'Dependabot برای npm و github-actions فعال باشد'
       - id: ST-01.05
+        status: done
         title: 'API skeleton: NestJS، config validation و versioning'
         sprint: S1
         points: 5
@@ -158,6 +161,7 @@ epics:
           - 'همه مسیرها زیر /api/v1 باشند'
           - 'Swagger در /docs در دسترس باشد (در production قابل غیرفعال‌سازی)'
       - id: ST-01.06
+        status: done
         title: 'قرارداد API: envelope، مدل خطا، Request ID و Zod validation'
         sprint: S1
         points: 5

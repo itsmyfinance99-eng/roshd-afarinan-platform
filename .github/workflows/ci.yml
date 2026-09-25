@@ -28,6 +28,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm format:check
       - run: pnpm verify
+      - run: pnpm test:e2e
 
   commitlint:
     name: Conventional commits
