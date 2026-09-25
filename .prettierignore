@@ -1,0 +1,11 @@
+node_modules
+dist
+.next
+coverage
+.turbo
+pnpm-lock.yaml
+apps/api/src/generated
+apps/api/prisma/migrations
+design/claude-design
+playwright-report
+test-results

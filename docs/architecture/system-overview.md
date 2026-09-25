@@ -54,24 +54,24 @@ infra/            docker, nginx, scripts, ci
 
 ## Backend module boundaries (`apps/api/src/modules`)
 
-| Module | Phase 1 status |
-|---|---|
-| `auth`, `users`, `rbac`, `audit` | Implemented |
-| `cms` (pages, articles, categories, authors, knowledge, media, SEO) | Implemented |
-| `search` | Implemented (PostgreSQL provider) |
-| `files` | Implemented (local private storage, signed URLs) |
-| `service-requests` (contact, feasibility request, research order, consulting) | Implemented (request intake only) |
-| `tickets` | Implemented (basic) |
-| `orders`, `payments` | Order + PaymentAttempt + mock gateway |
-| `learning` | Catalog (read-only) |
-| `research` | Catalog |
-| `investment` | Catalog (presentation only, no transactions) |
-| `notifications` | Port + console/log adapter |
-| `feasibility` | Skeleton: state machine contract + ports |
-| `financial-engine` | Interfaces only |
-| `iran-sahamdar` | Client interface + mock provider |
-| `ai` | Interfaces only |
-| `blockchain` | Interfaces only |
+| Module                                                                        | Phase 1 status                                   |
+| ----------------------------------------------------------------------------- | ------------------------------------------------ |
+| `auth`, `users`, `rbac`, `audit`                                              | Implemented                                      |
+| `cms` (pages, articles, categories, authors, knowledge, media, SEO)           | Implemented                                      |
+| `search`                                                                      | Implemented (PostgreSQL provider)                |
+| `files`                                                                       | Implemented (local private storage, signed URLs) |
+| `service-requests` (contact, feasibility request, research order, consulting) | Implemented (request intake only)                |
+| `tickets`                                                                     | Implemented (basic)                              |
+| `orders`, `payments`                                                          | Order + PaymentAttempt + mock gateway            |
+| `learning`                                                                    | Catalog (read-only)                              |
+| `research`                                                                    | Catalog                                          |
+| `investment`                                                                  | Catalog (presentation only, no transactions)     |
+| `notifications`                                                               | Port + console/log adapter                       |
+| `feasibility`                                                                 | Skeleton: state machine contract + ports         |
+| `financial-engine`                                                            | Interfaces only                                  |
+| `iran-sahamdar`                                                               | Client interface + mock provider                 |
+| `ai`                                                                          | Interfaces only                                  |
+| `blockchain`                                                                  | Interfaces only                                  |
 
 Rules:
 
@@ -81,18 +81,18 @@ Rules:
 
 ## Cross-cutting concerns
 
-| Concern | Implementation |
-|---|---|
-| Config | Environment variables validated with Zod at boot. Boot fails fast on invalid config |
-| Logging | Structured JSON logs (pino) with a request ID. Secrets and PII are redacted |
-| Errors | A global exception filter returns the standard error envelope |
-| Validation | Zod schemas from `@roshd/validation`, used by both the API and web forms |
-| AuthN | argon2id password hashes. A short-lived JWT access token plus a rotating opaque refresh token (hashed in the DB) |
-| AuthZ | A global guard, default deny. `@Public()` opts out. `@Permissions()` checks RBAC. Services check ownership |
-| Audit | `AuditLog` table for security and business events |
-| Rate limit | `@nestjs/throttler`, with stricter limits on auth endpoints |
-| API docs | OpenAPI at `/docs`, generated from Zod schemas |
-| Health | `/api/v1/health/live` and `/api/v1/health/ready` (the latter checks the DB) |
+| Concern    | Implementation                                                                                                   |
+| ---------- | ---------------------------------------------------------------------------------------------------------------- |
+| Config     | Environment variables validated with Zod at boot. Boot fails fast on invalid config                              |
+| Logging    | Structured JSON logs (pino) with a request ID. Secrets and PII are redacted                                      |
+| Errors     | A global exception filter returns the standard error envelope                                                    |
+| Validation | Zod schemas from `@roshd/validation`, used by both the API and web forms                                         |
+| AuthN      | argon2id password hashes. A short-lived JWT access token plus a rotating opaque refresh token (hashed in the DB) |
+| AuthZ      | A global guard, default deny. `@Public()` opts out. `@Permissions()` checks RBAC. Services check ownership       |
+| Audit      | `AuditLog` table for security and business events                                                                |
+| Rate limit | `@nestjs/throttler`, with stricter limits on auth endpoints                                                      |
+| API docs   | OpenAPI at `/docs`, generated from Zod schemas                                                                   |
+| Health     | `/api/v1/health/live` and `/api/v1/health/ready` (the latter checks the DB)                                      |
 
 ## Frontend
 

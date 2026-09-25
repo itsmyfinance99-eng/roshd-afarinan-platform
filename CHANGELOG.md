@@ -5,4 +5,5 @@ All notable changes to this project are documented here. The format follows [Kee
 ## [Unreleased]
 
 ### Added
+
 - Project governance: CLAUDE.md, ADR-0001…0007, architecture/product/security docs, the backlog (EPIC → STORY) with GitHub sync, and issue/PR templates.

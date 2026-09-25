@@ -19,6 +19,7 @@ test/                        API e2e tests (supertest, real PostgreSQL)
 `RequestIdMiddleware → pino-http logger → ThrottlerGuard → AuthGuard (default deny) → PermissionsGuard → ZodValidationPipe → Controller → Service → ResponseEnvelopeInterceptor`. Errors go to `AllExceptionsFilter`.
 
 ## Conventions
+
 - Throw `AppException` subclasses (`NotFoundError`, `ConflictError`, `ForbiddenError`, …) from services. Never throw HTTP responses from domain code.
 - Use `PrismaService` only inside the owning module's services.
 - Write audit events through `AuditService.record()`.

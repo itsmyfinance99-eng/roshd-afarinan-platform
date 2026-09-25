@@ -1,0 +1,55 @@
+import { z } from 'zod';
+import { normalizePersianText, toLatinDigits } from './normalize';
+
+export const MESSAGES = {
+  required: 'این فیلد الزامی است.',
+  invalidEmail: 'ایمیل معتبر نیست.',
+  invalidMobile: 'شماره موبایل باید با ۰۹ شروع شود و ۱۱ رقم باشد.',
+  tooShort: (min: number) => `حداقل ${min} نویسه وارد کنید.`,
+  tooLong: (max: number) => `حداکثر ${max} نویسه مجاز است.`,
+  invalidSlug: 'نامک فقط می‌تواند شامل حروف کوچک انگلیسی، عدد و خط تیره باشد.',
+} as const;
+
+/** Trimmed, Persian-normalised, non-empty text with a length range. */
+export const text = (min = 1, max = 255) =>
+  z
+    .string({ error: MESSAGES.required })
+    .transform(normalizePersianText)
+    .pipe(
+      z
+        .string()
+        .min(min, { error: min <= 1 ? MESSAGES.required : MESSAGES.tooShort(min) })
+        .max(max, { error: MESSAGES.tooLong(max) }),
+    );
+
+export const emailSchema = z
+  .string({ error: MESSAGES.required })
+  .trim()
+  .toLowerCase()
+  .pipe(z.email({ error: MESSAGES.invalidEmail }).max(254));
+
+/** Iranian mobile number; Persian/Arabic digits and +98 prefix are normalised to 09XXXXXXXXX. */
+export const mobileSchema = z
+  .string({ error: MESSAGES.required })
+  .transform((v) =>
+    toLatinDigits(v)
+      .replace(/[\s-]/g, '')
+      .replace(/^(\+98|0098|98)(?=9\d{9}$)/, '0'),
+  )
+  .pipe(z.string().regex(/^09\d{9}$/, { error: MESSAGES.invalidMobile }));
+
+export const slugSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(160)
+  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, { error: MESSAGES.invalidSlug });
+
+export const idSchema = z.string().min(1).max(64);
+
+export const paginationQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+});
+
+export type PaginationQuery = z.infer<typeof paginationQuerySchema>;

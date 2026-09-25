@@ -30,52 +30,52 @@ main  ← فقط از طریق Release PR از develop (با tag نسخه)
 
 ## ۳. سیستم مدیریت پروژه
 
-| ابزار | کاربرد |
-|---|---|
-| `docs/backlog/backlog.yaml` | منبع رسمی EPIC، Story، امتیاز، اولویت و Sprint |
-| GitHub Issues | هر EPIC و Story یک Issue است و Storyها در Issue اپیک به‌صورت checklist لینک می‌شوند |
-| GitHub Milestones | هر Sprint یک Milestone است. فازهای ۲ تا ۹ هم Milestone جداگانه دارند |
-| Labels | `type:*`، `priority:*`، `area:*`، `phase:*`، `status:*` |
-| Issue templates | Epic، Story، Bug، Task و Spike |
-| PR template | خلاصه، تست‌ها، اسکرین‌شات، اثر روی migration/API/امنیت، چک‌لیست DoD |
-| ADR | تصمیم‌های معماری در `docs/decisions` |
-| `pnpm backlog:sync` | ساخت یا به‌روزرسانی idempotent labelها، milestoneها و issueها از روی backlog.yaml |
+| ابزار                       | کاربرد                                                                              |
+| --------------------------- | ----------------------------------------------------------------------------------- |
+| `docs/backlog/backlog.yaml` | منبع رسمی EPIC، Story، امتیاز، اولویت و Sprint                                      |
+| GitHub Issues               | هر EPIC و Story یک Issue است و Storyها در Issue اپیک به‌صورت checklist لینک می‌شوند |
+| GitHub Milestones           | هر Sprint یک Milestone است. فازهای ۲ تا ۹ هم Milestone جداگانه دارند                |
+| Labels                      | `type:*`، `priority:*`، `area:*`، `phase:*`، `status:*`                             |
+| Issue templates             | Epic، Story، Bug، Task و Spike                                                      |
+| PR template                 | خلاصه، تست‌ها، اسکرین‌شات، اثر روی migration/API/امنیت، چک‌لیست DoD                 |
+| ADR                         | تصمیم‌های معماری در `docs/decisions`                                                |
+| `pnpm backlog:sync`         | ساخت یا به‌روزرسانی idempotent labelها، milestoneها و issueها از روی backlog.yaml   |
 
 ## ۴. نقشه Sprintها (فاز ۰ و ۱)
 
-| Sprint | فاز | هدف | EPICها | خروجی قابل تحویل |
-|---|---|---|---|---|
-| S0 | ۰ | Discovery و معماری | EPIC-01 | ADRها، معماری، open questions، backlog، حاکمیت مخزن |
-| S1 | ۰ | Foundation | EPIC-01، EPIC-02، EPIC-13، EPIC-19 | Monorepo، CI، Docker، API skeleton، DB و migration، Auth و RBAC skeleton، Adapterها |
-| S2 | ۱ | پایه UI | EPIC-04 | Layout، RTL، Design Tokens، کامپوننت‌های پایه، ناوبری موبایل |
-| S3 | ۱ | وب‌سایت عمومی | EPIC-04 | خانه، درباره ما، خدمات، تماس و صفحات چهار مسیر اصلی |
-| S4 | ۱ | CMS و SEO | EPIC-03، EPIC-05، EPIC-10، EPIC-20 | صفحات، مقالات، دانشنامه، جست‌وجو، sitemap، JSON-LD |
-| S5 | ۱ | هسته کاربر | EPIC-02، EPIC-08، EPIC-13 | ورود و ثبت‌نام، پروفایل، داشبورد پایه، فایل |
-| S6 | ۱ | آموزش و سفارش | EPIC-06، EPIC-07 | کاتالوگ دوره، Order و PaymentAttempt، Payment abstraction |
-| S7 | ۱ | پژوهش، مشاوره و درخواست‌ها | EPIC-09، EPIC-11، EPIC-12 | پژوهش، ثبت درخواست خدمات، تیکت پایه |
-| S8 | ۱ | فرصت‌ها و آماده‌سازی آینده | EPIC-16، EPIC-14، EPIC-15، EPIC-17، EPIC-18، EPIC-21 | کاتالوگ فرصت‌ها، skeleton ماژول‌های آینده، QA و انتشار v0.2.0 |
+| Sprint | فاز | هدف                        | EPICها                                               | خروجی قابل تحویل                                                                    |
+| ------ | --- | -------------------------- | ---------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| S0     | ۰   | Discovery و معماری         | EPIC-01                                              | ADRها، معماری، open questions، backlog، حاکمیت مخزن                                 |
+| S1     | ۰   | Foundation                 | EPIC-01، EPIC-02، EPIC-13، EPIC-19                   | Monorepo، CI، Docker، API skeleton، DB و migration، Auth و RBAC skeleton، Adapterها |
+| S2     | ۱   | پایه UI                    | EPIC-04                                              | Layout، RTL، Design Tokens، کامپوننت‌های پایه، ناوبری موبایل                        |
+| S3     | ۱   | وب‌سایت عمومی              | EPIC-04                                              | خانه، درباره ما، خدمات، تماس و صفحات چهار مسیر اصلی                                 |
+| S4     | ۱   | CMS و SEO                  | EPIC-03، EPIC-05، EPIC-10، EPIC-20                   | صفحات، مقالات، دانشنامه، جست‌وجو، sitemap، JSON-LD                                  |
+| S5     | ۱   | هسته کاربر                 | EPIC-02، EPIC-08، EPIC-13                            | ورود و ثبت‌نام، پروفایل، داشبورد پایه، فایل                                         |
+| S6     | ۱   | آموزش و سفارش              | EPIC-06، EPIC-07                                     | کاتالوگ دوره، Order و PaymentAttempt، Payment abstraction                           |
+| S7     | ۱   | پژوهش، مشاوره و درخواست‌ها | EPIC-09، EPIC-11، EPIC-12                            | پژوهش، ثبت درخواست خدمات، تیکت پایه                                                 |
+| S8     | ۱   | فرصت‌ها و آماده‌سازی آینده | EPIC-16، EPIC-14، EPIC-15، EPIC-17، EPIC-18، EPIC-21 | کاتالوگ فرصت‌ها، skeleton ماژول‌های آینده، QA و انتشار v0.2.0                       |
 
 ## ۵. ترتیب اجرای شاخه‌ها
 
-| # | شاخه | Storyها |
-|---|---|---|
-| 1 | `chore/project-governance` | ST-01.01، ST-01.02 (مستندات، ADRها، backlog، قالب‌ها) |
-| 2 | `feature/ST-01.03-monorepo-tooling` | Monorepo، TypeScript، ESLint، Prettier، commitlint، CI |
-| 3 | `feature/ST-01.05-api-foundation` | NestJS، config، logging، خطا، envelope، health، Swagger |
-| 4 | `feature/ST-01.08-database` | Docker Compose، Prisma، migration اولیه، seed |
-| 5 | `feature/ST-02.01-auth-rbac` | ثبت‌نام، ورود، توکن، RBAC، audit، rate limit |
-| 6 | `feature/ST-01.09-provider-ports` | Adapterهای پرداخت، فایل، اعلان، جست‌وجو و Portهای آینده |
-| 7 | `feature/ST-04.01-web-foundation` | Next.js، RTL، فونت، tokens، پکیج UI، layout |
-| 8 | `feature/ST-04.x-public-pages` | صفحات عمومی |
-| 9 | `feature/ST-03.x-cms` | CMS API، SEO و sitemap |
-| 10 | `feature/ST-05.x-search` | جست‌وجو |
-| 11 | `feature/ST-08.x-user-core` | ورود و ثبت‌نام در وب، داشبورد، پروفایل |
-| 12 | `feature/ST-13.x-files` | مدیریت فایل خصوصی |
-| 13 | `feature/ST-11.x-service-requests` | درخواست امکان‌سنجی، پژوهش، مشاوره و تماس |
-| 14 | `feature/ST-12.x-tickets` | تیکت پایه |
-| 15 | `feature/ST-07.x-orders-payments` | Order، PaymentAttempt و callback idempotent |
-| 16 | `feature/ST-06.x-training-catalog` | کاتالوگ آموزش |
-| 17 | `feature/ST-16.x-investment-catalog` | کاتالوگ فرصت‌ها و skeleton ماژول‌های آینده |
+| #   | شاخه                                 | Storyها                                                 |
+| --- | ------------------------------------ | ------------------------------------------------------- |
+| 1   | `chore/project-governance`           | ST-01.01، ST-01.02 (مستندات، ADRها، backlog، قالب‌ها)   |
+| 2   | `feature/ST-01.03-monorepo-tooling`  | Monorepo، TypeScript، ESLint، Prettier، commitlint، CI  |
+| 3   | `feature/ST-01.05-api-foundation`    | NestJS، config، logging، خطا، envelope، health، Swagger |
+| 4   | `feature/ST-01.08-database`          | Docker Compose، Prisma، migration اولیه، seed           |
+| 5   | `feature/ST-02.01-auth-rbac`         | ثبت‌نام، ورود، توکن، RBAC، audit، rate limit            |
+| 6   | `feature/ST-01.09-provider-ports`    | Adapterهای پرداخت، فایل، اعلان، جست‌وجو و Portهای آینده |
+| 7   | `feature/ST-04.01-web-foundation`    | Next.js، RTL، فونت، tokens، پکیج UI، layout             |
+| 8   | `feature/ST-04.x-public-pages`       | صفحات عمومی                                             |
+| 9   | `feature/ST-03.x-cms`                | CMS API، SEO و sitemap                                  |
+| 10  | `feature/ST-05.x-search`             | جست‌وجو                                                 |
+| 11  | `feature/ST-08.x-user-core`          | ورود و ثبت‌نام در وب، داشبورد، پروفایل                  |
+| 12  | `feature/ST-13.x-files`              | مدیریت فایل خصوصی                                       |
+| 13  | `feature/ST-11.x-service-requests`   | درخواست امکان‌سنجی، پژوهش، مشاوره و تماس                |
+| 14  | `feature/ST-12.x-tickets`            | تیکت پایه                                               |
+| 15  | `feature/ST-07.x-orders-payments`    | Order، PaymentAttempt و callback idempotent             |
+| 16  | `feature/ST-06.x-training-catalog`   | کاتالوگ آموزش                                           |
+| 17  | `feature/ST-16.x-investment-catalog` | کاتالوگ فرصت‌ها و skeleton ماژول‌های آینده              |
 
 ## ۶. Definition of Done
 
@@ -99,11 +99,11 @@ main  ← فقط از طریق Release PR از develop (با tag نسخه)
 
 ## ۸. ریسک‌ها
 
-| ریسک | اثر | اقدام |
-|---|---|---|
-| نامشخص‌بودن مشخصات API ایران سهامدار | تأخیر فاز ۶ | Mock Provider و contract test؛ هیچ endpointی حدس زده نمی‌شود |
-| انتخاب نشدن درگاه پرداخت و سرویس پیامک | تأخیر فروش دوره و OTP | Adapter و Mock provider؛ تصمیم در open-questions |
-| کمبود محتوای واقعی (دوره، پژوهش، فرصت) | صفحات خالی | Empty stateهای حرفه‌ای و داده نمایشی با برچسب «نمونه نمایشی» |
-| گسترش دامنه (scope creep) | عقب‌افتادن MVP | اجرای سخت‌گیرانه فهرست «ساخته نمی‌شود» و بازبینی backlog در هر Sprint |
-| الزامات حقوقی داده‌های مالی و کاربران | ریسک انطباق | ثبت در open-questions و جداکردن کامل «معرفی فرصت» از «تراکنش» |
-| میزبانی در ایران و دسترسی به CDNهای خارجی | خطا در build و اجرا | فونت‌ها self-hosted و بدون وابستگی runtime به سرویس خارجی |
+| ریسک                                      | اثر                   | اقدام                                                                 |
+| ----------------------------------------- | --------------------- | --------------------------------------------------------------------- |
+| نامشخص‌بودن مشخصات API ایران سهامدار      | تأخیر فاز ۶           | Mock Provider و contract test؛ هیچ endpointی حدس زده نمی‌شود          |
+| انتخاب نشدن درگاه پرداخت و سرویس پیامک    | تأخیر فروش دوره و OTP | Adapter و Mock provider؛ تصمیم در open-questions                      |
+| کمبود محتوای واقعی (دوره، پژوهش، فرصت)    | صفحات خالی            | Empty stateهای حرفه‌ای و داده نمایشی با برچسب «نمونه نمایشی»          |
+| گسترش دامنه (scope creep)                 | عقب‌افتادن MVP        | اجرای سخت‌گیرانه فهرست «ساخته نمی‌شود» و بازبینی backlog در هر Sprint |
+| الزامات حقوقی داده‌های مالی و کاربران     | ریسک انطباق           | ثبت در open-questions و جداکردن کامل «معرفی فرصت» از «تراکنش»         |
+| میزبانی در ایران و دسترسی به CDNهای خارجی | خطا در build و اجرا   | فونت‌ها self-hosted و بدون وابستگی runtime به سرویس خارجی             |
