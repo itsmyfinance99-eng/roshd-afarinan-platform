@@ -32,19 +32,19 @@ Error:
 
 ### Error codes
 
-| HTTP | code | Meaning |
-|---|---|---|
-| 400 | `VALIDATION_FAILED` | Request body, query or params failed schema validation |
-| 400 | `BAD_REQUEST` | Semantically invalid request |
-| 401 | `UNAUTHENTICATED` | Missing or invalid credentials |
-| 403 | `FORBIDDEN` | Authenticated but not allowed |
-| 404 | `NOT_FOUND` | Resource does not exist or the caller may not see it |
-| 409 | `CONFLICT` | Uniqueness or state conflict (e.g. email taken, invalid status transition) |
-| 413 | `PAYLOAD_TOO_LARGE` | Upload too large |
-| 415 | `UNSUPPORTED_MEDIA_TYPE` | File type not allowed |
-| 429 | `RATE_LIMITED` | Too many requests |
-| 500 | `INTERNAL_ERROR` | Unexpected error. Details are never leaked |
-| 503 | `SERVICE_UNAVAILABLE` | Dependency down (readiness) |
+| HTTP | code                     | Meaning                                                                    |
+| ---- | ------------------------ | -------------------------------------------------------------------------- |
+| 400  | `VALIDATION_FAILED`      | Request body, query or params failed schema validation                     |
+| 400  | `BAD_REQUEST`            | Semantically invalid request                                               |
+| 401  | `UNAUTHENTICATED`        | Missing or invalid credentials                                             |
+| 403  | `FORBIDDEN`              | Authenticated but not allowed                                              |
+| 404  | `NOT_FOUND`              | Resource does not exist or the caller may not see it                       |
+| 409  | `CONFLICT`               | Uniqueness or state conflict (e.g. email taken, invalid status transition) |
+| 413  | `PAYLOAD_TOO_LARGE`      | Upload too large                                                           |
+| 415  | `UNSUPPORTED_MEDIA_TYPE` | File type not allowed                                                      |
+| 429  | `RATE_LIMITED`           | Too many requests                                                          |
+| 500  | `INTERNAL_ERROR`         | Unexpected error. Details are never leaked                                 |
+| 503  | `SERVICE_UNAVAILABLE`    | Dependency down (readiness)                                                |
 
 For private resources the API returns `404` rather than `403` when disclosing existence would leak information (e.g. another user's ticket).
 

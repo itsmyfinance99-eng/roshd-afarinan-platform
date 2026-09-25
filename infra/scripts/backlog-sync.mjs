@@ -84,10 +84,7 @@ for (const label of backlog.labels) {
 
 // ── milestones ────────────────────────────────────────────────────────────
 const milestoneByKey = new Map();
-const existingMilestones = ghJson([
-  'api',
-  `repos/${repo}/milestones?state=all&per_page=100`,
-]);
+const existingMilestones = ghJson(['api', `repos/${repo}/milestones?state=all&per_page=100`]);
 for (const m of backlog.milestones) {
   const current = existingMilestones.find((x) => x.title === m.title);
   const dueOn = m.due ? `${m.due}T20:30:00Z` : undefined;
