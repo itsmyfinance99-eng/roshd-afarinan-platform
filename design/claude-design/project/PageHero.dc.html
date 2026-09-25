@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<section style="background:#F3F6FA;border-bottom:1px solid #E3E7EF;font-family:Vazirmatn,Tahoma,sans-serif;direction:rtl;position:relative;overflow:hidden">
+  <div aria-hidden="true" style="position:absolute;inset:0;background-image:linear-gradient(#E6EBF3 1px,transparent 1px),linear-gradient(90deg,#E6EBF3 1px,transparent 1px);background-size:48px 48px;opacity:0.6"></div>
+  <div style="position:relative;max-width:1280px;margin:0 auto;padding:28px 24px 56px">
+    <nav aria-label="مسیر صفحه" style="font-size:13px;color:#5B667D;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <a href="Home.dc.html" style="color:#1450C8;text-decoration:none">صفحه اصلی</a>
+      <span aria-hidden="true">‹</span>
+      <span aria-current="page" style="color:#1B2740">{{ crumb }}</span>
+    </nav>
+    <div style="margin-top:40px;max-width:760px">
+      <p style="margin:0 0 12px;font-size:14px;font-weight:700;color:#1450C8">{{ eyebrow }}</p>
+      <h1 style="margin:0;font-size:clamp(30px,4vw,46px);line-height:1.35;font-weight:800;color:#0B2257;text-wrap:pretty">{{ title }}</h1>
+      <p style="margin:18px 0 0;font-size:clamp(16px,1.6vw,18px);line-height:2;color:#3A4660;text-wrap:pretty">{{ lead }}</p>
+    </div>
+  </div>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:&quot;1200px&quot;,&quot;height&quot;:&quot;360px&quot;},&quot;title&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;عنوان صفحه&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;lead&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;توضیح کوتاه صفحه&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;crumb&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;صفحه&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;eyebrow&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;&quot;,&quot;tsType&quot;:&quot;string&quot;}}"></script>
+</body>
+</html>
