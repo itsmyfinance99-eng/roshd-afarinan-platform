@@ -32,6 +32,16 @@ export const SERVICE_REQUEST_STATUS_LABELS_FA: Record<ServiceRequestStatus, stri
   CLOSED: 'بسته‌شده',
 };
 
+/** Labels of the type-specific `details` fields (staff views and exports). */
+export const SERVICE_REQUEST_DETAIL_LABELS_FA: Record<string, string> = {
+  sector: 'حوزه طرح',
+  stage: 'مرحله فعلی',
+  location: 'محل اجرا',
+  service: 'نوع خدمت',
+  topic: 'موضوع',
+  reference: 'مورد مرتبط',
+};
+
 export const FEASIBILITY_SECTORS = [
   'معدنی',
   'صنعتی',
@@ -130,14 +140,37 @@ export const updateServiceRequestStatusSchema = z.object({
   note: z.string().trim().max(2000).optional(),
 });
 
-export const listServiceRequestsQuerySchema = paginationQuerySchema.extend({
+const DATE_ERROR = 'تاریخ معتبر نیست.';
+
+/**
+ * Staff filters shared by the request list and the export. `from`/`to` are inclusive calendar
+ * days (YYYY-MM-DD, Gregorian as sent by date inputs) interpreted in Iran time.
+ */
+const requestFilterFields = {
   type: z.enum(SERVICE_REQUEST_TYPES).optional(),
   status: z.enum(SERVICE_REQUEST_STATUSES).optional(),
-});
+  from: z.iso.date({ error: DATE_ERROR }).optional(),
+  to: z.iso.date({ error: DATE_ERROR }).optional(),
+};
+
+const RANGE_ERROR = 'تاریخ شروع نباید بعد از تاریخ پایان باشد.';
+const validRange = (v: { from?: string; to?: string }) => !v.from || !v.to || v.from <= v.to;
+
+export const listServiceRequestsQuerySchema = paginationQuerySchema
+  .extend(requestFilterFields)
+  .refine(validRange, { error: RANGE_ERROR, path: ['to'] });
+
+export const exportServiceRequestsQuerySchema = z
+  .object(requestFilterFields)
+  .refine(validRange, { error: RANGE_ERROR, path: ['to'] });
+
+/** Upper bound of one export; narrower filters are required beyond it. */
+export const SERVICE_REQUEST_EXPORT_MAX_ROWS = 10_000;
 
 export type TrackServiceRequestInput = z.infer<typeof trackServiceRequestSchema>;
 export type UpdateServiceRequestStatusInput = z.infer<typeof updateServiceRequestStatusSchema>;
 export type ListServiceRequestsQuery = z.infer<typeof listServiceRequestsQuerySchema>;
+export type ExportServiceRequestsQuery = z.infer<typeof exportServiceRequestsQuerySchema>;
 
 /** Allowed staff status changes; shared by the API policy and the staff dashboard. */
 export const SERVICE_REQUEST_TRANSITIONS: Record<

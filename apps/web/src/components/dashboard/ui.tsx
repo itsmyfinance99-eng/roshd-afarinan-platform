@@ -10,6 +10,7 @@ import {
   toPersianDigits,
 } from '@roshd/ui';
 import {
+  SERVICE_REQUEST_DETAIL_LABELS_FA,
   SERVICE_REQUEST_STATUS_LABELS_FA,
   SERVICE_REQUEST_TYPE_LABELS_FA,
   type ServiceRequestStatus,
@@ -157,15 +158,6 @@ export function Pagination({
   );
 }
 
-const DETAIL_LABELS: Record<string, string> = {
-  sector: 'حوزه طرح',
-  stage: 'مرحله فعلی',
-  location: 'محل اجرا',
-  service: 'نوع خدمت',
-  topic: 'موضوع',
-  reference: 'مورد مرتبط',
-};
-
 export function RequestDetails({ item }: { item: ServiceRequestItem }) {
   const extra = Object.entries(item.details ?? {}).filter(([key]) => key !== 'topic');
   return (
@@ -190,7 +182,7 @@ export function RequestDetails({ item }: { item: ServiceRequestItem }) {
       ) : null}
       {extra.map(([key, value]) => (
         <div key={key} className="contents">
-          <dt className="text-ink-5">{DETAIL_LABELS[key] ?? key}</dt>
+          <dt className="text-ink-5">{SERVICE_REQUEST_DETAIL_LABELS_FA[key] ?? key}</dt>
           <dd>{value}</dd>
         </div>
       ))}

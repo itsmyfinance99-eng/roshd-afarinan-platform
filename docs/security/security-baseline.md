@@ -15,7 +15,8 @@
 | Files        | Private storage outside the web root. MIME allowlist + magic-byte sniffing + size limit. SHA-256 checksum. HMAC-signed expiring URLs. Ownership check before a URL is issued                            | 1     |
 | Secrets      | Never committed. `.env.example` documents them. CI uses GitHub secrets                                                                                                                                  | 0     |
 | Logging      | Structured logs. Authorization headers, cookies, passwords and tokens are redacted                                                                                                                      | 0     |
-| Audit        | Login success/failure, logout, token reuse, role changes, content publish, file upload/delete, request status changes, payment events                                                                   | 0/1   |
+| Exports      | Personal-data exports need an explicit permission (`requests:read-all`), are capped (10,000 rows), audited with filters and row count, never cached (`no-store`), and neutralise CSV/formula injection  | 1     |
+| Audit        | Login success/failure, logout, token reuse, role changes, content publish, file upload/delete, request status changes, data exports, payment events                                                     | 0/1   |
 | Payments     | `Order` + `PaymentAttempt`. The status comes only from the server-side verify call. Idempotent callback. A user return URL never marks a payment paid                                                   | 1     |
 | Dependencies | `pnpm audit` in CI (non-blocking at first). Dependabot enabled                                                                                                                                          | 0     |
 | MFA          | The data model is ready (`User.mfaEnabled`). Implementation deferred                                                                                                                                    | 2+    |
@@ -29,3 +30,4 @@
 - A payment callback is replayed: the second call is a no-op and there is no double credit.
 - An already-paid order is paid again: 409.
 - A request with no access token hits a private route: 401.
+- A user without `requests:read-all` exports requests: 403, and nothing is audited as exported.

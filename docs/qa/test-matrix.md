@@ -54,6 +54,10 @@ Legend: ✅ automated · 🟡 manual · ⬜ not yet covered
 | Learning | Catalog management 401/403 without `catalog:manage`; sitemap excludes noindex and demo | API e2e | ✅ |
 | Web | Training filters as links, Persian prices, Course JSON-LD, enrollment request (TRAINING) | Playwright | ✅ |
 | Web | Unknown or malformed course slug returns HTTP 404 | Playwright | ✅ |
+| Admin | Request export: BOM, CRLF, labels, formula injection neutralised, mobile keeps leading 0 | Unit + API e2e | ✅ |
+| Admin | Export filters (type, status, Iran-time day range) shared with the staff list; audited | Unit + API e2e | ✅ |
+| Admin | Export 401 anonymous, 403 for user/editor/finance, no audit on denial | API e2e | ✅ |
+| Web | Export downloads the file, shows row count/errors, hidden without permission | Playwright | ✅ |
 | Requests | Guest submit + tracking code + notification | API e2e | ✅ |
 | Requests | Honeypot / type-specific validation | Unit + e2e | ✅ |
 | Requests | Owner-only access, stranger gets 404 | API e2e | ✅ |
