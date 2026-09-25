@@ -3,8 +3,8 @@
 import { Button, ChipGroup, EmptyState, formatDateFa, toPersianDigits } from '@roshd/ui';
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
-import { ContentCard, CourseCard, ProjectCard } from '@/components/cards/cards';
-import type { DemoCourse, DemoEntry, DemoProject, SectorKey } from '@/content/types';
+import { ContentCard, ProjectCard } from '@/components/cards/cards';
+import type { DemoEntry, DemoProject, SectorKey } from '@/content/types';
 
 const ALL = 'همه';
 
@@ -13,49 +13,6 @@ function categoryOptions(items: { category: string }[]) {
     value: c,
     label: c,
   }));
-}
-
-export function TrainingCatalog({ courses }: { courses: DemoCourse[] }) {
-  const [category, setCategory] = useState(ALL);
-  const [freeOnly, setFreeOnly] = useState(false);
-  const options = useMemo(() => categoryOptions(courses), [courses]);
-  const visible = courses.filter(
-    (c) => (category === ALL || c.category === category) && (!freeOnly || c.free),
-  );
-
-  return (
-    <>
-      <div className="mb-7 flex flex-wrap items-center justify-between gap-4">
-        <ChipGroup
-          label="دسته‌بندی دوره‌ها"
-          options={options}
-          value={category}
-          onChange={setCategory}
-        />
-        <label className="flex cursor-pointer items-center gap-2.5 text-sm text-ink-2">
-          <input
-            type="checkbox"
-            checked={freeOnly}
-            onChange={() => setFreeOnly(!freeOnly)}
-            className="size-[18px] accent-primary"
-          />
-          فقط دوره‌های رایگان
-        </label>
-      </div>
-      {visible.length === 0 ? (
-        <EmptyState
-          title="دوره‌ای در این دسته وجود ندارد"
-          description="دسته دیگری را انتخاب کنید."
-        />
-      ) : (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,270px),1fr))] gap-5">
-          {visible.map((course) => (
-            <CourseCard key={course.id} course={course} />
-          ))}
-        </div>
-      )}
-    </>
-  );
 }
 
 /** Category chips over a card grid (research, articles). */

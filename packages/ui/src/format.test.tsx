@@ -1,9 +1,14 @@
-import { formatDateFa, formatNumber, ordinal, toPersianDigits } from './format';
+import { formatDateFa, formatNumber, formatRials, ordinal, toPersianDigits } from './format';
 
 describe('format', () => {
   it('formats numbers with Persian digits', () => {
     expect(formatNumber(1250000)).toBe('۱٬۲۵۰٬۰۰۰');
     expect(formatNumber(12_500_000n)).toBe('۱۲٬۵۰۰٬۰۰۰');
+  });
+
+  it('formats rial amounts beyond the safe integer range exactly', () => {
+    expect(formatRials('2500000')).toBe('۲٬۵۰۰٬۰۰۰ ریال');
+    expect(formatRials('900719925474099312')).toBe('۹۰۰٬۷۱۹٬۹۲۵٬۴۷۴٬۰۹۹٬۳۱۲ ریال');
   });
 
   it('converts digits and ordinals', () => {

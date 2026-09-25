@@ -2,10 +2,10 @@
  * DEMO ONLY — sample records from the Claude Design handoff (design/claude-design/project/mock-data.js).
  * They let the UI be reviewed before the CMS/catalog APIs exist. Every record is flagged
  * `isDemo: true` and rendered with a «نمونه نمایشی» label. Replace with API repositories
- * (EPIC-06/09/16); never present these as real projects, courses or research.
- * Articles and knowledge entries now come from the CMS (demo copies: `pnpm db:seed:demo`).
+ * (EPIC-09/16); never present these as real projects, courses or research.
+ * Articles, knowledge entries and courses now come from the API (demo copies: `pnpm db:seed:demo`).
  */
-import type { DemoCourse, DemoEntry, DemoProject, SectorKey } from './types';
+import type { DemoEntry, DemoProject, SectorKey } from './types';
 
 export const sectors: { value: 'all' | SectorKey; label: string }[] = [
   { value: 'all', label: 'همه' },
@@ -76,69 +76,6 @@ export const demoProjects: DemoProject[] = [
     location: 'قزوین',
     stage: 'طرح توجیهی',
     service: 'مشاوره پروژه',
-  },
-];
-
-export const demoCourses: DemoCourse[] = [
-  {
-    id: 'c1',
-    isDemo: true,
-    title: 'مبانی امکان‌سنجی طرح‌های صنعتی',
-    category: 'امکان‌سنجی',
-    instructor: 'مدرس نمونه',
-    level: 'مقدماتی',
-    duration: '۱۲ ساعت',
-    free: false,
-  },
-  {
-    id: 'c2',
-    isDemo: true,
-    title: 'آشنایی با روش‌های تأمین مالی پروژه',
-    category: 'تأمین مالی',
-    instructor: 'مدرس نمونه',
-    level: 'متوسط',
-    duration: '۸ ساعت',
-    free: false,
-  },
-  {
-    id: 'c3',
-    isDemo: true,
-    title: 'اقتصاد برای مدیران',
-    category: 'اقتصاد',
-    instructor: 'مدرس نمونه',
-    level: 'مقدماتی',
-    duration: '۶ ساعت',
-    free: true,
-  },
-  {
-    id: 'c4',
-    isDemo: true,
-    title: 'ارزیابی مالی طرح‌های سرمایه‌گذاری',
-    category: 'سرمایه‌گذاری',
-    instructor: 'مدرس نمونه',
-    level: 'پیشرفته',
-    duration: '۱۶ ساعت',
-    free: false,
-  },
-  {
-    id: 'c5',
-    isDemo: true,
-    title: 'تدوین طرح توجیهی',
-    category: 'امکان‌سنجی',
-    instructor: 'مدرس نمونه',
-    level: 'متوسط',
-    duration: '۱۰ ساعت',
-    free: false,
-  },
-  {
-    id: 'c6',
-    isDemo: true,
-    title: 'آشنایی با بازار سرمایه',
-    category: 'سرمایه‌گذاری',
-    instructor: 'مدرس نمونه',
-    level: 'مقدماتی',
-    duration: '۴ ساعت',
-    free: true,
   },
 ];
 

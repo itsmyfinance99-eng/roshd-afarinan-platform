@@ -57,16 +57,6 @@ export interface DemoProject extends DemoFlag {
   service: string;
 }
 
-export interface DemoCourse extends DemoFlag {
-  id: string;
-  title: string;
-  category: string;
-  instructor: string;
-  level: string;
-  duration: string;
-  free: boolean;
-}
-
 /** Minimal data for a content card (demo records or CMS summaries). */
 export interface EntryCardData {
   id: string;

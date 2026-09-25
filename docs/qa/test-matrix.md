@@ -48,6 +48,12 @@ Legend: ✅ automated · 🟡 manual · ⬜ not yet covered
 | Tickets    | Only own service requests can be linked; attachments readable by support                  | API e2e                | ✅     |
 | Web        | Ticket create / closed state / staff internal note                                        | Playwright             | ✅     |
 
+| Learning | Drafts/archived courses 404 publicly; price leaves the API as a digit string | API e2e | ✅ |
+| Learning | Pricing invariant (free ⇒ no price, paid ≠ 0) on create and partial update | Unit + API e2e | ✅ |
+| Learning | Only COURSE categories / existing instructors; duplicate slug 409 | API e2e | ✅ |
+| Learning | Catalog management 401/403 without `catalog:manage`; sitemap excludes noindex and demo | API e2e | ✅ |
+| Web | Training filters as links, Persian prices, Course JSON-LD, enrollment request (TRAINING) | Playwright | ✅ |
+| Web | Unknown or malformed course slug returns HTTP 404 | Playwright | ✅ |
 | Requests | Guest submit + tracking code + notification | API e2e | ✅ |
 | Requests | Honeypot / type-specific validation | Unit + e2e | ✅ |
 | Requests | Owner-only access, stranger gets 404 | API e2e | ✅ |

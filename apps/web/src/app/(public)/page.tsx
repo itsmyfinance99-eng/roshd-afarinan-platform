@@ -13,7 +13,7 @@ import Link from 'next/link';
 import { ContentCard, CourseCard } from '@/components/cards/cards';
 import { InvestmentPreview } from '@/components/sections/investment-preview';
 import { ProcessSteps } from '@/components/sections/process-steps';
-import { demoCourses, demoProjects, demoResearch, sectors } from '@/content/demo';
+import { demoProjects, demoResearch, sectors } from '@/content/demo';
 import {
   consultingServices,
   credentials,
@@ -27,6 +27,7 @@ import {
   stats,
 } from '@/content/site';
 import { listContent } from '@/lib/content-api';
+import { listCourses } from '@/lib/learning-api';
 import { jsonLdScript, organizationJsonLd, pageMetadata } from '@/lib/seo';
 
 export const metadata: Metadata = pageMetadata({ path: '/' });
@@ -37,7 +38,11 @@ export const revalidate = 300;
 const allLink = 'text-[15px] font-bold text-primary no-underline';
 
 export default async function HomePage() {
-  const knowledge = await listContent('KNOWLEDGE', { pageSize: 3 });
+  const [knowledge, courses] = await Promise.all([
+    listContent('KNOWLEDGE', { pageSize: 3 }),
+    listCourses({ pageSize: 4 }),
+  ]);
+  const featuredCourses = courses.ok ? courses.data : [];
   const latestKnowledge = knowledge.ok ? knowledge.data : [];
 
   return (
@@ -274,30 +279,28 @@ export default async function HomePage() {
         </section>
       </Container>
 
-      {/* COURSES (demo) */}
-      <Container className="pb-20">
-        <section aria-labelledby="courses-title">
-          <SectionHeader
-            id="courses-title"
-            eyebrow="آموزش"
-            title={
-              <>
-                دوره‌های منتخب <span className="text-sm font-medium text-ink-5">(نمونه)</span>
-              </>
-            }
-            action={
-              <Link href="/training" className={allLink}>
-                همه دوره‌ها ‹
-              </Link>
-            }
-          />
-          <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,260px),1fr))] gap-5">
-            {demoCourses.slice(0, 4).map((course) => (
-              <CourseCard key={course.id} course={course} />
-            ))}
-          </div>
-        </section>
-      </Container>
+      {/* COURSES (latest published; hidden until the catalog has courses) */}
+      {featuredCourses.length > 0 ? (
+        <Container className="pb-20">
+          <section aria-labelledby="courses-title">
+            <SectionHeader
+              id="courses-title"
+              eyebrow="آموزش"
+              title="دوره‌های آموزشی"
+              action={
+                <Link href="/training" className={allLink}>
+                  همه دوره‌ها ‹
+                </Link>
+              }
+            />
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,260px),1fr))] gap-5">
+              {featuredCourses.map((course) => (
+                <CourseCard key={course.id} course={course} />
+              ))}
+            </div>
+          </section>
+        </Container>
+      ) : null}
 
       {/* RESEARCH + KNOWLEDGE (demo) */}
       <Section tone="muted" aria-label="پژوهش و دانشنامه">

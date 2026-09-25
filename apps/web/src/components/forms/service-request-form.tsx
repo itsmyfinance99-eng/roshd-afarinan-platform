@@ -26,7 +26,10 @@ import { FileList, FileUploader, type FileItem } from '@/components/files/files'
 import { apiFetch } from '@/lib/api-client';
 import { useSessionHint } from '@/lib/session';
 
-type FormType = Extract<ServiceRequestType, 'FEASIBILITY' | 'CONSULTING' | 'RESEARCH' | 'CONTACT'>;
+type FormType = Extract<
+  ServiceRequestType,
+  'FEASIBILITY' | 'CONSULTING' | 'RESEARCH' | 'TRAINING' | 'CONTACT'
+>;
 
 interface FormValues {
   type: FormType;
@@ -41,6 +44,7 @@ interface FormValues {
   service?: string;
   topic?: string;
   subject?: string;
+  reference?: string;
 }
 
 interface Receipt {
@@ -51,6 +55,7 @@ const MESSAGE_LABEL: Record<FormType, string> = {
   FEASIBILITY: 'شرح کوتاه طرح',
   CONSULTING: 'موضوع و نیاز مشاوره',
   RESEARCH: 'شرح نیاز پژوهشی',
+  TRAINING: 'پیام شما (سؤال یا توضیح درباره ثبت‌نام)',
   CONTACT: 'متن پیام',
 };
 
@@ -58,6 +63,7 @@ const SUBMIT_LABEL: Record<FormType, string> = {
   FEASIBILITY: 'ثبت درخواست امکان‌سنجی',
   CONSULTING: 'ثبت درخواست مشاوره',
   RESEARCH: 'ثبت سفارش پژوهش',
+  TRAINING: 'ثبت درخواست ثبت‌نام',
   CONTACT: 'ارسال پیام',
 };
 
@@ -73,9 +79,12 @@ const optional = { setValueAs: (v: string) => (v === '' ? undefined : v) };
 export function ServiceRequestForm({
   type,
   defaultService,
+  reference,
 }: {
   type: FormType;
   defaultService?: string;
+  /** TRAINING: slug of the course the enquiry is about (sent as `reference`). */
+  reference?: string;
 }) {
   const uid = useId();
   const hydrated = useHydrated();
@@ -103,6 +112,7 @@ export function ServiceRequestForm({
             }
           : {}),
         ...(type === 'FEASIBILITY' ? { sector: '', stage: '' } : {}),
+        ...(type === 'TRAINING' && reference ? { reference } : {}),
       },
     },
   );

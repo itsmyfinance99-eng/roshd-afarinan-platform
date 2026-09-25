@@ -5,6 +5,11 @@ export function formatNumber(value: number | bigint): string {
   return faNumber.format(value);
 }
 
+/** Formats a whole-rial digit string (money never travels as a JS number): "2500000" → ۲٬۵۰۰٬۰۰۰ ریال. */
+export function formatRials(digits: string): string {
+  return `${faNumber.format(BigInt(digits))} ریال`;
+}
+
 /** Replaces ASCII digits in a string with Persian digits: "01" → "۰۱". */
 export function toPersianDigits(value: string | number): string {
   return String(value).replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[Number(d)] ?? d);

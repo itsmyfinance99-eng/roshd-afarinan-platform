@@ -22,6 +22,24 @@ export const text = (min = 1, max = 255) =>
         .max(max, { error: MESSAGES.tooLong(max) }),
     );
 
+/** Trimmed optional free text with a maximum length (empty string allowed). */
+export const optionalText = (max: number) =>
+  z
+    .string()
+    .trim()
+    .max(max, { error: MESSAGES.tooLong(max) });
+
+export const httpUrlSchema = z.url({ protocol: /^https?$/, error: 'نشانی معتبر نیست.' }).max(500);
+
+/** Absolute http(s) URL or a site-relative path starting with "/" (never protocol-relative). */
+export const urlOrPathSchema = z.union([
+  httpUrlSchema,
+  z
+    .string()
+    .regex(/^\/[^/\\]/, { error: 'نشانی معتبر نیست.' })
+    .max(500),
+]);
+
 export const emailSchema = z
   .string({ error: MESSAGES.required })
   .trim()

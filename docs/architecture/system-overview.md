@@ -63,7 +63,7 @@ infra/            docker, nginx, scripts, ci
 | `service-requests` (contact, feasibility request, research order, consulting) | Implemented (request intake only)                |
 | `tickets`                                                                     | Implemented (basic)                              |
 | `orders`, `payments`                                                          | Order + PaymentAttempt + mock gateway            |
-| `learning`                                                                    | Catalog (read-only)                              |
+| `learning`                                                                    | Implemented (catalog + editorial API)            |
 | `research`                                                                    | Catalog                                          |
 | `investment`                                                                  | Catalog (presentation only, no transactions)     |
 | `notifications`                                                               | Port + console/log adapter                       |
