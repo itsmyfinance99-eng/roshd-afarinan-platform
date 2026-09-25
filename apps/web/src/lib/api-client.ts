@@ -39,15 +39,17 @@ function refreshSession(): Promise<boolean> {
 }
 
 async function send(path: string, method: Method, body: unknown, signal?: AbortSignal) {
+  const isForm = typeof FormData !== 'undefined' && body instanceof FormData;
   return fetch(`/api/v1${path}`, {
     method,
     credentials: 'same-origin',
     headers: {
       Accept: 'application/json',
       'X-Requested-With': 'XMLHttpRequest',
-      ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+      // The browser sets the multipart boundary itself for FormData bodies.
+      ...(body !== undefined && !isForm ? { 'Content-Type': 'application/json' } : {}),
     },
-    body: body !== undefined ? JSON.stringify(body) : undefined,
+    body: body === undefined ? undefined : isForm ? body : JSON.stringify(body),
     signal,
   });
 }

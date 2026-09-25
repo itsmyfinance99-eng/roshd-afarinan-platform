@@ -18,6 +18,7 @@ import {
   StatusTimeline,
 } from '@/components/dashboard/ui';
 import { apiFetch } from '@/lib/api-client';
+import { FileList } from '@/components/files/files';
 import { useApi } from '@/lib/use-api';
 
 export default function ManageRequestDetailPage() {
@@ -45,6 +46,17 @@ export default function ManageRequestDetailPage() {
           <div className="grid gap-8 lg:grid-cols-[1fr_300px]">
             <div className="flex flex-col gap-6">
               <RequestDetails item={item} />
+              {item.attachments?.length ? (
+                <section aria-labelledby="attachments-title">
+                  <h2
+                    id="attachments-title"
+                    className="mb-3 text-base font-extrabold text-brand-900"
+                  >
+                    پیوست‌ها
+                  </h2>
+                  <FileList files={item.attachments} />
+                </section>
+              ) : null}
               <dl className="grid grid-cols-[auto_1fr] gap-x-5 gap-y-2 text-[15px]">
                 <dt className="text-ink-5">متقاضی</dt>
                 <dd>{item.fullName}</dd>

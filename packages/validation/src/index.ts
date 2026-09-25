@@ -5,3 +5,4 @@ export * from './auth';
 export * from './users';
 export * from './service-requests';
 export * from './cms';
+export * from './files';

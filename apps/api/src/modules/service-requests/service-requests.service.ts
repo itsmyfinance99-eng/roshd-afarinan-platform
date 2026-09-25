@@ -7,11 +7,16 @@ import type {
   TrackServiceRequestInput,
   UpdateServiceRequestStatusInput,
 } from '@roshd/validation';
-import { ConflictError, NotFoundError } from '../../common/errors/app-exception';
+import {
+  ConflictError,
+  NotFoundError,
+  ValidationFailedError,
+} from '../../common/errors/app-exception';
 import { PageResult } from '../../common/http/page-result';
 import type { RequestMeta } from '../../common/http/request-meta';
 import { Prisma } from '../../generated/prisma/client';
 import { AuditService } from '../audit/audit.service';
+import { FilesService, type FileView } from '../files/files.service';
 import { PrismaService } from '../database/prisma.service';
 import {
   NOTIFICATION_PROVIDER,
@@ -39,6 +44,7 @@ export interface ServiceRequestView extends ServiceRequestReceipt {
 }
 
 export interface ServiceRequestDetailView extends ServiceRequestView {
+  attachments: FileView[];
   events: {
     fromStatus: ServiceRequestStatus | null;
     toStatus: ServiceRequestStatus;
@@ -66,7 +72,16 @@ const MAX_CODE_ATTEMPTS = 5;
 
 /** Splits validated input into common columns and type-specific `details`. */
 function toRecord(input: CreateServiceRequestInput) {
-  const { type, fullName, mobile, email, message, website: _honeypot, ...rest } = input;
+  const {
+    type,
+    fullName,
+    mobile,
+    email,
+    message,
+    website: _honeypot,
+    attachmentIds: _attachments,
+    ...rest
+  } = input;
   const subject = 'subject' in rest ? rest.subject : 'topic' in rest ? rest.topic : undefined;
   const details = Object.fromEntries(
     Object.entries(rest).filter(([key, value]) => key !== 'subject' && value !== undefined),
@@ -82,6 +97,7 @@ export class ServiceRequestsService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     @Inject(NOTIFICATION_PROVIDER) private readonly notifications: NotificationProvider,
+    private readonly files: FilesService,
   ) {}
 
   async create(
@@ -89,8 +105,26 @@ export class ServiceRequestsService {
     submitter: Principal | undefined,
     meta: RequestMeta,
   ): Promise<ServiceRequestReceipt> {
+    const attachmentIds = input.attachmentIds ?? [];
+    if (attachmentIds.length > 0) {
+      // Only signed-in submitters can attach their own, not-yet-attached uploads.
+      if (!submitter) {
+        throw new ValidationFailedError([
+          { path: 'attachmentIds', message: 'برای پیوست فایل باید وارد حساب کاربری شوید.' },
+        ]);
+      }
+      await this.files.assertAttachable(
+        attachmentIds,
+        submitter.userId,
+        'SERVICE_REQUEST_ATTACHMENT',
+      );
+    }
+
     const record = toRecord(input);
     const created = await this.insertWithUniqueCode(record, submitter?.userId);
+    if (submitter && attachmentIds.length > 0) {
+      await this.files.attach(attachmentIds, submitter.userId, 'service_request', created.id);
+    }
 
     await this.audit.record({
       action: 'service_request.created',
@@ -172,7 +206,11 @@ export class ServiceRequestsService {
     if (!row || (!staff && row.userId !== principal.userId)) throw new NotFoundError();
     const { userId: _userId, events, ...view } = row;
     // Staff notes are internal; owners only see the status timeline.
-    return { ...view, events: staff ? events : events.map((e) => ({ ...e, note: null })) };
+    return {
+      ...view,
+      attachments: await this.files.listForEntity('service_request', id),
+      events: staff ? events : events.map((e) => ({ ...e, note: null })),
+    };
   }
 
   async changeStatus(

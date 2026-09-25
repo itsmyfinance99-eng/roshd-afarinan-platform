@@ -44,6 +44,9 @@ export const envSchema = z.object({
   /** Private directory for uploaded files; must not be web-served. */
   STORAGE_LOCAL_DIR: z.string().min(1).default('storage'),
   NOTIFICATION_DRIVER: z.enum(['log']).default('log'),
+  /** HMAC secret for signed file-download URLs (≥ 32 chars, different from JWT secret). */
+  FILE_URL_SECRET: z.string().min(32, { error: 'must be at least 32 characters' }),
+  SIGNED_URL_TTL_SECONDS: z.coerce.number().int().min(30).max(3600).default(300),
 });
 
 export type Env = z.infer<typeof envSchema>;

@@ -298,8 +298,14 @@ export function ContentEditor({ entry, onSaved }: { entry?: EditableEntry; onSav
         />
       </FieldShell>
 
-      <fieldset className="flex flex-col gap-4 rounded-card border border-line p-4">
-        <legend className="px-2 text-sm font-bold text-ink-2">سئو</legend>
+      <div
+        role="group"
+        aria-labelledby="seo-group"
+        className="flex min-w-0 flex-col gap-4 rounded-card border border-line p-4"
+      >
+        <h2 id="seo-group" className="text-sm font-bold text-ink-2">
+          سئو
+        </h2>
         {text('metaTitle', 'عنوان سئو (حداکثر ۷۰ نویسه)')}
         {text('metaDescription', 'توضیح سئو (حداکثر ۱۷۰ نویسه)')}
         {text('canonicalUrl', 'نشانی canonical (اختیاری)', { dir: 'ltr', className: 'text-right' })}
@@ -316,7 +322,7 @@ export function ContentEditor({ entry, onSaved }: { entry?: EditableEntry; onSav
           />
           در موتورهای جستجو نمایه نشود (noindex)
         </label>
-      </fieldset>
+      </div>
 
       {message ? (
         message.ok ? (

@@ -37,6 +37,7 @@ model User {
   refreshTokens   RefreshToken[]
   auditLogs       AuditLog[]
   serviceRequests ServiceRequest[]
+  files           FileObject[]
 
   @@map("users")
 }
@@ -299,4 +300,51 @@ model Page {
   updatedAt       DateTime      @updatedAt
 
   @@map("pages")
+}
+
+// ─────────────────────────────────── Files ───────────────────────────────────
+
+enum FilePurpose {
+  SERVICE_REQUEST_ATTACHMENT
+  TICKET_ATTACHMENT
+  USER_DOCUMENT
+}
+
+enum FileAccessLevel {
+  PRIVATE
+  PUBLIC
+}
+
+enum FileStatus {
+  ACTIVE
+  DELETED
+}
+
+/// Uploaded file metadata (roadmap §26, AI-ready metadata §14). Bytes live in the private
+/// FileStorageProvider under `storageKey`; access only via authorization + signed URLs.
+model FileObject {
+  id           String          @id @default(uuid(7)) @db.Uuid
+  ownerId      String          @db.Uuid
+  purpose      FilePurpose
+  /// Linked business entity (e.g. service_request + id), set when attached.
+  entityType   String?
+  entityId     String?
+  accessLevel  FileAccessLevel @default(PRIVATE)
+  originalName String
+  mimeType     String
+  size         Int
+  /// SHA-256 hex of the content.
+  checksum     String
+  storageKey   String          @unique
+  version      Int             @default(1)
+  source       String          @default("upload")
+  status       FileStatus      @default(ACTIVE)
+  createdAt    DateTime        @default(now())
+  deletedAt    DateTime?
+
+  owner User @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@index([ownerId, createdAt])
+  @@index([entityType, entityId])
+  @@map("files")
 }

@@ -2,15 +2,20 @@ import { Global, Inject, Module, type OnModuleInit } from '@nestjs/common';
 import { APP_CONFIG, type AppConfig } from '../../config/app-config';
 import { HealthRegistry } from '../health/health.registry';
 import { LocalDiskStorage } from './adapters/local-disk-storage';
+import { FilesController } from './files.controller';
+import { FilesService } from './files.service';
 import { FILE_STORAGE, type FileStorageProvider } from './ports/file-storage';
 
 /**
- * Provides the configured FileStorageProvider. The FileObject entity, upload validation
- * and signed URLs arrive in EPIC-13; an S3-compatible adapter follows OQ-10.
+ * File management (EPIC-13): private uploads with content sniffing, signed download URLs
+ * and attachment to business records. Storage is the configured FileStorageProvider
+ * (local disk now; S3-compatible adapter after OQ-10).
  */
 @Global()
 @Module({
+  controllers: [FilesController],
   providers: [
+    FilesService,
     {
       provide: FILE_STORAGE,
       inject: [APP_CONFIG],
@@ -22,7 +27,7 @@ import { FILE_STORAGE, type FileStorageProvider } from './ports/file-storage';
       },
     },
   ],
-  exports: [FILE_STORAGE],
+  exports: [FILE_STORAGE, FilesService],
 })
 export class FilesModule implements OnModuleInit {
   constructor(
