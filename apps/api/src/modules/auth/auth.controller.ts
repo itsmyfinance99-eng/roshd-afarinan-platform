@@ -15,7 +15,7 @@ import { Meta, type RequestMeta } from '../../common/http/request-meta';
 import { ZodBody } from '../../common/http/zod';
 import { APP_CONFIG, type AppConfig } from '../../config/app-config';
 import { CurrentUser, principalOf, type Principal } from '../rbac/principal';
-import { AuthRateLimit } from './auth-throttle';
+import { StrictRateLimit } from '../../common/http/strict-rate-limit';
 import {
   clearAuthCookies,
   cookieValue,
@@ -35,7 +35,7 @@ export class AuthController {
   ) {}
 
   @Public()
-  @AuthRateLimit()
+  @StrictRateLimit()
   @Post('register')
   @ApiOperation({ summary: 'Create an account and start a session' })
   async register(
@@ -48,7 +48,7 @@ export class AuthController {
   }
 
   @Public()
-  @AuthRateLimit()
+  @StrictRateLimit()
   @Post('login')
   @HttpCode(200)
   @ApiOperation({ summary: 'Sign in with email and password' })
@@ -62,7 +62,7 @@ export class AuthController {
   }
 
   @Public()
-  @AuthRateLimit()
+  @StrictRateLimit()
   @Post('refresh')
   @HttpCode(200)
   @ApiOperation({ summary: 'Rotate the refresh token and issue a new access token' })

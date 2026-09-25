@@ -3,3 +3,4 @@ export * from './normalize';
 export * from './common';
 export * from './auth';
 export * from './users';
+export * from './service-requests';
