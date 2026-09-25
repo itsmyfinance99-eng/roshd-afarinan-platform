@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<header style="background:#FFFFFF;border-bottom:1px solid #E3E7EF;font-family:Vazirmatn,Tahoma,sans-serif;direction:rtl">
+  <sc-if value="{{ desktop }}" hint-placeholder-val="{{ true }}">
+    <div style="background:#0B2257;color:#DCE4F5;font-size:13px">
+      <div style="max-width:1280px;margin:0 auto;padding:0 32px;height:36px;display:flex;align-items:center;justify-content:space-between;gap:24px">
+        <nav aria-label="پیوندهای فرعی" style="display:flex;gap:22px">
+          <sc-for list="{{ utilNav }}" as="u" hint-placeholder-count="4">
+            <a href="{{ u.href }}" style="color:#DCE4F5;text-decoration:none" style-hover="color:#FFFFFF">{{ u.label }}</a>
+          </sc-for>
+        </nav>
+        <span style="color:#AFC0E3">نسخه نمونه اولیه · داده‌ها نمایشی هستند</span>
+      </div>
+    </div>
+  </sc-if>
+  <div style="max-width:1280px;margin:0 auto;padding:0 24px;height:76px;display:flex;align-items:center;gap:28px">
+    <a href="Home.dc.html" aria-label="رشدآفرینان صنعت و معدن — صفحه اصلی" style="display:flex;align-items:center;gap:10px;text-decoration:none;flex-shrink:0">
+      <img src="assets/logo.png" alt="نشان رشدآفرینان صنعت و معدن" style="width:38px;height:40px;object-fit:contain">
+      <span style="display:flex;flex-direction:column;line-height:1.25">
+        <span style="font-weight:800;font-size:17px;color:#0B2257">رشدآفرینان</span>
+        <span style="font-weight:500;font-size:12px;color:#4A5670">صنعت و معدن</span>
+      </span>
+    </a>
+    <sc-if value="{{ desktop }}" hint-placeholder-val="{{ true }}">
+      <nav aria-label="ناوبری اصلی" style="display:flex;align-items:center;gap:4px;flex:1">
+        <sc-for list="{{ mainNav }}" as="n" hint-placeholder-count="6">
+          <sc-if value="{{ n.active }}">
+            <a href="{{ n.href }}" aria-current="page" style="padding:10px 12px;font-size:15px;font-weight:700;color:#1450C8;text-decoration:none;border-bottom:2px solid #1450C8">{{ n.label }}</a>
+          </sc-if>
+          <sc-if value="{{ n.inactive }}">
+            <a href="{{ n.href }}" style="padding:10px 12px;font-size:15px;font-weight:500;color:#1B2740;text-decoration:none;border-bottom:2px solid transparent" style-hover="color:#1450C8">{{ n.label }}</a>
+          </sc-if>
+        </sc-for>
+      </nav>
+    </sc-if>
+    <div style="display:flex;align-items:center;gap:8px;margin-inline-start:auto">
+      <button type="button" onClick="{{ openSearch }}" aria-label="جستجو" style="width:44px;height:44px;border:1px solid #E3E7EF;background:#FFFFFF;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center" style-hover="border-color:#1450C8">
+        <span style="width:14px;height:14px;border:2px solid #1B2740;border-radius:50%;display:block;position:relative;margin-top:-2px;margin-left:-2px"><span style="position:absolute;width:2px;height:7px;background:#1B2740;left:-3px;bottom:-6px;transform:rotate(45deg)"></span></span>
+      </button>
+      <sc-if value="{{ desktop }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex;gap:8px">
+          <button type="button" onClick="{{ openAuth }}" style="white-space:nowrap;height:44px;padding:0 16px;border:1px solid #E3E7EF;background:#FFFFFF;border-radius:6px;font:500 14px Vazirmatn,sans-serif;color:#1B2740;cursor:pointer" style-hover="border-color:#1450C8;color:#1450C8">ورود / ثبت‌نام</button>
+          <a href="Feasibility.dc.html#request" style="white-space:nowrap;height:44px;padding:0 18px;display:flex;align-items:center;background:#1450C8;color:#FFFFFF;border-radius:6px;font-size:14px;font-weight:700;text-decoration:none" style-hover="background:#0F3E9E">درخواست امکان‌سنجی</a>
+        </div>
+      </sc-if>
+      <sc-if value="{{ mobile }}">
+        <button type="button" onClick="{{ openMenu }}" aria-label="باز کردن منو" aria-expanded="{{ menuOpen }}" style="width:44px;height:44px;border:1px solid #E3E7EF;background:#FFFFFF;border-radius:6px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px">
+          <span style="width:18px;height:2px;background:#1B2740;display:block"></span>
+          <span style="width:18px;height:2px;background:#1B2740;display:block"></span>
+          <span style="width:18px;height:2px;background:#1B2740;display:block"></span>
+        </button>
+      </sc-if>
+    </div>
+  </div>
+</header>
+
+<sc-if value="{{ menuOpen }}">
+  <div style="position:fixed;inset:0;z-index:100;font-family:Vazirmatn,Tahoma,sans-serif;direction:rtl">
+    <div onClick="{{ closeMenu }}" style="position:absolute;inset:0;background:rgba(8,20,48,0.5)"></div>
+    <div role="dialog" aria-modal="true" aria-label="منوی اصلی" style="position:absolute;top:0;right:0;bottom:0;width:min(360px,88vw);background:#FFFFFF;display:flex;flex-direction:column;overflow:auto">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid #E3E7EF">
+        <span style="font-weight:800;color:#0B2257">منو</span>
+        <button type="button" onClick="{{ closeMenu }}" aria-label="بستن منو" style="width:44px;height:44px;border:1px solid #E3E7EF;background:#FFFFFF;border-radius:6px;font-size:20px;cursor:pointer;color:#1B2740">×</button>
+      </div>
+      <nav aria-label="ناوبری موبایل" style="display:flex;flex-direction:column;padding:8px 12px">
+        <sc-for list="{{ allNav }}" as="n" hint-placeholder-count="11">
+          <a href="{{ n.href }}" style="padding:14px 10px;font-size:16px;color:#1B2740;text-decoration:none;border-bottom:1px solid #F0F2F6;font-weight:{{ n.weight }}">{{ n.label }}</a>
+        </sc-for>
+      </nav>
+      <div style="padding:20px;display:flex;flex-direction:column;gap:10px;margin-top:auto">
+        <a href="Feasibility.dc.html#request" style="height:48px;display:flex;align-items:center;justify-content:center;background:#1450C8;color:#FFFFFF;border-radius:6px;font-weight:700;text-decoration:none">درخواست امکان‌سنجی</a>
+        <button type="button" onClick="{{ openAuthFromMenu }}" style="height:48px;border:1px solid #C9D2E3;background:#FFFFFF;border-radius:6px;font:500 15px Vazirmatn,sans-serif;color:#1B2740;cursor:pointer">ورود / ثبت‌نام</button>
+      </div>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ searchOpen }}">
+  <div style="position:fixed;inset:0;z-index:110;font-family:Vazirmatn,Tahoma,sans-serif;direction:rtl">
+    <div onClick="{{ closeSearch }}" style="position:absolute;inset:0;background:rgba(8,20,48,0.55)"></div>
+    <div role="dialog" aria-modal="true" aria-label="جستجو در سایت" style="position:relative;max-width:720px;margin:64px auto 0;background:#FFFFFF;border-radius:10px;overflow:hidden;width:calc(100% - 32px)">
+      <div style="display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid #E3E7EF">
+        <label for="site-search" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">عبارت جستجو</label>
+        <input id="site-search" ref="{{ searchRef }}" value="{{ query }}" onChange="{{ onQuery }}" placeholder="جستجو در دوره‌ها، پروژه‌ها، مقالات و دانشنامه…" style="flex:1;height:48px;border:none;outline:none;font:400 17px Vazirmatn,sans-serif;color:#0E1A33;background:transparent">
+        <button type="button" onClick="{{ closeSearch }}" style="height:36px;padding:0 12px;border:1px solid #E3E7EF;background:#F6F8FB;border-radius:6px;font:500 13px Vazirmatn,sans-serif;color:#4A5670;cursor:pointer">بستن (Esc)</button>
+      </div>
+      <div style="max-height:60vh;overflow:auto;padding:12px 8px 16px">
+        <sc-if value="{{ showHint }}">
+          <p style="margin:12px;color:#5B667D;font-size:14px">پیشنهاد: امکان‌سنجی، تأمین مالی، معدنی، طرح توجیهی</p>
+        </sc-if>
+        <sc-if value="{{ showEmpty }}">
+          <div style="padding:32px 16px;text-align:center">
+            <p style="margin:0 0 6px;font-weight:700;color:#0E1A33">نتیجه‌ای یافت نشد</p>
+            <p style="margin:0;color:#5B667D;font-size:14px">عبارت دیگری را امتحان کنید یا از منوی اصلی استفاده کنید.</p>
+          </div>
+        </sc-if>
+        <sc-for list="{{ results }}" as="r" hint-placeholder-count="0">
+          <a href="{{ r.href }}" style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px;border-radius:6px;text-decoration:none;color:#0E1A33" style-hover="background:#F2F6FD">
+            <span style="font-size:15px">{{ r.title }}</span>
+            <span style="font-size:12px;color:#4A5670;background:#EEF2F8;padding:3px 8px;border-radius:4px;flex-shrink:0">{{ r.type }}</span>
+          </a>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ authOpen }}">
+  <div style="position:fixed;inset:0;z-index:120;font-family:Vazirmatn,Tahoma,sans-serif;direction:rtl;display:flex;align-items:center;justify-content:center;padding:16px">
+    <div onClick="{{ closeAuth }}" style="position:absolute;inset:0;background:rgba(8,20,48,0.55)"></div>
+    <div role="dialog" aria-modal="true" aria-labelledby="auth-title" style="position:relative;width:100%;max-width:440px;background:#FFFFFF;border-radius:10px;padding:28px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+        <h2 id="auth-title" style="margin:0;font-size:20px;color:#0B2257">{{ authTitle }}</h2>
+        <button type="button" onClick="{{ closeAuth }}" aria-label="بستن" style="width:40px;height:40px;border:1px solid #E3E7EF;background:#FFFFFF;border-radius:6px;font-size:20px;cursor:pointer;color:#1B2740">×</button>
+      </div>
+      <div role="tablist" aria-label="نوع ورود" style="display:grid;grid-template-columns:1fr 1fr;background:#F1F4F9;border-radius:6px;padding:4px;margin-bottom:20px">
+        <button type="button" role="tab" aria-selected="{{ isLogin }}" onClick="{{ tabLogin }}" style="height:40px;border:none;border-radius:4px;cursor:pointer;font:600 14px Vazirmatn,sans-serif;background:{{ loginTabBg }};color:#0E1A33">ورود</button>
+        <button type="button" role="tab" aria-selected="{{ isRegister }}" onClick="{{ tabRegister }}" style="height:40px;border:none;border-radius:4px;cursor:pointer;font:600 14px Vazirmatn,sans-serif;background:{{ regTabBg }};color:#0E1A33">ثبت‌نام</button>
+      </div>
+      <sc-if value="{{ authDone }}">
+        <div role="status" style="padding:16px;border-radius:6px;background:#EAF6EF;color:#155B34;font-size:14px;margin-bottom:16px">درخواست نمونه ثبت شد. (در این نسخه اتصال واقعی وجود ندارد.)</div>
+      </sc-if>
+      <form onSubmit="{{ submitAuth }}" novalidate="" style="display:flex;flex-direction:column;gap:14px">
+        <sc-if value="{{ isRegister }}">
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <label for="auth-name" style="font-size:14px;font-weight:600;color:#1B2740">نام و نام خانوادگی</label>
+            <input id="auth-name" value="{{ authName }}" onChange="{{ onAuthName }}" style="height:46px;border:1px solid {{ nameBorder }};border-radius:6px;padding:0 12px;font:400 15px Vazirmatn,sans-serif">
+            <sc-if value="{{ nameErr }}"><span role="alert" style="font-size:13px;color:#B42318">{{ nameErr }}</span></sc-if>
+          </div>
+        </sc-if>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <label for="auth-phone" style="font-size:14px;font-weight:600;color:#1B2740">شماره موبایل</label>
+          <input id="auth-phone" inputmode="numeric" dir="ltr" value="{{ authPhone }}" onChange="{{ onAuthPhone }}" placeholder="09xxxxxxxxx" style="height:46px;border:1px solid {{ phoneBorder }};border-radius:6px;padding:0 12px;font:400 15px Vazirmatn,sans-serif;text-align:right">
+          <sc-if value="{{ phoneErr }}"><span role="alert" style="font-size:13px;color:#B42318">{{ phoneErr }}</span></sc-if>
+        </div>
+        <button type="submit" style="height:48px;border:none;border-radius:6px;background:#1450C8;color:#FFFFFF;font:700 15px Vazirmatn,sans-serif;cursor:pointer;margin-top:6px" style-hover="background:#0F3E9E">{{ authCta }}</button>
+        <p style="margin:0;font-size:12px;color:#5B667D;text-align:center">نسخه نمایشی — کد تأیید ارسال نمی‌شود.</p>
+      </form>
+    </div>
+  </div>
+</sc-if>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;active&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;home&quot;,&quot;training&quot;,&quot;feasibility&quot;,&quot;research&quot;,&quot;services&quot;,&quot;investment&quot;,&quot;sahamdar&quot;,&quot;knowledge&quot;,&quot;articles&quot;,&quot;about&quot;,&quot;contact&quot;],&quot;default&quot;:&quot;home&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  state = { w: typeof window !== 'undefined' ? window.innerWidth : 1280, menuOpen: false, searchOpen: false, authOpen: false, tab: 'login', query: '', name: '', phone: '', errors: {}, done: false };
+  searchRef = React.createRef();
+  componentDidMount() {
+    this.onResize = () => this.setState({ w: window.innerWidth });
+    this.onKey = (e) => { if (e.key === 'Escape') this.setState({ menuOpen: false, searchOpen: false, authOpen: false }); };
+    window.addEventListener('resize', this.onResize);
+    document.addEventListener('keydown', this.onKey);
+    if (!window.RoshdData) this.poll = setInterval(() => { if (window.RoshdData) { clearInterval(this.poll); this.forceUpdate(); } }, 60);
+  }
+  componentWillUnmount() { window.removeEventListener('resize', this.onResize); document.removeEventListener('keydown', this.onKey); clearInterval(this.poll); }
+  componentDidUpdate(_, prev) { if (this.state.searchOpen && !prev.searchOpen) setTimeout(() => this.searchRef.current && this.searchRef.current.focus(), 30); }
+  submitAuth = (e) => {
+    e.preventDefault();
+    const errors = {};
+    if (this.state.tab === 'register' && this.state.name.trim().length < 3) errors.name = 'نام را کامل وارد کنید.';
+    const p = this.state.phone.replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d));
+    if (!/^09\d{9}$/.test(p)) errors.phone = 'شماره موبایل باید ۱۱ رقم و با ۰۹ شروع شود.';
+    this.setState({ errors, done: Object.keys(errors).length === 0 });
+  };
+  renderVals() {
+    const D = window.RoshdData || { nav: [], projects: [], courses: [], articles: [], knowledge: [], research: [] };
+    const active = this.props.active || 'home';
+    const mainKeys = ['training', 'feasibility', 'research', 'services', 'investment', 'sahamdar'];
+    const utilKeys = ['home', 'knowledge', 'articles', 'about', 'contact'];
+    const desktop = this.state.w >= 1180;
+    const q = this.state.query.trim();
+    let results = [];
+    if (q) {
+      const add = (list, type, href) => list.forEach(x => { if (x.title.includes(q) || (x.category || '').includes(q)) results.push({ title: x.title, type, href }); });
+      add(D.courses, 'دوره', 'Training.dc.html'); add(D.projects, 'پروژه نمونه', 'Investment.dc.html'); add(D.research, 'پژوهش', 'Research.dc.html'); add(D.knowledge, 'دانشنامه', 'Knowledge.dc.html'); add(D.articles, 'مقاله', 'Articles.dc.html');
+      results = results.slice(0, 12);
+    }
+    const s = this.state, er = s.errors;
+    return {
+      desktop, mobile: !desktop, menuOpen: s.menuOpen, searchOpen: s.searchOpen, authOpen: s.authOpen,
+      utilNav: D.nav.filter(n => utilKeys.includes(n.key)),
+      mainNav: D.nav.filter(n => mainKeys.includes(n.key)).map(n => ({ ...n, active: n.key === active, inactive: n.key !== active })),
+      allNav: D.nav.map(n => ({ ...n, weight: n.key === active ? 700 : 400 })),
+      openMenu: () => this.setState({ menuOpen: true }), closeMenu: () => this.setState({ menuOpen: false }),
+      openSearch: () => this.setState({ searchOpen: true }), closeSearch: () => this.setState({ searchOpen: false }),
+      openAuth: () => this.setState({ authOpen: true, done: false, errors: {} }), closeAuth: () => this.setState({ authOpen: false }),
+      openAuthFromMenu: () => this.setState({ menuOpen: false, authOpen: true, done: false, errors: {} }),
+      searchRef: this.searchRef, query: s.query, onQuery: e => this.setState({ query: e.target.value }),
+      results, showHint: !q, showEmpty: !!q && results.length === 0,
+      isLogin: s.tab === 'login', isRegister: s.tab === 'register',
+      authTitle: s.tab === 'login' ? 'ورود به حساب' : 'ایجاد حساب کاربری', authCta: s.tab === 'login' ? 'دریافت کد ورود' : 'ثبت‌نام',
+      loginTabBg: s.tab === 'login' ? '#FFFFFF' : 'transparent', regTabBg: s.tab === 'register' ? '#FFFFFF' : 'transparent',
+      tabLogin: () => this.setState({ tab: 'login', errors: {}, done: false }), tabRegister: () => this.setState({ tab: 'register', errors: {}, done: false }),
+      authName: s.name, authPhone: s.phone, onAuthName: e => this.setState({ name: e.target.value }), onAuthPhone: e => this.setState({ phone: e.target.value }),
+      nameErr: er.name || '', phoneErr: er.phone || '', nameBorder: er.name ? '#B42318' : '#C9D2E3', phoneBorder: er.phone ? '#B42318' : '#C9D2E3',
+      submitAuth: this.submitAuth, authDone: s.done,
+    };
+  }
+}
+</script>
+</body>
+</html>
