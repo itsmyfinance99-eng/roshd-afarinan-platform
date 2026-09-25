@@ -1,0 +1,896 @@
+# Backlog: single source of truth for EPIC → STORY.
+# Sync to GitHub (labels, milestones, issues) with:  pnpm backlog:sync   (idempotent)
+# Fields:
+#   points   : story points (Fibonacci 1,2,3,5,8,13)
+#   priority : critical | high | medium | low
+#   sprint   : key of a milestone below
+#   area     : api | web | db | infra | docs | security | ui | qa
+
+milestones:
+  - key: S0
+    title: 'Sprint 0 — Discovery & Architecture'
+    due: '2026-10-02'
+    description: 'ADRها، معماری، open questions، backlog و حاکمیت مخزن (فاز ۰)'
+  - key: S1
+    title: 'Sprint 1 — Foundation'
+    due: '2026-10-09'
+    description: 'Monorepo، CI، Docker، API skeleton، DB، Auth/RBAC skeleton، Adapterها (فاز ۰)'
+  - key: S2
+    title: 'Sprint 2 — UI Foundation'
+    due: '2026-10-16'
+    description: 'Layout، RTL، Design Tokens، کامپوننت‌های پایه (فاز ۱)'
+  - key: S3
+    title: 'Sprint 3 — Public Website'
+    due: '2026-10-23'
+    description: 'خانه، درباره ما، خدمات، تماس و صفحات مسیرهای اصلی (فاز ۱)'
+  - key: S4
+    title: 'Sprint 4 — CMS & SEO'
+    due: '2026-10-30'
+    description: 'صفحات، مقالات، دانشنامه، جست‌وجو و SEO (فاز ۱)'
+  - key: S5
+    title: 'Sprint 5 — User Core'
+    due: '2026-11-06'
+    description: 'ورود و ثبت‌نام، پروفایل، داشبورد و فایل (فاز ۱)'
+  - key: S6
+    title: 'Sprint 6 — Training Catalog & Orders'
+    due: '2026-11-13'
+    description: 'کاتالوگ آموزش، Order و Payment abstraction (فاز ۱)'
+  - key: S7
+    title: 'Sprint 7 — Research, Consulting & Tickets'
+    due: '2026-11-20'
+    description: 'پژوهش، ثبت درخواست خدمات و تیکت (فاز ۱)'
+  - key: S8
+    title: 'Sprint 8 — Investment Catalog & Release v0.2.0'
+    due: '2026-11-27'
+    description: 'فرصت‌های سرمایه‌گذاری، skeleton ماژول‌های آینده، QA و انتشار (فاز ۱)'
+  - key: P2
+    title: 'Phase 2 — LMS & Commerce'
+    description: 'LMS پایه، سفارش و پرداخت واقعی'
+  - key: P3
+    title: 'Phase 3 — Feasibility Platform'
+    description: 'پلتفرم امکان‌سنجی'
+  - key: P4
+    title: 'Phase 4 — Financial Engine'
+    description: 'موتور محاسبات مالی'
+  - key: P5
+    title: 'Phase 5 — Investment Opportunities'
+    description: 'فرصت‌های سرمایه‌گذاری (کامل)'
+  - key: P6
+    title: 'Phase 6 — Iran Sahamdar Integration'
+    description: 'اتصال به ایران سهامدار'
+  - key: P7
+    title: 'Phase 7 — AI Platform'
+    description: 'پلتفرم هوش مصنوعی'
+  - key: P8
+    title: 'Phase 8 — Blockchain / Tokenization'
+    description: 'R&D بلاک‌چین و توکن‌سازی'
+  - key: P9
+    title: 'Phase 9 — PWA / Mobile'
+    description: 'PWA، اپلیکیشن موبایل و داشبوردهای پیشرفته'
+
+labels:
+  - { name: 'type:epic', color: '5319e7', description: 'Epic' }
+  - { name: 'type:story', color: '1d76db', description: 'User story' }
+  - { name: 'type:task', color: 'c5def5', description: 'Technical task' }
+  - { name: 'type:bug', color: 'd73a4a', description: 'Bug' }
+  - { name: 'type:spike', color: 'fbca04', description: 'Research / spike' }
+  - { name: 'priority:critical', color: 'b60205', description: 'Must be done now' }
+  - { name: 'priority:high', color: 'd93f0b', description: 'High priority' }
+  - { name: 'priority:medium', color: 'fbca04', description: 'Medium priority' }
+  - { name: 'priority:low', color: '0e8a16', description: 'Low priority' }
+  - { name: 'area:api', color: '006b75', description: 'Backend / NestJS' }
+  - { name: 'area:web', color: '0052cc', description: 'Frontend / Next.js' }
+  - { name: 'area:ui', color: 'bfd4f2', description: 'Design system / UI' }
+  - { name: 'area:db', color: '5319e7', description: 'Database / Prisma' }
+  - { name: 'area:infra', color: '333333', description: 'CI/CD, Docker, tooling' }
+  - { name: 'area:docs', color: '0075ca', description: 'Documentation' }
+  - { name: 'area:security', color: 'b60205', description: 'Security' }
+  - { name: 'area:qa', color: 'c2e0c6', description: 'Testing / QA' }
+  - { name: 'phase:0', color: 'ededed', description: 'Phase 0 — Foundation' }
+  - { name: 'phase:1', color: 'ededed', description: 'Phase 1 — MVP' }
+  - { name: 'phase:future', color: 'ededed', description: 'Phase 2+' }
+  - { name: 'needs:decision', color: 'e99695', description: 'Blocked on a business/legal decision' }
+  - { name: 'status:blocked', color: '000000', description: 'Blocked' }
+
+epics:
+  # ───────────────────────────── PHASE 0 ─────────────────────────────
+  - id: EPIC-01
+    title: 'Foundation — زیرساخت پایه'
+    phase: 0
+    priority: critical
+    goal: 'پروژه‌ای قابل اجرا، تست‌پذیر و قابل deploy با معماری ماژولار و قراردادهای استاندارد.'
+    stories:
+      - id: ST-01.01
+        status: done
+        title: 'مستندات معماری، ADRها و سؤالات باز'
+        sprint: S0
+        points: 3
+        priority: critical
+        area: [docs]
+        story: 'به‌عنوان مالک محصول می‌خواهم معماری، تصمیم‌ها و ابهام‌ها مستند باشند تا تیم بدون حدس‌زدن قوانین کسب‌وکار توسعه دهد.'
+        acceptance:
+          - 'system-overview، domain-model، api conventions و security-baseline نوشته شده باشند'
+          - 'ADR-0001 تا ADR-0007 ثبت شده باشند'
+          - 'open-questions با حداقل ۱۵ سؤال و اثر هر کدام ثبت شده باشد'
+      - id: ST-01.02
+        status: done
+        title: 'حاکمیت مخزن: backlog، قالب‌های Issue/PR و CONTRIBUTING'
+        sprint: S0
+        points: 3
+        priority: critical
+        area: [docs, infra]
+        story: 'به‌عنوان عضو تیم می‌خواهم فرآیند شاخه‌بندی، commit، PR و backlog استاندارد باشد تا کار قابل پیگیری و قابل بازبینی باشد.'
+        acceptance:
+          - 'CLAUDE.md، CONTRIBUTING.md، SECURITY.md و CODEOWNERS وجود داشته باشند'
+          - 'قالب‌های Epic، Story، Bug، Task، Spike و PR ساخته شده باشند'
+          - 'backlog.yaml با اسکریپت sync به Issues، Labels و Milestones منتقل شود'
+      - id: ST-01.03
+        title: 'Monorepo tooling: pnpm، Turborepo، TypeScript، ESLint، Prettier و commitlint'
+        sprint: S1
+        points: 5
+        priority: critical
+        area: [infra]
+        story: 'به‌عنوان توسعه‌دهنده می‌خواهم یک monorepo با تنظیمات مشترک داشته باشم تا همه پکیج‌ها یکپارچه lint، typecheck و test شوند.'
+        acceptance:
+          - 'دستورهای pnpm install و pnpm verify روی clone تمیز کار کنند'
+          - 'پکیج‌های tsconfig، eslint-config، types و validation ساخته شده باشند'
+          - 'commit با پیام غیر استاندارد توسط commitlint رد شود'
+      - id: ST-01.04
+        title: 'CI روی GitHub Actions و Dependabot'
+        sprint: S1
+        points: 3
+        priority: critical
+        area: [infra, qa]
+        story: 'به‌عنوان تیم می‌خواهم هر PR به‌صورت خودکار بررسی شود تا کد شکسته وارد develop نشود.'
+        acceptance:
+          - 'CI روی PR و push به develop و main اجرا شود: lint، typecheck، test و build'
+          - 'تست‌های e2e API با سرویس PostgreSQL اجرا شوند'
+          - 'Dependabot برای npm و github-actions فعال باشد'
+      - id: ST-01.05
+        title: 'API skeleton: NestJS، config validation و versioning'
+        sprint: S1
+        points: 5
+        priority: critical
+        area: [api]
+        story: 'به‌عنوان توسعه‌دهنده می‌خواهم API پایه با تنظیمات معتبرسازی‌شده داشته باشم تا ماژول‌ها روی یک پایه یکسان ساخته شوند.'
+        acceptance:
+          - 'اپلیکیشن با env نامعتبر با پیام روشن متوقف شود'
+          - 'همه مسیرها زیر /api/v1 باشند'
+          - 'Swagger در /docs در دسترس باشد (در production قابل غیرفعال‌سازی)'
+      - id: ST-01.06
+        title: 'قرارداد API: envelope، مدل خطا، Request ID و Zod validation'
+        sprint: S1
+        points: 5
+        priority: critical
+        area: [api]
+        story: 'به‌عنوان مصرف‌کننده API می‌خواهم پاسخ‌ها و خطاها ساختار ثابتی داشته باشند تا کلاینت‌ها ساده و قابل اتکا باشند.'
+        acceptance:
+          - 'پاسخ موفق {data, meta} و خطا {error:{code,message,details,requestId}} باشد'
+          - 'خطای validation کد VALIDATION_FAILED با جزئیات فیلد برگرداند'
+          - 'X-Request-Id در پاسخ و لاگ‌ها وجود داشته باشد'
+          - 'خطاهای ناشناخته جزئیات داخلی را افشا نکنند'
+      - id: ST-01.07
+        title: 'Logging ساخت‌یافته و endpointهای Health/Readiness'
+        sprint: S1
+        points: 3
+        priority: high
+        area: [api, infra]
+        story: 'به‌عنوان مسئول عملیات می‌خواهم لاگ ساخت‌یافته و health check داشته باشم تا مشکلات سریع تشخیص داده شوند.'
+        acceptance:
+          - 'لاگ‌ها JSON با requestId باشند و header احراز هویت و cookie را redact کنند'
+          - '/api/v1/health/live همیشه 200 و /api/v1/health/ready در صورت قطع DB پاسخ 503 بدهد'
+      - id: ST-01.08
+        title: 'پایگاه داده: Docker Compose، Prisma، migration اولیه و seed'
+        sprint: S1
+        points: 5
+        priority: critical
+        area: [db, infra]
+        story: 'به‌عنوان توسعه‌دهنده می‌خواهم با یک دستور DB محلی و migrationها را بالا بیاورم تا محیط توسعه تکرارپذیر باشد.'
+        acceptance:
+          - 'docker compose up پایگاه PostgreSQL و Redis را اجرا کند'
+          - 'migration اولیه مدل Identity، RBAC و Audit را بسازد'
+          - 'seed نقش‌ها، مجوزها و یک super_admin توسعه (از env) را بسازد'
+      - id: ST-01.09
+        title: 'Portهای Provider: پرداخت، فایل، اعلان و جست‌وجو + Interfaceهای آینده'
+        sprint: S1
+        points: 5
+        priority: high
+        area: [api]
+        story: 'به‌عنوان معمار می‌خواهم همه وابستگی‌های بیرونی پشت Interface باشند تا به هیچ vendorی قفل نشویم.'
+        acceptance:
+          - 'PaymentGateway، FileStorageProvider، NotificationProvider و SearchProvider با adapter توسعه تعریف شده باشند'
+          - 'Interfaceهای IranSahamdarClient (به‌همراه mock)، AiProvider، BlockchainNetworkAdapter و FinancialCalculator تعریف شده باشند'
+          - 'اجرای production با MockPaymentGateway متوقف شود'
+      - id: ST-01.10
+        title: 'Dockerfile برای api و web و راهنمای اجرای محلی'
+        sprint: S1
+        points: 3
+        priority: medium
+        area: [infra, docs]
+        story: 'به‌عنوان مسئول استقرار می‌خواهم image قابل اجرا داشته باشم تا deploy تکرارپذیر باشد.'
+        acceptance:
+          - 'Dockerfile چندمرحله‌ای و non-root برای هر دو اپ'
+          - 'README شامل دستورهای راه‌اندازی از صفر باشد'
+
+  - id: EPIC-02
+    title: 'Authentication & RBAC — احراز هویت و کنترل دسترسی'
+    phase: 0
+    priority: critical
+    goal: 'یک هویت واحد برای هر شخص با نقش‌های چندگانه و سیاست default-deny.'
+    stories:
+      - id: ST-02.01
+        title: 'ثبت‌نام و ورود با ایمیل/رمز عبور (argon2id)'
+        sprint: S1
+        points: 5
+        priority: critical
+        area: [api, security]
+        story: 'به‌عنوان بازدیدکننده می‌خواهم ثبت‌نام و وارد شوم تا به خدمات شخصی دسترسی داشته باشم.'
+        acceptance:
+          - 'رمز با argon2id ذخیره شود و هرگز در پاسخ یا لاگ نیاید'
+          - 'ایمیل تکراری خطای 409 بدهد'
+          - 'ورود ناموفق پیام عمومی بدهد (عدم افشای وجود حساب)'
+      - id: ST-02.02
+        title: 'Access token و Refresh token چرخشی با تشخیص استفاده مجدد'
+        sprint: S1
+        points: 5
+        priority: critical
+        area: [api, security]
+        story: 'به‌عنوان کاربر می‌خواهم نشست امن و ماندگار داشته باشم و در صورت سرقت توکن، نشست باطل شود.'
+        acceptance:
+          - 'توکن refresh در هر استفاده چرخش کند و فقط hash آن ذخیره شود'
+          - 'استفاده مجدد از توکن باطل، کل خانواده نشست را باطل کند'
+          - 'logout نشست جاری را باطل کند'
+      - id: ST-02.03
+        title: 'RBAC: نقش‌ها، مجوزها، Guard سراسری default-deny'
+        sprint: S1
+        points: 5
+        priority: critical
+        area: [api, security]
+        story: 'به‌عنوان مدیر سیستم می‌خواهم دسترسی‌ها مبتنی بر نقش و مجوز باشد تا هر کاربر فقط کار مجاز انجام دهد.'
+        acceptance:
+          - 'همه مسیرها به‌جز @Public() احراز هویت لازم داشته باشند'
+          - '@Permissions() بدون مجوز لازم 403 برگرداند'
+          - 'تست منفی: کاربر عادی نتواند نقش تغییر دهد'
+      - id: ST-02.04
+        title: 'Audit Log برای رویدادهای امنیتی'
+        sprint: S1
+        points: 3
+        priority: high
+        area: [api, security]
+        story: 'به‌عنوان مسئول امنیت می‌خواهم رویدادهای حساس ثبت شوند تا قابل پیگیری باشند.'
+        acceptance:
+          - 'ورود موفق و ناموفق، خروج، استفاده مجدد توکن و تغییر نقش ثبت شوند'
+          - 'IP، user agent و requestId ذخیره شوند'
+      - id: ST-02.05
+        title: 'Rate limiting و محافظت brute-force'
+        sprint: S1
+        points: 2
+        priority: high
+        area: [api, security]
+        story: 'به‌عنوان مسئول امنیت می‌خواهم تلاش‌های مکرر محدود شوند تا حملات brute-force بی‌اثر شوند.'
+        acceptance:
+          - 'مسیرهای auth محدودیت سخت‌گیرانه داشته باشند و 429 با کد RATE_LIMITED برگردانند'
+      - id: ST-02.06
+        title: 'مدیریت نقش کاربران توسط ادمین'
+        sprint: S5
+        points: 3
+        priority: medium
+        area: [api, security]
+        story: 'به‌عنوان ادمین می‌خواهم نقش کاربران را مدیریت کنم تا دسترسی‌ها کنترل شوند.'
+        acceptance:
+          - 'فقط admin/super_admin نقش تخصیص دهند؛ فقط super_admin نقش admin بدهد'
+          - 'هر تغییر نقش در Audit Log ثبت شود'
+
+  # ───────────────────────────── PHASE 1 ─────────────────────────────
+  - id: EPIC-03
+    title: 'CMS — مدیریت محتوا'
+    phase: 1
+    priority: high
+    goal: 'مدیریت صفحات، مقالات، دسته‌ها، نویسندگان و SEO به‌عنوان بخشی از مدل داده.'
+    stories:
+      - id: ST-03.01
+        title: 'مدل محتوا: Article، Category، Tag، Author با فیلدهای SEO'
+        sprint: S4
+        points: 5
+        priority: high
+        area: [api, db]
+        story: 'به‌عنوان ویراستار می‌خواهم مقاله با دسته، برچسب، نویسنده و SEO ثبت کنم تا محتوای قابل ایندکس منتشر شود.'
+        acceptance:
+          - 'slug یکتا، وضعیت DRAFT/PUBLISHED/ARCHIVED، metaTitle، metaDescription، canonical و noIndex'
+          - 'migration و seed نمونه (با برچسب نمایشی)'
+      - id: ST-03.02
+        title: 'API مدیریت محتوا با مجوز editor و انتشار'
+        sprint: S4
+        points: 5
+        priority: high
+        area: [api, security]
+        story: 'به‌عنوان ویراستار می‌خواهم محتوا را ایجاد، ویرایش و منتشر کنم.'
+        acceptance:
+          - 'فقط نقش‌های دارای cms.* مجاز باشند (تست منفی)'
+          - 'انتشار و آرشیو در Audit Log ثبت شود'
+      - id: ST-03.03
+        title: 'API عمومی خواندن محتوا (فقط منتشرشده) با صفحه‌بندی'
+        sprint: S4
+        points: 3
+        priority: high
+        area: [api]
+        story: 'به‌عنوان بازدیدکننده می‌خواهم فقط محتوای منتشرشده را ببینم.'
+        acceptance:
+          - 'پیش‌نویس از API عمومی 404 برگرداند'
+          - 'فیلتر بر اساس دسته و صفحه‌بندی'
+      - id: ST-03.04
+        title: 'صفحات Page ساخت‌یافته (sections) برای محتوای سازمانی'
+        sprint: S4
+        points: 3
+        priority: medium
+        area: [api, web]
+        story: 'به‌عنوان ویراستار می‌خواهم متن صفحات سازمانی را بدون deploy تغییر دهم.'
+        acceptance:
+          - 'مدل Page با sections و SEO'
+          - 'صفحه درباره ما از Page خوانده شود و fallback به content layer داشته باشد'
+
+  - id: EPIC-04
+    title: 'Public Website — وب‌سایت عمومی'
+    phase: 1
+    priority: critical
+    goal: 'سایت عمومی RTL، Responsive، اعتمادساز و با چهار مسیر اصلی.'
+    stories:
+      - id: ST-04.01
+        title: 'پایه وب: Next.js، RTL، فونت Vazirmatn و Design Tokens'
+        sprint: S2
+        points: 5
+        priority: critical
+        area: [web, ui]
+        story: 'به‌عنوان کاربر فارسی‌زبان می‌خواهم سایت کاملاً راست‌چین با تایپوگرافی درست باشد.'
+        acceptance:
+          - 'html با lang=fa و dir=rtl؛ فونت self-hosted'
+          - 'رنگ‌ها و فاصله‌ها فقط از tokens'
+          - 'پکیج @roshd/ui با Button، Card، Container، Badge، Input و ... و تست'
+      - id: ST-04.02
+        title: 'Layout: Header، ناوبری dropdown، منوی موبایل، Footer'
+        sprint: S2
+        points: 5
+        priority: critical
+        area: [web, ui]
+        story: 'به‌عنوان بازدیدکننده می‌خواهم در همه دستگاه‌ها به‌راحتی بین بخش‌ها جابه‌جا شوم.'
+        acceptance:
+          - 'منوی موبایل با کیبورد و screen reader قابل استفاده باشد'
+          - 'skip link و focus visible'
+      - id: ST-04.07
+        title: 'ثبت UI اولیه Claude Design (Home.dc.html، mock-data.js، support.js) در مخزن'
+        sprint: S2
+        points: 5
+        priority: critical
+        area: [web, ui]
+        story: 'به‌عنوان مالک محصول می‌خواهم UI اولیه‌ای که در Claude Design طراحی شده در مخزن ثبت و به کامپوننت‌های Next.js تبدیل شود تا بعداً طبق تغییرات Backend به‌روز شود.'
+        acceptance:
+          - 'فایل‌های خام طراحی در design/claude-design/ نسخه‌بندی شوند (منبع: پروژه 5c1ac6ab-902c-4365-8c80-3d445afff738)'
+          - 'tokens طراحی (رنگ، تایپوگرافی، فاصله) به @roshd/ui منتقل شوند'
+          - 'mock-data به content layer / repositoryهای typed منتقل شود؛ business logic در کامپوننت‌های بصری نباشد'
+          - 'نقشه integration: route mapping، component reuse و تعارض‌ها مستند شود'
+      - id: ST-04.03
+        title: 'صفحه اصلی با Hero و چهار مسیر اصلی'
+        sprint: S3
+        points: 8
+        priority: critical
+        area: [web]
+        story: 'به‌عنوان بازدیدکننده می‌خواهم در صفحه اول بفهمم این مجموعه از آموزش تا سرمایه‌گذاری به من خدمت می‌دهد.'
+        acceptance:
+          - 'Hero با تیتر «از ایده تا امکان‌سنجی، پژوهش و مسیر سرمایه‌گذاری» و CTAها'
+          - 'چهار کارت: آموزش، امکان‌سنجی، پژوهش، ایران سهامدار'
+          - 'بخش اعتماد (۵۰+ کارشناس، از ۱۳۸۸، آموزش/پژوهش/مشاوره) بدون ادعای اضافه'
+          - 'سوابق تخصصی، دوره‌ها، پژوهش/دانشنامه، فرصت‌ها، فرآیند همکاری، CTA نهایی'
+      - id: ST-04.04
+        title: 'صفحات درباره ما، خدمات و تماس با ما'
+        sprint: S3
+        points: 5
+        priority: high
+        area: [web]
+        story: 'به‌عنوان بازدیدکننده می‌خواهم اعتبار، خدمات و راه ارتباط با شرکت را ببینم.'
+        acceptance:
+          - 'مجوزها و عضویت‌ها فقط طبق رزومه'
+          - 'فرم تماس با validation، حالت‌های loading/success/error'
+      - id: ST-04.05
+        title: 'صفحات مسیرها: آموزش، امکان‌سنجی، پژوهش، مشاوره، فرصت‌ها و ایران سهامدار'
+        sprint: S3
+        points: 8
+        priority: high
+        area: [web]
+        story: 'به‌عنوان بازدیدکننده می‌خواهم برای هر خدمت صفحه‌ای با توضیح، فرآیند و CTA داشته باشم.'
+        acceptance:
+          - 'هر صفحه metadata، canonical، breadcrumb و CTA داشته باشد'
+          - 'صفحه ایران سهامدار بدون ادعای اتصال فعال (برچسب «به‌زودی»)'
+      - id: ST-04.06
+        title: 'تست‌های e2e (Playwright) برای صفحات کلیدی و RTL'
+        sprint: S3
+        points: 3
+        priority: high
+        area: [qa, web]
+        story: 'به‌عنوان تیم می‌خواهم صفحات کلیدی به‌طور خودکار تست شوند تا regression رخ ندهد.'
+        acceptance:
+          - 'smoke test همه مسیرهای عمومی، ناوبری موبایل و dir=rtl'
+
+  - id: EPIC-05
+    title: 'Search — جست‌وجو'
+    phase: 1
+    priority: medium
+    goal: 'جست‌وجو روی مقالات، دانشنامه، دوره‌ها، پژوهش و فرصت‌ها از طریق SearchProvider.'
+    stories:
+      - id: ST-05.01
+        title: 'PostgresSearchProvider و API جست‌وجو'
+        sprint: S4
+        points: 5
+        priority: medium
+        area: [api]
+        story: 'به‌عنوان بازدیدکننده می‌خواهم محتوا و خدمات را جست‌وجو کنم.'
+        acceptance:
+          - 'فقط محتوای منتشرشده برگردد'
+          - 'نتایج نوع‌دار (article، knowledge، course، research، investment)'
+      - id: ST-05.02
+        title: 'صفحه نتایج جست‌وجو و جست‌وجو در Header'
+        sprint: S4
+        points: 3
+        priority: medium
+        area: [web]
+        story: 'به‌عنوان بازدیدکننده می‌خواهم از هر صفحه جست‌وجو کنم.'
+        acceptance:
+          - 'حالت‌های empty/error/loading؛ noindex برای صفحه نتایج'
+
+  - id: EPIC-06
+    title: 'Learning — آموزش'
+    phase: 1
+    priority: medium
+    goal: 'فاز ۱: کاتالوگ دوره‌ها. فاز ۲: LMS پایه.'
+    stories:
+      - id: ST-06.01
+        title: 'مدل Course و Instructor و API کاتالوگ'
+        sprint: S6
+        points: 5
+        priority: medium
+        area: [api, db]
+        story: 'به‌عنوان بازدیدکننده می‌خواهم فهرست دوره‌ها را ببینم.'
+        acceptance:
+          - 'دوره رایگان/پولی (قیمت ریالی به‌صورت string)، سطح، مدت، مدرس'
+          - 'فقط منتشرشده‌ها در API عمومی'
+      - id: ST-06.02
+        title: 'صفحات کاتالوگ و جزئیات دوره'
+        sprint: S6
+        points: 5
+        priority: medium
+        area: [web]
+        story: 'به‌عنوان علاقه‌مند می‌خواهم جزئیات دوره را ببینم و درخواست ثبت‌نام بدهم.'
+        acceptance:
+          - 'JSON-LD از نوع Course؛ empty state حرفه‌ای در نبود دوره'
+      - id: ST-06.03
+        title: 'LMS پایه: Lesson، Enrollment، Progress، Review'
+        sprint: P2
+        points: 13
+        priority: medium
+        area: [api, web]
+        story: 'به‌عنوان دانشجو می‌خواهم در دوره ثبت‌نام کنم و پیشرفتم را ببینم.'
+        acceptance:
+          - 'تست‌های دامنه برای enrollment و progress'
+
+  - id: EPIC-07
+    title: 'Orders & Payments — سفارش و پرداخت'
+    phase: 1
+    priority: high
+    goal: 'Order و PaymentAttempt با callback idempotent پشت PaymentGateway.'
+    stories:
+      - id: ST-07.01
+        title: 'مدل Order، OrderItem و PaymentAttempt'
+        sprint: S6
+        points: 5
+        priority: high
+        area: [api, db]
+        story: 'به‌عنوان کاربر می‌خواهم سفارش بدهم و چند بار برای پرداخت تلاش کنم.'
+        acceptance:
+          - 'هر Order چند PaymentAttempt؛ state machine وضعیت'
+      - id: ST-07.02
+        title: 'شروع پرداخت و callback idempotent با verify سمت سرور'
+        sprint: S6
+        points: 8
+        priority: high
+        area: [api, security]
+        story: 'به‌عنوان شرکت می‌خواهم پرداخت فقط با verify سمت سرور موفق شود تا تقلب یا دوباره‌پرداخت رخ ندهد.'
+        acceptance:
+          - 'تست منفی: callback تکراری no-op؛ پرداخت سفارش پرداخت‌شده 409'
+          - 'بازگشت کاربر از درگاه به‌تنهایی پرداخت را موفق نکند'
+          - 'رویدادهای پرداخت در Audit Log'
+      - id: ST-07.03
+        title: 'اتصال درگاه واقعی'
+        sprint: P2
+        points: 8
+        priority: medium
+        area: [api]
+        story: 'به‌عنوان شرکت می‌خواهم پرداخت آنلاین واقعی داشته باشم.'
+        acceptance:
+          - 'پس از تصمیم OQ-09'
+
+  - id: EPIC-08
+    title: 'User Dashboard — داشبورد کاربر'
+    phase: 1
+    priority: high
+    goal: 'Dashboard Shell مشترک با محتوای مبتنی بر نقش.'
+    stories:
+      - id: ST-08.01
+        title: 'صفحات ورود و ثبت‌نام در وب و مدیریت نشست'
+        sprint: S5
+        points: 5
+        priority: critical
+        area: [web, security]
+        story: 'به‌عنوان کاربر می‌خواهم از طریق سایت ثبت‌نام و وارد شوم.'
+        acceptance:
+          - 'فرم با Zod مشترک، پیام خطای فارسی، حالت loading'
+          - 'مسیرهای /dashboard بدون نشست به /login هدایت شوند'
+      - id: ST-08.02
+        title: 'Dashboard Shell و پروفایل کاربر'
+        sprint: S5
+        points: 5
+        priority: high
+        area: [web, api]
+        story: 'به‌عنوان کاربر می‌خواهم پروفایل و خلاصه فعالیت‌هایم را ببینم.'
+        acceptance:
+          - 'منوی داشبورد بر اساس نقش'
+          - 'ویرایش نام و موبایل با validation'
+      - id: ST-08.03
+        title: 'درخواست‌ها، تیکت‌ها، فایل‌ها و سفارش‌های من در داشبورد'
+        sprint: S7
+        points: 5
+        priority: high
+        area: [web]
+        story: 'به‌عنوان کاربر می‌خواهم وضعیت درخواست‌ها و تیکت‌هایم را در پنل ببینم.'
+        acceptance:
+          - 'حالت‌های empty/loading/error برای هر فهرست'
+
+  - id: EPIC-09
+    title: 'Research — پژوهش'
+    phase: 1
+    priority: medium
+    goal: 'معرفی پژوهش‌ها و سوابق مطالعاتی و ثبت سفارش پژوهش.'
+    stories:
+      - id: ST-09.01
+        title: 'مدل ResearchProject، API و صفحات پژوهش'
+        sprint: S7
+        points: 5
+        priority: medium
+        area: [api, web]
+        story: 'به‌عنوان بازدیدکننده می‌خواهم پژوهش‌ها و حوزه‌های مطالعاتی شرکت را ببینم.'
+        acceptance:
+          - 'فهرست و جزئیات با slug و SEO؛ فقط داده تأییدشده یا نمایشی برچسب‌دار'
+
+  - id: EPIC-10
+    title: 'Knowledge Base — دانشنامه'
+    phase: 1
+    priority: medium
+    goal: 'محتوای مرجع ساخت‌یافته جدا از مقالات.'
+    stories:
+      - id: ST-10.01
+        title: 'مدل KnowledgeArticle، API و صفحات دانشنامه'
+        sprint: S4
+        points: 5
+        priority: medium
+        area: [api, web]
+        story: 'به‌عنوان بازدیدکننده می‌خواهم مفاهیم تخصصی را در دانشنامه مطالعه کنم.'
+        acceptance:
+          - 'جدا از Article؛ منابع/references؛ JSON-LD'
+
+  - id: EPIC-11
+    title: 'Consulting & Service Requests — ثبت درخواست خدمات'
+    phase: 1
+    priority: high
+    goal: 'ثبت درخواست امکان‌سنجی، پژوهش، مشاوره، آموزش، سرمایه‌گذاری و تماس.'
+    stories:
+      - id: ST-11.01
+        title: 'مدل و API ServiceRequest (مهمان و کاربر)'
+        sprint: S7
+        points: 5
+        priority: high
+        area: [api, db]
+        story: 'به‌عنوان متقاضی می‌خواهم درخواست خدمت ثبت کنم تا کارشناس با من تماس بگیرد.'
+        acceptance:
+          - 'ثبت مهمان با rate limit؛ ثبت کاربر لینک به حساب'
+          - 'کاربر فقط درخواست‌های خودش را ببیند (تست منفی)'
+          - 'تغییر وضعیت فقط توسط support/admin و ثبت در Audit'
+      - id: ST-11.02
+        title: 'فرم‌های درخواست امکان‌سنجی، پژوهش، مشاوره و تماس در وب'
+        sprint: S7
+        points: 5
+        priority: high
+        area: [web]
+        story: 'به‌عنوان متقاضی می‌خواهم فرم ساده و روشنی برای هر خدمت داشته باشم.'
+        acceptance:
+          - 'Zod مشترک، پیام‌های فارسی، success state با کد پیگیری'
+
+  - id: EPIC-12
+    title: 'Ticketing — تیکت پشتیبانی'
+    phase: 1
+    priority: medium
+    goal: 'ارتباط کاربر و پشتیبانی از طریق تیکت.'
+    stories:
+      - id: ST-12.01
+        title: 'مدل و API Ticket و TicketMessage'
+        sprint: S7
+        points: 5
+        priority: medium
+        area: [api]
+        story: 'به‌عنوان کاربر می‌خواهم تیکت باز کنم و پاسخ پشتیبانی را ببینم.'
+        acceptance:
+          - 'کاربر فقط تیکت خودش (تست منفی)؛ پیام داخلی برای کاربر نمایش داده نشود'
+      - id: ST-12.02
+        title: 'رابط تیکت در داشبورد'
+        sprint: S7
+        points: 3
+        priority: medium
+        area: [web]
+        story: 'به‌عنوان کاربر می‌خواهم تیکت‌هایم را در پنل مدیریت کنم.'
+        acceptance:
+          - 'ایجاد، مشاهده و پاسخ با حالت‌های async کامل'
+
+  - id: EPIC-13
+    title: 'File Management — مدیریت فایل'
+    phase: 1
+    priority: high
+    goal: 'فایل به‌عنوان entity مستقل، خصوصی، با URL امضاشده.'
+    stories:
+      - id: ST-13.01
+        title: 'آپلود فایل خصوصی با اعتبارسنجی نوع و حجم'
+        sprint: S5
+        points: 5
+        priority: high
+        area: [api, security]
+        story: 'به‌عنوان متقاضی می‌خواهم مدارکم را امن بارگذاری کنم.'
+        acceptance:
+          - 'MIME allowlist + بررسی magic bytes + سقف حجم؛ checksum SHA-256'
+          - 'ذخیره خارج از web root؛ metadata کامل (owner، purpose، access، version)'
+      - id: ST-13.02
+        title: 'دانلود با URL امضاشده و زمان‌دار'
+        sprint: S5
+        points: 3
+        priority: high
+        area: [api, security]
+        story: 'به‌عنوان مالک فایل می‌خواهم فقط خودم (و افراد مجاز) به فایل دسترسی داشته باشیم.'
+        acceptance:
+          - 'تست منفی: کاربر دیگر 404؛ امضای نامعتبر/منقضی 403'
+
+  - id: EPIC-14
+    title: 'Feasibility Foundation — پایه امکان‌سنجی'
+    phase: 1
+    priority: medium
+    goal: 'فاز ۱: skeleton و قرارداد state machine؛ فاز ۳: پلتفرم کامل.'
+    stories:
+      - id: ST-14.01
+        title: 'Skeleton ماژول امکان‌سنجی و قرارداد state machine'
+        sprint: S8
+        points: 3
+        priority: medium
+        area: [api]
+        story: 'به‌عنوان معمار می‌خواهم جای ماژول امکان‌سنجی و قواعد انتقال وضعیت از امروز مشخص باشد.'
+        acceptance:
+          - 'تعریف وضعیت‌ها و transitionها به‌صورت pure با تست؛ بدون UI/DB'
+      - id: ST-14.02
+        title: 'پلتفرم امکان‌سنجی کامل (پرسشنامه، مدارک، کارشناس، تحویل)'
+        sprint: P3
+        points: 13
+        priority: medium
+        area: [api, web]
+        story: 'به‌عنوان متقاضی می‌خواهم فرآیند امکان‌سنجی را آنلاین طی کنم.'
+        acceptance:
+          - 'مطابق فاز ۳ roadmap'
+
+  - id: EPIC-15
+    title: 'Financial Engine — موتور مالی'
+    phase: 1
+    priority: low
+    goal: 'فاز ۱: Interface؛ فاز ۴: پیاده‌سازی deterministic.'
+    stories:
+      - id: ST-15.01
+        title: 'Interfaceهای FinancialCalculator و مدل ورودی/خروجی نسخه‌دار'
+        sprint: S8
+        points: 2
+        priority: low
+        area: [api]
+        story: 'به‌عنوان معمار می‌خواهم قرارداد موتور مالی مستقل از UI و ORM تعریف شود.'
+        acceptance:
+          - 'انواع NPV، IRR، MIRR، Payback، DSCR، Break-even، WACC، سناریو'
+      - id: ST-15.02
+        title: 'پیاده‌سازی محاسبات مالی با تست‌های deterministic'
+        sprint: P4
+        points: 13
+        priority: medium
+        area: [api]
+        story: 'به‌عنوان کارشناس می‌خواهم شاخص‌های مالی دقیق محاسبه شوند.'
+        acceptance:
+          - 'استراتژی دقت اعشاری مستند؛ تست edge case'
+
+  - id: EPIC-16
+    title: 'Investment Opportunities — فرصت‌های سرمایه‌گذاری'
+    phase: 1
+    priority: medium
+    goal: 'فاز ۱: کاتالوگ معرفی بدون تراکنش.'
+    stories:
+      - id: ST-16.01
+        title: 'مدل InvestmentOpportunity، API و صفحات کاتالوگ'
+        sprint: S8
+        points: 5
+        priority: medium
+        area: [api, web]
+        story: 'به‌عنوان سرمایه‌گذار می‌خواهم فرصت‌های معرفی‌شده را ببینم.'
+        acceptance:
+          - 'بدون ادعای «باز برای سرمایه‌گذاری» مگر داده واقعی؛ داده نمایشی برچسب‌دار'
+          - 'بدون هیچ تراکنش؛ فرم ابراز علاقه به‌صورت ServiceRequest'
+      - id: ST-16.02
+        title: 'Watchlist و داشبورد سرمایه‌گذار'
+        sprint: P5
+        points: 8
+        priority: medium
+        area: [api, web]
+        story: 'به‌عنوان سرمایه‌گذار می‌خواهم فرصت‌ها را دنبال کنم.'
+        acceptance:
+          - 'مطابق فاز ۵ roadmap'
+
+  - id: EPIC-17
+    title: 'Iran Sahamdar Integration — اتصال ایران سهامدار'
+    phase: 1
+    priority: low
+    goal: 'فاز ۱: Interface + Mock؛ فاز ۶: اتصال واقعی پس از دریافت spec.'
+    stories:
+      - id: ST-17.01
+        title: 'IranSahamdarClient، Mock Provider و مستند integration'
+        sprint: S8
+        points: 3
+        priority: low
+        area: [api, docs]
+        story: 'به‌عنوان معمار می‌خواهم مرز integration آماده باشد بدون حدس API واقعی.'
+        acceptance:
+          - 'docs/integrations/iran-sahamdar.md؛ contract test روی mock'
+      - id: ST-17.02
+        title: 'Adapter واقعی ایران سهامدار'
+        sprint: P6
+        points: 13
+        priority: medium
+        area: [api]
+        story: 'به‌عنوان کاربر می‌خواهم پروژه‌ها به ایران سهامدار متصل شوند.'
+        acceptance:
+          - 'پس از OQ-06'
+
+  - id: EPIC-18
+    title: 'AI Foundation — پایه هوش مصنوعی'
+    phase: 1
+    priority: low
+    goal: 'فاز ۱: Interface؛ فاز ۷: Assistant و تحلیل اسناد.'
+    stories:
+      - id: ST-18.01
+        title: 'Interfaceهای AiProvider و RetrievalProvider با قاعده authorization-before-retrieval'
+        sprint: S8
+        points: 2
+        priority: low
+        area: [api]
+        story: 'به‌عنوان معمار می‌خواهم AI provider-agnostic باشد.'
+        acceptance:
+          - 'امضای retrieval شامل principal اجباری'
+      - id: ST-18.02
+        title: 'AI Assistant و Document Analysis'
+        sprint: P7
+        points: 13
+        priority: medium
+        area: [api, web]
+        story: 'به‌عنوان متقاضی می‌خواهم دستیار هوشمند اطلاعات ناقص پروژه را تشخیص دهد.'
+        acceptance:
+          - 'خروجی مشورتی و قابل تأیید کارشناس'
+
+  - id: EPIC-19
+    title: 'Security Hardening — سخت‌سازی امنیتی'
+    phase: 1
+    priority: high
+    goal: 'پیاده‌سازی security baseline.'
+    stories:
+      - id: ST-19.01
+        title: 'Security headers در API (helmet) و وب (CSP، HSTS)'
+        sprint: S5
+        points: 3
+        priority: high
+        area: [security, web, api]
+        story: 'به‌عنوان مسئول امنیت می‌خواهم headerهای امنیتی استاندارد فعال باشند.'
+        acceptance:
+          - 'تست وجود headerها'
+      - id: ST-19.02
+        title: 'بررسی CSRF برای mutationهای مبتنی بر cookie'
+        sprint: S5
+        points: 2
+        priority: high
+        area: [security, api]
+        story: 'به‌عنوان مسئول امنیت می‌خواهم حملات CSRF مسدود شوند.'
+        acceptance:
+          - 'تست منفی: درخواست cookie-auth بدون X-Requested-With رد شود'
+
+  - id: EPIC-20
+    title: 'SEO & Analytics'
+    phase: 1
+    priority: high
+    goal: 'SEO بخشی از مدل داده و رندر.'
+    stories:
+      - id: ST-20.01
+        title: 'sitemap.xml پویا، robots.txt، canonical، Open Graph و JSON-LD'
+        sprint: S4
+        points: 5
+        priority: high
+        area: [web]
+        story: 'به‌عنوان مالک سایت می‌خواهم صفحات به‌درستی ایندکس شوند.'
+        acceptance:
+          - 'sitemap از entityهای منتشرشده؛ Organization و BreadcrumbList JSON-LD'
+      - id: ST-20.02
+        title: 'Analytics (provider-agnostic، رعایت حریم خصوصی)'
+        sprint: P2
+        points: 3
+        priority: low
+        area: [web]
+        story: 'به‌عنوان مالک سایت می‌خواهم رفتار کاربران را بدون نقض حریم خصوصی تحلیل کنم.'
+        acceptance:
+          - 'پس از تصمیم درباره provider'
+
+  - id: EPIC-21
+    title: 'QA & Release — تضمین کیفیت و انتشار'
+    phase: 1
+    priority: high
+    goal: 'ماتریس تست، بازبینی و انتشار نسخه‌ها.'
+    stories:
+      - id: ST-21.01
+        title: 'ماتریس تست و QA پایان فاز ۱'
+        sprint: S8
+        points: 3
+        priority: high
+        area: [qa, docs]
+        story: 'به‌عنوان تیم می‌خواهم پوشش تست نسبت به نیازمندی‌ها مشخص باشد.'
+        acceptance:
+          - 'docs/qa/test-matrix.md به‌روز؛ مشکلات با severity ثبت'
+      - id: ST-21.02
+        title: 'انتشار v0.1.0 (فاز ۰) و v0.2.0 (فاز ۱) با CHANGELOG'
+        sprint: S8
+        points: 2
+        priority: high
+        area: [infra]
+        story: 'به‌عنوان مالک محصول می‌خواهم نسخه‌های قابل ردیابی داشته باشم.'
+        acceptance:
+          - 'Release PR develop→main، tag و GitHub Release'
+
+  - id: EPIC-22
+    title: 'Blockchain / Tokenization'
+    phase: future
+    priority: low
+    goal: 'R&D؛ هیچ شبکه یا استاندارد توکن فرض نمی‌شود.'
+    stories:
+      - id: ST-22.01
+        title: 'Interfaceهای BlockchainNetworkAdapter و WalletProvider'
+        sprint: S8
+        points: 1
+        priority: low
+        area: [api]
+        story: 'به‌عنوان معمار می‌خواهم جای بلاک‌چین در معماری مشخص باشد.'
+        acceptance:
+          - 'فقط Interface، بدون پیاده‌سازی'
+      - id: ST-22.02
+        title: 'پیاده‌سازی توکن‌سازی'
+        sprint: P8
+        points: 13
+        priority: low
+        area: [api]
+        story: 'پس از تعیین مدل حقوقی و کسب‌وکار.'
+        acceptance:
+          - 'مطابق فاز ۸ roadmap'
+
+  - id: EPIC-23
+    title: 'PWA / Mobile'
+    phase: future
+    priority: low
+    goal: 'کلاینت‌های موبایل روی همان APIها.'
+    stories:
+      - id: ST-23.01
+        title: 'PWA و Push Notification'
+        sprint: P9
+        points: 8
+        priority: low
+        area: [web]
+        story: 'به‌عنوان کاربر موبایل می‌خواهم سایت را نصب کنم و اعلان دریافت کنم.'
+        acceptance:
+          - 'پس از تثبیت APIهای اصلی'
