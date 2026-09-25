@@ -1,0 +1,106 @@
+import { Controller, type INestApplication, Post } from '@nestjs/common';
+import { Test } from '@nestjs/testing';
+import { loginSchema, type LoginInput } from '@roshd/validation';
+import request from 'supertest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { AppModule } from '../src/app.module';
+import { configureApp } from '../src/bootstrap';
+import { Public } from '../src/common/decorators/public.decorator';
+import { ZodBody } from '../src/common/http/zod';
+import { HealthRegistry } from '../src/modules/health/health.registry';
+
+@Public()
+@Controller('e2e-probe')
+class ProbeController {
+  @Post('echo')
+  echo(@ZodBody(loginSchema) body: LoginInput) {
+    return { email: body.email };
+  }
+
+  @Post('boom')
+  boom() {
+    throw new Error('secret internal detail');
+  }
+}
+
+describe('HTTP foundation (e2e)', () => {
+  let app: INestApplication;
+
+  beforeAll(async () => {
+    const moduleRef = await Test.createTestingModule({
+      imports: [AppModule],
+      controllers: [ProbeController],
+    }).compile();
+    app = moduleRef.createNestApplication({ bufferLogs: true });
+    configureApp(app);
+    await app.init();
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  it('GET /api/v1/health/live returns the success envelope with a request id', async () => {
+    const res = await request(app.getHttpServer()).get('/api/v1/health/live').expect(200);
+    expect(res.body.data).toEqual({ status: 'ok' });
+    expect(res.body.meta.requestId).toBe(res.headers['x-request-id']);
+  });
+
+  it('echoes a well-formed client request id and rejects malformed ones', async () => {
+    const ok = await request(app.getHttpServer())
+      .get('/api/v1/health/live')
+      .set('X-Request-Id', 'client-123');
+    expect(ok.headers['x-request-id']).toBe('client-123');
+
+    const bad = await request(app.getHttpServer())
+      .get('/api/v1/health/live')
+      .set('X-Request-Id', 'bad id <script>');
+    expect(bad.headers['x-request-id']).not.toBe('bad id <script>');
+  });
+
+  it('sets security headers and hides the framework', async () => {
+    const res = await request(app.getHttpServer()).get('/api/v1/health/live');
+    expect(res.headers['x-content-type-options']).toBe('nosniff');
+    expect(res.headers['x-powered-by']).toBeUndefined();
+  });
+
+  it('returns 404 in the error envelope for unknown routes', async () => {
+    const res = await request(app.getHttpServer()).get('/api/v1/nope').expect(404);
+    expect(res.body.error.code).toBe('NOT_FOUND');
+    expect(res.body.error.requestId).toBe(res.headers['x-request-id']);
+  });
+
+  it('returns VALIDATION_FAILED with field details', async () => {
+    const res = await request(app.getHttpServer())
+      .post('/api/v1/e2e-probe/echo')
+      .send({ email: 'not-email' })
+      .expect(400);
+    expect(res.body.error.code).toBe('VALIDATION_FAILED');
+    expect(res.body.error.details).toEqual(
+      expect.arrayContaining([expect.objectContaining({ path: 'email' })]),
+    );
+  });
+
+  it('passes validated, normalised data to the handler', async () => {
+    const res = await request(app.getHttpServer())
+      .post('/api/v1/e2e-probe/echo')
+      .send({ email: ' USER@Example.com ', password: 'x' })
+      .expect(201);
+    expect(res.body.data).toEqual({ email: 'user@example.com' });
+  });
+
+  it('never leaks internal error details', async () => {
+    const res = await request(app.getHttpServer()).post('/api/v1/e2e-probe/boom').expect(500);
+    expect(res.body.error.code).toBe('INTERNAL_ERROR');
+    expect(JSON.stringify(res.body)).not.toContain('secret internal detail');
+  });
+
+  it('readiness turns 503 when a dependency is down', async () => {
+    await request(app.getHttpServer()).get('/api/v1/health/ready').expect(200);
+
+    app.get(HealthRegistry).register('fake-dependency', () => Promise.reject(new Error('down')));
+    const res = await request(app.getHttpServer()).get('/api/v1/health/ready').expect(503);
+    expect(res.body.error.code).toBe('SERVICE_UNAVAILABLE');
+    expect(res.body.error.details).toEqual([{ path: 'fake-dependency', message: 'down' }]);
+  });
+});

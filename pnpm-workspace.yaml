@@ -1,6 +1,12 @@
 packages:
   - 'apps/*'
   - 'packages/*'
+
+# Dependencies allowed to run install scripts (pnpm blocks all others by default)
+allowBuilds:
+  '@swc/core': true
+  '@scarf/scarf': false # telemetry
+
 minimumReleaseAgeExclude:
   - '@turbo/darwin-64@2.11.4'
   - '@turbo/darwin-arm64@2.11.4'
@@ -9,3 +15,4 @@ minimumReleaseAgeExclude:
   - '@turbo/windows-64@2.11.4'
   - '@turbo/windows-arm64@2.11.4'
   - turbo@2.11.4
+  - nestjs-pino@5.2.1
