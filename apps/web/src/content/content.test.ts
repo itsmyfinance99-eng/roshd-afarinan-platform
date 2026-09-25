@@ -1,23 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import {
-  demoArticles,
-  demoCourses,
-  demoKnowledge,
-  demoProjects,
-  demoResearch,
-  sectors,
-} from './demo';
+import { demoCourses, demoProjects, demoResearch, sectors } from './demo';
 import { journeys, MAIN_NAV_KEYS, navigation, pathSteps, UTILITY_NAV_KEYS } from './site';
 
 describe('content layer invariants', () => {
   it('flags every demo record so the UI can label it', () => {
-    for (const record of [
-      ...demoProjects,
-      ...demoCourses,
-      ...demoResearch,
-      ...demoKnowledge,
-      ...demoArticles,
-    ]) {
+    for (const record of [...demoProjects, ...demoCourses, ...demoResearch]) {
       expect(record.isDemo).toBe(true);
     }
   });
@@ -44,7 +31,7 @@ describe('content layer invariants', () => {
   });
 
   it('uses valid ISO dates', () => {
-    for (const e of [...demoResearch, ...demoKnowledge, ...demoArticles]) {
+    for (const e of demoResearch) {
       expect(Number.isNaN(Date.parse(e.date))).toBe(false);
     }
   });

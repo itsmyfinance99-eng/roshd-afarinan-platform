@@ -2,7 +2,8 @@ import { Container, DemoBadge, EmptyState, toPersianDigits } from '@roshd/ui';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { PageIntro } from '@/components/layout/page-shell';
-import { searchLocalContent } from '@/lib/local-search';
+import { listContent } from '@/lib/content-api';
+import { type LocalHit, searchLocalContent } from '@/lib/local-search';
 import { pageMetadata } from '@/lib/seo';
 
 export const metadata: Metadata = pageMetadata({ title: 'جستجو', path: '/search', noIndex: true });
@@ -14,7 +15,27 @@ export default async function SearchPage({
 }) {
   const raw = (await searchParams).q;
   const query = (typeof raw === 'string' ? raw : '').trim().slice(0, 100);
-  const hits = searchLocalContent(query);
+  const [articles, knowledge] = query
+    ? await Promise.all([
+        listContent('ARTICLE', { q: query, pageSize: 10 }),
+        listContent('KNOWLEDGE', { q: query, pageSize: 10 }),
+      ])
+    : [null, null];
+  const cmsHits: LocalHit[] = [
+    ...(articles?.ok ? articles.data : []).map((a) => ({
+      title: a.title,
+      type: 'مقاله',
+      href: `/articles/${a.slug}`,
+      isDemo: a.isDemo,
+    })),
+    ...(knowledge?.ok ? knowledge.data : []).map((k) => ({
+      title: k.title,
+      type: 'دانشنامه',
+      href: `/knowledge/${k.slug}`,
+      isDemo: k.isDemo,
+    })),
+  ];
+  const hits = [...cmsHits, ...searchLocalContent(query)];
 
   return (
     <>

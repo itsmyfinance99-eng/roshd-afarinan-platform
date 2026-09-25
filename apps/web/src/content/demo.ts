@@ -2,7 +2,8 @@
  * DEMO ONLY — sample records from the Claude Design handoff (design/claude-design/project/mock-data.js).
  * They let the UI be reviewed before the CMS/catalog APIs exist. Every record is flagged
  * `isDemo: true` and rendered with a «نمونه نمایشی» label. Replace with API repositories
- * (EPIC-03/06/09/10/16); never present these as real projects, courses or research.
+ * (EPIC-06/09/16); never present these as real projects, courses or research.
+ * Articles and knowledge entries now come from the CMS (demo copies: `pnpm db:seed:demo`).
  */
 import type { DemoCourse, DemoEntry, DemoProject, SectorKey } from './types';
 
@@ -173,107 +174,5 @@ export const demoResearch: DemoEntry[] = [
     summary: 'بررسی نمونه عرضه و تقاضا در بازار مصالح.',
     category: 'اقتصادی',
     date: '2026-04-29',
-  },
-];
-
-export const demoKnowledge: DemoEntry[] = [
-  {
-    id: 'k1',
-    isDemo: true,
-    title: 'امکان‌سنجی چیست؟',
-    summary: 'تعریف، مراحل و خروجی‌های یک مطالعه امکان‌سنجی.',
-    category: 'امکان‌سنجی',
-    date: '2026-08-24',
-  },
-  {
-    id: 'k2',
-    isDemo: true,
-    title: 'طرح توجیهی',
-    summary: 'اجزای اصلی طرح توجیهی و تفاوت آن با امکان‌سنجی.',
-    category: 'امکان‌سنجی',
-    date: '2026-08-11',
-  },
-  {
-    id: 'k3',
-    isDemo: true,
-    title: 'نرخ بازده داخلی (IRR)',
-    summary: 'مفهوم و کاربرد نرخ بازده داخلی در ارزیابی طرح‌ها.',
-    category: 'مالی',
-    date: '2026-07-23',
-  },
-  {
-    id: 'k4',
-    isDemo: true,
-    title: 'تأمین مالی پروژه',
-    summary: 'آشنایی با ساختار تأمین مالی مبتنی بر پروژه.',
-    category: 'تأمین مالی',
-    date: '2026-07-09',
-  },
-  {
-    id: 'k5',
-    isDemo: true,
-    title: 'ارزش فعلی خالص (NPV)',
-    summary: 'روش محاسبه و تفسیر ارزش فعلی خالص.',
-    category: 'مالی',
-    date: '2026-06-25',
-  },
-  {
-    id: 'k6',
-    isDemo: true,
-    title: 'توکنایز کردن دارایی',
-    summary: 'مفهوم پایه‌ای بازنمایی دیجیتال دارایی‌های واقعی.',
-    category: 'فناوری',
-    date: '2026-06-12',
-  },
-];
-
-export const demoArticles: DemoEntry[] = [
-  {
-    id: 'a1',
-    isDemo: true,
-    title: 'نمونه مقاله: نقش امکان‌سنجی در کاهش ریسک',
-    summary: 'چرا مطالعه پیش از اجرا اهمیت دارد.',
-    category: 'امکان‌سنجی',
-    date: '2026-09-09',
-  },
-  {
-    id: 'a2',
-    isDemo: true,
-    title: 'نمونه مقاله: انتخاب روش تأمین مالی',
-    summary: 'معیارهای انتخاب روش مناسب تأمین مالی.',
-    category: 'تأمین مالی',
-    date: '2026-08-26',
-  },
-  {
-    id: 'a3',
-    isDemo: true,
-    title: 'نمونه مقاله: آموزش سرمایه‌گذاری برای مدیران',
-    summary: 'مفاهیمی که مدیران باید بشناسند.',
-    category: 'آموزش',
-    date: '2026-08-18',
-  },
-  {
-    id: 'a4',
-    isDemo: true,
-    title: 'نمونه مقاله: داده در تصمیم‌گیری صنعتی',
-    summary: 'استفاده از داده در مطالعات صنعتی.',
-    category: 'پژوهش',
-    date: '2026-08-01',
-  },
-  {
-    id: 'a5',
-    isDemo: true,
-    title: 'نمونه مقاله: خطاهای رایج در طرح توجیهی',
-    summary: 'اشتباهاتی که در تدوین طرح توجیهی تکرار می‌شوند.',
-    category: 'امکان‌سنجی',
-    date: '2026-07-20',
-  },
-  {
-    id: 'a6',
-    isDemo: true,
-    title: 'نمونه مقاله: مسیر از پژوهش تا پروژه',
-    summary: 'پیوند مطالعات پژوهشی با تعریف پروژه.',
-    category: 'پژوهش',
-    date: '2026-07-02',
   },
 ];

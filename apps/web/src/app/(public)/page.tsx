@@ -13,7 +13,7 @@ import Link from 'next/link';
 import { ContentCard, CourseCard } from '@/components/cards/cards';
 import { InvestmentPreview } from '@/components/sections/investment-preview';
 import { ProcessSteps } from '@/components/sections/process-steps';
-import { demoCourses, demoKnowledge, demoProjects, demoResearch, sectors } from '@/content/demo';
+import { demoCourses, demoProjects, demoResearch, sectors } from '@/content/demo';
 import {
   consultingServices,
   credentials,
@@ -26,13 +26,20 @@ import {
   processSteps,
   stats,
 } from '@/content/site';
+import { listContent } from '@/lib/content-api';
 import { jsonLdScript, organizationJsonLd, pageMetadata } from '@/lib/seo';
 
 export const metadata: Metadata = pageMetadata({ path: '/' });
 
+/** Static page refreshed every 5 minutes so newly published knowledge entries appear. */
+export const revalidate = 300;
+
 const allLink = 'text-[15px] font-bold text-primary no-underline';
 
-export default function HomePage() {
+export default async function HomePage() {
+  const knowledge = await listContent('KNOWLEDGE', { pageSize: 3 });
+  const latestKnowledge = knowledge.ok ? knowledge.data : [];
+
   return (
     <>
       <script
@@ -315,11 +322,29 @@ export default function HomePage() {
                 همه ‹
               </Link>
             </div>
-            <div className="flex flex-col gap-3">
-              {demoKnowledge.slice(0, 3).map((item) => (
-                <ContentCard key={item.id} item={item} cta="مطالعه مدخل" href="/knowledge" />
-              ))}
-            </div>
+            {latestKnowledge.length === 0 ? (
+              <p className="rounded-card border border-dashed border-line-strong bg-white p-6 text-sm text-ink-4">
+                مدخل‌های دانشنامه به‌زودی منتشر می‌شوند.
+              </p>
+            ) : (
+              <div className="flex flex-col gap-3">
+                {latestKnowledge.map((entry) => (
+                  <ContentCard
+                    key={entry.id}
+                    item={{
+                      id: entry.id,
+                      title: entry.title,
+                      summary: entry.excerpt ?? '',
+                      category: entry.category?.name ?? '',
+                      date: entry.publishedAt ?? entry.updatedAt,
+                      isDemo: entry.isDemo,
+                    }}
+                    cta="مطالعه مدخل"
+                    href={`/knowledge/${entry.slug}`}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         </Container>
       </Section>

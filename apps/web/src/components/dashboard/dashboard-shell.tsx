@@ -29,6 +29,7 @@ const NAV: NavItem[] = [
     label: 'مدیریت درخواست‌ها',
     permission: 'requests:read-all',
   },
+  { href: '/dashboard/content', label: 'مدیریت محتوا', permission: 'cms:write' },
 ];
 
 export function DashboardShell({ children }: { children: ReactNode }) {

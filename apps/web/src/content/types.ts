@@ -67,6 +67,17 @@ export interface DemoCourse extends DemoFlag {
   free: boolean;
 }
 
+/** Minimal data for a content card (demo records or CMS summaries). */
+export interface EntryCardData {
+  id: string;
+  title: string;
+  summary: string;
+  category: string;
+  /** ISO date (rendered in the Persian calendar). */
+  date: string;
+  isDemo: boolean;
+}
+
 export interface DemoEntry extends DemoFlag {
   id: string;
   title: string;

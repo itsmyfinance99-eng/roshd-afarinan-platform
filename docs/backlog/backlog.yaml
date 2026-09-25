@@ -302,6 +302,7 @@ epics:
     goal: 'مدیریت صفحات، مقالات، دسته‌ها، نویسندگان و SEO به‌عنوان بخشی از مدل داده.'
     stories:
       - id: ST-03.01
+        status: done
         title: 'مدل محتوا: Article، Category، Tag، Author با فیلدهای SEO'
         sprint: S4
         points: 5
@@ -312,6 +313,7 @@ epics:
           - 'slug یکتا، وضعیت DRAFT/PUBLISHED/ARCHIVED، metaTitle، metaDescription، canonical و noIndex'
           - 'migration و seed نمونه (با برچسب نمایشی)'
       - id: ST-03.02
+        status: done
         title: 'API مدیریت محتوا با مجوز editor و انتشار'
         sprint: S4
         points: 5
@@ -322,6 +324,7 @@ epics:
           - 'فقط نقش‌های دارای cms.* مجاز باشند (تست منفی)'
           - 'انتشار و آرشیو در Audit Log ثبت شود'
       - id: ST-03.03
+        status: done
         title: 'API عمومی خواندن محتوا (فقط منتشرشده) با صفحه‌بندی'
         sprint: S4
         points: 3
@@ -588,6 +591,7 @@ epics:
     goal: 'محتوای مرجع ساخت‌یافته جدا از مقالات.'
     stories:
       - id: ST-10.01
+        status: done
         title: 'مدل KnowledgeArticle، API و صفحات دانشنامه'
         sprint: S4
         points: 5
@@ -841,6 +845,7 @@ epics:
     goal: 'SEO بخشی از مدل داده و رندر.'
     stories:
       - id: ST-20.01
+        status: done
         title: 'sitemap.xml پویا، robots.txt، canonical، Open Graph و JSON-LD'
         sprint: S4
         points: 5

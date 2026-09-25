@@ -104,65 +104,6 @@ export function EntryCatalog({
   );
 }
 
-/** Searchable glossary list (knowledge base). */
-export function KnowledgeCatalog({ items }: { items: DemoEntry[] }) {
-  const [category, setCategory] = useState(ALL);
-  const [query, setQuery] = useState('');
-  const options = useMemo(() => categoryOptions(items), [items]);
-  const q = query.trim();
-  const visible = items.filter(
-    (k) =>
-      (category === ALL || k.category === category) &&
-      (!q || k.title.includes(q) || k.summary.includes(q)),
-  );
-
-  return (
-    <>
-      <label htmlFor="kq" className="mb-2 block text-sm font-bold text-ink-2">
-        جستجو در دانشنامه
-      </label>
-      <input
-        id="kq"
-        type="search"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        placeholder="مثلاً: طرح توجیهی"
-        className="h-[54px] w-full rounded-control border border-line-strong px-4 text-base outline-none focus-visible:border-primary"
-      />
-      <div className="mt-4 mb-7">
-        <ChipGroup
-          label="دسته"
-          options={options}
-          value={category}
-          onChange={setCategory}
-          size="sm"
-        />
-      </div>
-      <p aria-live="polite" className="sr-only">
-        {toPersianDigits(visible.length)} مدخل
-      </p>
-      {visible.length === 0 ? (
-        <EmptyState title="مدخلی یافت نشد" description="عبارت دیگری را جستجو کنید." />
-      ) : (
-        <ul className="border-t border-line-2">
-          {visible.map((k) => (
-            <li key={k.id} className="border-b border-line-2">
-              <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-1.5 py-5">
-                <span className="text-lg font-extrabold text-brand-900">{k.title}</span>
-                <span className="text-[13px] font-bold text-primary">{k.category}</span>
-                <span className="text-sm leading-[1.9] text-ink-4">{k.summary}</span>
-                <time dateTime={k.date} className="text-[13px] text-ink-5">
-                  {formatDateFa(k.date)}
-                </time>
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
-    </>
-  );
-}
-
 const ALL_STAGES = 'همه مراحل';
 
 export function InvestmentCatalog({
