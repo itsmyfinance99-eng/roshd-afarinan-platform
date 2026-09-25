@@ -37,6 +37,13 @@ export const envSchema = z.object({
   /** Defaults to true in production. */
   COOKIE_SECURE: bool.optional(),
   COOKIE_DOMAIN: z.string().optional(),
+
+  /** Payment provider (OQ-09). Defaults: mock outside production, disabled in production. */
+  PAYMENT_PROVIDER: z.enum(['disabled', 'mock']).optional(),
+  STORAGE_DRIVER: z.enum(['local']).default('local'),
+  /** Private directory for uploaded files; must not be web-served. */
+  STORAGE_LOCAL_DIR: z.string().min(1).default('storage'),
+  NOTIFICATION_DRIVER: z.enum(['log']).default('log'),
 });
 
 export type Env = z.infer<typeof envSchema>;

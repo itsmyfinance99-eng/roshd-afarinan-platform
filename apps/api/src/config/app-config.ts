@@ -2,7 +2,8 @@ import { envSchema, type Env } from './env.schema';
 
 export const APP_CONFIG = Symbol('APP_CONFIG');
 
-export interface AppConfig extends Env {
+export interface AppConfig extends Omit<Env, 'PAYMENT_PROVIDER'> {
+  PAYMENT_PROVIDER: 'disabled' | 'mock';
   isProduction: boolean;
   isTest: boolean;
   swaggerEnabled: boolean;
@@ -28,8 +29,15 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   }
   const config = result.data;
   const isProduction = config.NODE_ENV === 'production';
+  const paymentProvider = config.PAYMENT_PROVIDER ?? (isProduction ? 'disabled' : 'mock');
+  if (isProduction && paymentProvider === 'mock') {
+    throw new ConfigValidationError([
+      'PAYMENT_PROVIDER: the mock gateway is not allowed in production',
+    ]);
+  }
   return {
     ...config,
+    PAYMENT_PROVIDER: paymentProvider,
     isProduction,
     isTest: config.NODE_ENV === 'test',
     swaggerEnabled: config.SWAGGER_ENABLED ?? !isProduction,
