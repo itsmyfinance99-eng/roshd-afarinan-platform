@@ -46,9 +46,32 @@ export function SiteFooter() {
 
         <div className="flex flex-col gap-2.5 text-sm">
           <h2 className="mb-1.5 text-[15px] font-bold text-white">تماس</h2>
-          <span>{contact.address}</span>
-          <span>{contact.phone}</span>
-          <span>{contact.email}</span>
+          <address className="flex flex-col gap-2.5 not-italic">
+            <span>{contact.address}</span>
+            <span>کد پستی: {contact.postalCode}</span>
+            <a href={contact.phoneHref} className="text-on-dark no-underline hover:text-white">
+              تلفن: <span dir="ltr">{contact.phone}</span>
+            </a>
+            <a
+              href={`mailto:${contact.email}`}
+              className="text-on-dark no-underline hover:text-white"
+            >
+              <span dir="ltr">{contact.email}</span>
+            </a>
+          </address>
+          <div className="mt-1 flex flex-wrap gap-2" aria-label="شبکه‌های اجتماعی">
+            {contact.social.map((item) => (
+              <a
+                key={item.key}
+                href={item.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex h-9 items-center rounded-control border border-[#2a417a] px-2.5 text-xs text-on-dark no-underline hover:text-white"
+              >
+                {item.label}
+              </a>
+            ))}
+          </div>
           <Link href="/contact" className="mt-2 font-bold text-white no-underline hover:underline">
             فرم تماس با ما ‹
           </Link>
@@ -57,7 +80,7 @@ export function SiteFooter() {
       <div className="border-t border-brand-800">
         <div className="mx-auto flex max-w-(--container-page) flex-wrap justify-between gap-4 px-6 py-5 text-[13px] text-on-dark-2">
           <span>
-            © {year} {site.name}. همه حقوق محفوظ است.
+            © {year} {site.legalName}. همه حقوق محفوظ است.
           </span>
           <div className="flex gap-5">
             <Link href="/privacy" className="text-on-dark no-underline hover:text-white">

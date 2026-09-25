@@ -15,6 +15,8 @@ import type {
 
 export const site = {
   name: 'رشدآفرینان صنعت و معدن',
+  /** Registered legal name (company documents, A-01). */
+  legalName: 'شرکت تعاونی رشد آفرینان صنعت و معدن یزد',
   shortName: 'رشدآفرینان',
   tagline: 'صنعت و معدن',
   description:
@@ -217,12 +219,24 @@ export const faq: FaqItem[] = [
   },
 ];
 
-/** Contact details are placeholders until the company confirms them (OQ-18). */
+/** Official contact details confirmed by the company (OQ-18, 2026-09-25). */
 export const contact = {
-  confirmed: false,
-  address: 'نشانی دفتر مرکزی (به‌زودی)',
-  phone: 'تلفن تماس (به‌زودی)',
-  email: 'ایمیل (به‌زودی)',
-  hours: 'ساعات کاری (به‌زودی)',
-  social: [] as { label: string; href: string }[],
+  confirmed: true,
+  city: 'یزد',
+  address: 'یزد، خیابان شهید مطهری، پارک علم و فناوری اقبال',
+  postalCode: '۸۹۱۵۹-۰۴۹۷۳',
+  /** Display form with Persian digits; `phoneHref` is the dialable E.164 form. */
+  phone: '۰۳۵-۳۸۳۴۵۸۹۰',
+  phoneHref: 'tel:+983538345890',
+  email: 'Roshdafarinan.yazd@gmail.com',
+  /** Working hours have not been provided yet. */
+  hours: null as string | null,
+  social: [
+    {
+      key: 'instagram',
+      label: 'اینستاگرام',
+      handle: 'Roshdafarinan_yazd',
+      href: 'https://www.instagram.com/Roshdafarinan_yazd',
+    },
+  ],
 };
