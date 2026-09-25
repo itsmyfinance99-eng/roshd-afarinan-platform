@@ -385,6 +385,7 @@ epics:
           - 'mock-data به content layer / repositoryهای typed منتقل شود؛ business logic در کامپوننت‌های بصری نباشد'
           - 'نقشه integration: route mapping، component reuse و تعارض‌ها مستند شود'
       - id: ST-04.03
+        status: done
         title: 'صفحه اصلی با Hero و چهار مسیر اصلی'
         sprint: S3
         points: 8
@@ -397,6 +398,7 @@ epics:
           - 'بخش اعتماد (۵۰+ کارشناس، از ۱۳۸۸، آموزش/پژوهش/مشاوره) بدون ادعای اضافه'
           - 'سوابق تخصصی، دوره‌ها، پژوهش/دانشنامه، فرصت‌ها، فرآیند همکاری، CTA نهایی'
       - id: ST-04.04
+        status: done
         title: 'صفحات درباره ما، خدمات و تماس با ما'
         sprint: S3
         points: 5
@@ -407,6 +409,7 @@ epics:
           - 'مجوزها و عضویت‌ها فقط طبق رزومه'
           - 'فرم تماس با validation، حالت‌های loading/success/error'
       - id: ST-04.05
+        status: done
         title: 'صفحات مسیرها: آموزش، امکان‌سنجی، پژوهش، مشاوره، فرصت‌ها و ایران سهامدار'
         sprint: S3
         points: 8
@@ -417,6 +420,7 @@ epics:
           - 'هر صفحه metadata، canonical، breadcrumb و CTA داشته باشد'
           - 'صفحه ایران سهامدار بدون ادعای اتصال فعال (برچسب «به‌زودی»)'
       - id: ST-04.06
+        status: done
         title: 'تست‌های e2e (Playwright) برای صفحات کلیدی و RTL'
         sprint: S3
         points: 3
@@ -610,6 +614,7 @@ epics:
           - 'کاربر فقط درخواست‌های خودش را ببیند (تست منفی)'
           - 'تغییر وضعیت فقط توسط support/admin و ثبت در Audit'
       - id: ST-11.02
+        status: done
         title: 'فرم‌های درخواست امکان‌سنجی، پژوهش، مشاوره و تماس در وب'
         sprint: S7
         points: 5

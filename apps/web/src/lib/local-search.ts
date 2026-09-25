@@ -1,0 +1,52 @@
+import { normalizePersianText } from '@roshd/validation';
+import {
+  demoArticles,
+  demoCourses,
+  demoKnowledge,
+  demoProjects,
+  demoResearch,
+} from '@/content/demo';
+import { consultingServices, journeys } from '@/content/site';
+
+export interface LocalHit {
+  title: string;
+  type: string;
+  href: string;
+  isDemo: boolean;
+}
+
+/**
+ * Interim search over the content layer until the SearchProvider API (EPIC-05) is live.
+ * Matching is a normalised substring match (Arabic ي/ك folded to Persian).
+ */
+export function searchLocalContent(query: string, limit = 30): LocalHit[] {
+  const q = normalizePersianText(query).toLowerCase();
+  if (!q) return [];
+  const match = (...fields: string[]) =>
+    fields.some((f) => normalizePersianText(f).toLowerCase().includes(q));
+
+  const hits: LocalHit[] = [
+    ...journeys
+      .filter((j) => match(j.title, j.description))
+      .map((j) => ({ title: j.title, type: 'مسیر اصلی', href: j.href, isDemo: false })),
+    ...consultingServices
+      .filter((s) => match(s.title, s.description))
+      .map((s) => ({ title: s.title, type: 'مشاوره', href: '/consulting', isDemo: false })),
+    ...demoCourses
+      .filter((c) => match(c.title, c.category))
+      .map((c) => ({ title: c.title, type: 'دوره', href: '/training', isDemo: c.isDemo })),
+    ...demoProjects
+      .filter((p) => match(p.title, p.sectorLabel, p.location))
+      .map((p) => ({ title: p.title, type: 'پروژه', href: '/investment', isDemo: p.isDemo })),
+    ...demoResearch
+      .filter((r) => match(r.title, r.summary, r.category))
+      .map((r) => ({ title: r.title, type: 'پژوهش', href: '/research', isDemo: r.isDemo })),
+    ...demoKnowledge
+      .filter((k) => match(k.title, k.summary, k.category))
+      .map((k) => ({ title: k.title, type: 'دانشنامه', href: '/knowledge', isDemo: k.isDemo })),
+    ...demoArticles
+      .filter((a) => match(a.title, a.summary, a.category))
+      .map((a) => ({ title: a.title, type: 'مقاله', href: '/articles', isDemo: a.isDemo })),
+  ];
+  return hits.slice(0, limit);
+}

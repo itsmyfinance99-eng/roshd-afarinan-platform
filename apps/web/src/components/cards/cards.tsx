@@ -25,7 +25,8 @@ export function CourseCard({ course }: { course: DemoCourse }) {
   );
 }
 
-export function ContentCard({ item, cta, href }: { item: DemoEntry; cta: string; href: string }) {
+/** `href` is optional: demo entries have no detail page until the CMS (EPIC-03) publishes them. */
+export function ContentCard({ item, cta, href }: { item: DemoEntry; cta?: string; href?: string }) {
   return (
     <article className="flex h-full flex-col gap-2.5 rounded-card border border-line bg-white p-[22px] hover:border-line-hover">
       <div className="flex items-center justify-between gap-3 text-[13px]">
@@ -39,12 +40,14 @@ export function ContentCard({ item, cta, href }: { item: DemoEntry; cta: string;
       </div>
       <h3 className="text-[17px] leading-[1.7] text-pretty text-ink">{item.title}</h3>
       <p className="text-sm leading-[1.9] text-pretty text-ink-4">{item.summary}</p>
-      <Link
-        href={href}
-        className="mt-auto pt-1.5 text-sm font-bold text-primary no-underline hover:text-brand-900"
-      >
-        {cta} ‹
-      </Link>
+      {href && cta ? (
+        <Link
+          href={href}
+          className="mt-auto pt-1.5 text-sm font-bold text-primary no-underline hover:text-brand-900"
+        >
+          {cta} ‹
+        </Link>
+      ) : null}
     </article>
   );
 }
