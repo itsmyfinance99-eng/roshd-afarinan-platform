@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { site } from '@/content/site';
+import { contact, site } from '@/content/site';
 import { siteUrl } from './env';
 
 /** Page metadata with canonical URL and Open Graph (every public route uses this). */
@@ -36,10 +36,22 @@ export function organizationJsonLd() {
     '@context': 'https://schema.org',
     '@type': 'Organization',
     name: site.name,
+    legalName: site.legalName,
     url: siteUrl,
     logo: `${siteUrl}/brand/logo.png`,
     foundingDate: '2009',
     description: site.description,
+    email: contact.email,
+    telephone: '+98-35-38345890',
+    address: {
+      '@type': 'PostalAddress',
+      streetAddress: 'خیابان شهید مطهری، پارک علم و فناوری اقبال',
+      addressLocality: 'یزد',
+      addressRegion: 'یزد',
+      postalCode: '89159-04973',
+      addressCountry: 'IR',
+    },
+    sameAs: contact.social.map((s) => s.href),
   };
 }
 

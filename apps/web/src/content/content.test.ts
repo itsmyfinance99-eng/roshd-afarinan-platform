@@ -49,3 +49,14 @@ describe('content layer invariants', () => {
     }
   });
 });
+
+describe('official contact details', () => {
+  it('are confirmed and machine-usable', async () => {
+    const { contact } = await import('./site');
+    const { emailSchema } = await import('@roshd/validation');
+    expect(contact.confirmed).toBe(true);
+    expect(contact.phoneHref).toMatch(/^tel:\+98\d{10}$/);
+    expect(emailSchema.safeParse(contact.email).success).toBe(true);
+    for (const s of contact.social) expect(s.href).toMatch(/^https:\/\//);
+  });
+});
