@@ -14,5 +14,5 @@
 
 - `pnpm verify` runs lint, typecheck, test and build. It must be green before any commit is pushed.
 - CI runs the same checks on every PR and on pushes to `develop`/`main`, with a PostgreSQL service container.
-- The e2e database is reset (`prisma migrate reset --force`) before the API e2e suite runs.
+- Before the API e2e suite, a global setup refuses any database whose name does not end with `_test`, runs `prisma migrate deploy`, truncates the application tables and seeds reference data. The suite never uses `migrate reset` and never touches the development database.
 - Financial calculations (Phase 4) require deterministic unit tests with edge cases.
