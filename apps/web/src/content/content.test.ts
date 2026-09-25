@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { demoCourses, demoProjects, demoResearch, sectors } from './demo';
+import { demoProjects, demoResearch, sectors } from './demo';
 import { journeys, MAIN_NAV_KEYS, navigation, pathSteps, UTILITY_NAV_KEYS } from './site';
 
 describe('content layer invariants', () => {
   it('flags every demo record so the UI can label it', () => {
-    for (const record of [...demoProjects, ...demoCourses, ...demoResearch]) {
+    for (const record of [...demoProjects, ...demoResearch]) {
       expect(record.isDemo).toBe(true);
     }
   });

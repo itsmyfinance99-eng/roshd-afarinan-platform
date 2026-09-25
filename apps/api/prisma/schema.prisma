@@ -240,6 +240,7 @@ model Category {
   createdAt DateTime      @default(now())
 
   entries ContentEntry[]
+  courses Course[]
 
   @@unique([scope, slug])
   @@map("categories")
@@ -301,6 +302,74 @@ model Page {
   updatedAt       DateTime      @updatedAt
 
   @@map("pages")
+}
+
+// ───────────────────────────────── Learning ─────────────────────────────────
+// Phase 1: public catalog only. LMS entities (lessons, enrollments, …) arrive in Phase 2.
+
+enum CourseLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+}
+
+enum DeliveryMode {
+  ONLINE
+  IN_PERSON
+  HYBRID
+}
+
+model Instructor {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  name      String
+  /// Short professional title, e.g. «کارشناس ارشد امکان‌سنجی».
+  title     String?
+  bio       String?
+  /// Optional link to a platform account.
+  userId    String?  @unique @db.Uuid
+  isDemo    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  courses Course[]
+
+  @@map("instructors")
+}
+
+model Course {
+  id              String        @id @default(uuid(7)) @db.Uuid
+  slug            String        @unique
+  title           String
+  summary         String
+  /// Markdown; rendered without raw HTML.
+  description     String
+  coverImageUrl   String?
+  /// Category with scope COURSE (shared taxonomy owned by the CMS).
+  categoryId      String?       @db.Uuid
+  instructorId    String?       @db.Uuid
+  level           CourseLevel
+  deliveryMode    DeliveryMode
+  durationHours   Int?
+  isFree          Boolean       @default(false)
+  /// Whole rials. Null on a paid course means "price on request" (no invented prices).
+  priceRials      Decimal?      @db.Decimal(18, 0)
+  startsAt        DateTime?
+  status          ContentStatus @default(DRAFT)
+  publishedAt     DateTime?
+  metaTitle       String?
+  metaDescription String?
+  noIndex         Boolean       @default(false)
+  /// Sample content (never presented as real).
+  isDemo          Boolean       @default(false)
+  createdById     String?       @db.Uuid
+  updatedById     String?       @db.Uuid
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  category   Category?   @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  instructor Instructor? @relation(fields: [instructorId], references: [id], onDelete: SetNull)
+
+  @@index([status, publishedAt])
+  @@map("courses")
 }
 
 // ─────────────────────────────────── Files ───────────────────────────────────

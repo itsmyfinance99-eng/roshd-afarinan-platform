@@ -1,24 +1,46 @@
 import { DemoBadge, formatDateFa, ImagePlaceholder } from '@roshd/ui';
 import Link from 'next/link';
-import type { DemoCourse, DemoProject, EntryCardData } from '@/content/types';
+import { COURSE_LEVEL_LABELS_FA, DELIVERY_MODE_LABELS_FA } from '@roshd/validation';
+import {
+  courseDurationLabel,
+  coursePriceLabel,
+  localCover,
+} from '@/components/courses/course-format';
+import type { DemoProject, EntryCardData } from '@/content/types';
+import type { CourseSummary } from '@/lib/learning-api';
 
-export function CourseCard({ course }: { course: DemoCourse }) {
+export function CourseCard({ course }: { course: CourseSummary }) {
+  const href = `/training/${course.slug}`;
+  const cover = localCover(course.coverImageUrl);
+  const duration = courseDurationLabel(course.durationHours);
   return (
     <article className="flex h-full flex-col overflow-hidden rounded-card border border-line bg-white hover:border-line-hover">
       <div className="relative">
-        <ImagePlaceholder label="کاور دوره" className="aspect-video" />
+        {cover ? (
+          // eslint-disable-next-line @next/next/no-img-element -- CMS-managed path, size unknown
+          <img src={cover} alt="" className="aspect-video w-full object-cover" loading="lazy" />
+        ) : (
+          <ImagePlaceholder label="کاور دوره" className="aspect-video" />
+        )}
         <span className="absolute top-3 start-3 rounded-chip border border-line bg-white px-2 py-[3px] text-xs font-bold text-ink">
-          {course.free ? 'رایگان' : 'غیررایگان'}
+          {coursePriceLabel(course)}
         </span>
         {course.isDemo ? <DemoBadge className="absolute top-3 end-3" /> : null}
       </div>
       <div className="flex flex-1 flex-col gap-2.5 p-5">
-        <span className="text-[13px] font-bold text-primary">{course.category}</span>
-        <h3 className="text-[17px] leading-[1.7] text-pretty text-ink">{course.title}</h3>
-        <p className="text-sm text-ink-4">{course.instructor}</p>
-        <div className="mt-auto flex gap-4 border-t border-[#eef1f5] pt-3.5 text-[13px] text-ink-3">
-          <span>سطح: {course.level}</span>
-          <span>مدت: {course.duration}</span>
+        {course.category ? (
+          <span className="text-[13px] font-bold text-primary">{course.category.name}</span>
+        ) : null}
+        <h3 className="text-[17px] leading-[1.7] text-pretty text-ink">
+          <Link href={href} className="text-ink no-underline hover:text-primary">
+            {course.title}
+          </Link>
+        </h3>
+        {course.instructor ? <p className="text-sm text-ink-4">{course.instructor.name}</p> : null}
+        <div className="mt-auto flex flex-wrap gap-x-4 gap-y-1 border-t border-line-2 pt-3.5 text-[13px] text-ink-3">
+          <span>سطح: {COURSE_LEVEL_LABELS_FA[course.level]}</span>
+          {duration ? <span>مدت: {duration}</span> : null}
+          <span>{DELIVERY_MODE_LABELS_FA[course.deliveryMode]}</span>
         </div>
       </div>
     </article>

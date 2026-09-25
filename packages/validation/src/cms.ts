@@ -1,5 +1,13 @@
 import { z } from 'zod';
-import { MESSAGES, paginationQuerySchema, slugSchema, text } from './common';
+import {
+  httpUrlSchema,
+  MESSAGES,
+  optionalText,
+  paginationQuerySchema,
+  slugSchema,
+  text,
+  urlOrPathSchema,
+} from './common';
 
 export const CONTENT_KINDS = ['ARTICLE', 'KNOWLEDGE'] as const;
 export type ContentKind = (typeof CONTENT_KINDS)[number];
@@ -21,21 +29,8 @@ export const CONTENT_STATUS_LABELS_FA: Record<ContentStatus, string> = {
   ARCHIVED: 'بایگانی',
 };
 
-const url = z.url({ protocol: /^https?$/, error: 'نشانی معتبر نیست.' }).max(500);
-/** Absolute https URL or a site-relative path starting with "/". */
-const urlOrPath = z.union([
-  url,
-  z
-    .string()
-    .regex(/^\/[^/\\]/, { error: 'نشانی معتبر نیست.' })
-    .max(500),
-]);
-
-const optionalText = (max: number) =>
-  z
-    .string()
-    .trim()
-    .max(max, { error: MESSAGES.tooLong(max) });
+const url = httpUrlSchema;
+const urlOrPath = urlOrPathSchema;
 
 export const referenceSchema = z.object({
   title: text(2, 300),

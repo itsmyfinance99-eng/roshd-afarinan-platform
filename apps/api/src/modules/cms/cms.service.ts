@@ -58,6 +58,7 @@ const ADMIN_SELECT = {
 
 export type ContentSummary = Prisma.ContentEntryGetPayload<{ select: typeof SUMMARY_SELECT }>;
 export type ContentDetail = Prisma.ContentEntryGetPayload<{ select: typeof DETAIL_SELECT }>;
+export type CategoryView = Prisma.CategoryGetPayload<{ select: typeof CATEGORY_SELECT }>;
 export type ContentAdminView = Prisma.ContentEntryGetPayload<{ select: typeof ADMIN_SELECT }>;
 
 function isUniqueViolation(error: unknown): boolean {
@@ -121,6 +122,30 @@ export class CmsService {
       select: CATEGORY_SELECT,
       orderBy: { name: 'asc' },
     });
+  }
+
+  // ───────────────────── taxonomy port (used by catalog modules) ─────────────────────
+
+  findCategoryBySlug(scope: CategoryScope, slug: string) {
+    return this.prisma.category.findUnique({
+      where: { scope_slug: { scope, slug } },
+      select: CATEGORY_SELECT,
+    });
+  }
+
+  async categoriesByIds(ids: readonly string[]): Promise<Map<string, CategoryView>> {
+    const unique = [...new Set(ids)];
+    if (unique.length === 0) return new Map();
+    const rows = await this.prisma.category.findMany({
+      where: { id: { in: unique } },
+      select: CATEGORY_SELECT,
+    });
+    return new Map(rows.map((c) => [c.id, c]));
+  }
+
+  async isCategoryInScope(id: string, scope: CategoryScope): Promise<boolean> {
+    const count = await this.prisma.category.count({ where: { id, scope } });
+    return count > 0;
   }
 
   async getPublishedPage(slug: string) {

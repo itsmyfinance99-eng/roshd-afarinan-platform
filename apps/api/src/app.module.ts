@@ -15,6 +15,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { DatabaseModule } from './modules/database/database.module';
 import { FilesModule } from './modules/files/files.module';
 import { IranSahamdarModule } from './modules/iran-sahamdar/iran-sahamdar.module';
+import { LearningModule } from './modules/learning/learning.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { PermissionsGuard } from './modules/rbac/permissions.guard';
@@ -80,6 +81,7 @@ import { HealthModule } from './modules/health/health.module';
     // Domain modules (Phase 1)
     ServiceRequestsModule,
     CmsModule,
+    LearningModule,
     TicketsModule,
   ],
   providers: [

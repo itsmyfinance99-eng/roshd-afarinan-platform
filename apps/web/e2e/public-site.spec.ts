@@ -7,6 +7,8 @@ const ROUTES = [
   '/consulting',
   '/consulting/request',
   '/training',
+  '/training/feasibility-basics',
+  '/training/feasibility-basics/enroll',
   '/feasibility',
   '/feasibility/request',
   '/research',
@@ -103,11 +105,5 @@ test.describe('catalog filters', () => {
     await expect(page.getByText('پروژه‌ای یافت نشد')).toBeVisible();
     await page.getByRole('button', { name: 'حذف فیلترها' }).click();
     await expect(page.locator('article')).toHaveCount(6);
-  });
-
-  test('training shows free courses only when requested', async ({ page }) => {
-    await page.goto('/training');
-    await page.getByLabel('فقط دوره‌های رایگان').check();
-    await expect(page.locator('article')).toHaveCount(2);
   });
 });

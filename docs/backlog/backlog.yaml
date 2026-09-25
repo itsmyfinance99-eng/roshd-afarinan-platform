@@ -466,6 +466,7 @@ epics:
     goal: 'فاز ۱: کاتالوگ دوره‌ها. فاز ۲: LMS پایه.'
     stories:
       - id: ST-06.01
+        status: done
         title: 'مدل Course و Instructor و API کاتالوگ'
         sprint: S6
         points: 5
@@ -476,6 +477,7 @@ epics:
           - 'دوره رایگان/پولی (قیمت ریالی به‌صورت string)، سطح، مدت، مدرس'
           - 'فقط منتشرشده‌ها در API عمومی'
       - id: ST-06.02
+        status: done
         title: 'صفحات کاتالوگ و جزئیات دوره'
         sprint: S6
         points: 5

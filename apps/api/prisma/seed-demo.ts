@@ -1,7 +1,8 @@
 /**
- * DEVELOPMENT ONLY — demo CMS content from the Claude Design handoff so the site can be
- * reviewed end-to-end. Every entry is flagged `isDemo` and labelled «نمونه نمایشی» in the UI.
- * Refuses to run in production. Idempotent (upserts by kind + slug).
+ * DEVELOPMENT ONLY — demo CMS content and courses from the Claude Design handoff so the site
+ * can be reviewed end-to-end. Every record is flagged `isDemo` and labelled «نمونه نمایشی» in
+ * the UI. Paid demo courses carry no price (no invented prices). Refuses to run in production.
+ * Idempotent (upserts by slug).
  *
  *   pnpm --filter @roshd/api db:seed:demo
  */
@@ -30,7 +31,80 @@ const categories = {
     ['financing', 'تأمین مالی'],
     ['technology', 'فناوری'],
   ],
+  COURSE: [
+    ['feasibility', 'امکان‌سنجی'],
+    ['financing', 'تأمین مالی'],
+    ['economics', 'اقتصاد'],
+    ['investment', 'سرمایه‌گذاری'],
+  ],
 } as const;
+
+type Level = 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED';
+
+const courses: {
+  slug: string;
+  title: string;
+  category: string;
+  level: Level;
+  hours: number;
+  isFree: boolean;
+  publishedAt: string;
+}[] = [
+  {
+    slug: 'demo-feasibility-basics',
+    title: 'مبانی امکان‌سنجی طرح‌های صنعتی',
+    category: 'feasibility',
+    level: 'BEGINNER',
+    hours: 12,
+    isFree: false,
+    publishedAt: '2026-09-01',
+  },
+  {
+    slug: 'demo-project-financing',
+    title: 'آشنایی با روش‌های تأمین مالی پروژه',
+    category: 'financing',
+    level: 'INTERMEDIATE',
+    hours: 8,
+    isFree: false,
+    publishedAt: '2026-08-25',
+  },
+  {
+    slug: 'demo-economics-for-managers',
+    title: 'اقتصاد برای مدیران',
+    category: 'economics',
+    level: 'BEGINNER',
+    hours: 6,
+    isFree: true,
+    publishedAt: '2026-08-18',
+  },
+  {
+    slug: 'demo-investment-appraisal',
+    title: 'ارزیابی مالی طرح‌های سرمایه‌گذاری',
+    category: 'investment',
+    level: 'ADVANCED',
+    hours: 16,
+    isFree: false,
+    publishedAt: '2026-08-11',
+  },
+  {
+    slug: 'demo-business-plan',
+    title: 'تدوین طرح توجیهی',
+    category: 'feasibility',
+    level: 'INTERMEDIATE',
+    hours: 10,
+    isFree: false,
+    publishedAt: '2026-08-04',
+  },
+  {
+    slug: 'demo-capital-market-intro',
+    title: 'آشنایی با بازار سرمایه',
+    category: 'investment',
+    level: 'BEGINNER',
+    hours: 4,
+    isFree: true,
+    publishedAt: '2026-07-28',
+  },
+];
 
 const entries: {
   kind: 'ARTICLE' | 'KNOWLEDGE';
@@ -157,7 +231,38 @@ async function main(): Promise<void> {
         create: { kind: e.kind, slug: e.slug, ...data },
       });
     }
-    console.warn(`Seeded ${entries.length} demo content entries (isDemo=true).`);
+    const instructor =
+      (await prisma.instructor.findFirst({ where: { name: 'مدرس نمونه', isDemo: true } })) ??
+      (await prisma.instructor.create({ data: { name: 'مدرس نمونه', isDemo: true } }));
+    for (const c of courses) {
+      const data = {
+        title: c.title,
+        summary: `دوره نمونه «${c.title}» برای بررسی ساختار کاتالوگ آموزشی.`,
+        description: `${DEMO_NOTE}
+
+## درباره دوره
+
+سرفصل‌ها و برنامه این دوره پس از تأیید محتوای واقعی تکمیل می‌شود.`,
+        categoryId: categoryId.get(`COURSE:${c.category}`),
+        instructorId: instructor.id,
+        level: c.level,
+        deliveryMode: 'ONLINE' as const,
+        durationHours: c.hours,
+        isFree: c.isFree,
+        priceRials: null,
+        status: 'PUBLISHED' as const,
+        publishedAt: new Date(`${c.publishedAt}T08:00:00Z`),
+        isDemo: true,
+      };
+      await prisma.course.upsert({
+        where: { slug: c.slug },
+        update: data,
+        create: { slug: c.slug, ...data },
+      });
+    }
+    console.warn(
+      `Seeded ${entries.length} demo content entries and ${courses.length} demo courses (isDemo=true).`,
+    );
   } finally {
     await prisma.$disconnect();
   }

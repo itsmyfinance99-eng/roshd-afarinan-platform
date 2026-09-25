@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { PageIntro } from '@/components/layout/page-shell';
 import { listContent } from '@/lib/content-api';
+import { listCourses } from '@/lib/learning-api';
 import { type LocalHit, searchLocalContent } from '@/lib/local-search';
 import { pageMetadata } from '@/lib/seo';
 
@@ -15,13 +16,20 @@ export default async function SearchPage({
 }) {
   const raw = (await searchParams).q;
   const query = (typeof raw === 'string' ? raw : '').trim().slice(0, 100);
-  const [articles, knowledge] = query
+  const [articles, knowledge, courses] = query
     ? await Promise.all([
         listContent('ARTICLE', { q: query, pageSize: 10 }),
         listContent('KNOWLEDGE', { q: query, pageSize: 10 }),
+        listCourses({ q: query, pageSize: 10 }),
       ])
-    : [null, null];
+    : [null, null, null];
   const cmsHits: LocalHit[] = [
+    ...(courses?.ok ? courses.data : []).map((c) => ({
+      title: c.title,
+      type: 'دوره',
+      href: `/training/${c.slug}`,
+      isDemo: c.isDemo,
+    })),
     ...(articles?.ok ? articles.data : []).map((a) => ({
       title: a.title,
       type: 'مقاله',
