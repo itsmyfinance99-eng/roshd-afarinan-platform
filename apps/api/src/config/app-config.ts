@@ -6,6 +6,7 @@ export interface AppConfig extends Env {
   isProduction: boolean;
   isTest: boolean;
   swaggerEnabled: boolean;
+  cookieSecure: boolean;
 }
 
 export class ConfigValidationError extends Error {
@@ -32,5 +33,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     isProduction,
     isTest: config.NODE_ENV === 'test',
     swaggerEnabled: config.SWAGGER_ENABLED ?? !isProduction,
+    cookieSecure: config.COOKIE_SECURE ?? isProduction,
   };
 }

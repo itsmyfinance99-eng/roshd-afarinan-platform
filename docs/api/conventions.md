@@ -67,8 +67,9 @@ The API echoes `X-Request-Id` when the client sends one (max 128 safe chars). Ot
 ## Authentication
 
 - `POST /api/v1/auth/register`, `POST /api/v1/auth/login`, `POST /api/v1/auth/refresh`, `POST /api/v1/auth/logout`, `GET /api/v1/auth/me`.
-- Web clients receive httpOnly cookies (`ra_at` access, `ra_rt` refresh; `Secure` in production, `SameSite=Lax`).
-- Other clients send `Authorization: Bearer <accessToken>` and refresh with the `refreshToken` in the body.
+- Browsers receive httpOnly cookies (`ra_at` access on `/`, `ra_rt` refresh scoped to `/api/v1/auth`; `Secure` in production, `SameSite=Lax`). The response body contains the user but **never** the tokens.
+- Non-browser clients (mobile, partners) send `X-Auth-Transport: token`. They get `accessToken` + `refreshToken` in the body and no cookies, then call with `Authorization: Bearer <accessToken>` and refresh or log out with `{ "refreshToken": "..." }` in the body.
+- Authorization re-reads the user's status and roles from the database on every request, so suspension and role revocation apply immediately.
 - State-changing requests authenticated by cookie must send the `X-Requested-With: XMLHttpRequest` header (CSRF defence together with SameSite).
 
 ## Idempotency

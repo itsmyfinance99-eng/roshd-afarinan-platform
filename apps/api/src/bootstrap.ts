@@ -1,6 +1,7 @@
 import { type INestApplication, VersioningType } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import type { NestExpressApplication } from '@nestjs/platform-express';
+import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import { Logger } from 'nestjs-pino';
 import { APP_CONFIG, type AppConfig } from './config/app-config';
@@ -21,6 +22,7 @@ export function configureApp(app: INestApplication): AppConfig {
   express.useBodyParser('json', { limit: '1mb' });
   express.useBodyParser('urlencoded', { extended: false, limit: '1mb' });
   app.use(helmet());
+  app.use(cookieParser());
 
   if (config.CORS_ORIGINS.length > 0) {
     app.enableCors({ origin: config.CORS_ORIGINS, credentials: true });

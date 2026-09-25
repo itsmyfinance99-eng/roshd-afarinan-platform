@@ -7,7 +7,14 @@ import { EnvelopeInterceptor } from './common/http/envelope.interceptor';
 import { resolveRequestId } from './common/http/request-id';
 import { APP_CONFIG, type AppConfig } from './config/app-config';
 import { AppConfigModule } from './config/config.module';
+import { AuditModule } from './modules/audit/audit.module';
+import { AuthGuard } from './modules/auth/auth.guard';
+import { skipUnlessAuthThrottled } from './modules/auth/auth-throttle';
+import { AuthModule } from './modules/auth/auth.module';
 import { DatabaseModule } from './modules/database/database.module';
+import { PermissionsGuard } from './modules/rbac/permissions.guard';
+import { RbacModule } from './modules/rbac/rbac.module';
+import { UsersModule } from './modules/users/users.module';
 import { HealthModule } from './modules/health/health.module';
 
 @Module({
@@ -43,14 +50,27 @@ import { HealthModule } from './modules/health/health.module';
       useFactory: (config: AppConfig) => ({
         throttlers: [
           { name: 'default', ttl: config.THROTTLE_TTL_MS, limit: config.THROTTLE_LIMIT },
+          {
+            name: 'auth',
+            ttl: config.THROTTLE_TTL_MS,
+            limit: config.AUTH_THROTTLE_LIMIT,
+            skipIf: skipUnlessAuthThrottled,
+          },
         ],
       }),
     }),
     HealthModule,
     DatabaseModule,
+    AuditModule,
+    RbacModule,
+    UsersModule,
+    AuthModule,
   ],
   providers: [
+    // Guard order matters: rate limit → authenticate (default deny) → authorize.
     { provide: APP_GUARD, useClass: ThrottlerGuard },
+    { provide: APP_GUARD, useExisting: AuthGuard },
+    { provide: APP_GUARD, useExisting: PermissionsGuard },
     { provide: APP_INTERCEPTOR, useClass: EnvelopeInterceptor },
     { provide: APP_FILTER, useClass: AllExceptionsFilter },
   ],

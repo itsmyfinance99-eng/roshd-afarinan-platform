@@ -14,6 +14,8 @@ export default defineConfig({
       NODE_ENV: 'test',
       LOG_LEVEL: 'silent',
       DATABASE_URL: process.env.TEST_DATABASE_URL ?? '',
+      // Suites register many users from one IP; rate-limit.e2e-spec.ts overrides this.
+      AUTH_THROTTLE_LIMIT: '10000',
     },
     fileParallelism: false,
     testTimeout: 30_000,
