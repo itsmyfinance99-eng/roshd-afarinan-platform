@@ -534,6 +534,7 @@ epics:
     goal: 'Dashboard Shell مشترک با محتوای مبتنی بر نقش.'
     stories:
       - id: ST-08.01
+        status: done
         title: 'صفحات ورود و ثبت‌نام در وب و مدیریت نشست'
         sprint: S5
         points: 5
@@ -544,6 +545,7 @@ epics:
           - 'فرم با Zod مشترک، پیام خطای فارسی، حالت loading'
           - 'مسیرهای /dashboard بدون نشست به /login هدایت شوند'
       - id: ST-08.02
+        status: done
         title: 'Dashboard Shell و پروفایل کاربر'
         sprint: S5
         points: 5

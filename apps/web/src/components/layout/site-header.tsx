@@ -4,6 +4,7 @@ import { buttonClasses, cn } from '@roshd/ui';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { MAIN_NAV_KEYS, navigation, UTILITY_NAV_KEYS } from '@/content/site';
+import { useSessionHint } from '@/lib/session';
 import { Logo } from './logo';
 import { useDialog } from './use-dialog';
 
@@ -17,6 +18,10 @@ function isActive(pathname: string, href: string) {
 
 export function SiteHeader({ demoMode }: { demoMode: boolean }) {
   const pathname = usePathname();
+  const signedIn = useSessionHint();
+  const account = signedIn
+    ? { href: '/dashboard', label: 'داشبورد' }
+    : { href: '/login', label: 'ورود / ثبت‌نام' };
   const {
     open: menuOpen,
     show: showMenu,
@@ -85,8 +90,8 @@ export function SiteHeader({ demoMode }: { demoMode: boolean }) {
               <SearchIcon />
             </button>
             <div className="hidden gap-2 nav:flex">
-              <Link href="/login" className={buttonClasses('ghost', 'md')}>
-                ورود / ثبت‌نام
+              <Link href={account.href} className={buttonClasses('ghost', 'md')}>
+                {account.label}
               </Link>
               <Link href="/feasibility/request" className={buttonClasses('primary', 'md')}>
                 درخواست امکان‌سنجی
@@ -158,11 +163,11 @@ export function SiteHeader({ demoMode }: { demoMode: boolean }) {
                 درخواست امکان‌سنجی
               </Link>
               <Link
-                href="/login"
+                href={account.href}
                 onClick={hideMenu}
                 className={buttonClasses('ghost', 'md', 'h-12')}
               >
-                ورود / ثبت‌نام
+                {account.label}
               </Link>
             </div>
           </div>

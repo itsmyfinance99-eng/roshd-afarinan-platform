@@ -1,13 +1,8 @@
 import { randomInt } from 'node:crypto';
-import type { ServiceRequestStatus } from '@roshd/validation';
+import { SERVICE_REQUEST_TRANSITIONS, type ServiceRequestStatus } from '@roshd/validation';
 
-/** Allowed status changes (staff only). Pricing/contract steps belong to the Phase 3 feasibility workflow. */
-const TRANSITIONS: Record<ServiceRequestStatus, readonly ServiceRequestStatus[]> = {
-  NEW: ['IN_REVIEW', 'CLOSED'],
-  IN_REVIEW: ['RESPONDED', 'CLOSED'],
-  RESPONDED: ['IN_REVIEW', 'CLOSED'],
-  CLOSED: ['IN_REVIEW'],
-};
+/** Allowed status changes (staff only), shared with the web dashboard via @roshd/validation. */
+const TRANSITIONS = SERVICE_REQUEST_TRANSITIONS;
 
 export function canTransition(from: ServiceRequestStatus, to: ServiceRequestStatus): boolean {
   return TRANSITIONS[from].includes(to);
