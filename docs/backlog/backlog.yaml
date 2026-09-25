@@ -197,6 +197,7 @@ epics:
           - 'migration اولیه مدل Identity، RBAC و Audit را بسازد'
           - 'seed نقش‌ها، مجوزها و یک super_admin توسعه (از env) را بسازد'
       - id: ST-01.09
+        status: done
         title: 'Portهای Provider: پرداخت، فایل، اعلان و جست‌وجو + Interfaceهای آینده'
         sprint: S1
         points: 5
@@ -672,6 +673,7 @@ epics:
     goal: 'فاز ۱: skeleton و قرارداد state machine؛ فاز ۳: پلتفرم کامل.'
     stories:
       - id: ST-14.01
+        status: done
         title: 'Skeleton ماژول امکان‌سنجی و قرارداد state machine'
         sprint: S8
         points: 3
@@ -697,6 +699,7 @@ epics:
     goal: 'فاز ۱: Interface؛ فاز ۴: پیاده‌سازی deterministic.'
     stories:
       - id: ST-15.01
+        status: done
         title: 'Interfaceهای FinancialCalculator و مدل ورودی/خروجی نسخه‌دار'
         sprint: S8
         points: 2
@@ -748,6 +751,7 @@ epics:
     goal: 'فاز ۱: Interface + Mock؛ فاز ۶: اتصال واقعی پس از دریافت spec.'
     stories:
       - id: ST-17.01
+        status: done
         title: 'IranSahamdarClient، Mock Provider و مستند integration'
         sprint: S8
         points: 3
@@ -773,6 +777,7 @@ epics:
     goal: 'فاز ۱: Interface؛ فاز ۷: Assistant و تحلیل اسناد.'
     stories:
       - id: ST-18.01
+        status: done
         title: 'Interfaceهای AiProvider و RetrievalProvider با قاعده authorization-before-retrieval'
         sprint: S8
         points: 2
@@ -874,6 +879,7 @@ epics:
     goal: 'R&D؛ هیچ شبکه یا استاندارد توکن فرض نمی‌شود.'
     stories:
       - id: ST-22.01
+        status: done
         title: 'Interfaceهای BlockchainNetworkAdapter و WalletProvider'
         sprint: S8
         points: 1

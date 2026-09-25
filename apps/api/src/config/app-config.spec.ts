@@ -57,4 +57,12 @@ describe('loadConfig', () => {
     expect(loadConfig(BASE).cookieSecure).toBe(false);
     expect(loadConfig({ ...BASE, NODE_ENV: 'production' }).cookieSecure).toBe(true);
   });
+
+  it('never allows the mock payment gateway in production', () => {
+    expect(loadConfig(BASE).PAYMENT_PROVIDER).toBe('mock');
+    expect(loadConfig({ ...BASE, NODE_ENV: 'production' }).PAYMENT_PROVIDER).toBe('disabled');
+    expect(() => loadConfig({ ...BASE, NODE_ENV: 'production', PAYMENT_PROVIDER: 'mock' })).toThrow(
+      ConfigValidationError,
+    );
+  });
 });

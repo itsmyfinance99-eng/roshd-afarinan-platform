@@ -12,6 +12,10 @@ import { AuthGuard } from './modules/auth/auth.guard';
 import { skipUnlessAuthThrottled } from './modules/auth/auth-throttle';
 import { AuthModule } from './modules/auth/auth.module';
 import { DatabaseModule } from './modules/database/database.module';
+import { FilesModule } from './modules/files/files.module';
+import { IranSahamdarModule } from './modules/iran-sahamdar/iran-sahamdar.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
+import { PaymentsModule } from './modules/payments/payments.module';
 import { PermissionsGuard } from './modules/rbac/permissions.guard';
 import { RbacModule } from './modules/rbac/rbac.module';
 import { UsersModule } from './modules/users/users.module';
@@ -65,6 +69,11 @@ import { HealthModule } from './modules/health/health.module';
     RbacModule,
     UsersModule,
     AuthModule,
+    // Provider ports (ADR-0004)
+    FilesModule,
+    NotificationsModule,
+    PaymentsModule,
+    IranSahamdarModule,
   ],
   providers: [
     // Guard order matters: rate limit → authenticate (default deny) → authorize.

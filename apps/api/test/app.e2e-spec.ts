@@ -97,7 +97,7 @@ describe('HTTP foundation (e2e)', () => {
 
   it('readiness turns 503 when a dependency is down', async () => {
     const ok = await request(app.getHttpServer()).get('/api/v1/health/ready').expect(200);
-    expect(ok.body.data).toEqual({ status: 'ok', checks: { database: 'up' } });
+    expect(ok.body.data).toEqual({ status: 'ok', checks: { database: 'up', storage: 'up' } });
 
     app.get(HealthRegistry).register('fake-dependency', () => Promise.reject(new Error('down')));
     const res = await request(app.getHttpServer()).get('/api/v1/health/ready').expect(503);
