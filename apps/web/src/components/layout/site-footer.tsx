@@ -82,14 +82,9 @@ export function SiteFooter() {
           <span>
             © {year} {site.legalName}. همه حقوق محفوظ است.
           </span>
-          <div className="flex gap-5">
-            <Link href="/privacy" className="text-on-dark no-underline hover:text-white">
-              حریم خصوصی
-            </Link>
-            <Link href="/terms" className="text-on-dark no-underline hover:text-white">
-              شرایط استفاده
-            </Link>
-          </div>
+          <Link href="/track" className="text-on-dark no-underline hover:text-white">
+            پیگیری درخواست
+          </Link>
         </div>
       </div>
     </footer>
