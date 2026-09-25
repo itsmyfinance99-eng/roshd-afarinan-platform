@@ -356,6 +356,18 @@ epics:
         acceptance:
           - 'منوی موبایل با کیبورد و screen reader قابل استفاده باشد'
           - 'skip link و focus visible'
+      - id: ST-04.07
+        title: 'ثبت UI اولیه Claude Design (Home.dc.html، mock-data.js، support.js) در مخزن'
+        sprint: S2
+        points: 5
+        priority: critical
+        area: [web, ui]
+        story: 'به‌عنوان مالک محصول می‌خواهم UI اولیه‌ای که در Claude Design طراحی شده در مخزن ثبت و به کامپوننت‌های Next.js تبدیل شود تا بعداً طبق تغییرات Backend به‌روز شود.'
+        acceptance:
+          - 'فایل‌های خام طراحی در design/claude-design/ نسخه‌بندی شوند (منبع: پروژه 5c1ac6ab-902c-4365-8c80-3d445afff738)'
+          - 'tokens طراحی (رنگ، تایپوگرافی، فاصله) به @roshd/ui منتقل شوند'
+          - 'mock-data به content layer / repositoryهای typed منتقل شود؛ business logic در کامپوننت‌های بصری نباشد'
+          - 'نقشه integration: route mapping، component reuse و تعارض‌ها مستند شود'
       - id: ST-04.03
         title: 'صفحه اصلی با Hero و چهار مسیر اصلی'
         sprint: S3
