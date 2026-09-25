@@ -2,9 +2,11 @@
  * Idempotent seed: reference data needed by every environment (roles, permissions, grants).
  * Development-only demo content is seeded separately and always flagged `isDemo`.
  */
+import { hash } from '@node-rs/argon2';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { DEFAULT_ROLE_PERMISSIONS, PERMISSIONS, ROLE_LABELS_FA, ROLES } from '@roshd/types';
 import { loadEnvFile } from '../src/config/load-env-file';
+import { ARGON2_OPTIONS } from '../src/modules/auth/argon2-options';
 import { PrismaClient } from '../src/generated/prisma/client';
 
 if (process.env.NODE_ENV !== 'production') loadEnvFile(__dirname);
@@ -39,9 +41,39 @@ async function main(): Promise<void> {
     }
 
     console.warn(`Seeded ${roles.length} roles and ${permissions.length} permissions.`);
+
+    await seedSuperAdmin(prisma);
   } finally {
     await prisma.$disconnect();
   }
+}
+
+/**
+ * Creates the first super_admin from SEED_SUPER_ADMIN_* variables (skipped when unset).
+ * Never overwrites an existing account's password.
+ */
+async function seedSuperAdmin(prisma: PrismaClient): Promise<void> {
+  const email = process.env.SEED_SUPER_ADMIN_EMAIL?.trim().toLowerCase();
+  const password = process.env.SEED_SUPER_ADMIN_PASSWORD;
+  if (!email || !password) return;
+  if (password.length < 12)
+    throw new Error('SEED_SUPER_ADMIN_PASSWORD must be at least 12 characters');
+
+  const user = await prisma.user.upsert({
+    where: { email },
+    update: {},
+    create: {
+      email,
+      fullName: process.env.SEED_SUPER_ADMIN_NAME?.trim() || 'مدیر سامانه',
+      passwordHash: await hash(password, ARGON2_OPTIONS),
+    },
+  });
+  const roles = await prisma.role.findMany({ where: { key: { in: ['user', 'super_admin'] } } });
+  await prisma.userRole.createMany({
+    data: roles.map((r) => ({ userId: user.id, roleId: r.id })),
+    skipDuplicates: true,
+  });
+  console.warn(`Ensured super_admin account ${email}.`);
 }
 
 main().catch((error: unknown) => {

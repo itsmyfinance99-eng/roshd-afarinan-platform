@@ -225,6 +225,7 @@ epics:
     goal: 'یک هویت واحد برای هر شخص با نقش‌های چندگانه و سیاست default-deny.'
     stories:
       - id: ST-02.01
+        status: done
         title: 'ثبت‌نام و ورود با ایمیل/رمز عبور (argon2id)'
         sprint: S1
         points: 5
@@ -236,6 +237,7 @@ epics:
           - 'ایمیل تکراری خطای 409 بدهد'
           - 'ورود ناموفق پیام عمومی بدهد (عدم افشای وجود حساب)'
       - id: ST-02.02
+        status: done
         title: 'Access token و Refresh token چرخشی با تشخیص استفاده مجدد'
         sprint: S1
         points: 5
@@ -247,6 +249,7 @@ epics:
           - 'استفاده مجدد از توکن باطل، کل خانواده نشست را باطل کند'
           - 'logout نشست جاری را باطل کند'
       - id: ST-02.03
+        status: done
         title: 'RBAC: نقش‌ها، مجوزها، Guard سراسری default-deny'
         sprint: S1
         points: 5
@@ -258,6 +261,7 @@ epics:
           - '@Permissions() بدون مجوز لازم 403 برگرداند'
           - 'تست منفی: کاربر عادی نتواند نقش تغییر دهد'
       - id: ST-02.04
+        status: done
         title: 'Audit Log برای رویدادهای امنیتی'
         sprint: S1
         points: 3
@@ -268,6 +272,7 @@ epics:
           - 'ورود موفق و ناموفق، خروج، استفاده مجدد توکن و تغییر نقش ثبت شوند'
           - 'IP، user agent و requestId ذخیره شوند'
       - id: ST-02.05
+        status: done
         title: 'Rate limiting و محافظت brute-force'
         sprint: S1
         points: 2
@@ -277,6 +282,7 @@ epics:
         acceptance:
           - 'مسیرهای auth محدودیت سخت‌گیرانه داشته باشند و 429 با کد RATE_LIMITED برگردانند'
       - id: ST-02.06
+        status: done
         title: 'مدیریت نقش کاربران توسط ادمین'
         sprint: S5
         points: 3
@@ -801,6 +807,7 @@ epics:
         acceptance:
           - 'تست وجود headerها'
       - id: ST-19.02
+        status: done
         title: 'بررسی CSRF برای mutationهای مبتنی بر cookie'
         sprint: S5
         points: 2

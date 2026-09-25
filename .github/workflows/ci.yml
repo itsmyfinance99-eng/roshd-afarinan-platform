@@ -31,6 +31,8 @@ jobs:
           --health-interval 5s --health-timeout 3s --health-retries 20
     env:
       TEST_DATABASE_URL: postgresql://roshd:roshd_ci_password@127.0.0.1:5432/roshd_test
+      # CI-only throwaway secret (not used anywhere else)
+      JWT_ACCESS_SECRET: ci-only-secret-0123456789abcdef0123456789abcdef
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4

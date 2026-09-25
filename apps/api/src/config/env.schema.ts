@@ -27,6 +27,16 @@ export const envSchema = z.object({
     .regex(/^postgres(ql)?:\/\//, { error: 'must be a postgresql:// connection string' }),
   THROTTLE_TTL_MS: z.coerce.number().int().positive().default(60_000),
   THROTTLE_LIMIT: z.coerce.number().int().positive().default(120),
+  /** Stricter per-IP limit for login/register/refresh within THROTTLE_TTL_MS. */
+  AUTH_THROTTLE_LIMIT: z.coerce.number().int().positive().default(5),
+
+  /** HS256 secret for access tokens (≥ 32 chars). Generate with: openssl rand -base64 48 */
+  JWT_ACCESS_SECRET: z.string().min(32, { error: 'must be at least 32 characters' }),
+  JWT_ACCESS_TTL_SECONDS: z.coerce.number().int().min(60).max(3600).default(900),
+  REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().min(1).max(90).default(30),
+  /** Defaults to true in production. */
+  COOKIE_SECURE: bool.optional(),
+  COOKIE_DOMAIN: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

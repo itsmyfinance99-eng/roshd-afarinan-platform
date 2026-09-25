@@ -15,7 +15,7 @@ Authentication lives **inside the API** (`auth` module), with no third-party ide
 - **Access token:** a JWT (HS256, 15 minutes) with `sub`, `roles` and `sid` (session id).
 - **Refresh token:** an opaque random 256-bit value (30 days). Only its SHA-256 hash is stored in `RefreshToken`. It **rotates** on every refresh. Presenting a revoked token revokes the whole session family (reuse detection).
 - **Web delivery:** httpOnly cookies (`ra_at`, `ra_rt`), `SameSite=Lax`, `Secure` in production. The browser talks to the API through the web origin (a Next.js rewrite), so the cookies are first-party.
-- **Other clients:** the same tokens are returned in the response body and used as `Authorization: Bearer`.
+- **Other clients:** send `X-Auth-Transport: token` and receive the tokens in the response body (no cookies), then use `Authorization: Bearer`. Browsers never receive tokens in the body.
 - **CSRF:** SameSite=Lax plus a required `X-Requested-With` header on cookie-authenticated mutations.
 - **Login identifier:** email (required) or mobile (optional, unique). OTP/SMS login waits on OQ-08/OQ-20.
 - **MFA:** schema flag reserved (`mfaEnabled`). Implemented later.

@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { ConfigValidationError, loadConfig } from './app-config';
 
-const BASE = { DATABASE_URL: 'postgresql://u:p@127.0.0.1:5432/db' };
+const BASE = {
+  DATABASE_URL: 'postgresql://u:p@127.0.0.1:5432/db',
+  JWT_ACCESS_SECRET: 'x'.repeat(32),
+};
 
 describe('loadConfig', () => {
   it('applies safe defaults', () => {
@@ -44,6 +47,14 @@ describe('loadConfig', () => {
   });
 
   it('rejects non-postgres database URLs', () => {
-    expect(() => loadConfig({ DATABASE_URL: 'mysql://x' })).toThrow(ConfigValidationError);
+    expect(() => loadConfig({ ...BASE, DATABASE_URL: 'mysql://x' })).toThrow(ConfigValidationError);
+  });
+
+  it('requires a strong JWT secret and secures cookies in production', () => {
+    expect(() => loadConfig({ ...BASE, JWT_ACCESS_SECRET: 'short' })).toThrow(
+      ConfigValidationError,
+    );
+    expect(loadConfig(BASE).cookieSecure).toBe(false);
+    expect(loadConfig({ ...BASE, NODE_ENV: 'production' }).cookieSecure).toBe(true);
   });
 });

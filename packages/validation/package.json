@@ -25,6 +25,7 @@
     "vitest": "^4.1.11"
   },
   "dependencies": {
+    "@roshd/types": "workspace:*",
     "zod": "^4.6.5"
   }
 }
