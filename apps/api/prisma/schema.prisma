@@ -32,10 +32,11 @@ model User {
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 
-  roles         UserRole[]     @relation("UserRoles")
-  assignedRoles UserRole[]     @relation("RoleAssigner")
-  refreshTokens RefreshToken[]
-  auditLogs     AuditLog[]
+  roles           UserRole[]       @relation("UserRoles")
+  assignedRoles   UserRole[]       @relation("RoleAssigner")
+  refreshTokens   RefreshToken[]
+  auditLogs       AuditLog[]
+  serviceRequests ServiceRequest[]
 
   @@map("users")
 }
@@ -132,4 +133,66 @@ model AuditLog {
   @@index([action])
   @@index([createdAt])
   @@map("audit_logs")
+}
+
+// ───────────────────────────── Service requests ──────────────────────────────
+
+enum ServiceRequestType {
+  FEASIBILITY
+  RESEARCH
+  CONSULTING
+  TRAINING
+  INVESTMENT
+  CONTACT
+}
+
+enum ServiceRequestStatus {
+  NEW
+  IN_REVIEW
+  RESPONDED
+  CLOSED
+}
+
+/// Intake of every service enquiry from the public site (EPIC-11). Guests and users alike;
+/// `userId` links the request when the submitter was signed in.
+model ServiceRequest {
+  id           String               @id @default(uuid(7)) @db.Uuid
+  /// Human-friendly public reference (RA-XXXXXXXX), used with the mobile number for guest tracking.
+  trackingCode String               @unique
+  type         ServiceRequestType
+  status       ServiceRequestStatus @default(NEW)
+  userId       String?              @db.Uuid
+  fullName     String
+  mobile       String
+  email        String?
+  subject      String?
+  message      String
+  /// Type-specific fields (sector, stage, location, service, topic, reference).
+  details      Json                 @default("{}")
+  source       String               @default("web")
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+
+  user   User?                       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  events ServiceRequestStatusEvent[]
+
+  @@index([userId, createdAt])
+  @@index([type, status, createdAt])
+  @@map("service_requests")
+}
+
+/// Status history (who changed what, when, with an optional staff note).
+model ServiceRequestStatusEvent {
+  id         String                @id @default(uuid(7)) @db.Uuid
+  requestId  String                @db.Uuid
+  fromStatus ServiceRequestStatus?
+  toStatus   ServiceRequestStatus
+  actorId    String?               @db.Uuid
+  note       String?
+  createdAt  DateTime              @default(now())
+
+  request ServiceRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([requestId, createdAt])
+  @@map("service_request_status_events")
 }

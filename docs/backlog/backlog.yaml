@@ -598,6 +598,7 @@ epics:
     goal: 'ثبت درخواست امکان‌سنجی، پژوهش، مشاوره، آموزش، سرمایه‌گذاری و تماس.'
     stories:
       - id: ST-11.01
+        status: done
         title: 'مدل و API ServiceRequest (مهمان و کاربر)'
         sprint: S7
         points: 5

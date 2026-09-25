@@ -9,7 +9,7 @@ import { APP_CONFIG, type AppConfig } from './config/app-config';
 import { AppConfigModule } from './config/config.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { AuthGuard } from './modules/auth/auth.guard';
-import { skipUnlessAuthThrottled } from './modules/auth/auth-throttle';
+import { skipUnlessStrictThrottled } from './common/http/strict-rate-limit';
 import { AuthModule } from './modules/auth/auth.module';
 import { DatabaseModule } from './modules/database/database.module';
 import { FilesModule } from './modules/files/files.module';
@@ -18,6 +18,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { PaymentsModule } from './modules/payments/payments.module';
 import { PermissionsGuard } from './modules/rbac/permissions.guard';
 import { RbacModule } from './modules/rbac/rbac.module';
+import { ServiceRequestsModule } from './modules/service-requests/service-requests.module';
 import { UsersModule } from './modules/users/users.module';
 import { HealthModule } from './modules/health/health.module';
 
@@ -55,10 +56,10 @@ import { HealthModule } from './modules/health/health.module';
         throttlers: [
           { name: 'default', ttl: config.THROTTLE_TTL_MS, limit: config.THROTTLE_LIMIT },
           {
-            name: 'auth',
+            name: 'strict',
             ttl: config.THROTTLE_TTL_MS,
             limit: config.AUTH_THROTTLE_LIMIT,
-            skipIf: skipUnlessAuthThrottled,
+            skipIf: skipUnlessStrictThrottled,
           },
         ],
       }),
@@ -74,6 +75,8 @@ import { HealthModule } from './modules/health/health.module';
     NotificationsModule,
     PaymentsModule,
     IranSahamdarModule,
+    // Domain modules (Phase 1)
+    ServiceRequestsModule,
   ],
   providers: [
     // Guard order matters: rate limit → authenticate (default deny) → authorize.

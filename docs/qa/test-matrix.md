@@ -20,4 +20,9 @@ Legend: ✅ automated · 🟡 manual · ⬜ not yet covered
 | Audit      | Login, register, token reuse, role change recorded | API e2e    | ✅     |
 | Web        | All public routes render RTL                       | Playwright | ⬜     |
 
+| Requests | Guest submit + tracking code + notification | API e2e | ✅ |
+| Requests | Honeypot / type-specific validation | Unit + e2e | ✅ |
+| Requests | Owner-only access, stranger gets 404 | API e2e | ✅ |
+| Requests | Staff-only status changes, invalid transition 409, audit | API e2e | ✅ |
+
 This matrix is updated at the end of each story.
