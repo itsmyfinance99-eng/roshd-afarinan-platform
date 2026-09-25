@@ -22,6 +22,9 @@ export const envSchema = z.object({
   /** Express "trust proxy" setting; set to the number of proxies (e.g. 1 behind nginx). */
   TRUST_PROXY: z.coerce.number().int().min(0).max(10).default(0),
   SWAGGER_ENABLED: bool.optional(),
+  DATABASE_URL: z
+    .string()
+    .regex(/^postgres(ql)?:\/\//, { error: 'must be a postgresql:// connection string' }),
   THROTTLE_TTL_MS: z.coerce.number().int().positive().default(60_000),
   THROTTLE_LIMIT: z.coerce.number().int().positive().default(120),
 });

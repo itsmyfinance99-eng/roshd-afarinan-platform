@@ -5,6 +5,9 @@ packages:
 # Dependencies allowed to run install scripts (pnpm blocks all others by default)
 allowBuilds:
   '@swc/core': true
+  '@prisma/engines': true
+  prisma: true
+  esbuild: true
   '@scarf/scarf': false # telemetry
 
 minimumReleaseAgeExclude:

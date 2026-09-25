@@ -7,6 +7,7 @@ import { EnvelopeInterceptor } from './common/http/envelope.interceptor';
 import { resolveRequestId } from './common/http/request-id';
 import { APP_CONFIG, type AppConfig } from './config/app-config';
 import { AppConfigModule } from './config/config.module';
+import { DatabaseModule } from './modules/database/database.module';
 import { HealthModule } from './modules/health/health.module';
 
 @Module({
@@ -46,6 +47,7 @@ import { HealthModule } from './modules/health/health.module';
       }),
     }),
     HealthModule,
+    DatabaseModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },

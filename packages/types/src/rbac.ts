@@ -16,6 +16,22 @@ export const ROLES = [
 
 export type Role = (typeof ROLES)[number];
 
+/** Persian display names for roles. */
+export const ROLE_LABELS_FA: Record<Role, string> = {
+  guest: 'مهمان',
+  user: 'کاربر',
+  student: 'دانشجو',
+  applicant: 'متقاضی',
+  investor: 'سرمایه‌گذار',
+  expert: 'کارشناس',
+  instructor: 'مدرس',
+  editor: 'ویراستار',
+  support: 'پشتیبانی',
+  finance: 'مالی',
+  admin: 'مدیر',
+  super_admin: 'مدیر ارشد',
+};
+
 /** Permission strings use the `resource:action` convention. */
 export const PERMISSIONS = [
   'users:read',

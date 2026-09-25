@@ -174,6 +174,7 @@ epics:
           - 'X-Request-Id در پاسخ و لاگ‌ها وجود داشته باشد'
           - 'خطاهای ناشناخته جزئیات داخلی را افشا نکنند'
       - id: ST-01.07
+        status: done
         title: 'Logging ساخت‌یافته و endpointهای Health/Readiness'
         sprint: S1
         points: 3
@@ -184,6 +185,7 @@ epics:
           - 'لاگ‌ها JSON با requestId باشند و header احراز هویت و cookie را redact کنند'
           - '/api/v1/health/live همیشه 200 و /api/v1/health/ready در صورت قطع DB پاسخ 503 بدهد'
       - id: ST-01.08
+        status: done
         title: 'پایگاه داده: Docker Compose، Prisma، migration اولیه و seed'
         sprint: S1
         points: 5
