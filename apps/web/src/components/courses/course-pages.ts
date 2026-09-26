@@ -1,8 +1,8 @@
 import 'server-only';
-import { notFound } from 'next/navigation';
 import { site } from '@/content/site';
 import { siteUrl } from '@/lib/env';
 import { getCourse, type CourseDetail } from '@/lib/learning-api';
+import { requireFound } from '@/lib/server-api';
 
 const COURSE_MODE: Record<CourseDetail['deliveryMode'], string> = {
   ONLINE: 'online',
@@ -10,17 +10,9 @@ const COURSE_MODE: Record<CourseDetail['deliveryMode'], string> = {
   HYBRID: 'blended',
 };
 
-/**
- * Loads a published course for a page. Missing, unpublished or malformed slugs are a real 404
- * (resolved before streaming); an unavailable API surfaces the error boundary.
- */
-export async function loadCourse(slug: string): Promise<CourseDetail> {
-  const result = await getCourse(slug);
-  if (!result.ok) {
-    if (result.status === 404 || result.status === 400) notFound();
-    throw new Error('Course catalog unavailable');
-  }
-  return result.data;
+/** Loads a published course for a page (real 404 for missing, unpublished or malformed slugs). */
+export function loadCourse(slug: string): Promise<CourseDetail> {
+  return requireFound(getCourse(slug));
 }
 
 /** schema.org Course (Google course info); `offers` only when the price is actually known. */

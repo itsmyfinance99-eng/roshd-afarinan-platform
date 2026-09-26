@@ -15,6 +15,8 @@ const ROUTES = [
   '/research/steel-value-chain',
   '/research/request',
   '/investment',
+  '/investment/iron-ore-processing',
+  '/investment/iron-ore-processing/interest',
   '/iran-sahamdar',
   '/knowledge',
   '/articles',
@@ -95,16 +97,5 @@ test.describe('navigation', () => {
     await page.keyboard.press('Enter');
     await expect(page).toHaveURL(/\/search\?q=/);
     await expect(page.getByText(/نتیجه/).first()).toBeVisible();
-  });
-});
-
-test.describe('catalog filters', () => {
-  test('investment filters show an empty state and can be reset', async ({ page }) => {
-    await page.goto('/investment');
-    await page.getByRole('radio', { name: 'انرژی' }).check();
-    await page.getByLabel('مرحله').selectOption('طرح توجیهی');
-    await expect(page.getByText('پروژه‌ای یافت نشد')).toBeVisible();
-    await page.getByRole('button', { name: 'حذف فیلترها' }).click();
-    await expect(page.locator('article')).toHaveCount(6);
   });
 });

@@ -2,8 +2,8 @@ import { Container, DemoBadge, Section, Tag } from '@roshd/ui';
 import type { Metadata } from 'next';
 import { ProjectCard } from '@/components/cards/cards';
 import { PageIntro } from '@/components/layout/page-shell';
-import { demoProjects } from '@/content/demo';
 import { pathSteps } from '@/content/site';
+import { listInvestments } from '@/lib/investment-api';
 import { pageMetadata } from '@/lib/seo';
 
 export const metadata: Metadata = pageMetadata({
@@ -13,7 +13,12 @@ export const metadata: Metadata = pageMetadata({
   path: '/iran-sahamdar',
 });
 
-export default function IranSahamdarPage() {
+/** Refreshed every 5 minutes so newly published opportunities appear. */
+export const revalidate = 300;
+
+export default async function IranSahamdarPage() {
+  const investments = await listInvestments({ pageSize: 3 });
+  const projects = investments.ok ? investments.data : [];
   const last = pathSteps.length - 1;
   return (
     <>
@@ -60,24 +65,26 @@ export default function IranSahamdarPage() {
         </div>
       </Container>
 
-      <Section tone="muted" aria-labelledby="samples-title">
-        <Container className="py-16">
-          <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
-            <h2
-              id="samples-title"
-              className="text-[clamp(22px,2.6vw,30px)] font-extrabold text-brand-900"
-            >
-              نمونه پروژه‌های قابل معرفی
-            </h2>
-            <DemoBadge />
-          </div>
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,300px),1fr))] gap-5">
-            {demoProjects.slice(2, 5).map((project) => (
-              <ProjectCard key={project.id} project={project} />
-            ))}
-          </div>
-        </Container>
-      </Section>
+      {projects.length > 0 ? (
+        <Section tone="muted" aria-labelledby="samples-title">
+          <Container className="py-16">
+            <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
+              <h2
+                id="samples-title"
+                className="text-[clamp(22px,2.6vw,30px)] font-extrabold text-brand-900"
+              >
+                طرح‌های معرفی‌شده در پلتفرم
+              </h2>
+              {projects.some((p) => p.isDemo) ? <DemoBadge /> : null}
+            </div>
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,300px),1fr))] gap-5">
+              {projects.map((project) => (
+                <ProjectCard key={project.id} project={project} />
+              ))}
+            </div>
+          </Container>
+        </Section>
+      ) : null}
     </>
   );
 }

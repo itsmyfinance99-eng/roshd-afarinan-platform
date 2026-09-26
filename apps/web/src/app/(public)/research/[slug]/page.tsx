@@ -1,26 +1,20 @@
 import { buttonClasses, Container, DemoBadge, formatDateFa, toPersianDigits } from '@roshd/ui';
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
 import { MarkdownBody } from '@/components/content/markdown';
 import { PageIntro } from '@/components/layout/page-shell';
 import { site } from '@/content/site';
 import { siteUrl } from '@/lib/env';
 import { getResearch, type ResearchDetail } from '@/lib/research-api';
 import { jsonLdScript } from '@/lib/seo';
+import { requireFound } from '@/lib/server-api';
 
 export const revalidate = 300;
 
 type Params = Promise<{ slug: string }>;
 
-/** Missing, unpublished or malformed slugs are a real 404; an unavailable API is an error. */
-async function loadResearch(slug: string): Promise<ResearchDetail> {
-  const result = await getResearch(slug);
-  if (!result.ok) {
-    if (result.status === 404 || result.status === 400) notFound();
-    throw new Error('Research catalog unavailable');
-  }
-  return result.data;
+function loadResearch(slug: string): Promise<ResearchDetail> {
+  return requireFound(getResearch(slug));
 }
 
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {

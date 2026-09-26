@@ -1,12 +1,18 @@
 import { DemoBadge, formatDateFa, ImagePlaceholder } from '@roshd/ui';
 import Link from 'next/link';
-import { COURSE_LEVEL_LABELS_FA, DELIVERY_MODE_LABELS_FA } from '@roshd/validation';
+import {
+  COURSE_LEVEL_LABELS_FA,
+  DELIVERY_MODE_LABELS_FA,
+  INVESTMENT_SECTOR_LABELS_FA,
+  PROJECT_STAGE_LABELS_FA,
+} from '@roshd/validation';
 import {
   courseDurationLabel,
   coursePriceLabel,
   localCover,
 } from '@/components/courses/course-format';
-import type { DemoProject, EntryCardData } from '@/content/types';
+import type { EntryCardData } from '@/content/types';
+import type { InvestmentSummary } from '@/lib/investment-api';
 import type { CourseSummary } from '@/lib/learning-api';
 
 export function CourseCard({ course }: { course: CourseSummary }) {
@@ -82,29 +88,51 @@ export function ContentCard({
   );
 }
 
-export function ProjectCard({ project }: { project: DemoProject }) {
+export function ProjectCard({ project }: { project: InvestmentSummary }) {
+  const href = `/investment/${project.slug}`;
+  const cover = localCover(project.coverImageUrl);
   return (
     <article className="flex h-full flex-col overflow-hidden rounded-card border border-line bg-white hover:border-line-hover">
       <div className="relative">
-        <ImagePlaceholder label="تصویر پروژه" className="aspect-video" />
+        {cover ? (
+          // eslint-disable-next-line @next/next/no-img-element -- CMS-managed path, size unknown
+          <img src={cover} alt="" className="aspect-video w-full object-cover" loading="lazy" />
+        ) : (
+          <ImagePlaceholder label="تصویر پروژه" className="aspect-video" />
+        )}
         {project.isDemo ? <DemoBadge className="absolute top-3 start-3" /> : null}
       </div>
       <div className="flex flex-1 flex-col gap-3.5 p-5">
-        <span className="text-[13px] font-bold text-primary">{project.sectorLabel}</span>
-        <h3 className="text-[17px] leading-[1.7] text-pretty text-ink">{project.title}</h3>
+        <span className="text-[13px] font-bold text-primary">
+          {INVESTMENT_SECTOR_LABELS_FA[project.sector]}
+        </span>
+        <h3 className="text-[17px] leading-[1.7] text-pretty text-ink">
+          <Link href={href} className="text-ink no-underline hover:text-primary">
+            {project.title}
+          </Link>
+        </h3>
         <dl className="grid grid-cols-[auto_1fr] gap-x-3.5 gap-y-2 text-sm">
-          <dt className="text-ink-5">موقعیت</dt>
-          <dd className="text-ink-2">{project.location}</dd>
+          {project.province ? (
+            <>
+              <dt className="text-ink-5">موقعیت</dt>
+              <dd className="text-ink-2">{project.province}</dd>
+            </>
+          ) : null}
           <dt className="text-ink-5">مرحله</dt>
-          <dd className="text-ink-2">{project.stage}</dd>
-          <dt className="text-ink-5">خدمت مورد نیاز</dt>
-          <dd className="text-ink-2">{project.service}</dd>
+          <dd className="text-ink-2">{PROJECT_STAGE_LABELS_FA[project.stage]}</dd>
+          {project.serviceNeeded ? (
+            <>
+              <dt className="text-ink-5">خدمت مورد نیاز</dt>
+              <dd className="text-ink-2">{project.serviceNeeded}</dd>
+            </>
+          ) : null}
         </dl>
         <Link
-          href="/feasibility/request"
+          href={href}
+          aria-label={`مشاهده طرح: ${project.title}`}
           className="mt-auto flex h-11 items-center justify-center rounded-control border border-primary text-sm font-bold text-primary no-underline hover:bg-primary hover:text-white"
         >
-          درخواست بررسی
+          مشاهده طرح
         </Link>
       </div>
     </article>

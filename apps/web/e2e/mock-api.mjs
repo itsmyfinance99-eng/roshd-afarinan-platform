@@ -99,6 +99,45 @@ const research = [
   },
 ];
 
+const opportunity = (overrides) => ({
+  coverImageUrl: null,
+  province: null,
+  serviceNeeded: null,
+  estimatedInvestmentRials: null,
+  publishedAt: '2026-09-01T08:00:00.000Z',
+  updatedAt: '2026-09-01T08:00:00.000Z',
+  isDemo: false,
+  description: 'معرفی طرح',
+  metaTitle: null,
+  metaDescription: null,
+  noIndex: false,
+  ...overrides,
+});
+
+const investments = [
+  opportunity({
+    id: '0199a000-0000-7000-8000-0000000000i1',
+    slug: 'iron-ore-processing',
+    title: 'واحد فرآوری سنگ آهن',
+    summary: 'طرح فرآوری سنگ آهن در مرحله مطالعه بازار.',
+    sector: 'MINING',
+    stage: 'MARKET_STUDY',
+    province: 'کرمان',
+    serviceNeeded: 'مطالعات امکان‌سنجی',
+    estimatedInvestmentRials: '120000000000',
+  }),
+  opportunity({
+    id: '0199a000-0000-7000-8000-0000000000i2',
+    slug: 'small-solar-plant',
+    title: 'طرح نمونه نیروگاه خورشیدی کوچک',
+    summary: 'نمونه نمایشی برای بررسی ساختار معرفی طرح‌ها.',
+    sector: 'ENERGY',
+    stage: 'IDEA',
+    province: 'یزد',
+    isDemo: true,
+  }),
+];
+
 const summary = ({
   description: _d,
   metaTitle: _t,
@@ -164,6 +203,28 @@ createServer((req, res) => {
   if (researchMatch) {
     const found = research.find((r) => r.slug === decodeURIComponent(researchMatch[1]));
     return found ? ok(res, found) : notFound(res);
+  }
+  if (path === '/investments') {
+    const list = investments
+      .filter((o) => !q.get('sector') || o.sector === q.get('sector'))
+      .filter((o) => !q.get('stage') || o.stage === q.get('stage'))
+      .filter(
+        (o) =>
+          !q.get('q') || o.title.includes(q.get('q')) || (o.province ?? '').includes(q.get('q')),
+      )
+      .map(({ description: _d, metaTitle: _t, metaDescription: _m, noIndex: _n, ...rest }) => rest);
+    return ok(res, list, { page: 1, pageSize: 12, total: list.length });
+  }
+  const investmentMatch = /^\/investments\/([^/]+)$/.exec(path);
+  if (investmentMatch) {
+    const found = investments.find((o) => o.slug === decodeURIComponent(investmentMatch[1]));
+    return found ? ok(res, found) : notFound(res);
+  }
+  if (path === '/sitemap/investments') {
+    return ok(
+      res,
+      investments.filter((o) => !o.isDemo).map((o) => ({ slug: o.slug, updatedAt: o.updatedAt })),
+    );
   }
   if (path === '/sitemap/research') {
     return ok(

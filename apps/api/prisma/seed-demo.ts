@@ -239,6 +239,75 @@ const entries: {
   },
 ];
 
+type Sector = 'MINING' | 'INDUSTRY' | 'ENERGY' | 'AGRI_FOOD' | 'SERVICES_INFRA';
+type Stage = 'IDEA' | 'MARKET_STUDY' | 'TECHNICAL_STUDY' | 'FEASIBILITY_STUDY';
+
+/** No amounts: investment figures are never invented. */
+const opportunities: {
+  slug: string;
+  title: string;
+  sector: Sector;
+  stage: Stage;
+  province: string;
+  serviceNeeded: string;
+  publishedAt: string;
+}[] = [
+  {
+    slug: 'demo-iron-ore-processing',
+    title: 'طرح نمونه واحد فرآوری سنگ آهن',
+    sector: 'MINING',
+    stage: 'IDEA',
+    province: 'کرمان',
+    serviceNeeded: 'مطالعات امکان‌سنجی',
+    publishedAt: '2026-09-01',
+  },
+  {
+    slug: 'demo-industrial-parts',
+    title: 'طرح نمونه تولید قطعات صنعتی',
+    sector: 'INDUSTRY',
+    stage: 'FEASIBILITY_STUDY',
+    province: 'اصفهان',
+    serviceNeeded: 'مشاوره تأمین مالی',
+    publishedAt: '2026-08-28',
+  },
+  {
+    slug: 'demo-small-solar-plant',
+    title: 'طرح نمونه نیروگاه خورشیدی کوچک',
+    sector: 'ENERGY',
+    stage: 'MARKET_STUDY',
+    province: 'یزد',
+    serviceNeeded: 'امکان‌سنجی فنی و مالی',
+    publishedAt: '2026-08-20',
+  },
+  {
+    slug: 'demo-agri-packaging',
+    title: 'طرح نمونه مجتمع بسته‌بندی محصولات کشاورزی',
+    sector: 'AGRI_FOOD',
+    stage: 'IDEA',
+    province: 'خراسان رضوی',
+    serviceNeeded: 'طرح توجیهی',
+    publishedAt: '2026-08-12',
+  },
+  {
+    slug: 'demo-dimension-stone-mine',
+    title: 'طرح نمونه توسعه معدن سنگ ساختمانی',
+    sector: 'MINING',
+    stage: 'TECHNICAL_STUDY',
+    province: 'لرستان',
+    serviceNeeded: 'مشاوره سرمایه‌گذاری صنعتی',
+    publishedAt: '2026-08-05',
+  },
+  {
+    slug: 'demo-regional-logistics',
+    title: 'طرح نمونه مرکز لجستیک منطقه‌ای',
+    sector: 'SERVICES_INFRA',
+    stage: 'FEASIBILITY_STUDY',
+    province: 'قزوین',
+    serviceNeeded: 'مشاوره پروژه',
+    publishedAt: '2026-07-29',
+  },
+];
+
 async function main(): Promise<void> {
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) throw new Error('DATABASE_URL is not set');
@@ -323,8 +392,31 @@ ${r.summary}`,
         create: { slug: r.slug, ...data },
       });
     }
+    for (const o of opportunities) {
+      const data = {
+        title: o.title,
+        summary: `${o.title} برای بررسی ساختار معرفی طرح‌ها؛ فرصت واقعی سرمایه‌گذاری نیست.`,
+        description: `${DEMO_NOTE}
+
+## معرفی طرح
+
+اطلاعات این طرح نمونه است و هیچ ادعای بازده یا سرمایه‌گذاری ندارد.`,
+        sector: o.sector,
+        stage: o.stage,
+        province: o.province,
+        serviceNeeded: o.serviceNeeded,
+        status: 'PUBLISHED' as const,
+        publishedAt: new Date(`${o.publishedAt}T08:00:00Z`),
+        isDemo: true,
+      };
+      await prisma.investmentOpportunity.upsert({
+        where: { slug: o.slug },
+        update: data,
+        create: { slug: o.slug, ...data },
+      });
+    }
     console.warn(
-      `Seeded ${entries.length} content entries, ${courses.length} courses and ${research.length} research projects (isDemo=true).`,
+      `Seeded ${entries.length} content entries, ${courses.length} courses, ${research.length} research projects and ${opportunities.length} opportunities (isDemo=true).`,
     );
   } finally {
     await prisma.$disconnect();

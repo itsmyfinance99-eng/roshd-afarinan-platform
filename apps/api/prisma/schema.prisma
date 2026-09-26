@@ -405,6 +405,54 @@ model ResearchProject {
   @@map("research_projects")
 }
 
+// ──────────────────────────────── Investment ────────────────────────────────
+// Presentation only: no transactions, no returns, no "open for investment" claims.
+
+enum InvestmentSector {
+  MINING
+  INDUSTRY
+  ENERGY
+  AGRI_FOOD
+  SERVICES_INFRA
+}
+
+enum ProjectStage {
+  IDEA
+  MARKET_STUDY
+  TECHNICAL_STUDY
+  FEASIBILITY_STUDY
+}
+
+model InvestmentOpportunity {
+  id                       String           @id @default(uuid(7)) @db.Uuid
+  slug                     String           @unique
+  title                    String
+  summary                  String
+  /// Markdown; rendered without raw HTML.
+  description              String
+  coverImageUrl            String?
+  sector                   InvestmentSector
+  stage                    ProjectStage
+  province                 String?
+  /// Service the project needs, e.g. «مطالعات امکان‌سنجی».
+  serviceNeeded            String?
+  /// Whole rials; only from approved project data (never estimated by the platform).
+  estimatedInvestmentRials Decimal?         @db.Decimal(20, 0)
+  status                   ContentStatus    @default(DRAFT)
+  publishedAt              DateTime?
+  metaTitle                String?
+  metaDescription          String?
+  noIndex                  Boolean          @default(false)
+  isDemo                   Boolean          @default(false)
+  createdById              String?          @db.Uuid
+  updatedById              String?          @db.Uuid
+  createdAt                DateTime         @default(now())
+  updatedAt                DateTime         @updatedAt
+
+  @@index([status, sector, publishedAt])
+  @@map("investment_opportunities")
+}
+
 // ─────────────────────────────────── Files ───────────────────────────────────
 
 enum FilePurpose {

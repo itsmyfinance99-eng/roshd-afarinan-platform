@@ -14,6 +14,7 @@ import { skipUnlessStrictThrottled } from './common/http/strict-rate-limit';
 import { AuthModule } from './modules/auth/auth.module';
 import { DatabaseModule } from './modules/database/database.module';
 import { FilesModule } from './modules/files/files.module';
+import { InvestmentModule } from './modules/investment/investment.module';
 import { IranSahamdarModule } from './modules/iran-sahamdar/iran-sahamdar.module';
 import { LearningModule } from './modules/learning/learning.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
@@ -84,6 +85,7 @@ import { HealthModule } from './modules/health/health.module';
     CmsModule,
     LearningModule,
     ResearchModule,
+    InvestmentModule,
     TicketsModule,
   ],
   providers: [
