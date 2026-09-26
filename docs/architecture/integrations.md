@@ -24,7 +24,9 @@ Every integration must have a timeout, a retry policy (idempotent calls only), a
 | --------------------------------- | ------------------------------------------------------- | -------------- |
 | New service request               | Active users with `requests:read-all`                   | In-app         |
 | Request status changed            | The requester (account); guests by email                | In-app + email |
-| New ticket, user reply            | Active users with `tickets:read-all` (never the author) | In-app         |
+| New ticket, reply (unassigned)    | Active users with `tickets:read-all` (never the author) | In-app         |
+| User reply on an assigned ticket  | The assignee only                                       | In-app         |
+| Request or ticket assigned        | The new assignee (not when self-assigned)               | In-app         |
 | Staff answer (not internal notes) | Ticket owner                                            | In-app + email |
 | Order paid                        | Buyer                                                   | In-app + email |
 

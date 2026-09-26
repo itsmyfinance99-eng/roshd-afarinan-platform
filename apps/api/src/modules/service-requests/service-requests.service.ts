@@ -4,6 +4,7 @@ import {
   SERVICE_REQUEST_STATUS_LABELS_FA,
   SERVICE_REQUEST_STATUSES,
   SERVICE_REQUEST_TYPE_LABELS_FA,
+  type AssignInput,
   type CreateServiceRequestInput,
   type ExportServiceRequestsQuery,
   type ListServiceRequestsQuery,
@@ -31,6 +32,9 @@ import {
 } from '../notifications/ports/notification-provider';
 import { NotificationsService } from '../notifications/notifications.service';
 import { hasPermission, type Principal } from '../rbac/principal';
+import { RbacService } from '../rbac/rbac.service';
+import { staffRef, staffRefs, type StaffRef } from '../users/staff-ref';
+import { UsersService } from '../users/users.service';
 import { EXPORT_HEADER, exportFileName, exportRow, tehranDayRange } from './domain/request-export';
 import { canTransition, generateTrackingCode } from './domain/service-request.policy';
 
@@ -52,7 +56,14 @@ export interface ServiceRequestView extends ServiceRequestReceipt {
   updatedAt: Date;
 }
 
+/** Staff list item: adds the assignee, which requesters never see. */
+export interface StaffServiceRequestView extends ServiceRequestView {
+  assignee: StaffRef | null;
+}
+
 export interface ServiceRequestDetailView extends ServiceRequestView {
+  /** Present for staff only. */
+  assignee?: StaffRef | null;
   attachments: FileView[];
   events: {
     fromStatus: ServiceRequestStatus | null;
@@ -78,6 +89,9 @@ const VIEW_SELECT = {
 } satisfies Prisma.ServiceRequestSelect;
 
 const MAX_CODE_ATTEMPTS = 5;
+
+/** Permission an assignee must hold: they need to see the request to work on it. */
+const ASSIGNEE_PERMISSION = 'requests:read-all';
 
 /** Splits validated input into common columns and type-specific `details`. */
 function toRecord(input: CreateServiceRequestInput) {
@@ -108,6 +122,8 @@ export class ServiceRequestsService {
     @Inject(NOTIFICATION_PROVIDER) private readonly notifications: NotificationProvider,
     private readonly inbox: NotificationsService,
     private readonly files: FilesService,
+    private readonly rbac: RbacService,
+    private readonly users: UsersService,
   ) {}
 
   async create(
@@ -227,8 +243,91 @@ export class ServiceRequestsService {
     return { byStatus, total, since: recent };
   }
 
-  async listAll(query: ListServiceRequestsQuery): Promise<PageResult<ServiceRequestView>> {
-    return this.list(this.filters(query), query);
+  /** Staff list; `assignee=me|none` narrows it to the caller's queue or unassigned requests. */
+  async listAll(
+    query: ListServiceRequestsQuery,
+    principal: Principal,
+  ): Promise<PageResult<StaffServiceRequestView>> {
+    const where: Prisma.ServiceRequestWhereInput = {
+      ...this.filters(query),
+      ...(query.assignee === 'me' ? { assigneeId: principal.userId } : {}),
+      ...(query.assignee === 'none' ? { assigneeId: null } : {}),
+    };
+    const [rows, total] = await this.prisma.$transaction([
+      this.prisma.serviceRequest.findMany({
+        where,
+        select: { ...VIEW_SELECT, assigneeId: true },
+        orderBy: { createdAt: 'desc' },
+        skip: (query.page - 1) * query.pageSize,
+        take: query.pageSize,
+      }),
+      this.prisma.serviceRequest.count({ where }),
+    ]);
+    const names = await this.users.namesByIds(rows.flatMap((r) => r.assigneeId ?? []));
+    const items = rows.map(({ assigneeId, ...item }) => ({
+      ...item,
+      assignee: staffRef(assigneeId, names),
+    }));
+    return new PageResult(items, query.page, query.pageSize, total);
+  }
+
+  /** Active staff who may be assigned a request (sorted by name, for the staff picker). */
+  async assignees(): Promise<StaffRef[]> {
+    const ids = await this.rbac.userIdsWithPermission(ASSIGNEE_PERMISSION);
+    return staffRefs(await this.users.namesByIds(ids));
+  }
+
+  /**
+   * Assigns (or, with `null`, unassigns) a staff member. The assignee must be active and able to
+   * read requests; the change is audited and the new assignee is notified.
+   */
+  async assign(
+    id: string,
+    input: AssignInput,
+    actor: Principal,
+    meta: RequestMeta,
+  ): Promise<ServiceRequestDetailView> {
+    const current = await this.prisma.serviceRequest.findUnique({
+      where: { id },
+      select: { assigneeId: true, trackingCode: true, type: true },
+    });
+    if (!current) throw new NotFoundError();
+    if (current.assigneeId === input.assigneeId) return this.getVisible(id, actor);
+    if (
+      input.assigneeId &&
+      !(await this.rbac.userHasPermission(input.assigneeId, ASSIGNEE_PERMISSION))
+    ) {
+      throw new ValidationFailedError([
+        { path: 'assigneeId', message: 'این کاربر امکان رسیدگی به درخواست‌ها را ندارد.' },
+      ]);
+    }
+
+    // Conditional update: a concurrent reassignment makes this a no-op and is reported.
+    const { count } = await this.prisma.serviceRequest.updateMany({
+      where: { id, assigneeId: current.assigneeId },
+      data: { assigneeId: input.assigneeId },
+    });
+    if (count !== 1) {
+      throw new ConflictError('کارشناس این درخواست هم‌زمان تغییر کرده است. دوباره تلاش کنید.');
+    }
+
+    await this.audit.record({
+      action: 'service_request.assigned',
+      actorId: actor.userId,
+      entityType: 'service_request',
+      entityId: id,
+      metadata: { from: current.assigneeId, to: input.assigneeId },
+      meta,
+    });
+    if (input.assigneeId && input.assigneeId !== actor.userId) {
+      await this.inbox.notifyUsers([input.assigneeId], {
+        kind: 'service_request.assigned',
+        title: `درخواست ${current.trackingCode} به شما ارجاع شد`,
+        body: SERVICE_REQUEST_TYPE_LABELS_FA[current.type],
+        link: `/dashboard/manage/requests/${id}`,
+      });
+    }
+    return this.getVisible(id, actor);
   }
 
   /**
@@ -281,6 +380,7 @@ export class ServiceRequestsService {
       select: {
         ...VIEW_SELECT,
         userId: true,
+        assigneeId: true,
         events: {
           orderBy: { createdAt: 'asc' },
           select: { fromStatus: true, toStatus: true, note: true, createdAt: true },
@@ -289,10 +389,14 @@ export class ServiceRequestsService {
     });
     const staff = hasPermission(principal, 'requests:read-all');
     if (!row || (!staff && row.userId !== principal.userId)) throw new NotFoundError();
-    const { userId: _userId, events, ...view } = row;
-    // Staff notes are internal; owners only see the status timeline.
+    const { userId: _userId, assigneeId, events, ...view } = row;
+    // Staff notes and the assignee are internal; owners only see the status timeline.
+    const assignee = staff
+      ? staffRef(assigneeId, await this.users.namesByIds(assigneeId ? [assigneeId] : []))
+      : undefined;
     return {
       ...view,
+      ...(staff ? { assignee } : {}),
       attachments: await this.files.listForEntity('service_request', id),
       events: staff ? events : events.map((e) => ({ ...e, note: null })),
     };

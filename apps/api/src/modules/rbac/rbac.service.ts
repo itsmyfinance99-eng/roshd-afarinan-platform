@@ -45,6 +45,18 @@ export class RbacService {
     return rows.map((r) => r.userId);
   }
 
+  /** Is the user active and holding the permission (e.g. a valid assignee)? */
+  async userHasPermission(userId: string, permission: Permission): Promise<boolean> {
+    const count = await this.prisma.userRole.count({
+      where: {
+        userId,
+        user: { status: 'ACTIVE' },
+        role: { permissions: { some: { permission: { key: permission } } } },
+      },
+    });
+    return count > 0;
+  }
+
   invalidate(): void {
     this.cache = undefined;
   }

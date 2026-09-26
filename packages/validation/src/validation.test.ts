@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { loginSchema, registerSchema } from './auth';
-import { emailSchema, mobileSchema, paginationQuerySchema, slugSchema, text } from './common';
+import {
+  assignSchema,
+  emailSchema,
+  mobileSchema,
+  paginationQuerySchema,
+  slugSchema,
+  text,
+} from './common';
+import { listServiceRequestsQuerySchema } from './service-requests';
+import { listTicketsQuerySchema } from './tickets';
 import { normalizePersianText, toLatinDigits } from './normalize';
 
 describe('normalize', () => {
@@ -65,5 +74,21 @@ describe('auth schemas', () => {
   it('does not apply password policy on login', () => {
     expect(loginSchema.safeParse({ email: 'a@b.co', password: 'x' }).success).toBe(true);
     expect(loginSchema.safeParse({ email: 'a@b.co', password: '' }).success).toBe(false);
+  });
+});
+
+describe('assignment', () => {
+  it('accepts a staff id or null to unassign', () => {
+    const id = '0199aaaa-0000-7000-8000-000000000000';
+    expect(assignSchema.parse({ assigneeId: id })).toEqual({ assigneeId: id });
+    expect(assignSchema.parse({ assigneeId: null })).toEqual({ assigneeId: null });
+    expect(assignSchema.safeParse({}).success).toBe(false);
+    expect(assignSchema.safeParse({ assigneeId: 'abc' }).success).toBe(false);
+  });
+
+  it('filters staff lists by assignee', () => {
+    expect(listTicketsQuerySchema.parse({ assignee: 'me' }).assignee).toBe('me');
+    expect(listServiceRequestsQuerySchema.parse({ assignee: 'none' }).assignee).toBe('none');
+    expect(listTicketsQuerySchema.safeParse({ assignee: 'someone' }).success).toBe(false);
   });
 });
