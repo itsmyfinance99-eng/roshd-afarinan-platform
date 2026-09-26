@@ -1041,6 +1041,7 @@ epics:
           - 'بارگذاری با cms:write یا catalog:manage؛ نمایش عمومی از مسیر خود سایت'
           - 'انتخاب تصویر در فرم‌های ویرایش'
       - id: ST-25.08
+        status: done
         title: 'پایش سرویس و ثبت خطا'
         sprint: S9
         points: 5

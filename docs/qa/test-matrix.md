@@ -180,6 +180,15 @@ Automated suites: unit (Vitest), API e2e (Vitest + Supertest against a real Post
 | Web: assign from the request page, "assigned to me" filter, read-only view for experts, ticket API errors    | Playwright | ✅     |
 | Assignment schema and list filters                                                                           | Unit       | ✅     |
 
+## Monitoring
+
+| Scenario                                                                                           | Level          | Status |
+| -------------------------------------------------------------------------------------------------- | -------------- | ------ |
+| 5xx reported with request id, method, route (no query), status; response keeps the same request id | API e2e        | ✅     |
+| 4xx never reported; reporter failures never break the request                                      | Unit + API e2e | ✅     |
+| Scrubbing: emails, mobiles, card-like numbers, tokens, JWTs, passwords, keys; ids and paths kept   | Unit           | ✅     |
+| Reports bounded (message 500 chars, 12 stack frames); non-Error values handled                     | Unit           | ✅     |
+
 ## Infra
 
 | Scenario                                                                                           | Level             | Status |
