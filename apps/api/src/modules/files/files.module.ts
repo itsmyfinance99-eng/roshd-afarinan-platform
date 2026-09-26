@@ -4,16 +4,17 @@ import { HealthRegistry } from '../health/health.registry';
 import { LocalDiskStorage } from './adapters/local-disk-storage';
 import { FilesController } from './files.controller';
 import { FilesService } from './files.service';
+import { MediaController } from './media.controller';
 import { FILE_STORAGE, type FileStorageProvider } from './ports/file-storage';
 
 /**
  * File management (EPIC-13): private uploads with content sniffing, signed download URLs
- * and attachment to business records. Storage is the configured FileStorageProvider
+ * and attachment to business records, plus the public media library for content images. Storage is the configured FileStorageProvider
  * (local disk now; S3-compatible adapter after OQ-10).
  */
 @Global()
 @Module({
-  controllers: [FilesController],
+  controllers: [FilesController, MediaController],
   providers: [
     FilesService,
     {

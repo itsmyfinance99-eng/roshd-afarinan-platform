@@ -63,7 +63,8 @@ export const slugSchema = z
   .max(160)
   .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, { error: MESSAGES.invalidSlug });
 
-export const idSchema = z.string().min(1).max(64);
+/** Route ids are UUIDs; anything else is a 400 before it reaches the database's uuid columns. */
+export const idSchema = z.uuid();
 
 /** Calendar day (YYYY-MM-DD, Gregorian as sent by date inputs); filters read it in Iran time. */
 export const isoDaySchema = z.iso.date({ error: 'تاریخ معتبر نیست.' });

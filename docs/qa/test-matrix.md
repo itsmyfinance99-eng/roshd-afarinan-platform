@@ -69,6 +69,17 @@ Automated suites: unit (Vitest), API e2e (Vitest + Supertest against a real Post
 | Signed URL: valid → bytes, tampered/expired → 403; attachment + nosniff headers | Unit + API e2e | ✅     |
 | Stranger 404; staff read via linked request; attached file not deletable (409)  | API e2e        | ✅     |
 | Guest cannot attach; foreign / wrong-purpose / reused attachments → 400         | API e2e        | ✅     |
+| Malformed route ids → 400 (not a database error)                                | Unit + API e2e | ✅     |
+
+## Media library
+
+| Scenario                                                                                               | Level          | Status |
+| ------------------------------------------------------------------------------------------------------ | -------------- | ------ |
+| cms:write or catalog:manage uploads PNG/JPEG/WebP; others 403, anonymous 401; upload audited           | Unit + API e2e | ✅     |
+| SVG (any declared type), PDF, wrong extension → 415; missing file → 400                                | API e2e        | ✅     |
+| Public read: immutable cache, ETag/304, nosniff, sandbox CSP; private, deleted and unknown files → 404 | API e2e        | ✅     |
+| Private upload route cannot create public images                                                       | API e2e        | ✅     |
+| Web: upload fills the cover field (site path), library pick/remove, empty/error states, SVG refused    | Playwright     | ✅     |
 
 ## Tickets
 

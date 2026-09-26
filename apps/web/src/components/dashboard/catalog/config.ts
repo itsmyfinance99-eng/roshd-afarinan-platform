@@ -31,6 +31,8 @@ export type FieldDef = {
   seo?: boolean;
 } & (
   | { kind: 'text'; ltr?: boolean }
+  /** Media library image (upload, pick or site path). */
+  | { kind: 'image' }
   | { kind: 'textarea'; rows?: number }
   | { kind: 'markdown' }
   | { kind: 'select'; options: OptionSource; emptyLabel?: string }
@@ -84,11 +86,10 @@ const seo: FieldDef[] = [
   { name: 'metaDescription', label: 'توضیح سئو (حداکثر ۱۷۰ نویسه)', kind: 'text', seo: true },
   {
     name: 'coverImageUrl',
-    label: 'نشانی تصویر شاخص (اختیاری)',
-    kind: 'text',
-    ltr: true,
+    label: 'تصویر شاخص (اختیاری)',
+    kind: 'image',
     seo: true,
-    hint: 'مسیر داخل سایت مانند /media/cover.jpg',
+    hint: 'تصویر را بارگذاری یا از کتابخانه انتخاب کنید؛ یا مسیری داخل سایت وارد کنید.',
   },
   { name: 'noIndex', label: 'در موتورهای جستجو نمایه نشود (noindex)', kind: 'checkbox', seo: true },
 ];

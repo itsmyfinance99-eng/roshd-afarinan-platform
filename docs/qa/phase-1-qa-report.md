@@ -49,7 +49,7 @@ All Phase 1 stories in the backlog (sprints S0–S8) are implemented and merged 
 | 8   | Low      | Payment callback accepts GET only; some PSPs post back with POST                                                                        | With the real PSP adapter (ST-07.03)                    |
 | 9   | Low      | Refund policy undefined; duplicate verified payments are flagged (`payment.duplicate`) for manual follow-up (OQ-23)                     | Business decision                                       |
 | 10  | Low      | API runtime image is about 750 MB, and the migrate image contains the full workspace                                                    | Prune dependencies, dedicated migrate bundle            |
-| 11  | Low      | Only same-origin cover images render (CSP `img-src 'self'`)                                                                             | By design until a media host is chosen                  |
+| 11  | Low      | Only same-origin cover images render (CSP `img-src 'self'`)                                                                             | Resolved: media library served same-origin (ST-25.07)   |
 | 12  | Info     | Real courses, research, opportunities and credentials are pending (OQ-17, OQ-22); the site shows labelled demo data only in development | Content entry through the new admin forms               |
 
 No open issue is rated High or Critical.

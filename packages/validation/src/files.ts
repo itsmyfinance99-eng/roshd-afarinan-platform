@@ -40,3 +40,13 @@ export const attachmentIdsSchema = z
   .max(5, { error: 'حداکثر ۵ فایل پیوست مجاز است.' });
 
 export type UploadFileInput = z.infer<typeof uploadFileSchema>;
+
+/** Types accepted by the public media library (raster images only; SVG can carry scripts). */
+export const PUBLIC_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp'] as const;
+export type PublicImageType = (typeof PUBLIC_IMAGE_TYPES)[number];
+export const PUBLIC_IMAGE_EXTENSIONS: readonly string[] = PUBLIC_IMAGE_TYPES.flatMap((t) => [
+  ...ALLOWED_FILE_TYPES[t].ext,
+]);
+
+/** Site-relative address of a media library image (same origin, so CSP img-src 'self' holds). */
+export const mediaUrl = (id: string) => `/api/v1/media/${id}`;

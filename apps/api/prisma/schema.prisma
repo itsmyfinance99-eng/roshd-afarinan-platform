@@ -581,6 +581,8 @@ enum FilePurpose {
   SERVICE_REQUEST_ATTACHMENT
   TICKET_ATTACHMENT
   USER_DOCUMENT
+  /// Public media library image (CMS and catalog covers), served same-origin at /api/v1/media/:id.
+  PUBLIC_IMAGE
 }
 
 enum FileAccessLevel {
@@ -619,6 +621,7 @@ model FileObject {
 
   @@index([ownerId, createdAt])
   @@index([entityType, entityId])
+  @@index([purpose, status, createdAt])
   @@map("files")
 }
 
