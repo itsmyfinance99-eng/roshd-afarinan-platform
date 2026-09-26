@@ -1,0 +1,23 @@
+# Build context for apps/*/Dockerfile (context = repository root).
+**/node_modules
+**/dist
+**/.next
+**/.turbo
+**/coverage
+**/test-results
+**/playwright-report
+apps/api/src/generated
+apps/api/storage
+storage
+.git
+.github
+.husky
+.claude
+design
+docs
+*.log
+
+# Secrets never enter an image
+.env
+.env.*
+!.env.example

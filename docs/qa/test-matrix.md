@@ -88,6 +88,7 @@ Legend: ✅ automated · 🟡 manual · ⬜ not yet covered
 | CMS | Typed page sections; unknown/malformed sections 400; drafts visible to editors only | API e2e | ✅ |
 | CMS | Page editing 401/403 without `cms:write`; publishing needs `cms:publish` | API e2e | ✅ |
 | Web | About falls back to content layer; page editor prefill, reorder, validation, publish | Playwright | ✅ |
+| Infra | API and web images build in CI (multi-stage, non-root); migrate image applies migrations | CI + manual smoke | ✅ |
 | Requests | Guest submit + tracking code + notification | API e2e | ✅ |
 | Requests | Honeypot / type-specific validation | Unit + e2e | ✅ |
 | Requests | Owner-only access, stranger gets 404 | API e2e | ✅ |

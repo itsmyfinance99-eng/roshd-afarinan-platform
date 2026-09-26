@@ -45,6 +45,31 @@ pnpm dev                                      # API on http://localhost:4000
 
 > On Windows, use `127.0.0.1` rather than `localhost` in connection strings. `localhost` may resolve to IPv6 first.
 
+## Setup from scratch (checklist)
+
+1. Install Node 24, pnpm 11 (`corepack enable`) and Docker.
+2. `git clone` the repository, then `pnpm install`.
+3. `cp .env.example .env` and set `JWT_ACCESS_SECRET` and `FILE_URL_SECRET` (each `openssl rand -base64 48`).
+4. `docker compose up -d`, then `pnpm --filter @roshd/api db:migrate:deploy` and `pnpm --filter @roshd/api db:seed`.
+5. `pnpm dev`: web on <http://localhost:3000>, API on <http://localhost:4000>.
+6. Optional: `pnpm --filter @roshd/api db:seed:demo` for labelled demo content. To try online payment locally, keep `PAYMENT_PROVIDER` empty (mock gateway outside production).
+
+## Docker images
+
+Both apps have multi-stage, non-root images (`apps/api/Dockerfile`, `apps/web/Dockerfile`). The build context is the repository root.
+
+```bash
+docker build -f apps/api/Dockerfile -t roshd-api .                     # API runtime
+docker build -f apps/api/Dockerfile --target migrate -t roshd-migrate . # migrations + roles/permissions seed
+docker build -f apps/web/Dockerfile --build-arg API_INTERNAL_URL=http://api:4000 \
+  --build-arg NEXT_PUBLIC_SITE_URL=https://example.ir -t roshd-web .    # web (standalone)
+```
+
+- Run the `migrate` image once per release, before starting the new API. It applies migrations and seeds reference data (never demo data).
+- The API reads all configuration from environment variables (see `.env.example`), and private uploads live in the `/app/storage` volume. In production the payment gateway stays `disabled` until a PSP is chosen (OQ-09).
+- `NEXT_PUBLIC_*` and `API_INTERNAL_URL` are fixed when the web image is built, because the `/api` rewrite is compiled in.
+- Full stack in containers: `JWT_ACCESS_SECRET=… FILE_URL_SECRET=… docker compose -f infra/docker/compose.app.yml up --build` (web on :3000).
+
 ## Quality gate
 
 ```bash

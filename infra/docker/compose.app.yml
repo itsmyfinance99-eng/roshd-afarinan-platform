@@ -1,0 +1,69 @@
+# Full stack in containers (production-like, for local verification and staging).
+# From the repository root:
+#   JWT_ACCESS_SECRET=... FILE_URL_SECRET=... docker compose -f infra/docker/compose.app.yml up --build
+# Secrets are required variables; nothing secret is baked into an image.
+name: roshd-afarinan-app
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: roshd
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-roshd_app_password}
+      POSTGRES_DB: roshd
+    volumes:
+      - app-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U roshd -d roshd']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # One-off job: migrations + reference data (roles/permissions), then exits.
+  migrate:
+    build:
+      context: ../..
+      dockerfile: apps/api/Dockerfile
+      target: migrate
+    environment:
+      DATABASE_URL: postgresql://roshd:${POSTGRES_PASSWORD:-roshd_app_password}@postgres:5432/roshd
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    build:
+      context: ../..
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://roshd:${POSTGRES_PASSWORD:-roshd_app_password}@postgres:5432/roshd
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?set JWT_ACCESS_SECRET (openssl rand -base64 48)}
+      FILE_URL_SECRET: ${FILE_URL_SECRET:?set FILE_URL_SECRET (openssl rand -base64 48)}
+      WEB_BASE_URL: ${WEB_BASE_URL:-http://localhost:3000}
+      TRUST_PROXY: ${TRUST_PROXY:-0}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+    volumes:
+      - app-storage:/app/storage
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  web:
+    build:
+      context: ../..
+      dockerfile: apps/web/Dockerfile
+      args:
+        API_INTERNAL_URL: http://api:4000
+        NEXT_PUBLIC_SITE_URL: ${WEB_BASE_URL:-http://localhost:3000}
+    restart: unless-stopped
+    ports:
+      - '3000:3000'
+    depends_on:
+      - api
+
+volumes:
+  app-postgres:
+  app-storage:
