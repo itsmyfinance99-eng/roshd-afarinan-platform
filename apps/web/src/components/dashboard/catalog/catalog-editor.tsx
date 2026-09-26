@@ -15,6 +15,7 @@ import { useRouter } from 'next/navigation';
 import { type FormEvent, useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/api-client';
 import type { CatalogConfig, FieldDef, OptionSource } from './config';
+import { ImageField } from '../media';
 
 /** A catalog record as returned by the management API (fields vary per catalog). */
 export type CatalogRecord = Record<string, unknown> & {
@@ -198,6 +199,18 @@ export function CatalogEditor({
           <SelectField
             key={field.name}
             field={field}
+            value={String(value)}
+            error={error}
+            onChange={(v) => set(field.name, v)}
+          />
+        );
+      case 'image':
+        return (
+          <ImageField
+            key={field.name}
+            id={id}
+            label={field.label}
+            hint={field.hint}
             value={String(value)}
             error={error}
             onChange={(v) => set(field.name, v)}

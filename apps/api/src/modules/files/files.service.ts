@@ -1,7 +1,13 @@
 import { createHash, randomUUID } from 'node:crypto';
 import type { Readable } from 'node:stream';
 import { Inject, Injectable } from '@nestjs/common';
-import { type FilePurpose, MAX_FILE_BYTES } from '@roshd/validation';
+import {
+  type AllowedMimeType,
+  type FilePurpose,
+  MAX_FILE_BYTES,
+  mediaUrl,
+  PUBLIC_IMAGE_TYPES,
+} from '@roshd/validation';
 import {
   AppException,
   ConflictError,
@@ -12,11 +18,12 @@ import {
 import { PageResult } from '../../common/http/page-result';
 import type { RequestMeta } from '../../common/http/request-meta';
 import { APP_CONFIG, type AppConfig } from '../../config/app-config';
-import type { Prisma } from '../../generated/prisma/client';
+import type { FilePurpose as StoredPurpose, Prisma } from '../../generated/prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../database/prisma.service';
 import { hasPermission, type Principal } from '../rbac/principal';
 import { extensionMatches, sanitizeFileName, sniffMimeType } from './domain/file-type';
+import { canManageMedia } from './domain/media-policy';
 import { signFileUrl, verifyFileSignature } from './domain/signed-url';
 import { FILE_STORAGE, type FileStorageProvider } from './ports/file-storage';
 
@@ -40,6 +47,30 @@ const VIEW_SELECT = {
 
 export type FileView = Prisma.FileObjectGetPayload<{ select: typeof VIEW_SELECT }>;
 
+const MEDIA_SELECT = {
+  id: true,
+  originalName: true,
+  mimeType: true,
+  size: true,
+  createdAt: true,
+} satisfies Prisma.FileObjectSelect;
+
+/** A media library image with its public, site-relative URL. */
+export type MediaView = Prisma.FileObjectGetPayload<{ select: typeof MEDIA_SELECT }> & {
+  url: string;
+};
+
+const PUBLIC_MEDIA_WHERE = {
+  purpose: 'PUBLIC_IMAGE',
+  accessLevel: 'PUBLIC',
+  status: 'ACTIVE',
+} satisfies Prisma.FileObjectWhereInput;
+
+const toMedia = <T extends { id: string }>(row: T): T & { url: string } => ({
+  ...row,
+  url: mediaUrl(row.id),
+});
+
 /** Entities whose attached files staff may read, and the permission that grants it. */
 const ENTITY_READ_PERMISSION = {
   service_request: 'requests:read-all',
@@ -55,12 +86,92 @@ export class FilesService {
     @Inject(APP_CONFIG) private readonly config: AppConfig,
   ) {}
 
-  async upload(
+  /** Private upload (attachments, documents); access goes through signed URLs. */
+  upload(
     owner: Principal,
     file: UploadedFile | undefined,
     purpose: FilePurpose,
     meta: RequestMeta,
   ): Promise<FileView> {
+    return this.store(owner, file, meta, { purpose, accessLevel: 'PRIVATE', prefix: 'files' });
+  }
+
+  /**
+   * Public media library upload (cms:write or catalog:manage). Only PNG, JPEG and WebP pass
+   * the content sniffing; the image is then served to anyone at `mediaUrl(id)`.
+   */
+  async uploadPublicImage(
+    actor: Principal,
+    file: UploadedFile | undefined,
+    meta: RequestMeta,
+  ): Promise<MediaView> {
+    this.assertMediaManager(actor);
+    const stored = await this.store(actor, file, meta, {
+      purpose: 'PUBLIC_IMAGE',
+      accessLevel: 'PUBLIC',
+      prefix: 'media',
+      allowed: PUBLIC_IMAGE_TYPES,
+      typeError: 'فقط تصویر PNG، JPEG یا WebP پذیرفته می‌شود.',
+    });
+    return toMedia({
+      id: stored.id,
+      originalName: stored.originalName,
+      mimeType: stored.mimeType,
+      size: stored.size,
+      createdAt: stored.createdAt,
+    });
+  }
+
+  /** The media library for the editors' image picker, newest first. */
+  async listPublicImages(
+    actor: Principal,
+    page: number,
+    pageSize: number,
+  ): Promise<PageResult<MediaView>> {
+    this.assertMediaManager(actor);
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.fileObject.findMany({
+        where: PUBLIC_MEDIA_WHERE,
+        select: MEDIA_SELECT,
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      this.prisma.fileObject.count({ where: PUBLIC_MEDIA_WHERE }),
+    ]);
+    return new PageResult(items.map(toMedia), page, pageSize, total);
+  }
+
+  /** Streams a public media image; anything else (private files included) is 404. */
+  async openPublicImage(id: string) {
+    const file = await this.prisma.fileObject.findFirst({
+      where: { id, ...PUBLIC_MEDIA_WHERE },
+      select: { mimeType: true, size: true, checksum: true, storageKey: true },
+    });
+    if (!file) throw new NotFoundError();
+    const { storageKey, ...info } = file;
+    // Opened lazily so a conditional request (304) never touches storage.
+    return { file: info, open: () => this.storage.get(storageKey) };
+  }
+
+  private assertMediaManager(actor: Principal): void {
+    if (!canManageMedia(actor)) throw new ForbiddenError();
+  }
+
+  private async store(
+    owner: Principal,
+    file: UploadedFile | undefined,
+    meta: RequestMeta,
+    options: {
+      purpose: StoredPurpose;
+      accessLevel: 'PRIVATE' | 'PUBLIC';
+      prefix: 'files' | 'media';
+      /** Narrower allowlist than the general document types. */
+      allowed?: readonly AllowedMimeType[];
+      typeError?: string;
+    },
+  ): Promise<FileView> {
+    const { purpose } = options;
     if (!file || file.size === 0) {
       throw new ValidationFailedError([{ path: 'file', message: 'فایلی انتخاب نشده است.' }]);
     }
@@ -70,21 +181,27 @@ export class FilesService {
       Buffer.from(file.originalname, 'latin1').toString('utf8'),
     );
     const mimeType = sniffMimeType(file.buffer, originalName);
-    if (!mimeType || !extensionMatches(mimeType, originalName)) {
+    if (
+      !mimeType ||
+      !extensionMatches(mimeType, originalName) ||
+      (options.allowed && !options.allowed.includes(mimeType))
+    ) {
       throw new AppException(
         'UNSUPPORTED_MEDIA_TYPE',
-        'نوع فایل مجاز نیست. فقط PDF، تصویر (PNG، JPEG، WebP)، Word و Excel پذیرفته می‌شود.',
+        options.typeError ??
+          'نوع فایل مجاز نیست. فقط PDF، تصویر (PNG، JPEG، WebP)، Word و Excel پذیرفته می‌شود.',
       );
     }
 
     const now = new Date();
-    const storageKey = `files/${now.getUTCFullYear()}/${String(now.getUTCMonth() + 1).padStart(2, '0')}/${randomUUID()}`;
+    const storageKey = `${options.prefix}/${now.getUTCFullYear()}/${String(now.getUTCMonth() + 1).padStart(2, '0')}/${randomUUID()}`;
     await this.storage.put(storageKey, file.buffer, mimeType);
 
     const created = await this.prisma.fileObject.create({
       data: {
         ownerId: owner.userId,
         purpose,
+        accessLevel: options.accessLevel,
         originalName,
         mimeType,
         size: file.size,

@@ -3,6 +3,7 @@ import { loginSchema, registerSchema } from './auth';
 import {
   assignSchema,
   emailSchema,
+  idSchema,
   mobileSchema,
   paginationQuerySchema,
   slugSchema,
@@ -90,5 +91,13 @@ describe('assignment', () => {
     expect(listTicketsQuerySchema.parse({ assignee: 'me' }).assignee).toBe('me');
     expect(listServiceRequestsQuerySchema.parse({ assignee: 'none' }).assignee).toBe('none');
     expect(listTicketsQuerySchema.safeParse({ assignee: 'someone' }).success).toBe(false);
+  });
+});
+
+describe('idSchema', () => {
+  it('accepts UUIDs only', () => {
+    expect(idSchema.safeParse('0199aaaa-0000-7000-8000-000000000000').success).toBe(true);
+    expect(idSchema.safeParse('not-a-uuid').success).toBe(false);
+    expect(idSchema.safeParse("1' OR '1'='1").success).toBe(false);
   });
 });

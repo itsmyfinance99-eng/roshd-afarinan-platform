@@ -23,6 +23,7 @@ import { useRouter } from 'next/navigation';
 import { type FormEvent, useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/api-client';
 import { useCan } from './me-context';
+import { ImageField } from './media';
 
 export interface EditableEntry {
   id: string;
@@ -309,10 +310,14 @@ export function ContentEditor({ entry, onSaved }: { entry?: EditableEntry; onSav
         {text('metaTitle', 'عنوان سئو (حداکثر ۷۰ نویسه)')}
         {text('metaDescription', 'توضیح سئو (حداکثر ۱۷۰ نویسه)')}
         {text('canonicalUrl', 'نشانی canonical (اختیاری)', { dir: 'ltr', className: 'text-right' })}
-        {text('coverImageUrl', 'نشانی تصویر شاخص (اختیاری)', {
-          dir: 'ltr',
-          className: 'text-right',
-        })}
+        <ImageField
+          id="c-coverImageUrl"
+          label="تصویر شاخص (اختیاری)"
+          hint="تصویر را بارگذاری یا از کتابخانه انتخاب کنید؛ یا مسیری داخل سایت وارد کنید."
+          value={form.coverImageUrl}
+          error={errors.coverImageUrl}
+          onChange={(v) => set('coverImageUrl', v)}
+        />
         <label className="flex items-center gap-2.5 text-sm">
           <input
             type="checkbox"
