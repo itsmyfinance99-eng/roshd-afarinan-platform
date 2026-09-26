@@ -1,7 +1,9 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import {
   SERVICE_REQUEST_EXPORT_MAX_ROWS,
+  SERVICE_REQUEST_STATUS_LABELS_FA,
   SERVICE_REQUEST_STATUSES,
+  SERVICE_REQUEST_TYPE_LABELS_FA,
   type CreateServiceRequestInput,
   type ExportServiceRequestsQuery,
   type ListServiceRequestsQuery,
@@ -27,6 +29,7 @@ import {
   NOTIFICATION_PROVIDER,
   type NotificationProvider,
 } from '../notifications/ports/notification-provider';
+import { NotificationsService } from '../notifications/notifications.service';
 import { hasPermission, type Principal } from '../rbac/principal';
 import { EXPORT_HEADER, exportFileName, exportRow, tehranDayRange } from './domain/request-export';
 import { canTransition, generateTrackingCode } from './domain/service-request.policy';
@@ -103,6 +106,7 @@ export class ServiceRequestsService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     @Inject(NOTIFICATION_PROVIDER) private readonly notifications: NotificationProvider,
+    private readonly inbox: NotificationsService,
     private readonly files: FilesService,
   ) {}
 
@@ -155,6 +159,13 @@ export class ServiceRequestsService {
         'confirmation notification failed',
       );
     }
+
+    await this.inbox.notifyPermission('requests:read-all', {
+      kind: 'service_request.created',
+      title: `درخواست جدید: ${SERVICE_REQUEST_TYPE_LABELS_FA[created.type]}`,
+      body: `کد پیگیری ${created.trackingCode} · ${record.fullName}`,
+      link: `/dashboard/manage/requests/${created.id}`,
+    });
 
     return {
       id: created.id,
@@ -295,7 +306,7 @@ export class ServiceRequestsService {
   ): Promise<ServiceRequestDetailView> {
     const current = await this.prisma.serviceRequest.findUnique({
       where: { id },
-      select: { status: true },
+      select: { status: true, userId: true, email: true, trackingCode: true },
     });
     if (!current) throw new NotFoundError();
     if (!canTransition(current.status, input.status)) {
@@ -331,7 +342,36 @@ export class ServiceRequestsService {
       metadata: { from: current.status, to: input.status },
       meta,
     });
+    await this.notifyRequester(id, current, input.status);
     return this.getVisible(id, actor);
+  }
+
+  /** The requester learns about every status change (in-app; email for accounts and guests). */
+  private async notifyRequester(
+    id: string,
+    request: { userId: string | null; email: string | null; trackingCode: string },
+    status: ServiceRequestStatus,
+  ) {
+    const email = {
+      template: 'service-request.status-changed',
+      data: {
+        trackingCode: request.trackingCode,
+        status: SERVICE_REQUEST_STATUS_LABELS_FA[status],
+      },
+    };
+    if (request.userId) {
+      await this.inbox.notifyUsers(
+        [request.userId],
+        {
+          kind: 'service_request.status_changed',
+          title: `وضعیت درخواست ${request.trackingCode}: ${SERVICE_REQUEST_STATUS_LABELS_FA[status]}`,
+          link: `/dashboard/requests/${id}`,
+        },
+        email,
+      );
+    } else if (request.email) {
+      await this.inbox.sendEmail(request.email, email);
+    }
   }
 
   private filters(query: ExportServiceRequestsQuery): Prisma.ServiceRequestWhereInput {

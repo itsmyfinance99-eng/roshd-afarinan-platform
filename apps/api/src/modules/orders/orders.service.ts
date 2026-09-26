@@ -18,6 +18,7 @@ import {
   NOTIFICATION_PROVIDER,
   type NotificationProvider,
 } from '../notifications/ports/notification-provider';
+import { NotificationsService } from '../notifications/notifications.service';
 import { PAYMENT_GATEWAY, type PaymentGateway } from '../payments/ports/payment-gateway';
 import { hasPermission, type Principal } from '../rbac/principal';
 import { UsersService } from '../users/users.service';
@@ -97,6 +98,7 @@ export class OrdersService {
     @Inject(PAYMENT_GATEWAY) private readonly gateway: PaymentGateway,
     @Inject(NOTIFICATION_PROVIDER) private readonly notifications: NotificationProvider,
     @Inject(APP_CONFIG) private readonly config: AppConfig,
+    private readonly inbox: NotificationsService,
   ) {}
 
   paymentStatus() {
@@ -367,7 +369,15 @@ export class OrdersService {
         metadata: { code: attempt.order.code },
         meta,
       });
-      await this.notifyPaid(attempt.order.userId, attempt.order.code, meta);
+      await this.inbox.notifyUsers(
+        [attempt.order.userId],
+        {
+          kind: 'order.paid',
+          title: `پرداخت سفارش ${attempt.order.code} تأیید شد`,
+          link: `/dashboard/orders/${attempt.orderId}`,
+        },
+        { template: 'order.paid', data: { orderCode: attempt.order.code } },
+      );
     }
     return { orderId: attempt.orderId, outcome: 'paid' };
   }
@@ -411,20 +421,6 @@ export class OrdersService {
         metadata: { attemptId: id, reason },
         meta,
       });
-    }
-  }
-
-  private async notifyPaid(userId: string, code: string, meta: RequestMeta) {
-    try {
-      const user = await this.users.findById(userId);
-      await this.notifications.send({
-        channel: 'email',
-        to: user.email,
-        template: 'order.paid',
-        data: { orderCode: code },
-      });
-    } catch (error) {
-      this.logger.warn({ err: error, requestId: meta.requestId }, 'order notification failed');
     }
   }
 }

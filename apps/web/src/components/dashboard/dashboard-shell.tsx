@@ -11,6 +11,7 @@ import { apiFetch } from '@/lib/api-client';
 import { notifySessionChange } from '@/lib/session';
 import { useApi } from '@/lib/use-api';
 import { MeProvider } from './me-context';
+import { NotificationBell } from './notifications';
 import type { Me } from './types';
 
 interface NavItem {
@@ -25,6 +26,7 @@ const NAV: NavItem[] = [
   { href: '/dashboard/requests', label: 'درخواست‌های من' },
   { href: '/dashboard/tickets', label: 'پشتیبانی' },
   { href: '/dashboard/orders', label: 'سفارش‌های من' },
+  { href: '/dashboard/notifications', label: 'اعلان‌ها' },
   { href: '/dashboard/files', label: 'فایل‌های من' },
   { href: '/dashboard/profile', label: 'پروفایل' },
   {
@@ -102,6 +104,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
                   )
                 </span>
               </span>
+              <NotificationBell />
               <Link href="/" className="text-sm no-underline">
                 سایت
               </Link>

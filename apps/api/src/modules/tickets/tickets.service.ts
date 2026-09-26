@@ -23,6 +23,7 @@ import {
   NOTIFICATION_PROVIDER,
   type NotificationProvider,
 } from '../notifications/ports/notification-provider';
+import { NotificationsService } from '../notifications/notifications.service';
 import { hasPermission, type Principal } from '../rbac/principal';
 import { ServiceRequestsService } from '../service-requests/service-requests.service';
 import { UsersService } from '../users/users.service';
@@ -77,6 +78,7 @@ export class TicketsService {
     private readonly serviceRequests: ServiceRequestsService,
     private readonly users: UsersService,
     @Inject(NOTIFICATION_PROVIDER) private readonly notifications: NotificationProvider,
+    private readonly inbox: NotificationsService,
   ) {}
 
   /** Ticket count per status (every status present, zero when none). */
@@ -122,6 +124,15 @@ export class TicketsService {
       entityId: ticket.id,
       meta,
     });
+    await this.inbox.notifyPermission(
+      'tickets:read-all',
+      {
+        kind: 'ticket.created',
+        title: `تیکت جدید: ${input.subject}`,
+        link: `/dashboard/manage/tickets/${ticket.id}`,
+      },
+      { exclude: owner.userId },
+    );
     return this.getVisible(ticket.id, owner);
   }
 
@@ -233,8 +244,27 @@ export class TicketsService {
       metadata: { actor, internal: input.internal },
       meta,
     });
-    if (actor === 'staff' && !input.internal)
-      await this.notifyOwner(ticket.userId, ticket.code, meta);
+    if (actor === 'staff' && !input.internal) {
+      await this.inbox.notifyUsers(
+        [ticket.userId],
+        {
+          kind: 'ticket.answered',
+          title: `پاسخ جدید به تیکت ${ticket.code}`,
+          link: `/dashboard/tickets/${id}`,
+        },
+        { template: 'ticket.answered', data: { ticketCode: ticket.code } },
+      );
+    } else if (actor === 'owner') {
+      await this.inbox.notifyPermission(
+        'tickets:read-all',
+        {
+          kind: 'ticket.replied',
+          title: `پیام جدید کاربر در تیکت ${ticket.code}`,
+          link: `/dashboard/manage/tickets/${id}`,
+        },
+        { exclude: principal.userId },
+      );
+    }
     return this.getVisible(id, principal);
   }
 
@@ -279,21 +309,6 @@ export class TicketsService {
       this.prisma.ticket.count({ where }),
     ]);
     return new PageResult(items, query.page, query.pageSize, total);
-  }
-
-  /** Best-effort email to the owner; the reply is already stored. */
-  private async notifyOwner(userId: string, code: string, meta: RequestMeta) {
-    try {
-      const owner = await this.users.findById(userId);
-      await this.notifications.send({
-        channel: 'email',
-        to: owner.email,
-        template: 'ticket.answered',
-        data: { ticketCode: code },
-      });
-    } catch (error) {
-      this.logger.warn({ err: error, requestId: meta.requestId }, 'ticket notification failed');
-    }
   }
 
   private async insertWithUniqueCode(data: Omit<Prisma.TicketUncheckedCreateInput, 'code'>) {

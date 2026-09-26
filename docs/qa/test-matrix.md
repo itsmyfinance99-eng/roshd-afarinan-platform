@@ -149,6 +149,15 @@ Automated suites: unit (Vitest), API e2e (Vitest + Supertest against a real Post
 | Dashboard stats equal live DB counts (requests, open tickets, active users)              | API e2e        | ✅     |
 | Each stats section only with its permission; none for users; 401 anonymous               | Unit + API e2e | ✅     |
 
+## Notifications
+
+| Scenario                                                                                            | Level      | Status |
+| --------------------------------------------------------------------------------------------------- | ---------- | ------ |
+| New request → staff with requests:read-all; status change → owner in-app + email; guest by email    | API e2e    | ✅     |
+| Ticket created/replied → support; staff answer → owner (internal notes never); no self-notification | API e2e    | ✅     |
+| Unread count, mark read, mark all; other users' notifications 404; anonymous 401                    | API e2e    | ✅     |
+| Web: bell count, open marks read and follows dashboard links only, mark all, unread filter          | Playwright | ✅     |
+
 ## Infra
 
 | Scenario                                                                                           | Level             | Status |
