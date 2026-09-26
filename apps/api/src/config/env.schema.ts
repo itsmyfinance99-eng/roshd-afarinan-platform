@@ -48,6 +48,8 @@ export const envSchema = z.object({
   REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().min(1).max(90).default(30),
   /** Lifetime of password reset links (minutes). */
   PASSWORD_RESET_TTL_MINUTES: z.coerce.number().int().min(5).max(120).default(30),
+  /** Lifetime of email verification links. */
+  EMAIL_VERIFICATION_TTL_HOURS: z.coerce.number().int().min(1).max(168).default(48),
   /** Defaults to true in production. */
   COOKIE_SECURE: bool.optional(),
   COOKIE_DOMAIN: z.string().optional(),

@@ -60,6 +60,7 @@ const PUBLIC_ROUTES = [
   '/register',
   '/forgot-password',
   '/reset-password?token=abc',
+  '/verify-email',
   '/does-not-exist',
 ];
 

@@ -15,6 +15,8 @@ export const AUDIT_ACTION_LABELS_FA: Record<string, string> = {
   'auth.logout': 'خروج',
   'auth.refresh_reuse_detected': 'استفاده مجدد از توکن (مشکوک)',
   'auth.account_locked': 'قفل موقت حساب (تلاش‌های ناموفق)',
+  'auth.email_verification_sent': 'ارسال لینک تأیید ایمیل',
+  'auth.email_verified': 'تأیید ایمیل',
   'users.roles_changed': 'تغییر نقش کاربر',
   'cms.entry_created': 'ایجاد محتوا',
   'cms.entry_updated': 'ویرایش محتوا',

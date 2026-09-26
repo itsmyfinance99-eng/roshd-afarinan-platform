@@ -25,6 +25,7 @@ import {
 } from '../notifications/ports/notification-provider';
 import { RbacService } from '../rbac/rbac.service';
 import { UsersService, type UserView } from '../users/users.service';
+import { EmailVerificationService } from './email-verification.service';
 import { isLocked, type LockoutPolicy, minutesLeft } from './login-lockout';
 import { PasswordHasher } from './password-hasher';
 import { TokenService } from './token.service';
@@ -70,6 +71,7 @@ export class AuthService {
     private readonly audit: AuditService,
     @Inject(NOTIFICATION_PROVIDER) private readonly notifications: NotificationProvider,
     @Inject(APP_CONFIG) private readonly config: AppConfig,
+    private readonly verification: EmailVerificationService,
   ) {}
 
   async register(input: RegisterInput, meta: RequestMeta): Promise<IssuedSession> {
@@ -86,6 +88,7 @@ export class AuthService {
       entityId: user.id,
       meta,
     });
+    await this.verification.sendAfterRegistration(user, meta);
     return this.startSession(user, meta);
   }
 
@@ -319,6 +322,8 @@ export class AuthService {
       revocationInstant(),
     );
     await this.revokeAllRefreshTokens(account.id);
+    // The reset link reached the mailbox, which proves the address as well.
+    await this.users.markEmailVerified(account.id);
     await this.audit.record({
       action: 'auth.password_reset',
       actorId: account.id,

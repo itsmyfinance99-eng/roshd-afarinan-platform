@@ -9,6 +9,8 @@ export interface Me {
   fullName: string;
   roles: Role[];
   permissions: Permission[];
+  /** Null until the address is confirmed (ST-25.11). */
+  emailVerifiedAt: string | null;
   createdAt: string;
 }
 

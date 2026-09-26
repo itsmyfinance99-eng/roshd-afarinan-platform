@@ -31,3 +31,17 @@ Every integration must have a timeout, a retry policy (idempotent calls only), a
 | Order paid                        | Buyer                                                   | In-app + email |
 
 Real email/SMS delivery waits on the provider decision (OQ-08); until then emails go to the log provider.
+
+### Message templates
+
+| Template                         | Sent when                                                            | Data                           |
+| -------------------------------- | -------------------------------------------------------------------- | ------------------------------ |
+| `auth.verify-email`              | Registration, or «ارسال دوباره لینک تأیید» on the profile (ST-25.11) | `verifyUrl`, `expiresInHours`  |
+| `auth.password-reset`            | Forgot-password request                                              | `resetUrl`, `expiresInMinutes` |
+| `auth.password-changed`          | Password reset or change                                             | —                              |
+| `service-request.status-changed` | Request status change                                                | `trackingCode`, `status`       |
+| `ticket.answered`                | Staff answer on a ticket                                             | `ticketCode`                   |
+| `order.paid`                     | Payment verified for an order                                        | `orderCode`                    |
+| `service-request.received` (SMS) | Request submitted (confirmation to the submitter's mobile)           | `trackingCode`                 |
+
+Verification is recorded (`User.emailVerifiedAt`) but does not yet gate anything: whether unverified addresses should stop receiving emails, or block certain actions, is decided together with the provider (OQ-08).

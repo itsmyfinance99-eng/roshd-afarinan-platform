@@ -7,12 +7,14 @@ import {
   refreshSchema,
   registerSchema,
   resetPasswordSchema,
+  verifyEmailSchema,
   type ChangePasswordInput,
   type ForgotPasswordInput,
   type LoginInput,
   type RefreshInput,
   type RegisterInput,
   type ResetPasswordInput,
+  type VerifyEmailInput,
 } from '@roshd/validation';
 import type { Request, Response } from 'express';
 import { Public } from '../../common/decorators/public.decorator';
@@ -31,12 +33,14 @@ import {
   wantsTokenTransport,
 } from './auth-cookies';
 import { AuthService, type IssuedSession, type MeView } from './auth.service';
+import { EmailVerificationService } from './email-verification.service';
 
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
   constructor(
     private readonly auth: AuthService,
+    private readonly verification: EmailVerificationService,
     @Inject(APP_CONFIG) private readonly config: AppConfig,
   ) {}
 
@@ -129,6 +133,31 @@ export class AuthController {
   ): Promise<null> {
     await this.auth.resetPassword(body, meta);
     return null;
+  }
+
+  @Public()
+  @StrictRateLimit()
+  @Post('email/verify')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Confirm the email address with a one-time verification link' })
+  async verifyEmail(
+    @ZodBody(verifyEmailSchema) body: VerifyEmailInput,
+    @Meta() meta: RequestMeta,
+  ): Promise<null> {
+    await this.verification.verify(body, meta);
+    return null;
+  }
+
+  @StrictRateLimit()
+  @Post('email/resend')
+  @HttpCode(202)
+  @ApiOperation({ summary: 'Send a new verification link to the signed-in user (once a minute)' })
+  async resendVerification(
+    @CurrentUser() user: Principal,
+    @Meta() meta: RequestMeta,
+  ): Promise<{ message: string }> {
+    await this.verification.resend(user.userId, meta);
+    return { message: 'لینک تأیید به ایمیل شما ارسال شد.' };
   }
 
   @StrictRateLimit()
