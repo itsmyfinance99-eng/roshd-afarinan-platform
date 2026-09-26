@@ -3,8 +3,8 @@
 import { Button, ChipGroup, EmptyState, formatDateFa, toPersianDigits } from '@roshd/ui';
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
-import { ContentCard, ProjectCard } from '@/components/cards/cards';
-import type { DemoEntry, DemoProject, SectorKey } from '@/content/types';
+import { ProjectCard } from '@/components/cards/cards';
+import type { DemoProject, SectorKey } from '@/content/types';
 
 const ALL = 'همه';
 
@@ -13,52 +13,6 @@ function categoryOptions(items: { category: string }[]) {
     value: c,
     label: c,
   }));
-}
-
-/** Category chips over a card grid (research, articles). */
-export function EntryCatalog({
-  items,
-  label,
-  withImage = false,
-}: {
-  items: DemoEntry[];
-  label: string;
-  withImage?: boolean;
-}) {
-  const [category, setCategory] = useState(ALL);
-  const options = useMemo(() => categoryOptions(items), [items]);
-  const visible = items.filter((i) => category === ALL || i.category === category);
-
-  return (
-    <>
-      <div className="mb-7">
-        <ChipGroup label={label} options={options} value={category} onChange={setCategory} />
-      </div>
-      <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,320px),1fr))] gap-5">
-        {visible.map((item) =>
-          withImage ? (
-            <div
-              key={item.id}
-              className="flex flex-col overflow-hidden rounded-card border border-line"
-            >
-              <div
-                role="img"
-                aria-label="جای تصویر مقاله"
-                className="flex aspect-video items-center justify-center bg-[repeating-linear-gradient(135deg,#eef2f8_0_10px,#e5ebf4_10px_20px)] font-mono text-xs text-ink-5"
-              >
-                تصویر مقاله
-              </div>
-              <div className="-m-px flex-1">
-                <ContentCard item={item} />
-              </div>
-            </div>
-          ) : (
-            <ContentCard key={item.id} item={item} />
-          ),
-        )}
-      </div>
-    </>
-  );
 }
 
 const ALL_STAGES = 'همه مراحل';

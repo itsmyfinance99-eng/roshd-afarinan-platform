@@ -62,6 +62,9 @@ Legend: ✅ automated · 🟡 manual · ⬜ not yet covered
 | Admin | Support/editor/finance/expert 403 on user list and role changes; anonymous 401 | API e2e | ✅ |
 | Web | Role editor: shared policy locks own account, admin roles and `user`; server errors shown | Playwright | ✅ |
 | Web | User management hidden without `users:read`; read-only without `users:manage-roles` | Playwright | ✅ |
+| Research | Drafts/archived 404 publicly; category/search filters; Solar Hijri year; reserved slug | Unit + API e2e | ✅ |
+| Research | Management 401/403 without `catalog:manage`; sitemap excludes noindex and demo | API e2e | ✅ |
+| Web | Research listing with category links, Report JSON-LD, order CTA, noindex demo, real 404 | Playwright | ✅ |
 | Requests | Guest submit + tracking code + notification | API e2e | ✅ |
 | Requests | Honeypot / type-specific validation | Unit + e2e | ✅ |
 | Requests | Owner-only access, stranger gets 404 | API e2e | ✅ |

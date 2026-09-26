@@ -13,7 +13,7 @@ import Link from 'next/link';
 import { ContentCard, CourseCard } from '@/components/cards/cards';
 import { InvestmentPreview } from '@/components/sections/investment-preview';
 import { ProcessSteps } from '@/components/sections/process-steps';
-import { demoProjects, demoResearch, sectors } from '@/content/demo';
+import { demoProjects, sectors } from '@/content/demo';
 import {
   consultingServices,
   credentials,
@@ -28,6 +28,7 @@ import {
 } from '@/content/site';
 import { listContent } from '@/lib/content-api';
 import { listCourses } from '@/lib/learning-api';
+import { listResearch } from '@/lib/research-api';
 import { jsonLdScript, organizationJsonLd, pageMetadata } from '@/lib/seo';
 
 export const metadata: Metadata = pageMetadata({ path: '/' });
@@ -38,10 +39,12 @@ export const revalidate = 300;
 const allLink = 'text-[15px] font-bold text-primary no-underline';
 
 export default async function HomePage() {
-  const [knowledge, courses] = await Promise.all([
+  const [knowledge, courses, research] = await Promise.all([
     listContent('KNOWLEDGE', { pageSize: 3 }),
     listCourses({ pageSize: 4 }),
+    listResearch({ pageSize: 3 }),
   ]);
+  const latestResearch = research.ok ? research.data : [];
   const featuredCourses = courses.ok ? courses.data : [];
   const latestKnowledge = knowledge.ok ? knowledge.data : [];
 
@@ -302,7 +305,7 @@ export default async function HomePage() {
         </Container>
       ) : null}
 
-      {/* RESEARCH + KNOWLEDGE (demo) */}
+      {/* RESEARCH + KNOWLEDGE (latest published) */}
       <Section tone="muted" aria-label="پژوهش و دانشنامه">
         <Container className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,460px),1fr))] gap-12 py-20">
           <div>
@@ -312,11 +315,29 @@ export default async function HomePage() {
                 همه ‹
               </Link>
             </div>
-            <div className="flex flex-col gap-3">
-              {demoResearch.slice(0, 3).map((item) => (
-                <ContentCard key={item.id} item={item} cta="مشاهده پژوهش" href="/research" />
-              ))}
-            </div>
+            {latestResearch.length === 0 ? (
+              <p className="rounded-card border border-dashed border-line-strong bg-white p-6 text-sm text-ink-4">
+                گزارش‌های پژوهشی به‌زودی منتشر می‌شوند.
+              </p>
+            ) : (
+              <div className="flex flex-col gap-3">
+                {latestResearch.map((item) => (
+                  <ContentCard
+                    key={item.id}
+                    item={{
+                      id: item.id,
+                      title: item.title,
+                      summary: item.summary,
+                      category: item.category?.name ?? '',
+                      date: item.publishedAt ?? item.updatedAt,
+                      isDemo: item.isDemo,
+                    }}
+                    cta="مشاهده پژوهش"
+                    href={`/research/${item.slug}`}
+                  />
+                ))}
+              </div>
+            )}
           </div>
           <div>
             <div className="mb-5 flex items-baseline justify-between">

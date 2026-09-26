@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { demoProjects, demoResearch, sectors } from './demo';
+import { demoProjects, sectors } from './demo';
 import { journeys, MAIN_NAV_KEYS, navigation, pathSteps, UTILITY_NAV_KEYS } from './site';
 
 describe('content layer invariants', () => {
   it('flags every demo record so the UI can label it', () => {
-    for (const record of [...demoProjects, ...demoResearch]) {
+    for (const record of demoProjects) {
       expect(record.isDemo).toBe(true);
     }
   });
@@ -28,12 +28,6 @@ describe('content layer invariants', () => {
   it('only uses known sectors in demo projects', () => {
     const known = new Set(sectors.map((s) => s.value));
     for (const p of demoProjects) expect(known.has(p.sector)).toBe(true);
-  });
-
-  it('uses valid ISO dates', () => {
-    for (const e of demoResearch) {
-      expect(Number.isNaN(Date.parse(e.date))).toBe(false);
-    }
   });
 });
 

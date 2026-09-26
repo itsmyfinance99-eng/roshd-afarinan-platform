@@ -1,6 +1,19 @@
 import { cn, DemoBadge, EmptyState, ErrorMessage, formatDateFa, toPersianDigits } from '@roshd/ui';
 import Link from 'next/link';
-import type { ContentCategory, ContentSummary } from '@/lib/content-api';
+import type { ContentCategory } from '@/lib/content-api';
+
+/** Minimal card data shared by CMS entries and catalog records (research). */
+export interface GridItem {
+  id: string;
+  slug: string;
+  title: string;
+  excerpt: string | null;
+  publishedAt: string | null;
+  isDemo: boolean;
+  category: { name: string } | null;
+  /** Extra label beside the date, e.g. the study year. */
+  note?: string;
+}
 
 /** Category filter as plain links (works without JavaScript, crawlable). */
 export function CategoryLinks({
@@ -51,11 +64,13 @@ export function ContentGrid({
   base,
   cta,
   unavailable,
+  empty,
 }: {
-  items: ContentSummary[];
+  items: GridItem[];
   base: string;
   cta: string;
   unavailable: boolean;
+  empty?: { title: string; description: string };
 }) {
   if (unavailable) {
     return (
@@ -66,7 +81,10 @@ export function ContentGrid({
   }
   if (items.length === 0) {
     return (
-      <EmptyState title="محتوایی یافت نشد" description="دسته یا عبارت دیگری را امتحان کنید." />
+      <EmptyState
+        title={empty?.title ?? 'محتوایی یافت نشد'}
+        description={empty?.description ?? 'دسته یا عبارت دیگری را امتحان کنید.'}
+      />
     );
   }
   return (
@@ -80,7 +98,8 @@ export function ContentGrid({
             <span className="font-bold text-primary">{item.category?.name ?? ''}</span>
             <span className="flex items-center gap-2">
               {item.isDemo ? <DemoBadge /> : null}
-              {item.publishedAt ? (
+              {item.note ? <span className="text-ink-5">{item.note}</span> : null}
+              {!item.note && item.publishedAt ? (
                 <time dateTime={item.publishedAt} className="text-ink-5">
                   {formatDateFa(item.publishedAt)}
                 </time>

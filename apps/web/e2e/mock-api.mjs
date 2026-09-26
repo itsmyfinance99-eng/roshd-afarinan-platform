@@ -59,6 +59,46 @@ const courses = [
   }),
 ];
 
+const researchCategories = [
+  { id: '0199a000-0000-7000-8000-000000000011', slug: 'industrial', name: 'صنعتی' },
+  { id: '0199a000-0000-7000-8000-000000000012', slug: 'financial', name: 'مالی' },
+];
+
+const research = [
+  {
+    id: '0199a000-0000-7000-8000-0000000000r1',
+    slug: 'steel-value-chain',
+    title: 'بررسی زنجیره ارزش فولاد استان',
+    summary: 'شناسایی حلقه‌های زنجیره ارزش و گلوگاه‌های سرمایه‌گذاری.',
+    coverImageUrl: null,
+    year: 1403,
+    publishedAt: '2026-08-03T08:00:00.000Z',
+    updatedAt: '2026-08-03T08:00:00.000Z',
+    isDemo: false,
+    category: researchCategories[0],
+    body: '## یافته‌ها\n\nمتن گزارش',
+    metaTitle: null,
+    metaDescription: null,
+    noIndex: false,
+  },
+  {
+    id: '0199a000-0000-7000-8000-0000000000r2',
+    slug: 'mining-finance-models',
+    title: 'نمونه: الگوهای تأمین مالی طرح‌های معدنی',
+    summary: 'مرور نمونه روش‌های رایج تأمین مالی.',
+    coverImageUrl: null,
+    year: null,
+    publishedAt: '2026-07-19T08:00:00.000Z',
+    updatedAt: '2026-07-19T08:00:00.000Z',
+    isDemo: true,
+    category: researchCategories[1],
+    body: 'متن نمونه',
+    metaTitle: null,
+    metaDescription: null,
+    noIndex: false,
+  },
+];
+
 const summary = ({
   description: _d,
   metaTitle: _t,
@@ -106,7 +146,31 @@ createServer((req, res) => {
     const found = courses.find((c) => c.slug === decodeURIComponent(courseMatch[1]));
     return found ? ok(res, found) : notFound(res);
   }
-  if (path === '/categories') return ok(res, q.get('scope') === 'COURSE' ? categories : []);
+  if (path === '/categories') {
+    const scope = q.get('scope');
+    return ok(
+      res,
+      scope === 'COURSE' ? categories : scope === 'RESEARCH' ? researchCategories : [],
+    );
+  }
+  if (path === '/research') {
+    const list = research
+      .filter((r) => !q.get('category') || r.category.slug === q.get('category'))
+      .filter((r) => !q.get('q') || r.title.includes(q.get('q')))
+      .map(({ body: _b, metaTitle: _t, metaDescription: _m, noIndex: _n, ...rest }) => rest);
+    return ok(res, list, { page: 1, pageSize: 12, total: list.length });
+  }
+  const researchMatch = /^\/research\/([^/]+)$/.exec(path);
+  if (researchMatch) {
+    const found = research.find((r) => r.slug === decodeURIComponent(researchMatch[1]));
+    return found ? ok(res, found) : notFound(res);
+  }
+  if (path === '/sitemap/research') {
+    return ok(
+      res,
+      research.filter((r) => !r.isDemo).map((r) => ({ slug: r.slug, updatedAt: r.updatedAt })),
+    );
+  }
   if (path === '/articles' || path === '/knowledge') {
     return ok(res, [], { page: 1, pageSize: 20, total: 0 });
   }

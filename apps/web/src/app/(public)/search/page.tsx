@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { PageIntro } from '@/components/layout/page-shell';
 import { listContent } from '@/lib/content-api';
 import { listCourses } from '@/lib/learning-api';
+import { listResearch } from '@/lib/research-api';
 import { type LocalHit, searchLocalContent } from '@/lib/local-search';
 import { pageMetadata } from '@/lib/seo';
 
@@ -16,14 +17,21 @@ export default async function SearchPage({
 }) {
   const raw = (await searchParams).q;
   const query = (typeof raw === 'string' ? raw : '').trim().slice(0, 100);
-  const [articles, knowledge, courses] = query
+  const [articles, knowledge, courses, research] = query
     ? await Promise.all([
         listContent('ARTICLE', { q: query, pageSize: 10 }),
         listContent('KNOWLEDGE', { q: query, pageSize: 10 }),
         listCourses({ q: query, pageSize: 10 }),
+        listResearch({ q: query, pageSize: 10 }),
       ])
-    : [null, null, null];
+    : [null, null, null, null];
   const cmsHits: LocalHit[] = [
+    ...(research?.ok ? research.data : []).map((r) => ({
+      title: r.title,
+      type: 'پژوهش',
+      href: `/research/${r.slug}`,
+      isDemo: r.isDemo,
+    })),
     ...(courses?.ok ? courses.data : []).map((c) => ({
       title: c.title,
       type: 'دوره',
