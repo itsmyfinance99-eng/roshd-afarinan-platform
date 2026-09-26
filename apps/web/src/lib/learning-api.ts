@@ -66,6 +66,13 @@ export function listCourseCategories() {
   return serverGet<ContentCategory[]>('/categories?scope=COURSE', { revalidate: 300 });
 }
 
+/** Whether online payment is available (hides purchase buttons when it is not). */
+export function getPaymentStatus() {
+  return serverGet<{ enabled: boolean; testMode: boolean }>('/payments/status', {
+    revalidate: 300,
+  });
+}
+
 export function sitemapCourses() {
   return serverGet<{ slug: string; updatedAt: string }[]>('/sitemap/courses', {
     revalidate: 3600,

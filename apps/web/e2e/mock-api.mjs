@@ -166,6 +166,7 @@ createServer((req, res) => {
 
   if (req.method !== 'GET') return notFound(res);
   if (path === '/health/live') return ok(res, { status: 'ok' });
+  if (path === '/payments/status') return ok(res, { enabled: true, testMode: true });
 
   if (path === '/courses') {
     const list = courses
