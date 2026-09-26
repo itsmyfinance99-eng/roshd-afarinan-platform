@@ -953,6 +953,7 @@ epics:
     goal: 'ماتریس تست، بازبینی و انتشار نسخه‌ها.'
     stories:
       - id: ST-21.01
+        status: done
         title: 'ماتریس تست و QA پایان فاز ۱'
         sprint: S8
         points: 3
