@@ -10,6 +10,7 @@ import type {
 } from '@roshd/validation';
 import { APP_CONFIG, type AppConfig } from '../../config/app-config';
 import {
+  AppException,
   BadRequestError,
   ForbiddenError,
   UnauthenticatedError,
@@ -24,6 +25,7 @@ import {
 } from '../notifications/ports/notification-provider';
 import { RbacService } from '../rbac/rbac.service';
 import { UsersService, type UserView } from '../users/users.service';
+import { isLocked, type LockoutPolicy, minutesLeft } from './login-lockout';
 import { PasswordHasher } from './password-hasher';
 import { TokenService } from './token.service';
 
@@ -42,6 +44,15 @@ export interface MeView extends UserView {
 const INVALID_CREDENTIALS = 'ایمیل یا رمز عبور نادرست است.';
 const INVALID_SESSION = 'نشست شما معتبر نیست. لطفاً دوباره وارد شوید.';
 const INVALID_RESET_LINK = 'لینک بازیابی نامعتبر یا منقضی است. دوباره درخواست دهید.';
+
+/** 429 for a locked account; the password reset link is the way back in before the lock ends. */
+function lockedError(lockedUntil: Date, now: Date): AppException {
+  const minutes = minutesLeft(lockedUntil, now).toLocaleString('fa-IR');
+  return new AppException(
+    'RATE_LIMITED',
+    `به‌دلیل تلاش‌های ناموفق پیاپی، ورود به این حساب تا ${minutes} دقیقه دیگر ممکن نیست. می‌توانید رمز عبور را بازیابی کنید.`,
+  );
+}
 
 /** Access tokens signed at or before this instant are rejected (millisecond precision). */
 const revocationInstant = () => new Date();
@@ -79,7 +90,18 @@ export class AuthService {
   }
 
   async login(input: LoginInput, meta: RequestMeta): Promise<IssuedSession> {
+    const now = new Date();
     const credentials = await this.users.findCredentialsByEmail(input.email);
+    // A locked account is refused before the password is checked, so guesses gain nothing.
+    if (credentials && isLocked(credentials.lockedUntil, now)) {
+      await this.audit.record({
+        action: 'auth.login_failed',
+        actorId: credentials.id,
+        metadata: { reason: 'locked' },
+        meta,
+      });
+      throw lockedError(credentials.lockedUntil as Date, now);
+    }
     const valid = credentials
       ? await this.hasher.verify(credentials.passwordHash, input.password)
       : await this.hasher.verifyAgainstDummy(input.password);
@@ -91,6 +113,23 @@ export class AuthService {
         metadata: { reason: credentials ? 'bad_password' : 'unknown_email' },
         meta,
       });
+      if (credentials) {
+        const lockedUntil = await this.users.recordLoginFailure(
+          credentials.id,
+          this.lockoutPolicy(),
+          now,
+        );
+        if (lockedUntil) {
+          await this.audit.record({
+            action: 'auth.account_locked',
+            actorId: credentials.id,
+            entityType: 'user',
+            entityId: credentials.id,
+            metadata: { until: lockedUntil.toISOString() },
+            meta,
+          });
+        }
+      }
       throw new UnauthenticatedError(INVALID_CREDENTIALS);
     }
     if (credentials.status !== 'ACTIVE') {
@@ -107,6 +146,13 @@ export class AuthService {
     const user = await this.users.findById(credentials.id);
     await this.audit.record({ action: 'auth.login_succeeded', actorId: user.id, meta });
     return this.startSession(user, meta);
+  }
+
+  private lockoutPolicy(): LockoutPolicy {
+    return {
+      maxFailures: this.config.LOGIN_MAX_FAILURES,
+      lockMs: this.config.LOGIN_LOCK_MINUTES * 60_000,
+    };
   }
 
   /**

@@ -35,6 +35,17 @@ Automated suites: unit (Vitest), API e2e (Vitest + Supertest against a real Post
 | Suspension policy: no self, admin accounts need super_admin; 401/403 without users:manage-roles               | Unit + API e2e | ✅     |
 | Web: suspend with reason and reactivate; control hidden for own/admin accounts                                | Playwright     | ✅     |
 
+## Hardening
+
+| Scenario                                                                                                    | Level          | Status |
+| ----------------------------------------------------------------------------------------------------------- | -------------- | ------ |
+| 5 wrong passwords lock the account (429 even with the right password), audited; lock expiry resets counters | Unit + API e2e | ✅     |
+| Parallel wrong guesses still lock (atomic count); success resets the count; password reset lifts the lock   | API e2e        | ✅     |
+| Unknown emails are never locked (no account enumeration through 429)                                        | API e2e        | ✅     |
+| Common passwords and common words padded with digits rejected on register/reset/change                      | Unit + API e2e | ✅     |
+| `%` and `_` in search are literal (users, public catalogues); verified to fail without escaping             | API e2e        | ✅     |
+| Markdown drops `javascript:`, `data:`, `//`, `/\` and control-character URLs                                | Unit           | ✅     |
+
 ## Rate limit
 
 | Scenario                                                                                                                         | Level      | Status |

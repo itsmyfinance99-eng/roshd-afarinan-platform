@@ -1064,6 +1064,7 @@ epics:
           - 'axe در Playwright برای صفحات عمومی و داشبورد'
           - 'رفع همه موارد serious و critical'
       - id: ST-25.10
+        status: done
         title: 'سخت‌سازی امنیتی (یافته‌های audit)'
         sprint: S9
         points: 5

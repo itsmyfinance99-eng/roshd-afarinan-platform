@@ -1,7 +1,8 @@
 # Full stack in containers (production-like, for local verification and staging).
 # From the repository root:
-#   JWT_ACCESS_SECRET=... FILE_URL_SECRET=... INTERNAL_API_TOKEN=... \
+#   JWT_ACCESS_SECRET=... FILE_URL_SECRET=... INTERNAL_API_TOKEN=... COOKIE_SECURE=false \
 #     docker compose -f infra/docker/compose.app.yml up --build   # site on http://localhost:8080
+# COOKIE_SECURE=false is only for plain-http local testing; behind HTTPS leave it unset (secure).
 # nginx (proxy) is the only public entry; see infra/nginx/README.md for the client-IP setup.
 # Secrets are required variables; nothing secret is baked into an image.
 name: roshd-afarinan-app
@@ -58,7 +59,8 @@ services:
       # nginx is the only hop in front of the API (see infra/nginx/README.md).
       TRUST_PROXY: 1
       INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:?set INTERNAL_API_TOKEN (openssl rand -base64 48)}
-      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      # Secure (HTTPS-only) session cookies unless explicitly turned off for local http testing.
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
     volumes:
       - app-storage:/app/storage
     depends_on:

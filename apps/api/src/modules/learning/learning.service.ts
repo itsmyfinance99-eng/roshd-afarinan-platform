@@ -12,7 +12,12 @@ import {
   ValidationFailedError,
 } from '../../common/errors/app-exception';
 import { PageResult } from '../../common/http/page-result';
-import { scoreText, textFilter, type TextSearchResult } from '../../common/search/search-text';
+import {
+  containsText,
+  scoreText,
+  type TextSearchResult,
+  textFilter,
+} from '../../common/search/search-text';
 import type { RequestMeta } from '../../common/http/request-meta';
 import { Prisma } from '../../generated/prisma/client';
 import { AuditService } from '../audit/audit.service';
@@ -97,10 +102,7 @@ export class LearningService {
       ...(query.free ? { isFree: query.free === 'true' } : {}),
       ...(query.q
         ? {
-            OR: [
-              { title: { contains: query.q, mode: 'insensitive' } },
-              { summary: { contains: query.q, mode: 'insensitive' } },
-            ],
+            OR: [{ title: containsText(query.q) }, { summary: containsText(query.q) }],
           }
         : {}),
     };
@@ -174,7 +176,7 @@ export class LearningService {
   async listForEditors(query: ListCoursesAdminQuery) {
     const where: Prisma.CourseWhereInput = {
       ...(query.status ? { status: query.status } : {}),
-      ...(query.q ? { title: { contains: query.q, mode: 'insensitive' } } : {}),
+      ...(query.q ? { title: containsText(query.q) } : {}),
     };
     const [rows, total] = await this.prisma.$transaction([
       this.prisma.course.findMany({

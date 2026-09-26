@@ -60,7 +60,7 @@ describe('common schemas', () => {
 });
 
 describe('auth schemas', () => {
-  const valid = { fullName: 'مریم احمدی', email: 'maryam@example.com', password: 'secret123' };
+  const valid = { fullName: 'مریم احمدی', email: 'maryam@example.com', password: 'kavir-rain-7' };
 
   it('accepts a valid registration', () => {
     expect(registerSchema.parse(valid)).toMatchObject({ email: 'maryam@example.com' });
@@ -70,6 +70,24 @@ describe('auth schemas', () => {
     expect(registerSchema.safeParse({ ...valid, password: 'short1' }).success).toBe(false);
     expect(registerSchema.safeParse({ ...valid, password: 'onlyletters' }).success).toBe(false);
     expect(registerSchema.safeParse({ ...valid, password: '12345678' }).success).toBe(false);
+  });
+
+  it('rejects common passwords and common words padded with digits', () => {
+    for (const weak of [
+      'Password1',
+      'P@ssw0rd',
+      'qwerty123',
+      '1q2w3e4r',
+      'admin1234',
+      '2024qwerty',
+      'Welcome1!',
+    ]) {
+      expect(registerSchema.safeParse({ ...valid, password: weak }).success, weak).toBe(false);
+    }
+    expect(registerSchema.safeParse({ ...valid, password: 'password۱۲۳' }).success).toBe(false);
+    for (const fine of ['correct-horse-9', 'Kavir-Yazd-1403', 'blue7lantern']) {
+      expect(registerSchema.safeParse({ ...valid, password: fine }).success, fine).toBe(true);
+    }
   });
 
   it('does not apply password policy on login', () => {
