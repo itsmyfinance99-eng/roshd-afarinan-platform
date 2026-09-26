@@ -91,6 +91,9 @@ export function FileUploader({
           type="file"
           accept={ACCEPT}
           className="sr-only"
+          // The visible button below is the control; keep this input out of focus and the a11y tree.
+          tabIndex={-1}
+          aria-hidden="true"
           onChange={(e) => void onChange(e)}
           disabled={disabled || busy}
         />

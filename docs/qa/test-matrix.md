@@ -198,36 +198,37 @@ Automated suites: unit (Vitest), API e2e (Vitest + Supertest against a real Post
 
 ## Web
 
-| Scenario                                                                                     | Level                  | Status |
-| -------------------------------------------------------------------------------------------- | ---------------------- | ------ |
-| All public routes render RTL                                                                 | Playwright             | ✅     |
-| Mobile drawer, Esc, focus return                                                             | Playwright             | ✅     |
-| Forms: client + server validation, CSRF header, tracking code                                | Playwright             | ✅     |
-| Rate-limit / 404 tracking messages                                                           | Playwright             | ✅     |
-| No horizontal overflow (desktop + mobile)                                                    | Playwright             | ✅     |
-| Submit disabled until hydration (no PII in URL)                                              | Playwright             | ✅     |
-| Private routes redirect to login (proxy), safe next path (no open redirect)                  | Playwright + unit      | ✅     |
-| Login/register errors, session refresh failure → login                                       | Playwright             | ✅     |
-| Role-based dashboard menu; staff status change                                               | Playwright             | ✅     |
-| Unknown article returns HTTP 404 (not soft 404)                                              | Integration            | ✅     |
-| Markdown renders without raw HTML / unsafe URLs                                              | Unit (schema) + manual | 🟡     |
-| Content editor parses tags/references, blocks invalid slug                                   | Playwright             | ✅     |
-| Upload UI, client-side type check, request attachments                                       | Playwright             | ✅     |
-| Dashboard pages have no horizontal overflow on mobile                                        | Playwright             | ✅     |
-| Ticket create / closed state / staff internal note                                           | Playwright             | ✅     |
-| Training filters as links, Persian prices, Course JSON-LD, enrollment request (TRAINING)     | Playwright             | ✅     |
-| Unknown or malformed course slug returns HTTP 404                                            | Playwright             | ✅     |
-| Export downloads the file, shows row count/errors, hidden without permission                 | Playwright             | ✅     |
-| Role editor: shared policy locks own account, admin roles and `user`; server errors shown    | Playwright             | ✅     |
-| User management hidden without `users:read`; read-only without `users:manage-roles`          | Playwright             | ✅     |
-| Research listing with category links, Report JSON-LD, order CTA, noindex demo, real 404      | Playwright             | ✅     |
-| Investment GET filters without JS, no-offer notice, interest form, noindex demo, real 404    | Playwright             | ✅     |
-| Catalog forms (courses, research, investments): typed payload, draft → publish, field errors | Playwright             | ✅     |
-| Catalog pages denied and hidden without `catalog:manage`; category add only with `cms:write` | Playwright             | ✅     |
-| Audit page labels, filters, reversed-range guard; hidden without `audit:read`                | Playwright             | ✅     |
-| Staff stats cards, status breakdown, error + retry; no section or request for users          | Playwright             | ✅     |
-| Buy button (sign-in first), order page trusts API status, cancel, mock gateway no redirect   | Playwright             | ✅     |
-| Search results with type links, excerpts, demo labels, empty/short/unavailable states        | Playwright             | ✅     |
-| About falls back to content layer; page editor prefill, reorder, validation, publish         | Playwright             | ✅     |
+| Scenario                                                                                               | Level                  | Status |
+| ------------------------------------------------------------------------------------------------------ | ---------------------- | ------ |
+| All public routes render RTL                                                                           | Playwright             | ✅     |
+| Mobile drawer, Esc, focus return                                                                       | Playwright             | ✅     |
+| axe WCAG 2.1 A/AA: no serious/critical violations on all public and dashboard pages (desktop + mobile) | Playwright (axe)       | ✅     |
+| Forms: client + server validation, CSRF header, tracking code                                          | Playwright             | ✅     |
+| Rate-limit / 404 tracking messages                                                                     | Playwright             | ✅     |
+| No horizontal overflow (desktop + mobile)                                                              | Playwright             | ✅     |
+| Submit disabled until hydration (no PII in URL)                                                        | Playwright             | ✅     |
+| Private routes redirect to login (proxy), safe next path (no open redirect)                            | Playwright + unit      | ✅     |
+| Login/register errors, session refresh failure → login                                                 | Playwright             | ✅     |
+| Role-based dashboard menu; staff status change                                                         | Playwright             | ✅     |
+| Unknown article returns HTTP 404 (not soft 404)                                                        | Integration            | ✅     |
+| Markdown renders without raw HTML / unsafe URLs                                                        | Unit (schema) + manual | 🟡     |
+| Content editor parses tags/references, blocks invalid slug                                             | Playwright             | ✅     |
+| Upload UI, client-side type check, request attachments                                                 | Playwright             | ✅     |
+| Dashboard pages have no horizontal overflow on mobile                                                  | Playwright             | ✅     |
+| Ticket create / closed state / staff internal note                                                     | Playwright             | ✅     |
+| Training filters as links, Persian prices, Course JSON-LD, enrollment request (TRAINING)               | Playwright             | ✅     |
+| Unknown or malformed course slug returns HTTP 404                                                      | Playwright             | ✅     |
+| Export downloads the file, shows row count/errors, hidden without permission                           | Playwright             | ✅     |
+| Role editor: shared policy locks own account, admin roles and `user`; server errors shown              | Playwright             | ✅     |
+| User management hidden without `users:read`; read-only without `users:manage-roles`                    | Playwright             | ✅     |
+| Research listing with category links, Report JSON-LD, order CTA, noindex demo, real 404                | Playwright             | ✅     |
+| Investment GET filters without JS, no-offer notice, interest form, noindex demo, real 404              | Playwright             | ✅     |
+| Catalog forms (courses, research, investments): typed payload, draft → publish, field errors           | Playwright             | ✅     |
+| Catalog pages denied and hidden without `catalog:manage`; category add only with `cms:write`           | Playwright             | ✅     |
+| Audit page labels, filters, reversed-range guard; hidden without `audit:read`                          | Playwright             | ✅     |
+| Staff stats cards, status breakdown, error + retry; no section or request for users                    | Playwright             | ✅     |
+| Buy button (sign-in first), order page trusts API status, cancel, mock gateway no redirect             | Playwright             | ✅     |
+| Search results with type links, excerpts, demo labels, empty/short/unavailable states                  | Playwright             | ✅     |
+| About falls back to content layer; page editor prefill, reorder, validation, publish                   | Playwright             | ✅     |
 
 This matrix is updated at the end of each story. Phase summaries: [phase-1-qa-report.md](phase-1-qa-report.md).
