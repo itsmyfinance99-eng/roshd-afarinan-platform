@@ -11,6 +11,7 @@ import {
   ValidationFailedError,
 } from '../../common/errors/app-exception';
 import { PageResult } from '../../common/http/page-result';
+import { scoreText, textFilter, type TextSearchResult } from '../../common/search/search-text';
 import type { RequestMeta } from '../../common/http/request-meta';
 import { Prisma } from '../../generated/prisma/client';
 import { AuditService } from '../audit/audit.service';
@@ -94,6 +95,38 @@ export class ResearchService {
       this.prisma.researchProject.count({ where }),
     ]);
     return new PageResult(await this.withCategories(rows), query.page, query.pageSize, total);
+  }
+
+  /** Published records containing every query word (site search; no bodies or money). */
+  async searchPublished(tokens: readonly string[], take: number): Promise<TextSearchResult> {
+    const where: Prisma.ResearchProjectWhereInput = {
+      status: 'PUBLISHED',
+      AND: textFilter(['title', 'summary'] as const, tokens),
+    };
+    const [rows, total] = await this.prisma.$transaction([
+      this.prisma.researchProject.findMany({
+        where,
+        select: {
+          id: true,
+          slug: true,
+          title: true,
+          summary: true,
+          publishedAt: true,
+          isDemo: true,
+        },
+        orderBy: [{ publishedAt: 'desc' }, { id: 'desc' }],
+        take,
+      }),
+      this.prisma.researchProject.count({ where }),
+    ]);
+    return {
+      hits: rows.map(({ summary: excerpt, ...row }) => ({
+        ...row,
+        excerpt,
+        score: scoreText(tokens, row.title, excerpt),
+      })),
+      total,
+    };
   }
 
   /** Drafts and archived projects are indistinguishable from missing ones (404). */

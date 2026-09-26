@@ -12,6 +12,7 @@ import type {
 } from '@roshd/validation';
 import { ConflictError, NotFoundError } from '../../common/errors/app-exception';
 import { PageResult } from '../../common/http/page-result';
+import { scoreText, textFilter, type TextSearchResult } from '../../common/search/search-text';
 import type { RequestMeta } from '../../common/http/request-meta';
 import { Prisma } from '../../generated/prisma/client';
 import { AuditService } from '../audit/audit.service';
@@ -104,6 +105,43 @@ export class CmsService {
       this.prisma.contentEntry.count({ where }),
     ]);
     return new PageResult(items, query.page, query.pageSize, total);
+  }
+
+  /** Published records containing every query word (site search; no bodies or money). */
+  async searchPublished(
+    kind: ContentKind,
+    tokens: readonly string[],
+    take: number,
+  ): Promise<TextSearchResult> {
+    const where: Prisma.ContentEntryWhereInput = {
+      kind,
+      status: 'PUBLISHED',
+      AND: textFilter(['title', 'excerpt'] as const, tokens),
+    };
+    const [rows, total] = await this.prisma.$transaction([
+      this.prisma.contentEntry.findMany({
+        where,
+        select: {
+          id: true,
+          slug: true,
+          title: true,
+          excerpt: true,
+          publishedAt: true,
+          isDemo: true,
+        },
+        orderBy: [{ publishedAt: 'desc' }, { id: 'desc' }],
+        take,
+      }),
+      this.prisma.contentEntry.count({ where }),
+    ]);
+    return {
+      hits: rows.map(({ excerpt: excerpt, ...row }) => ({
+        ...row,
+        excerpt,
+        score: scoreText(tokens, row.title, excerpt),
+      })),
+      total,
+    };
   }
 
   /** Drafts and archived entries are indistinguishable from missing ones (404). */
