@@ -20,7 +20,7 @@ const researchFields = z.object({
   summary: text(10, 500),
   body: z.string().trim().min(1, { error: MESSAGES.required }).max(100_000),
   coverImageUrl: urlOrPathSchema.nullable().optional(),
-  categoryId: z.uuid().nullable().optional(),
+  categoryId: z.uuid({ error: 'شناسه انتخاب‌شده معتبر نیست.' }).nullable().optional(),
   /** Solar Hijri year the study was completed. */
   year: z
     .number()
