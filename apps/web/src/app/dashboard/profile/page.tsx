@@ -9,6 +9,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useMe } from '@/components/dashboard/me-context';
 import { PageTitle } from '@/components/dashboard/ui';
+import { ChangePasswordForm, LogoutAllButton } from '@/components/forms/password-forms';
 import { apiFetch } from '@/lib/api-client';
 
 interface Values {
@@ -78,6 +79,20 @@ export default function ProfilePage() {
           </Button>
         </div>
       </form>
+
+      <section aria-labelledby="security-title" className="mt-12 flex flex-col gap-4">
+        <h2 id="security-title" className="text-lg font-extrabold text-brand-900">
+          امنیت حساب
+        </h2>
+        <h3 className="text-sm font-bold text-ink-2">تغییر رمز عبور</h3>
+        <ChangePasswordForm />
+        <h3 className="mt-4 text-sm font-bold text-ink-2">نشست‌ها</h3>
+        <p className="max-w-lg text-sm leading-loose text-ink-4">
+          اگر حساب خود را روی دستگاه دیگری باز گذاشته‌اید یا به ورود ناشناس مشکوک هستید، از همه
+          دستگاه‌ها خارج شوید.
+        </p>
+        <LogoutAllButton />
+      </section>
     </>
   );
 }

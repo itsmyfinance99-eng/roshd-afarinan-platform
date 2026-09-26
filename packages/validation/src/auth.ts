@@ -31,6 +31,32 @@ export const refreshSchema = z.object({
   refreshToken: z.string().min(20).max(512).optional(),
 });
 
+export const forgotPasswordSchema = z.object({ email: emailSchema });
+
+/** Reset links carry a 256-bit base64url token. */
+export const resetPasswordSchema = z.object({
+  token: z
+    .string({ error: MESSAGES.required })
+    .regex(/^[A-Za-z0-9_-]{32,128}$/, { error: 'لینک بازیابی معتبر نیست.' }),
+  password: passwordSchema,
+});
+
+export const changePasswordSchema = z
+  .object({
+    currentPassword: z
+      .string({ error: MESSAGES.required })
+      .min(1, { error: MESSAGES.required })
+      .max(PASSWORD_MAX),
+    newPassword: passwordSchema,
+  })
+  .refine((v) => v.currentPassword !== v.newPassword, {
+    error: 'رمز جدید باید با رمز فعلی متفاوت باشد.',
+    path: ['newPassword'],
+  });
+
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type RefreshInput = z.infer<typeof refreshSchema>;
+export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
+export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
+export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;

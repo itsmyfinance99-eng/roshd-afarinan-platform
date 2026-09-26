@@ -148,6 +148,30 @@ export class UsersService {
     return row?.id ?? null;
   }
 
+  /** Internal: credentials lookup for AuthService only. */
+  findCredentialsById(id: string) {
+    return this.prisma.user.findUnique({
+      where: { id },
+      select: { id: true, email: true, passwordHash: true, status: true },
+    });
+  }
+
+  /** Replaces the password hash and invalidates every access token issued before `revokedAt`. */
+  async setPassword(userId: string, passwordHash: string, revokedAt: Date): Promise<void> {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash, sessionsRevokedAt: revokedAt },
+    });
+  }
+
+  /** Invalidates every access token issued before `revokedAt` (sign out everywhere). */
+  async revokeSessions(userId: string, revokedAt: Date): Promise<void> {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { sessionsRevokedAt: revokedAt },
+    });
+  }
+
   async markLoggedIn(userId: string): Promise<void> {
     await this.prisma.user.update({ where: { id: userId }, data: { lastLoginAt: new Date() } });
   }

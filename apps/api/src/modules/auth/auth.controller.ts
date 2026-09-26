@@ -1,12 +1,18 @@
 import { Controller, Get, HttpCode, Inject, Post, Req, Res } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
+  changePasswordSchema,
+  forgotPasswordSchema,
   loginSchema,
   refreshSchema,
   registerSchema,
+  resetPasswordSchema,
+  type ChangePasswordInput,
+  type ForgotPasswordInput,
   type LoginInput,
   type RefreshInput,
   type RegisterInput,
+  type ResetPasswordInput,
 } from '@roshd/validation';
 import type { Request, Response } from 'express';
 import { Public } from '../../common/decorators/public.decorator';
@@ -93,6 +99,63 @@ export class AuthController {
   ): Promise<null> {
     const presented = body.refreshToken ?? this.refreshCookie(req);
     await this.auth.logout(presented, principalOf(req)?.userId ?? null, meta);
+    clearAuthCookies(res, this.config);
+    return null;
+  }
+
+  @Public()
+  @StrictRateLimit()
+  @Post('password/forgot')
+  @HttpCode(202)
+  @ApiOperation({
+    summary: 'Email a one-time reset link (same response whether or not the account exists)',
+  })
+  async forgotPassword(
+    @ZodBody(forgotPasswordSchema) body: ForgotPasswordInput,
+    @Meta() meta: RequestMeta,
+  ): Promise<{ message: string }> {
+    await this.auth.forgotPassword(body, meta);
+    return { message: 'اگر حسابی با این ایمیل وجود داشته باشد، لینک بازیابی رمز ارسال می‌شود.' };
+  }
+
+  @Public()
+  @StrictRateLimit()
+  @Post('password/reset')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Set a new password with a reset link; ends every session' })
+  async resetPassword(
+    @ZodBody(resetPasswordSchema) body: ResetPasswordInput,
+    @Meta() meta: RequestMeta,
+  ): Promise<null> {
+    await this.auth.resetPassword(body, meta);
+    return null;
+  }
+
+  @StrictRateLimit()
+  @Post('password/change')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: 'Change the password; other sessions end, this device gets a fresh session',
+  })
+  async changePassword(
+    @CurrentUser() user: Principal,
+    @ZodBody(changePasswordSchema) body: ChangePasswordInput,
+    @Meta() meta: RequestMeta,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    return this.respond(req, res, await this.auth.changePassword(user.userId, body, meta));
+  }
+
+  @Post('logout-all')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'End every session of the signed-in user (all devices)' })
+  async logoutAll(
+    @CurrentUser() user: Principal,
+    @Meta() meta: RequestMeta,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<null> {
+    await this.auth.logoutAll(user.userId, meta);
     clearAuthCookies(res, this.config);
     return null;
   }

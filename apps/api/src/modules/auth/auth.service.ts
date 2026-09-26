@@ -1,11 +1,27 @@
-import { randomUUID } from 'node:crypto';
-import { Injectable } from '@nestjs/common';
+import { randomBytes, randomUUID } from 'node:crypto';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import type { Permission } from '@roshd/types';
-import type { LoginInput, RegisterInput } from '@roshd/validation';
-import { ForbiddenError, UnauthenticatedError } from '../../common/errors/app-exception';
+import type {
+  ChangePasswordInput,
+  ForgotPasswordInput,
+  LoginInput,
+  RegisterInput,
+  ResetPasswordInput,
+} from '@roshd/validation';
+import { APP_CONFIG, type AppConfig } from '../../config/app-config';
+import {
+  BadRequestError,
+  ForbiddenError,
+  UnauthenticatedError,
+  ValidationFailedError,
+} from '../../common/errors/app-exception';
 import type { RequestMeta } from '../../common/http/request-meta';
 import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../database/prisma.service';
+import {
+  NOTIFICATION_PROVIDER,
+  type NotificationProvider,
+} from '../notifications/ports/notification-provider';
 import { RbacService } from '../rbac/rbac.service';
 import { UsersService, type UserView } from '../users/users.service';
 import { PasswordHasher } from './password-hasher';
@@ -25,9 +41,15 @@ export interface MeView extends UserView {
 
 const INVALID_CREDENTIALS = 'ایمیل یا رمز عبور نادرست است.';
 const INVALID_SESSION = 'نشست شما معتبر نیست. لطفاً دوباره وارد شوید.';
+const INVALID_RESET_LINK = 'لینک بازیابی نامعتبر یا منقضی است. دوباره درخواست دهید.';
+
+/** Access tokens signed at or before this instant are rejected (millisecond precision). */
+const revocationInstant = () => new Date();
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly users: UsersService,
@@ -35,6 +57,8 @@ export class AuthService {
     private readonly hasher: PasswordHasher,
     private readonly tokens: TokenService,
     private readonly audit: AuditService,
+    @Inject(NOTIFICATION_PROVIDER) private readonly notifications: NotificationProvider,
+    @Inject(APP_CONFIG) private readonly config: AppConfig,
   ) {}
 
   async register(input: RegisterInput, meta: RequestMeta): Promise<IssuedSession> {
@@ -171,6 +195,162 @@ export class AuthService {
     const user = await this.users.findById(userId);
     const permissions = await this.rbac.permissionsFor(user.roles);
     return { ...user, permissions: [...permissions].sort() };
+  }
+
+  // ─────────────────────────────── password & sessions ───────────────────────────────
+
+  /**
+   * Sends a one-time reset link. The response never reveals whether the email exists; earlier
+   * unused links of the account stop working.
+   */
+  async forgotPassword(input: ForgotPasswordInput, meta: RequestMeta): Promise<void> {
+    const account = await this.users.findCredentialsByEmail(input.email);
+    if (!account || account.status !== 'ACTIVE') return;
+
+    const token = randomBytes(32).toString('base64url');
+    const now = new Date();
+    await this.prisma.$transaction([
+      this.prisma.passwordResetToken.updateMany({
+        where: { userId: account.id, usedAt: null },
+        data: { usedAt: now },
+      }),
+      this.prisma.passwordResetToken.create({
+        data: {
+          userId: account.id,
+          tokenHash: this.tokens.hashRefreshToken(token),
+          expiresAt: new Date(now.getTime() + this.config.PASSWORD_RESET_TTL_MINUTES * 60_000),
+          requestedIp: meta.ip,
+        },
+      }),
+    ]);
+    await this.audit.record({
+      action: 'auth.password_reset_requested',
+      actorId: account.id,
+      entityType: 'user',
+      entityId: account.id,
+      meta,
+    });
+    await this.notify(
+      input.email,
+      'auth.password-reset',
+      {
+        resetUrl: `${this.config.WEB_BASE_URL}/reset-password?token=${token}`,
+        expiresInMinutes: this.config.PASSWORD_RESET_TTL_MINUTES,
+      },
+      meta,
+    );
+  }
+
+  /** Consumes a reset link: sets the new password and ends every session of the account. */
+  async resetPassword(input: ResetPasswordInput, meta: RequestMeta): Promise<void> {
+    const now = new Date();
+    const record = await this.prisma.passwordResetToken.findUnique({
+      where: { tokenHash: this.tokens.hashRefreshToken(input.token) },
+      select: { id: true, userId: true, expiresAt: true, usedAt: true },
+    });
+    if (!record || record.usedAt || record.expiresAt <= now) {
+      throw new BadRequestError(INVALID_RESET_LINK);
+    }
+    // Single use even under concurrent submissions.
+    const { count } = await this.prisma.passwordResetToken.updateMany({
+      where: { id: record.id, usedAt: null },
+      data: { usedAt: now },
+    });
+    const account = await this.users.findCredentialsById(record.userId);
+    if (count !== 1 || !account || account.status !== 'ACTIVE') {
+      throw new BadRequestError(INVALID_RESET_LINK);
+    }
+    await this.users.setPassword(
+      account.id,
+      await this.hasher.hash(input.password),
+      revocationInstant(),
+    );
+    await this.revokeAllRefreshTokens(account.id);
+    await this.audit.record({
+      action: 'auth.password_reset',
+      actorId: account.id,
+      entityType: 'user',
+      entityId: account.id,
+      meta,
+    });
+    await this.notify(account.email, 'auth.password-changed', {}, meta);
+  }
+
+  /**
+   * Changes the password of the signed-in user. Every other session ends; the current device
+   * receives a fresh session so it stays signed in.
+   */
+  async changePassword(
+    userId: string,
+    input: ChangePasswordInput,
+    meta: RequestMeta,
+  ): Promise<IssuedSession> {
+    const account = await this.users.findCredentialsById(userId);
+    if (!account) throw new UnauthenticatedError();
+    if (!(await this.hasher.verify(account.passwordHash, input.currentPassword))) {
+      await this.audit.record({
+        action: 'auth.password_change_failed',
+        actorId: userId,
+        entityType: 'user',
+        entityId: userId,
+        meta,
+      });
+      throw new ValidationFailedError([
+        { path: 'currentPassword', message: 'رمز فعلی درست نیست.' },
+      ]);
+    }
+    await this.users.setPassword(
+      userId,
+      await this.hasher.hash(input.newPassword),
+      revocationInstant(),
+    );
+    await this.revokeAllRefreshTokens(userId);
+    await this.audit.record({
+      action: 'auth.password_changed',
+      actorId: userId,
+      entityType: 'user',
+      entityId: userId,
+      meta,
+    });
+    await this.notify(account.email, 'auth.password-changed', {}, meta);
+    return this.startSession(await this.users.findById(userId), meta);
+  }
+
+  /** Ends every session of the user, including the current one. */
+  async logoutAll(userId: string, meta: RequestMeta): Promise<void> {
+    await this.users.revokeSessions(userId, revocationInstant());
+    await this.revokeAllRefreshTokens(userId);
+    await this.audit.record({
+      action: 'auth.logout_all',
+      actorId: userId,
+      entityType: 'user',
+      entityId: userId,
+      meta,
+    });
+  }
+
+  private async revokeAllRefreshTokens(userId: string): Promise<void> {
+    await this.prisma.refreshToken.updateMany({
+      where: { userId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+  }
+
+  /** Delivery problems never break the auth flow; they are logged without the recipient. */
+  private async notify(
+    to: string,
+    template: string,
+    data: Record<string, string | number>,
+    meta: RequestMeta,
+  ): Promise<void> {
+    try {
+      await this.notifications.send({ channel: 'email', to, template, data });
+    } catch (error) {
+      this.logger.warn(
+        { err: error, requestId: meta.requestId, template },
+        'auth notification failed',
+      );
+    }
   }
 
   private async startSession(user: UserView, meta: RequestMeta): Promise<IssuedSession> {
