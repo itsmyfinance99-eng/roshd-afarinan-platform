@@ -51,6 +51,10 @@ milestones:
     title: 'Sprint 10 — Security & Performance Audit'
     due: '2026-12-11'
     description: 'آزمون نفوذ و کارایی مبتنی بر شواهد روی نسخه فاز ۱ و برنامه‌ریزی رفع یافته‌ها'
+  - key: S11
+    title: 'Sprint 11 — Audit Remediation'
+    due: '2026-12-18'
+    description: 'رفع یافته‌های آزمون امنیتی و کارایی ST-21.03 پیش از بهره‌برداری عمومی'
   - key: P2
     title: 'Phase 2 — LMS & Commerce'
     description: 'LMS پایه، سفارش و پرداخت واقعی'
@@ -1172,3 +1176,142 @@ epics:
         story: 'به‌عنوان کاربر موبایل می‌خواهم سایت را نصب کنم و اعلان دریافت کنم.'
         acceptance:
           - 'پس از تثبیت APIهای اصلی'
+
+  - id: EPIC-26
+    title: 'Audit Remediation — رفع یافته‌های آزمون امنیتی و کارایی'
+    phase: 1
+    priority: critical
+    goal: 'رفع یافته‌های گزارش docs/qa/security-performance-audit-2026-09-27.md به ترتیب شدت، با تست رگرسیون برای هر مورد.'
+    stories:
+      - id: ST-26.01
+        title: 'رفع F-01: محدودسازی پارامتر types در جست‌وجو (DoS بدون احراز هویت)'
+        sprint: S11
+        points: 2
+        priority: critical
+        area: [api, security]
+        story: 'به‌عنوان مسئول امنیت می‌خواهم یک درخواست جست‌وجوی کوچک نتواند استخر اتصال دیتابیس را از کار بیندازد.'
+        acceptance:
+          - 'types به‌صورت مجموعه یکتا از enum با سقف تعداد SEARCH_TYPES پذیرفته شود؛ طول رشته خام محدود باشد'
+          - 'مقدار تکراری فقط یک بار به منبع کوئری بزند و total درست باشد'
+          - 'types بلندتر از فهرست مجاز یا نامعتبر پاسخ 400 بدهد'
+          - 'تست: با types تکراری هر منبع یک بار صدا زده شود (spy)؛ تست منفی 400'
+
+      - id: ST-26.02
+        title: 'رفع F-02 و F-12: CSRF ورود/ثبت‌نام و open redirect پس از ورود'
+        sprint: S11
+        points: 3
+        priority: critical
+        area: [api, web, security]
+        story: 'به‌عنوان کاربر می‌خواهم سایت دیگری نتواند مرا وارد حساب مهاجم کند یا پس از ورود به سایت خودش ببرد.'
+        acceptance:
+          - 'مسیرهای تغییردهنده احراز هویت فقط application/json بپذیرند و هدر X-Requested-With (یا بررسی Origin/Sec-Fetch-Site) را الزامی کنند'
+          - 'ورود با urlencoded یا text/plain پاسخ 415 یا 403 بدهد؛ Origin خارجی 403'
+          - 'safeNextPath نویسه کنترلی و فاصله را رد کند و مقصد را با new URL نسبت به مبدأ سایت بررسی کند'
+          - 'همان helper برای لینک Markdown و لینک اعلان استفاده شود'
+          - 'تست: واحد برای /\t/x، /\n/x، /\\x، //x، https://x؛ Playwright ورود با next مخرب روی سایت بماند؛ API e2e برای CSRF'
+
+      - id: ST-26.03
+        title: 'رفع F-08: اعتبارسنجی قوت secretها در production'
+        sprint: S11
+        points: 2
+        priority: high
+        area: [api, security, infra]
+        story: 'به‌عنوان مسئول استقرار می‌خواهم سرویس با secret نمونه یا ضعیف بالا نیاید.'
+        acceptance:
+          - 'در production مقدارهای حاوی change-me یا dev-only، مقدارهای کم‌آنتروپی و secretهای یکسان رد شوند'
+          - 'مقدار secretها در .env.example خالی باشد و روش تولید مستند بماند'
+          - 'تست: loadConfig برای هر حالت ضعیف در production خطای ConfigValidationError بدهد'
+
+      - id: ST-26.04
+        title: 'رفع F-07: سهمیه آپلود و پاک‌سازی فایل‌های پیوست‌نشده'
+        sprint: S11
+        points: 5
+        priority: high
+        area: [api, security, infra]
+        story: 'به‌عنوان مسئول استقرار می‌خواهم یک کاربر نتواند دیسک سرور را پر کند.'
+        acceptance:
+          - 'سهمیه هر کاربر بر حسب حجم و تعداد فایل پیوست‌نشده؛ عبور از سهمیه پاسخ 413 یا 429'
+          - 'محدودیت نرخ سخت‌تر روی POST /files و POST /media'
+          - 'کار زمان‌بندی‌شده فایل‌های پیوست‌نشده قدیمی‌تر از N ساعت را حذف کند (فایل و رکورد)'
+          - 'تست: عبور از سهمیه رد شود؛ کار پاک‌سازی فایل قدیمی را حذف و فایل پیوست‌شده را نگه دارد'
+
+      - id: ST-26.05
+        title: 'رفع F-13: timeout دیتابیس و نگاشت خطای در دسترس نبودن'
+        sprint: S11
+        points: 3
+        priority: high
+        area: [api, infra]
+        story: 'به‌عنوان مسئول استقرار می‌خواهم کندی یا قطعی دیتابیس به قطعی کامل سرویس تبدیل نشود.'
+        acceptance:
+          - 'connectionTimeoutMillis، statement_timeout و requestTimeout سرور تنظیم و مستند شوند'
+          - 'خطاهای اتصال و استخر (P1001، P2024، ECONNREFUSED، Unable to start a transaction) به 503 با Retry-After نگاشت شوند'
+          - 'تست: با دیتابیس معلق شبیه‌سازی‌شده، پاسخ 503 ظرف timeout تنظیم‌شده برگردد'
+
+      - id: ST-26.06
+        title: 'رفع F-03: حذف داده شخصی و امضاها از لاگ‌ها'
+        sprint: S11
+        points: 2
+        priority: high
+        area: [api, infra, security]
+        story: 'به‌عنوان مسئول حریم خصوصی می‌خواهم شماره موبایل، توکن و امضای دانلود در لاگ ذخیره نشود.'
+        acceptance:
+          - 'serializer درخواست مسیر را بدون query ثبت کند یا mobile، sig، token، code و q را redact کند'
+          - 'log_format در nginx بدون query string تعریف شود'
+          - 'تست: پس از فراخوانی track و دانلود امضاشده، لاگ شامل mobile= و sig= نباشد'
+
+      - id: ST-26.07
+        title: 'رفع P-01 و P-02: ایندکس فهرست‌های کارکنان و سقف صفحه‌بندی'
+        sprint: S11
+        points: 3
+        priority: high
+        area: [api, db]
+        story: 'به‌عنوان کارشناس می‌خواهم فهرست‌ها با رشد داده کند نشوند.'
+        acceptance:
+          - 'ایندکس service_requests(createdAt DESC) و tickets(lastMessageAt DESC) با migration اضافه شود'
+          - 'EXPLAIN برای فهرست بدون فیلتر دیگر Seq Scan و sort روی دیسک نداشته باشد'
+          - 'سقف page برای مسیرهای پرحجم (audit، درخواست‌ها) یا صفحه‌بندی keyset'
+          - 'تست: page بیش از سقف پاسخ 400؛ تست کارایی با داده حجیم مستند شود'
+
+      - id: ST-26.08
+        title: 'رفع یافته‌های Low امنیتی: خروج، refresh هم‌زمان، حافظه آداپتر، خطای بدنه، پروکسی مورد اعتماد'
+        sprint: S11
+        points: 5
+        priority: medium
+        area: [api, security]
+        story: 'به‌عنوان مسئول امنیت می‌خواهم یافته‌های کم‌شدت هم پیش از بهره‌برداری بسته شوند.'
+        acceptance:
+          - 'F-04: خروج، access token را هم باطل کند (نگه‌داشتن sid باطل‌شده یا بررسی وضعیت نشست در guard)؛ تست: توکن قبلی 401'
+          - 'F-05: پنجره تحمل کوتاه برای refresh هم‌زمان؛ تست: دو refresh هم‌زمان هر دو موفق یا جانشین یکسان'
+          - 'F-09: آرایه sent فقط در NODE_ENV=test نگه داشته شود؛ تست: در production خالی بماند'
+          - 'F-10: خطاهای http-errors چهارصدی به 413/415/400 نگاشت شوند و requestId پیش از parse بدنه ساخته شود؛ تست: سه حالت بدنه نامعتبر'
+          - 'F-11: TRUST_PROXY فهرست آدرس یا CIDR بپذیرد و مستند شود'
+
+      - id: ST-26.09
+        title: 'رفع یافته‌های کارایی وب: کش صفحه‌های عمومی، فونت، داشبورد و prefetch'
+        sprint: S11
+        points: 5
+        priority: medium
+        area: [web, infra]
+        story: 'به‌عنوان بازدیدکننده می‌خواهم صفحه‌ها سریع و بدون پرش چیدمان باز شوند.'
+        acceptance:
+          - 'P-04: ISR برای صفحه‌های محتوای عمومی و revalidation لحظه‌ای هنگام انتشار'
+          - 'P-05: gzip برای application/json و text/csv در nginx'
+          - 'P-06: بارگذاری فونت با next/font/local و fallback تنظیم‌شده؛ CLS زیر ۰٫۱ در Lighthouse موبایل و دسکتاپ'
+          - 'P-07: رندر سمت سرور پوسته داشبورد و حذف فراخوانی تکراری unread-count؛ LCP موبایل زیر ۳ ثانیه'
+          - 'P-08: prefetch=false برای پیوندهای ثانویه'
+          - 'P-03: خروجی CSV به‌صورت جریانی ساخته شود'
+
+      - id: ST-26.10
+        title: 'موارد Info و پاک‌سازی‌های کوچک آزمون'
+        sprint: S11
+        points: 2
+        priority: low
+        area: [api, web, infra, docs]
+        story: 'به‌عنوان تیم می‌خواهم تذکرهای کوچک گزارش آزمون هم بسته شوند.'
+        acceptance:
+          - 'I-01: عدد فارسی در پیام‌های اعتبارسنجی'
+          - 'I-10: اصلاح ترتیب عنوان‌ها در کارت دوره‌ها'
+          - 'I-11: پین کردن GitHub Actions با SHA و image پایه با digest'
+          - 'I-12: پیش‌فرض NEXT_PUBLIC_DEMO_MODE برای استقرار واقعی false باشد'
+          - 'I-05: مستندسازی رفتار SWAGGER_ENABLED و COOKIE_SECURE در production'
+          - 'I-07 و I-08: timeout در قرارداد port اعلان و پرداخت'
