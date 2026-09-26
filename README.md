@@ -36,7 +36,7 @@ cp .env.example .env
 docker compose up -d                          # PostgreSQL :5433 (dev + _test DB), Redis :6380
 pnpm --filter @roshd/api db:migrate:deploy    # apply migrations
 pnpm --filter @roshd/api db:seed              # roles, permissions (idempotent)
-pnpm --filter @roshd/api db:seed:demo         # optional: demo articles/knowledge (isDemo, dev only)
+pnpm --filter @roshd/api db:seed:demo         # optional: demo articles, knowledge, courses, research, opportunities (isDemo, dev only)
 pnpm dev                                      # API on http://localhost:4000
 ```
 

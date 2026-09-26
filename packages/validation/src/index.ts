@@ -9,3 +9,4 @@ export * from './files';
 export * from './tickets';
 export * from './learning';
 export * from './research';
+export * from './investment';

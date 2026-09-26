@@ -65,6 +65,9 @@ Legend: ✅ automated · 🟡 manual · ⬜ not yet covered
 | Research | Drafts/archived 404 publicly; category/search filters; Solar Hijri year; reserved slug | Unit + API e2e | ✅ |
 | Research | Management 401/403 without `catalog:manage`; sitemap excludes noindex and demo | API e2e | ✅ |
 | Web | Research listing with category links, Report JSON-LD, order CTA, noindex demo, real 404 | Playwright | ✅ |
+| Investment | Drafts/archived 404; sector/stage/province filters; amount as digit string, never 0 | Unit + API e2e | ✅ |
+| Investment | Management 401/403 (investor, support); interest stored as INVESTMENT request + reference | API e2e | ✅ |
+| Web | Investment GET filters without JS, no-offer notice, interest form, noindex demo, real 404 | Playwright | ✅ |
 | Requests | Guest submit + tracking code + notification | API e2e | ✅ |
 | Requests | Honeypot / type-specific validation | Unit + e2e | ✅ |
 | Requests | Owner-only access, stranger gets 404 | API e2e | ✅ |

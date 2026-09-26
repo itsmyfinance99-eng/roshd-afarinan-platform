@@ -2,6 +2,7 @@ import type { MetadataRoute } from 'next';
 import { navigation } from '@/content/site';
 import { KIND_ROUTE, sitemapContent } from '@/lib/content-api';
 import { siteUrl } from '@/lib/env';
+import { sitemapInvestments } from '@/lib/investment-api';
 import { sitemapCourses } from '@/lib/learning-api';
 import { sitemapResearch } from '@/lib/research-api';
 
@@ -13,15 +14,16 @@ const EXTRA_ROUTES = [
   '/research/request',
 ];
 
-/** Static routes + published, indexable CMS entries, courses and research (EPIC-20 · ST-20.01). */
+/** Static routes + published, indexable CMS entries and catalog records (EPIC-20 · ST-20.01). */
 export const revalidate = 3600;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const paths = [...navigation.map((n) => n.href), ...EXTRA_ROUTES];
-  const [content, courses, research] = await Promise.all([
+  const [content, courses, research, investments] = await Promise.all([
     sitemapContent(),
     sitemapCourses(),
     sitemapResearch(),
+    sitemapInvestments(),
   ]);
   const dynamic: MetadataRoute.Sitemap = [
     ...(content.ok ? content.data : []).map((entry) => ({
@@ -38,6 +40,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     })),
     ...(research.ok ? research.data : []).map((project) => ({
       url: `${siteUrl}/research/${project.slug}`,
+      lastModified: project.updatedAt,
+      changeFrequency: 'monthly' as const,
+      priority: 0.6,
+    })),
+    ...(investments.ok ? investments.data : []).map((project) => ({
+      url: `${siteUrl}/investment/${project.slug}`,
       lastModified: project.updatedAt,
       changeFrequency: 'monthly' as const,
       priority: 0.6,

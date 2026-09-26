@@ -8,12 +8,12 @@ import {
   SectionHeader,
   Tag,
 } from '@roshd/ui';
+import { INVESTMENT_SECTOR_LABELS_FA, PROJECT_STAGE_LABELS_FA } from '@roshd/validation';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ContentCard, CourseCard } from '@/components/cards/cards';
 import { InvestmentPreview } from '@/components/sections/investment-preview';
 import { ProcessSteps } from '@/components/sections/process-steps';
-import { demoProjects, sectors } from '@/content/demo';
 import {
   consultingServices,
   credentials,
@@ -27,6 +27,7 @@ import {
   stats,
 } from '@/content/site';
 import { listContent } from '@/lib/content-api';
+import { listInvestments } from '@/lib/investment-api';
 import { listCourses } from '@/lib/learning-api';
 import { listResearch } from '@/lib/research-api';
 import { jsonLdScript, organizationJsonLd, pageMetadata } from '@/lib/seo';
@@ -39,11 +40,16 @@ export const revalidate = 300;
 const allLink = 'text-[15px] font-bold text-primary no-underline';
 
 export default async function HomePage() {
-  const [knowledge, courses, research] = await Promise.all([
+  const [knowledge, courses, research, investments] = await Promise.all([
     listContent('KNOWLEDGE', { pageSize: 3 }),
     listCourses({ pageSize: 4 }),
     listResearch({ pageSize: 3 }),
+    listInvestments({ pageSize: 6 }),
   ]);
+  const opportunities = investments.ok ? investments.data : [];
+  const featuredProjects = opportunities.slice(0, 3);
+  /** Opportunities already under study (past the idea stage). */
+  const studied = opportunities.filter((p) => p.stage !== 'IDEA').slice(0, 3);
   const latestResearch = research.ok ? research.data : [];
   const featuredCourses = courses.ok ? courses.data : [];
   const latestKnowledge = knowledge.ok ? knowledge.data : [];
@@ -234,53 +240,68 @@ export default async function HomePage() {
         </Container>
       </Section>
 
-      {/* FEATURED FEASIBILITY (demo) */}
-      <Container className="py-20">
-        <section aria-labelledby="feas-title">
-          <SectionHeader
-            id="feas-title"
-            eyebrow="امکان‌سنجی"
-            title="نمونه طرح‌های در حال مطالعه"
-            action={<DemoBadge>محتوای نمایشی — طرح واقعی نیست</DemoBadge>}
-          />
-          <div role="table" aria-label="نمونه طرح‌ها" className="border-t-2 border-brand-900">
-            {demoProjects.slice(0, 3).map((p) => (
-              <div
-                key={p.id}
-                role="row"
-                className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,160px),1fr))] items-center gap-x-6 gap-y-3 border-b border-line py-[22px]"
-              >
-                <div role="cell" className="col-span-2 min-w-0">
-                  <span className="mb-1 block text-[13px] font-bold text-primary">
-                    {p.sectorLabel}
-                  </span>
-                  <span className="text-[17px] font-bold text-ink">{p.title}</span>
+      {/* FEASIBILITY: opportunities under study (hidden when there are none) */}
+      {studied.length > 0 ? (
+        <Container className="py-20">
+          <section aria-labelledby="feas-title">
+            <SectionHeader
+              id="feas-title"
+              eyebrow="امکان‌سنجی"
+              title="طرح‌های در حال مطالعه"
+              action={
+                studied.some((p) => p.isDemo) ? (
+                  <DemoBadge>محتوای نمایشی — طرح واقعی نیست</DemoBadge>
+                ) : undefined
+              }
+            />
+            <div
+              role="table"
+              aria-label="طرح‌های در حال مطالعه"
+              className="border-t-2 border-brand-900"
+            >
+              {studied.map((p) => (
+                <div
+                  key={p.id}
+                  role="row"
+                  className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,160px),1fr))] items-center gap-x-6 gap-y-3 border-b border-line py-[22px]"
+                >
+                  <div role="cell" className="col-span-2 min-w-0">
+                    <span className="mb-1 block text-[13px] font-bold text-primary">
+                      {INVESTMENT_SECTOR_LABELS_FA[p.sector]}
+                    </span>
+                    <Link
+                      href={`/investment/${p.slug}`}
+                      className="text-[17px] font-bold text-ink no-underline hover:text-primary"
+                    >
+                      {p.title}
+                    </Link>
+                  </div>
+                  <div role="cell" className="text-sm text-ink-3">
+                    <span className="text-ink-5">موقعیت: </span>
+                    {p.province ?? '—'}
+                  </div>
+                  <div role="cell" className="text-sm text-ink-3">
+                    <span className="text-ink-5">مرحله: </span>
+                    {PROJECT_STAGE_LABELS_FA[p.stage]}
+                  </div>
+                  <div role="cell" className="text-sm text-ink-3">
+                    <span className="text-ink-5">خدمت: </span>
+                    {p.serviceNeeded ?? '—'}
+                  </div>
+                  <div role="cell">
+                    <Link
+                      href="/feasibility/request"
+                      className="text-sm font-bold text-primary no-underline"
+                    >
+                      درخواست مشابه ‹
+                    </Link>
+                  </div>
                 </div>
-                <div role="cell" className="text-sm text-ink-3">
-                  <span className="text-ink-5">موقعیت: </span>
-                  {p.location}
-                </div>
-                <div role="cell" className="text-sm text-ink-3">
-                  <span className="text-ink-5">مرحله: </span>
-                  {p.stage}
-                </div>
-                <div role="cell" className="text-sm text-ink-3">
-                  <span className="text-ink-5">خدمت: </span>
-                  {p.service}
-                </div>
-                <div role="cell">
-                  <Link
-                    href="/feasibility/request"
-                    className="text-sm font-bold text-primary no-underline"
-                  >
-                    درخواست مشابه ‹
-                  </Link>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      </Container>
+              ))}
+            </div>
+          </section>
+        </Container>
+      ) : null}
 
       {/* COURSES (latest published; hidden until the catalog has courses) */}
       {featuredCourses.length > 0 ? (
@@ -373,27 +394,31 @@ export default async function HomePage() {
         </Container>
       </Section>
 
-      {/* INVESTMENT PREVIEW (demo) */}
-      <Container className="py-20">
-        <section aria-labelledby="inv-title">
-          <SectionHeader
-            id="inv-title"
-            eyebrow="فرصت‌های سرمایه‌گذاری"
-            title="پیش‌نمایش پروژه‌ها"
-            className="mb-5"
-            action={
-              <Link href="/investment" className={allLink}>
-                مشاهده همه ‹
-              </Link>
-            }
-          />
-          <Notice className="mb-6">
-            همه پروژه‌های این بخش نمونه نمایشی هستند و فرصت واقعی یا باز سرمایه‌گذاری محسوب
-            نمی‌شوند.
-          </Notice>
-          <InvestmentPreview projects={demoProjects} sectors={sectors} />
-        </section>
-      </Container>
+      {/* INVESTMENT PREVIEW (latest published; hidden until there are opportunities) */}
+      {featuredProjects.length > 0 ? (
+        <Container className="py-20">
+          <section aria-labelledby="inv-title">
+            <SectionHeader
+              id="inv-title"
+              eyebrow="فرصت‌های سرمایه‌گذاری"
+              title="پیش‌نمایش پروژه‌ها"
+              className="mb-5"
+              action={
+                <Link href="/investment" className={allLink}>
+                  مشاهده همه ‹
+                </Link>
+              }
+            />
+            <Notice className="mb-6">
+              معرفی طرح به معنای پیشنهاد سرمایه‌گذاری یا تضمین بازده نیست.
+              {featuredProjects.some((p) => p.isDemo)
+                ? ' موارد برچسب‌خورده «نمونه نمایشی» هستند.'
+                : ''}
+            </Notice>
+            <InvestmentPreview projects={featuredProjects} />
+          </section>
+        </Container>
+      ) : null}
 
       {/* PROCESS */}
       <Section tone="dark" aria-labelledby="process-title">

@@ -1,5 +1,4 @@
 import { normalizePersianText } from '@roshd/validation';
-import { demoProjects } from '@/content/demo';
 import { consultingServices, journeys } from '@/content/site';
 
 export interface LocalHit {
@@ -10,7 +9,8 @@ export interface LocalHit {
 }
 
 /**
- * Interim search over the content layer until the SearchProvider API (EPIC-05) is live.
+ * Search over the static content layer (journeys, services); API collections are searched
+ * by the search page itself.
  * Matching is a normalised substring match (Arabic ي/ك folded to Persian).
  */
 export function searchLocalContent(query: string, limit = 30): LocalHit[] {
@@ -26,9 +26,6 @@ export function searchLocalContent(query: string, limit = 30): LocalHit[] {
     ...consultingServices
       .filter((s) => match(s.title, s.description))
       .map((s) => ({ title: s.title, type: 'مشاوره', href: '/consulting', isDemo: false })),
-    ...demoProjects
-      .filter((p) => match(p.title, p.sectorLabel, p.location))
-      .map((p) => ({ title: p.title, type: 'پروژه', href: '/investment', isDemo: p.isDemo })),
   ];
   return hits.slice(0, limit);
 }

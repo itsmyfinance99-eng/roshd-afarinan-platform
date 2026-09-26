@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { PageIntro } from '@/components/layout/page-shell';
 import { listContent } from '@/lib/content-api';
+import { listInvestments } from '@/lib/investment-api';
 import { listCourses } from '@/lib/learning-api';
 import { listResearch } from '@/lib/research-api';
 import { type LocalHit, searchLocalContent } from '@/lib/local-search';
@@ -17,15 +18,22 @@ export default async function SearchPage({
 }) {
   const raw = (await searchParams).q;
   const query = (typeof raw === 'string' ? raw : '').trim().slice(0, 100);
-  const [articles, knowledge, courses, research] = query
+  const [articles, knowledge, courses, research, investments] = query
     ? await Promise.all([
         listContent('ARTICLE', { q: query, pageSize: 10 }),
         listContent('KNOWLEDGE', { q: query, pageSize: 10 }),
         listCourses({ q: query, pageSize: 10 }),
         listResearch({ q: query, pageSize: 10 }),
+        listInvestments({ q: query, pageSize: 10 }),
       ])
-    : [null, null, null, null];
+    : [null, null, null, null, null];
   const cmsHits: LocalHit[] = [
+    ...(investments?.ok ? investments.data : []).map((p) => ({
+      title: p.title,
+      type: 'طرح',
+      href: `/investment/${p.slug}`,
+      isDemo: p.isDemo,
+    })),
     ...(research?.ok ? research.data : []).map((r) => ({
       title: r.title,
       type: 'پژوهش',

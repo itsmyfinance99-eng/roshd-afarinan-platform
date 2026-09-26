@@ -40,23 +40,6 @@ export interface FutureCapability {
   description: string;
 }
 
-/** Every demo record carries `isDemo: true`; the UI must show a «نمونه نمایشی» label for it. */
-interface DemoFlag {
-  isDemo: true;
-}
-
-export type SectorKey = 'mining' | 'industry' | 'energy' | 'agri' | 'infra';
-
-export interface DemoProject extends DemoFlag {
-  id: string;
-  title: string;
-  sector: SectorKey;
-  sectorLabel: string;
-  location: string;
-  stage: string;
-  service: string;
-}
-
 /** Minimal data for a content card (demo records or CMS summaries). */
 export interface EntryCardData {
   id: string;

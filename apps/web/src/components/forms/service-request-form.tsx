@@ -28,7 +28,7 @@ import { useSessionHint } from '@/lib/session';
 
 type FormType = Extract<
   ServiceRequestType,
-  'FEASIBILITY' | 'CONSULTING' | 'RESEARCH' | 'TRAINING' | 'CONTACT'
+  'FEASIBILITY' | 'CONSULTING' | 'RESEARCH' | 'TRAINING' | 'INVESTMENT' | 'CONTACT'
 >;
 
 interface FormValues {
@@ -56,6 +56,7 @@ const MESSAGE_LABEL: Record<FormType, string> = {
   CONSULTING: 'موضوع و نیاز مشاوره',
   RESEARCH: 'شرح نیاز پژوهشی',
   TRAINING: 'پیام شما (سؤال یا توضیح درباره ثبت‌نام)',
+  INVESTMENT: 'نوع علاقه‌مندی یا پرسش شما درباره طرح',
   CONTACT: 'متن پیام',
 };
 
@@ -64,6 +65,7 @@ const SUBMIT_LABEL: Record<FormType, string> = {
   CONSULTING: 'ثبت درخواست مشاوره',
   RESEARCH: 'ثبت سفارش پژوهش',
   TRAINING: 'ثبت درخواست ثبت‌نام',
+  INVESTMENT: 'ثبت ابراز علاقه',
   CONTACT: 'ارسال پیام',
 };
 
@@ -83,7 +85,7 @@ export function ServiceRequestForm({
 }: {
   type: FormType;
   defaultService?: string;
-  /** TRAINING: slug of the course the enquiry is about (sent as `reference`). */
+  /** TRAINING / INVESTMENT: slug of the course or opportunity (sent as `reference`). */
   reference?: string;
 }) {
   const uid = useId();
@@ -112,7 +114,7 @@ export function ServiceRequestForm({
             }
           : {}),
         ...(type === 'FEASIBILITY' ? { sector: '', stage: '' } : {}),
-        ...(type === 'TRAINING' && reference ? { reference } : {}),
+        ...((type === 'TRAINING' || type === 'INVESTMENT') && reference ? { reference } : {}),
       },
     },
   );

@@ -1,5 +1,6 @@
 import 'server-only';
 import type { ApiMeta } from '@roshd/types';
+import { notFound } from 'next/navigation';
 import { apiInternalUrl } from './env';
 
 export type ServerResult<T> = { ok: true; data: T; meta?: ApiMeta } | { ok: false; status: number };
@@ -24,4 +25,15 @@ export async function serverGet<T>(
   } catch {
     return { ok: false, status: 0 };
   }
+}
+
+/**
+ * Unwraps a detail lookup for a page: missing, unpublished or malformed slugs (404/400) become a
+ * real 404 before streaming starts; any other failure surfaces the error boundary.
+ */
+export async function requireFound<T>(lookup: Promise<ServerResult<T>>): Promise<T> {
+  const result = await lookup;
+  if (result.ok) return result.data;
+  if (result.status === 404 || result.status === 400) notFound();
+  throw new Error(`API unavailable (status ${result.status})`);
 }

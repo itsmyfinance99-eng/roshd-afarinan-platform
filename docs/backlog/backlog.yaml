@@ -747,6 +747,7 @@ epics:
     goal: 'فاز ۱: کاتالوگ معرفی بدون تراکنش.'
     stories:
       - id: ST-16.01
+        status: done
         title: 'مدل InvestmentOpportunity، API و صفحات کاتالوگ'
         sprint: S8
         points: 5

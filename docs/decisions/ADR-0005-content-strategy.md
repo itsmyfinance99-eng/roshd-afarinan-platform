@@ -12,7 +12,7 @@
 - If the API is unreachable, public pages render a graceful error/empty state instead of failing the build.
 
 - **Storage (implemented in ST-03.01):** articles and knowledge entries are distinct content kinds with separate APIs (`/articles`, `/knowledge`), routes and sitemap entries. They share one `ContentEntry` table discriminated by `kind`, because they share the editorial lifecycle (DRAFT → PUBLISHED → ARCHIVED) and the SEO fields. Knowledge entries use `references` for their sources.
-- Demo content is flagged `isDemo`, rendered with «نمونه نمایشی», marked `noindex` and excluded from the sitemap. It is loaded only in development with `pnpm --filter @roshd/api db:seed:demo`.
+- Demo content is flagged `isDemo`, rendered with «نمونه نمایشی», marked `noindex` and excluded from the sitemap. It is loaded only in development with `pnpm --filter @roshd/api db:seed:demo`. The web app holds no demo records of its own: every collection (articles, knowledge, courses, research, investment opportunities) comes from the API.
 
 ## Consequences
 

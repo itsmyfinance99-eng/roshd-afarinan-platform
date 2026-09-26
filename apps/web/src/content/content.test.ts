@@ -1,14 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { demoProjects, sectors } from './demo';
 import { journeys, MAIN_NAV_KEYS, navigation, pathSteps, UTILITY_NAV_KEYS } from './site';
 
 describe('content layer invariants', () => {
-  it('flags every demo record so the UI can label it', () => {
-    for (const record of demoProjects) {
-      expect(record.isDemo).toBe(true);
-    }
-  });
-
   it('prioritises exactly the four main journeys on the home page', () => {
     expect(journeys.map((j) => j.key)).toEqual(['training', 'feasibility', 'research', 'sahamdar']);
   });
@@ -23,11 +16,6 @@ describe('content layer invariants', () => {
   it('ends the value chain at Iran Sahamdar', () => {
     expect(pathSteps.at(0)).toBe('آموزش');
     expect(pathSteps.at(-1)).toBe('ایران سهامدار');
-  });
-
-  it('only uses known sectors in demo projects', () => {
-    const known = new Set(sectors.map((s) => s.value));
-    for (const p of demoProjects) expect(known.has(p.sector)).toBe(true);
   });
 });
 
