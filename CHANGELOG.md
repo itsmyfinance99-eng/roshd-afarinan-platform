@@ -20,14 +20,26 @@ All notable changes to this project are documented here. The format follows [Kee
 - **Site search**: a federated PostgreSQL search over published content, with space/ZWNJ-aware matching (#141).
 - **Deployment**: multi-stage, non-root Docker images for the API (plus a migrate job) and the web app, a full-stack compose file, and a CI image build (#143).
 
+#### Operational readiness (EPIC-25)
+
+- **Accounts**: password change, recovery by email and sign out everywhere (#160); account suspension and reactivation with immediate sign-out (#162); email verification with one-time links and a rate-limited resend (#170).
+- **Notifications**: an in-app notification center, and event notifications for requests, tickets and orders through the notification port (#163).
+- **Staff workflow**: assign requests and tickets to staff members, with "assigned to me" and "unassigned" queues (#164).
+- **Media library**: public PNG/JPEG/WebP images for article, course, research and investment covers, with upload and a library picker in the editors (#165).
+- **Operations**: database and file backups with a verified restore procedure (#161); an ErrorReporter port, crash reporting, scrubbed error logs, Docker log rotation and a monitoring runbook (#166).
+- **Accessibility**: an automated axe audit (WCAG 2.1 A/AA) of public and dashboard pages, with contrast, label and page-title fixes (#167).
+
 ### Security
 
 - Every new area has negative authorization tests (401/403, and 404 for strangers). Sensitive actions are audited, and secret-like audit metadata is redacted on read.
 - Payment success comes only from server-to-server verification. Replays are no-ops, and paying an order twice returns 409.
+- Rate limits and audit IPs use the real visitor address behind nginx (#159).
+- Per-account login lockout, rejection of common passwords, literal `%`/`_` in search, safer Markdown links, a secure `COOKIE_SECURE` default in compose, `/mock-gateway` hidden in production builds, and dependency overrides that leave `pnpm audit` clean (#169).
+- Route ids are validated as UUIDs, so malformed ids return 400 instead of 500 (#165).
 
 ### Known limitations
 
-- Production payment is disabled until a PSP is chosen (OQ-09). Legal texts (OQ-21) and SMS/email providers (OQ-08) are pending. See [docs/qa/phase-1-qa-report.md](docs/qa/phase-1-qa-report.md).
+- Production payment is disabled until a PSP is chosen (OQ-09). Legal texts (OQ-21), SMS/email providers (OQ-08) and log retention (OQ-24) are pending. The security and performance audit (ST-21.03) is still to run. See [docs/qa/phase-1-qa-report.md](docs/qa/phase-1-qa-report.md).
 
 ## [0.1.0] - Phase 0 (Foundation)
 
