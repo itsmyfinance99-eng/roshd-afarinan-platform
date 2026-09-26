@@ -29,7 +29,7 @@ export default function ConsultingPage() {
             className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,280px),1fr))] items-center gap-x-10 gap-y-4 border-b border-line-2 py-8"
           >
             <div className="flex items-baseline gap-[18px]">
-              <span className="text-sm font-bold text-accent">{ordinal(i)}</span>
+              <span className="text-sm font-bold text-primary">{ordinal(i)}</span>
               <h2 className="text-2xl font-extrabold text-brand-900">{service.title}</h2>
             </div>
             <p className="text-base leading-loose text-ink-3">{service.description}</p>
