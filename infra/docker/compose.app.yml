@@ -6,10 +6,19 @@
 # Secrets are required variables; nothing secret is baked into an image.
 name: roshd-afarinan-app
 
+# Container logs rotate instead of filling the disk (docs/operations/monitoring.md). Defaults keep
+# about 5 × 20 MB per service; the retention period is still an open decision (OQ-24).
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: ${LOG_MAX_SIZE:-20m}
+    max-file: '${LOG_MAX_FILES:-5}'
+
 services:
   postgres:
     image: postgres:16-alpine
     restart: unless-stopped
+    logging: *logging
     environment:
       POSTGRES_USER: roshd
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-roshd_app_password}
@@ -39,6 +48,7 @@ services:
       context: ../..
       dockerfile: apps/api/Dockerfile
     restart: unless-stopped
+    logging: *logging
     environment:
       NODE_ENV: production
       DATABASE_URL: postgresql://roshd:${POSTGRES_PASSWORD:-roshd_app_password}@postgres:5432/roshd
@@ -63,6 +73,7 @@ services:
         API_INTERNAL_URL: http://api:4000
         NEXT_PUBLIC_SITE_URL: ${WEB_BASE_URL:-http://localhost:8080}
     restart: unless-stopped
+    logging: *logging
     environment:
       INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:?set INTERNAL_API_TOKEN (openssl rand -base64 48)}
     depends_on:
@@ -72,6 +83,7 @@ services:
   proxy:
     image: nginx:1.27-alpine
     restart: unless-stopped
+    logging: *logging
     ports:
       - '8080:80'
     volumes:

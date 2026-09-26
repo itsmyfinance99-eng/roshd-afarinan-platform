@@ -31,6 +31,7 @@ import { ServiceRequestsModule } from './modules/service-requests/service-reques
 import { TicketsModule } from './modules/tickets/tickets.module';
 import { UsersModule } from './modules/users/users.module';
 import { HealthModule } from './modules/health/health.module';
+import { MonitoringModule } from './modules/monitoring/monitoring.module';
 
 @Module({
   imports: [
@@ -82,6 +83,7 @@ import { HealthModule } from './modules/health/health.module';
       }),
     }),
     HealthModule,
+    MonitoringModule,
     DatabaseModule,
     AuditModule,
     AuditLogModule,

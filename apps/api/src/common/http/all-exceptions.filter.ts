@@ -4,11 +4,13 @@ import {
   type ExceptionFilter,
   HttpException,
   HttpStatus,
-  Logger,
+  Inject,
 } from '@nestjs/common';
 import { ERROR_MESSAGES_FA, type ApiError, type ErrorCode } from '@roshd/types';
-import type { Response } from 'express';
+import type { Request, Response } from 'express';
 import { AppException, statusForCode } from '../errors/app-exception';
+import { ERROR_REPORTER, type ErrorReporter } from '../../modules/monitoring/ports/error-reporter';
+import { principalOf } from '../../modules/rbac/principal';
 import { requestIdOf } from './request-id';
 
 const CODE_BY_STATUS: Partial<Record<number, ErrorCode>> = {
@@ -34,15 +36,19 @@ function prismaErrorCode(exception: unknown): ErrorCode | undefined {
   return undefined;
 }
 
-/** Converts every thrown value into the standard error envelope. Never leaks internals. */
+/**
+ * Converts every thrown value into the standard error envelope. Never leaks internals; 5xx
+ * errors go to the ErrorReporter with the request id so a user's error code leads to the log.
+ */
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
-  private readonly logger = new Logger('ExceptionFilter');
+  constructor(@Inject(ERROR_REPORTER) private readonly reporter: ErrorReporter) {}
 
   catch(exception: unknown, host: ArgumentsHost): void {
     const http = host.switchToHttp();
+    const req = http.getRequest<Request>();
     const res = http.getResponse<Response>();
-    const requestId = requestIdOf(http.getRequest());
+    const requestId = requestIdOf(req);
 
     let code: ErrorCode;
     let message: string;
@@ -63,10 +69,14 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
     const status = statusForCode(code);
     if (status >= 500) {
-      this.logger.error(
-        { err: exception, requestId },
-        exception instanceof Error ? exception.message : 'Unhandled exception',
-      );
+      this.reporter.report(exception, {
+        source: 'http',
+        requestId,
+        method: req.method,
+        route: (req.route as { path?: string } | undefined)?.path ?? req.originalUrl,
+        statusCode: status,
+        userId: principalOf(req)?.userId,
+      });
     }
 
     const body: ApiError = { error: { code, message, requestId } };

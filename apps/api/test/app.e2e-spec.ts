@@ -8,6 +8,8 @@ import { configureApp } from '../src/bootstrap';
 import { Public } from '../src/common/decorators/public.decorator';
 import { ZodBody } from '../src/common/http/zod';
 import { HealthRegistry } from '../src/modules/health/health.registry';
+import type { LogErrorReporter } from '../src/modules/monitoring/adapters/log-error-reporter';
+import { ERROR_REPORTER } from '../src/modules/monitoring/ports/error-reporter';
 
 @Public()
 @Controller('e2e-probe')
@@ -20,6 +22,11 @@ class ProbeController {
   @Post('boom')
   boom() {
     throw new Error('secret internal detail');
+  }
+
+  @Post('boom-personal')
+  boomPersonal() {
+    throw new Error('lookup failed for maryam@example.com / 09121234567');
   }
 }
 
@@ -93,6 +100,32 @@ describe('HTTP foundation (e2e)', () => {
     const res = await request(app.getHttpServer()).post('/api/v1/e2e-probe/boom').expect(500);
     expect(res.body.error.code).toBe('INTERNAL_ERROR');
     expect(JSON.stringify(res.body)).not.toContain('secret internal detail');
+  });
+
+  it('reports 5xx errors with the request id and without personal data or query strings', async () => {
+    const reporter = app.get<LogErrorReporter>(ERROR_REPORTER);
+    const res = await request(app.getHttpServer())
+      .post('/api/v1/e2e-probe/boom-personal?email=maryam@example.com')
+      .set('X-Request-Id', 'trace-500')
+      .expect(500);
+    expect(res.body.error.requestId).toBe('trace-500');
+    const report = reporter.recent.at(-1);
+    expect(report).toMatchObject({
+      name: 'Error',
+      context: { source: 'http', requestId: 'trace-500', method: 'POST', statusCode: 500 },
+    });
+    expect(report?.context.route).toMatch(/e2e-probe\/boom-personal$/);
+    const serialized = JSON.stringify(report);
+    expect(serialized).not.toContain('maryam@example.com');
+    expect(serialized).not.toContain('09121234567');
+  });
+
+  it('does not report client errors', async () => {
+    const reporter = app.get<LogErrorReporter>(ERROR_REPORTER);
+    const before = reporter.recent.length;
+    await request(app.getHttpServer()).get('/api/v1/nope').expect(404);
+    await request(app.getHttpServer()).post('/api/v1/e2e-probe/echo').send({}).expect(400);
+    expect(reporter.recent).toHaveLength(before);
   });
 
   it('readiness turns 503 when a dependency is down', async () => {
