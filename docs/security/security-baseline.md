@@ -31,3 +31,4 @@
 - An already-paid order is paid again: 409.
 - A request with no access token hits a private route: 401.
 - A user without `requests:read-all` exports requests: 403, and nothing is audited as exported.
+- A non-admin reads the audit log: 403. Secret-like metadata keys are always redacted on read.

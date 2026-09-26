@@ -122,6 +122,23 @@ export class UsersService {
     return new Map(rows.map((r) => [r.id, r.fullName]));
   }
 
+  /** Name and email per user id (for staff views such as the audit log). */
+  async contactsByIds(
+    ids: readonly string[],
+  ): Promise<Map<string, { fullName: string; email: string }>> {
+    if (ids.length === 0) return new Map();
+    const rows = await this.prisma.user.findMany({
+      where: { id: { in: [...new Set(ids)] } },
+      select: { id: true, fullName: true, email: true },
+    });
+    return new Map(rows.map((r) => [r.id, { fullName: r.fullName, email: r.email }]));
+  }
+
+  async findIdByEmail(email: string): Promise<string | null> {
+    const row = await this.prisma.user.findUnique({ where: { email }, select: { id: true } });
+    return row?.id ?? null;
+  }
+
   async markLoggedIn(userId: string): Promise<void> {
     await this.prisma.user.update({ where: { id: userId }, data: { lastLoginAt: new Date() } });
   }

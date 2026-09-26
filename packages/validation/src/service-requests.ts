@@ -1,5 +1,14 @@
 import { z } from 'zod';
-import { emailSchema, MESSAGES, mobileSchema, paginationQuerySchema, text } from './common';
+import {
+  DAY_RANGE_ERROR,
+  emailSchema,
+  isoDaySchema,
+  MESSAGES,
+  mobileSchema,
+  paginationQuerySchema,
+  text,
+  validDayRange,
+} from './common';
 import { attachmentIdsSchema } from './files';
 
 /** Kinds of request the public site can submit (EPIC-11). Pricing/booking are open questions. */
@@ -140,8 +149,6 @@ export const updateServiceRequestStatusSchema = z.object({
   note: z.string().trim().max(2000).optional(),
 });
 
-const DATE_ERROR = 'تاریخ معتبر نیست.';
-
 /**
  * Staff filters shared by the request list and the export. `from`/`to` are inclusive calendar
  * days (YYYY-MM-DD, Gregorian as sent by date inputs) interpreted in Iran time.
@@ -149,20 +156,17 @@ const DATE_ERROR = 'تاریخ معتبر نیست.';
 const requestFilterFields = {
   type: z.enum(SERVICE_REQUEST_TYPES).optional(),
   status: z.enum(SERVICE_REQUEST_STATUSES).optional(),
-  from: z.iso.date({ error: DATE_ERROR }).optional(),
-  to: z.iso.date({ error: DATE_ERROR }).optional(),
+  from: isoDaySchema.optional(),
+  to: isoDaySchema.optional(),
 };
-
-const RANGE_ERROR = 'تاریخ شروع نباید بعد از تاریخ پایان باشد.';
-const validRange = (v: { from?: string; to?: string }) => !v.from || !v.to || v.from <= v.to;
 
 export const listServiceRequestsQuerySchema = paginationQuerySchema
   .extend(requestFilterFields)
-  .refine(validRange, { error: RANGE_ERROR, path: ['to'] });
+  .refine(validDayRange, { error: DAY_RANGE_ERROR, path: ['to'] });
 
 export const exportServiceRequestsQuerySchema = z
   .object(requestFilterFields)
-  .refine(validRange, { error: RANGE_ERROR, path: ['to'] });
+  .refine(validDayRange, { error: DAY_RANGE_ERROR, path: ['to'] });
 
 /** Upper bound of one export; narrower filters are required beyond it. */
 export const SERVICE_REQUEST_EXPORT_MAX_ROWS = 10_000;
