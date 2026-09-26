@@ -1,4 +1,11 @@
-import { formatDateFa, formatNumber, formatRials, ordinal, toPersianDigits } from './format';
+import {
+  formatDateFa,
+  formatDateTimeFa,
+  formatNumber,
+  formatRials,
+  ordinal,
+  toPersianDigits,
+} from './format';
 
 describe('format', () => {
   it('formats numbers with Persian digits', () => {
@@ -19,5 +26,11 @@ describe('format', () => {
 
   it('formats dates in the Persian calendar', () => {
     expect(formatDateFa('2026-09-11T12:00:00Z')).toBe('۱۴۰۵/۰۶/۲۰');
+  });
+
+  it('formats date-times in Iran time', () => {
+    const text = formatDateTimeFa('2026-09-11T20:45:00Z');
+    expect(text).toContain('۱۴۰۵/۰۶/۲۱');
+    expect(text).toContain('۰۰:۱۵');
   });
 });

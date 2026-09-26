@@ -29,3 +29,17 @@ export function formatDateFa(value: string | Date): string {
     day: '2-digit',
   }).format(date);
 }
+
+/** Jalali date and time in Iran time: ۱۴۰۵/۰۶/۲۰، ۱۴:۳۰. */
+export function formatDateTimeFa(value: string | Date): string {
+  const date = typeof value === 'string' ? new Date(value) : value;
+  return new Intl.DateTimeFormat('fa-IR-u-ca-persian', {
+    timeZone: 'Asia/Tehran',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).format(date);
+}

@@ -70,6 +70,10 @@ Legend: ✅ automated · 🟡 manual · ⬜ not yet covered
 | Web | Investment GET filters without JS, no-offer notice, interest form, noindex demo, real 404 | Playwright | ✅ |
 | Web | Catalog forms (courses, research, investments): typed payload, draft → publish, field errors | Playwright | ✅ |
 | Web | Catalog pages denied and hidden without `catalog:manage`; category add only with `cms:write` | Playwright | ✅ |
+| Admin | Audit viewer: prefix/actor/entity filters, Iran-time days, actor details, newest first | API e2e | ✅ |
+| Admin | Audit metadata redaction (token, password, hash, …) at any depth | Unit + API e2e | ✅ |
+| Admin | Audit log 401 anonymous; 403 for user/support/editor/finance/expert | API e2e | ✅ |
+| Web | Audit page labels, filters, reversed-range guard; hidden without `audit:read` | Playwright | ✅ |
 | Requests | Guest submit + tracking code + notification | API e2e | ✅ |
 | Requests | Honeypot / type-specific validation | Unit + e2e | ✅ |
 | Requests | Owner-only access, stranger gets 404 | API e2e | ✅ |

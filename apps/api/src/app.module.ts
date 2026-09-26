@@ -7,6 +7,7 @@ import { EnvelopeInterceptor } from './common/http/envelope.interceptor';
 import { resolveRequestId } from './common/http/request-id';
 import { APP_CONFIG, type AppConfig } from './config/app-config';
 import { AppConfigModule } from './config/config.module';
+import { AuditLogModule } from './modules/audit/audit-log.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { CmsModule } from './modules/cms/cms.module';
 import { AuthGuard } from './modules/auth/auth.guard';
@@ -72,6 +73,7 @@ import { HealthModule } from './modules/health/health.module';
     HealthModule,
     DatabaseModule,
     AuditModule,
+    AuditLogModule,
     RbacModule,
     UsersModule,
     AuthModule,

@@ -65,6 +65,15 @@ export const slugSchema = z
 
 export const idSchema = z.string().min(1).max(64);
 
+/** Calendar day (YYYY-MM-DD, Gregorian as sent by date inputs); filters read it in Iran time. */
+export const isoDaySchema = z.iso.date({ error: 'تاریخ معتبر نیست.' });
+
+export const DAY_RANGE_ERROR = 'تاریخ شروع نباید بعد از تاریخ پایان باشد.';
+
+/** Inclusive `from`/`to` day range check for refinements. */
+export const validDayRange = (v: { from?: string; to?: string }) =>
+  !v.from || !v.to || v.from <= v.to;
+
 export const paginationQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
