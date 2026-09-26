@@ -47,6 +47,10 @@ milestones:
     title: 'Sprint 9 — Operational Readiness'
     due: '2026-12-04'
     description: 'رفع یافته‌های audit و قابلیت‌های لازم برای بهره‌برداری، پیش از انتشار v0.2.0 (فاز ۱)'
+  - key: S10
+    title: 'Sprint 10 — Security & Performance Audit'
+    due: '2026-12-11'
+    description: 'آزمون نفوذ و کارایی مبتنی بر شواهد روی نسخه فاز ۱ و برنامه‌ریزی رفع یافته‌ها'
   - key: P2
     title: 'Phase 2 — LMS & Commerce'
     description: 'LMS پایه، سفارش و پرداخت واقعی'
@@ -1112,6 +1116,20 @@ epics:
         story: 'به‌عنوان مالک محصول می‌خواهم نسخه‌های قابل ردیابی داشته باشم.'
         acceptance:
           - 'Release PR develop→main، tag و GitHub Release'
+      - id: ST-21.03
+        title: 'آزمون امنیتی و کارایی مبتنی بر شواهد (adversarial audit)'
+        sprint: S10
+        points: 13
+        priority: critical
+        area: [security, qa, api, web, db, infra]
+        story: 'به‌عنوان مالک محصول می‌خواهم پیش از بهره‌برداری، امنیت و کارایی سامانه با آزمون واقعی و مستند سنجیده شود.'
+        acceptance:
+          - 'اجرای کامل دستور کار docs/qa/audit-brief-security-performance.md؛ فقط روی نمونه‌های محلی 127.0.0.1 و دیتابیس *_test، بدون تغییر کد برنامه در طول آزمون'
+          - 'ماتریس دسترسی همه مسیرها × همه نقش‌ها (مهمان، کاربر، مالک، هر نقش سازمانی، کاربر تعلیق‌شده) با آزمون IDOR، BFLA و mass assignment'
+          - 'هر یافته با شناسه، شدت و بردار CVSS 3.1، محل در کد، بازتولید، اثر، علت، راه‌حل و پیشنهاد تست رگرسیون؛ بدون شاهد فقط «فرضیه تأییدنشده»'
+          - 'خط مبنای کارایی با داده حجیم (EXPLAIN ANALYZE، autocannon، Lighthouse) با اعداد اندازه‌گیری‌شده'
+          - 'گزارش فارسی docs/qa/security-performance-audit-YYYY-MM-DD.md با بخش «موارد تأییدشده امن» و فهرست حوزه‌های پوشش‌داده‌نشده'
+          - 'پیشنهاد backlog (یک استوری برای هر یافته Critical/High)، فهرست quick win و موارد نیازمند تصمیم کسب‌وکار'
 
   - id: EPIC-22
     title: 'Blockchain / Tokenization'
