@@ -43,6 +43,10 @@ milestones:
     title: 'Sprint 8 — Investment Catalog & Release v0.2.0'
     due: '2026-11-27'
     description: 'فرصت‌های سرمایه‌گذاری، skeleton ماژول‌های آینده، QA و انتشار (فاز ۱)'
+  - key: S9
+    title: 'Sprint 9 — Operational Readiness'
+    due: '2026-12-04'
+    description: 'رفع یافته‌های audit و قابلیت‌های لازم برای بهره‌برداری، پیش از انتشار v0.2.0 (فاز ۱)'
   - key: P2
     title: 'Phase 2 — LMS & Commerce'
     description: 'LMS پایه، سفارش و پرداخت واقعی'
@@ -945,6 +949,132 @@ epics:
           - 'فقط شمارش‌های واقعی از دیتابیس؛ هیچ عدد ساختگی یا نمونه'
           - 'هر شاخص فقط برای دارنده مجوز مربوط (requests:read-all، tickets:read-all)؛ تست منفی'
           - 'حالت‌های loading، empty و error'
+
+  - id: EPIC-25
+    title: 'Operational Readiness — آمادگی بهره‌برداری'
+    phase: 1
+    priority: critical
+    goal: 'رفع یافته‌های audit فاز ۱ و ساخت قابلیت‌های لازم برای اداره واقعی سایت، پیش از انتشار v0.2.0.'
+    stories:
+      - id: ST-25.01
+        title: 'IP واقعی کاربر و rate limit پشت proxy'
+        sprint: S9
+        points: 5
+        priority: critical
+        area: [api, web, security]
+        story: 'به‌عنوان مسئول امنیت می‌خواهم محدودیت نرخ و Audit بر اساس IP واقعی هر کاربر باشد.'
+        acceptance:
+          - 'درخواست‌های سمت سرور وب با توکن داخلی از محدودیت عمومی مستثنا شوند'
+          - 'پشت reverse proxy با TRUST_PROXY صحیح، IP کاربر از X-Forwarded-For معتبر خوانده شود'
+          - 'راهنمای nginx و هشدار راه‌اندازی در production؛ تست جعل‌نشدن IP'
+      - id: ST-25.02
+        title: 'تغییر رمز، بازیابی رمز و مدیریت نشست‌ها'
+        sprint: S9
+        points: 8
+        priority: critical
+        area: [api, web, security]
+        story: 'به‌عنوان کاربر می‌خواهم رمزم را تغییر دهم، در صورت فراموشی بازیابی کنم و از همه دستگاه‌ها خارج شوم.'
+        acceptance:
+          - 'توکن بازیابی یک‌بارمصرف، هش‌شده و زمان‌دار؛ پاسخ یکسان برای ایمیل ناموجود'
+          - 'تغییر یا بازیابی رمز همه نشست‌های دیگر را باطل کند؛ ثبت در Audit'
+          - 'تست منفی: توکن منقضی، تکراری یا نامعتبر'
+      - id: ST-25.03
+        title: 'پشتیبان‌گیری و بازیابی دیتابیس و فایل‌ها'
+        sprint: S9
+        points: 5
+        priority: critical
+        area: [infra, docs]
+        story: 'به‌عنوان مسئول استقرار می‌خواهم پشتیبان منظم داشته باشم و بازیابی را آزموده باشم.'
+        acceptance:
+          - 'اسکریپت backup و restore برای PostgreSQL و فایل‌های خصوصی'
+          - 'مستند زمان‌بندی، نگهداری و آزمون بازیابی'
+          - 'اجرای واقعی یک بازیابی آزمایشی'
+      - id: ST-25.04
+        title: 'تعلیق و فعال‌سازی حساب کاربری'
+        sprint: S9
+        points: 3
+        priority: high
+        area: [api, web]
+        story: 'به‌عنوان مدیر می‌خواهم حساب کاربر متخلف را تعلیق و در صورت نیاز فعال کنم.'
+        acceptance:
+          - 'فقط با users:manage-roles؛ تعلیق خود و حساب مدیر ارشد توسط غیر مدیر ارشد ممنوع'
+          - 'تعلیق همه نشست‌ها را باطل کند؛ ثبت در Audit'
+          - 'تست منفی 401/403'
+      - id: ST-25.05
+        title: 'اعلان‌ها: کاربر، کارکنان و مرکز اعلان داخل سایت'
+        sprint: S9
+        points: 8
+        priority: high
+        area: [api, web]
+        story: 'به‌عنوان کاربر و کارشناس می‌خواهم از تغییرات مرتبط با خودم باخبر شوم.'
+        acceptance:
+          - 'اعلان به کاربر هنگام تغییر وضعیت درخواست و پاسخ تیکت'
+          - 'اعلان به کارکنان هنگام ثبت درخواست یا تیکت جدید'
+          - 'مرکز اعلان در داشبورد با خوانده/نخوانده؛ هر کاربر فقط اعلان‌های خودش'
+      - id: ST-25.06
+        title: 'ارجاع درخواست و تیکت به کارشناس'
+        sprint: S9
+        points: 5
+        priority: high
+        area: [api, web]
+        story: 'به‌عنوان مدیر پشتیبانی می‌خواهم هر درخواست یا تیکت را به کارشناس مشخصی ارجاع دهم.'
+        acceptance:
+          - 'فقط به کاربران دارای مجوز مربوط؛ ثبت در Audit و اعلان به کارشناس'
+          - 'فیلتر «ارجاع‌شده به من»'
+          - 'تست منفی'
+      - id: ST-25.07
+        title: 'کتابخانه تصاویر عمومی برای محتوا'
+        sprint: S9
+        points: 5
+        priority: high
+        area: [api, web, security]
+        story: 'به‌عنوان ویراستار می‌خواهم برای مقاله، دوره، پژوهش و طرح تصویر بارگذاری کنم.'
+        acceptance:
+          - 'فقط تصویر (PNG، JPEG، WebP) با بررسی محتوا؛ بدون SVG'
+          - 'بارگذاری با cms:write یا catalog:manage؛ نمایش عمومی از مسیر خود سایت'
+          - 'انتخاب تصویر در فرم‌های ویرایش'
+      - id: ST-25.08
+        title: 'پایش سرویس و ثبت خطا'
+        sprint: S9
+        points: 5
+        priority: high
+        area: [api, web, infra]
+        story: 'به‌عنوان مسئول استقرار می‌خواهم از خطاها و از کار افتادن سرویس باخبر شوم.'
+        acceptance:
+          - 'Port گزارش خطا (ErrorReporter) با adapter لاگ؛ بدون داده حساس'
+          - 'شناسه درخواست در همه لاگ‌ها و پاسخ خطا'
+          - 'مستند uptime check و نگهداری لاگ'
+      - id: ST-25.09
+        title: 'بررسی خودکار دسترس‌پذیری (axe) و رفع موارد'
+        sprint: S9
+        points: 3
+        priority: high
+        area: [web, qa]
+        story: 'به‌عنوان کاربر با فناوری کمکی می‌خواهم صفحات قابل استفاده باشند.'
+        acceptance:
+          - 'axe در Playwright برای صفحات عمومی و داشبورد'
+          - 'رفع همه موارد serious و critical'
+      - id: ST-25.10
+        title: 'سخت‌سازی امنیتی (یافته‌های audit)'
+        sprint: S9
+        points: 5
+        priority: high
+        area: [api, web, security]
+        story: 'به‌عنوان مسئول امنیت می‌خواهم یافته‌های audit رفع شوند.'
+        acceptance:
+          - 'قفل موقت حساب پس از تلاش‌های ناموفق؛ رد رمزهای رایج'
+          - 'escape wildcard در جست‌وجو؛ بستن لینک /\ در Markdown'
+          - 'COOKIE_SECURE امن در compose؛ حذف mock-gateway از production؛ override وابستگی‌های آسیب‌پذیر'
+      - id: ST-25.11
+        title: 'تأیید ایمیل'
+        sprint: S9
+        points: 3
+        priority: medium
+        area: [api, web]
+        story: 'به‌عنوان شرکت می‌خواهم ایمیل کاربران تأیید شده باشد تا اعلان‌ها به نشانی درست برسند.'
+        acceptance:
+          - 'توکن یک‌بارمصرف و زمان‌دار؛ ارسال مجدد با محدودیت نرخ'
+          - 'وضعیت تأیید در پروفایل؛ ارسال واقعی وابسته به OQ-08'
 
   - id: EPIC-21
     title: 'QA & Release — تضمین کیفیت و انتشار'
