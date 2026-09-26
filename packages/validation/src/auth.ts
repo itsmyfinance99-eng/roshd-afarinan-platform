@@ -63,4 +63,12 @@ export type LoginInput = z.infer<typeof loginSchema>;
 export type RefreshInput = z.infer<typeof refreshSchema>;
 export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
+
+/** Verification links carry a 256-bit base64url token, like reset links. */
+export const verifyEmailSchema = z.object({
+  token: z
+    .string({ error: MESSAGES.required })
+    .regex(/^[A-Za-z0-9_-]{32,128}$/, { error: 'لینک تأیید معتبر نیست.' }),
+});
+export type VerifyEmailInput = z.infer<typeof verifyEmailSchema>;
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;

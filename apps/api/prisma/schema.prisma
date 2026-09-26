@@ -29,6 +29,8 @@ model User {
   /// Reserved: MFA is designed but not yet implemented (ADR-0002).
   mfaEnabled        Boolean    @default(false)
   lastLoginAt       DateTime?
+  /// Set when the user opens a verification link (or completes a password reset by email).
+  emailVerifiedAt   DateTime?
   /// Access tokens issued before this instant are rejected (password change/reset, sign out everywhere, suspension).
   sessionsRevokedAt DateTime?
   /// Consecutive failed sign-ins since the last success or lock (per-account lockout).
@@ -38,18 +40,19 @@ model User {
   createdAt         DateTime   @default(now())
   updatedAt         DateTime   @updatedAt
 
-  roles            UserRole[]           @relation("UserRoles")
-  assignedRoles    UserRole[]           @relation("RoleAssigner")
-  refreshTokens    RefreshToken[]
-  passwordResets   PasswordResetToken[]
-  notifications    Notification[]
-  auditLogs        AuditLog[]
-  serviceRequests  ServiceRequest[]     @relation("ServiceRequestOwner")
-  assignedRequests ServiceRequest[]     @relation("ServiceRequestAssignee")
-  files            FileObject[]
-  tickets          Ticket[]             @relation("TicketOwner")
-  assignedTickets  Ticket[]             @relation("TicketAssignee")
-  orders           Order[]
+  roles              UserRole[]               @relation("UserRoles")
+  assignedRoles      UserRole[]               @relation("RoleAssigner")
+  refreshTokens      RefreshToken[]
+  passwordResets     PasswordResetToken[]
+  emailVerifications EmailVerificationToken[]
+  notifications      Notification[]
+  auditLogs          AuditLog[]
+  serviceRequests    ServiceRequest[]         @relation("ServiceRequestOwner")
+  assignedRequests   ServiceRequest[]         @relation("ServiceRequestAssignee")
+  files              FileObject[]
+  tickets            Ticket[]                 @relation("TicketOwner")
+  assignedTickets    Ticket[]                 @relation("TicketAssignee")
+  orders             Order[]
 
   @@map("users")
 }
@@ -122,6 +125,21 @@ model Notification {
 
   @@index([userId, readAt, createdAt])
   @@map("notifications")
+}
+
+/// One-time email verification link (only the SHA-256 of the token is stored).
+model EmailVerificationToken {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  userId    String    @db.Uuid
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("email_verification_tokens")
 }
 
 /// One-time password reset link (only the SHA-256 of the token is stored).

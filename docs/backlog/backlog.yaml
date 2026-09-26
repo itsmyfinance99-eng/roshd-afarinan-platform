@@ -1076,6 +1076,7 @@ epics:
           - 'escape wildcard در جست‌وجو؛ بستن لینک /\ در Markdown'
           - 'COOKIE_SECURE امن در compose؛ حذف mock-gateway از production؛ override وابستگی‌های آسیب‌پذیر'
       - id: ST-25.11
+        status: done
         title: 'تأیید ایمیل'
         sprint: S9
         points: 3

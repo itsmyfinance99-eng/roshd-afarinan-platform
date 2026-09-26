@@ -24,6 +24,8 @@ export interface UserView {
   fullName: string;
   status: 'ACTIVE' | 'SUSPENDED';
   roles: Role[];
+  /** Null until the user confirms the address (ST-25.11). */
+  emailVerifiedAt: Date | null;
   createdAt: Date;
 }
 
@@ -33,6 +35,7 @@ const USER_SELECT = {
   mobile: true,
   fullName: true,
   status: true,
+  emailVerifiedAt: true,
   createdAt: true,
   roles: { select: { role: { select: { key: true } } } },
 } satisfies Prisma.UserSelect;
@@ -209,6 +212,14 @@ export class UsersService {
     await this.prisma.user.update({
       where: { id: userId },
       data: { sessionsRevokedAt: revokedAt },
+    });
+  }
+
+  /** Marks the address as confirmed; the first confirmation wins. */
+  async markEmailVerified(userId: string, at = new Date()): Promise<void> {
+    await this.prisma.user.updateMany({
+      where: { id: userId, emailVerifiedAt: null },
+      data: { emailVerifiedAt: at },
     });
   }
 

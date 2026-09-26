@@ -46,6 +46,15 @@ Automated suites: unit (Vitest), API e2e (Vitest + Supertest against a real Post
 | `%` and `_` in search are literal (users, public catalogues); verified to fail without escaping             | API e2e        | ✅     |
 | Markdown drops `javascript:`, `data:`, `//`, `/\` and control-character URLs                                | Unit           | ✅     |
 
+## Email verification
+
+| Scenario                                                                                              | Level      | Status |
+| ----------------------------------------------------------------------------------------------------- | ---------- | ------ |
+| Registration sends a link; the link verifies once (hash stored, audited); reused link → 400           | API e2e    | ✅     |
+| Resend: once a minute (429), new link retires the old one, already verified → 409, anonymous → 401    | API e2e    | ✅     |
+| Expired, unknown and malformed links → 400; a completed password reset also verifies the address      | API e2e    | ✅     |
+| Web: verify page success/error/no token, token removed from the URL; profile status and resend states | Playwright | ✅     |
+
 ## Rate limit
 
 | Scenario                                                                                                                         | Level      | Status |

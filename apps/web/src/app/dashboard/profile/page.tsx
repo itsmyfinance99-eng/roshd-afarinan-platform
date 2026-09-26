@@ -9,6 +9,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useMe } from '@/components/dashboard/me-context';
 import { PageTitle } from '@/components/dashboard/ui';
+import { EmailVerificationStatus } from '@/components/forms/email-verification';
 import { ChangePasswordForm, LogoutAllButton } from '@/components/forms/password-forms';
 import { apiFetch } from '@/lib/api-client';
 
@@ -47,6 +48,10 @@ export default function ProfilePage() {
         <dt className="text-ink-5">ایمیل</dt>
         <dd dir="ltr" className="text-right">
           {me.email}
+        </dd>
+        <dt className="text-ink-5">وضعیت ایمیل</dt>
+        <dd>
+          <EmailVerificationStatus verifiedAt={me.emailVerifiedAt ?? null} />
         </dd>
         <dt className="text-ink-5">نقش‌ها</dt>
         <dd>{me.roles.map((r) => ROLE_LABELS_FA[r]).join('، ')}</dd>

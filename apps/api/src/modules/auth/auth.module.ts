@@ -4,13 +4,14 @@ import { UsersModule } from '../users/users.module';
 import { AuthController } from './auth.controller';
 import { AuthGuard } from './auth.guard';
 import { AuthService } from './auth.service';
+import { EmailVerificationService } from './email-verification.service';
 import { PasswordHasher } from './password-hasher';
 import { TokenService } from './token.service';
 
 @Module({
   imports: [JwtModule.register({}), UsersModule],
   controllers: [AuthController],
-  providers: [AuthService, AuthGuard, PasswordHasher, TokenService],
+  providers: [AuthService, AuthGuard, EmailVerificationService, PasswordHasher, TokenService],
   exports: [AuthGuard, PasswordHasher],
 })
 export class AuthModule {}
