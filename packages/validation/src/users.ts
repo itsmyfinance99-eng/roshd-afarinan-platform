@@ -1,6 +1,7 @@
 import { ROLES } from '@roshd/types';
 import { z } from 'zod';
 import { MESSAGES, mobileSchema, paginationQuerySchema, text } from './common';
+import { toLatinDigits } from './normalize';
 
 export const roleSchema = z.enum(ROLES);
 
@@ -16,7 +17,8 @@ export const updateProfileSchema = z
   .refine((v) => Object.keys(v).length > 0, { error: MESSAGES.required });
 
 export const listUsersQuerySchema = paginationQuerySchema.extend({
-  q: z.string().trim().max(100).optional(),
+  /** Name, email or mobile; Persian digits are accepted for mobile numbers. */
+  q: z.string().trim().max(100).transform(toLatinDigits).optional(),
   role: roleSchema.optional(),
 });
 
