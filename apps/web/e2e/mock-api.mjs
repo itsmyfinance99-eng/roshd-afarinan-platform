@@ -119,7 +119,7 @@ const investments = [
     id: '0199a000-0000-7000-8000-0000000000i1',
     slug: 'iron-ore-processing',
     title: 'واحد فرآوری سنگ آهن',
-    summary: 'طرح فرآوری سنگ آهن در مرحله مطالعه بازار.',
+    summary: 'طرح معدنی فرآوری سنگ آهن در مرحله مطالعه بازار.',
     sector: 'MINING',
     stage: 'MARKET_STUDY',
     province: 'کرمان',
@@ -167,6 +167,34 @@ createServer((req, res) => {
   if (req.method !== 'GET') return notFound(res);
   if (path === '/health/live') return ok(res, { status: 'ok' });
   if (path === '/payments/status') return ok(res, { enabled: true, testMode: true });
+  if (path === '/search') {
+    const term = q.get('q') ?? '';
+    if (term === 'خطای سرور') {
+      return send(res, 500, {
+        error: { code: 'INTERNAL_ERROR', message: 'خطا', requestId: 'mock' },
+      });
+    }
+    const types = q.get('types')?.split(',');
+    const pool = [
+      ...courses.map((c) => ({ type: 'course', ...c })),
+      ...research.map((r) => ({ type: 'research', ...r })),
+      ...investments.map((o) => ({ type: 'investment', ...o })),
+    ];
+    const hits = pool
+      .filter((h) => !types || types.includes(h.type))
+      .filter((h) => h.title.includes(term) || h.summary.includes(term))
+      .map((h) => ({
+        type: h.type,
+        id: h.id,
+        slug: h.slug,
+        title: h.title,
+        excerpt: h.summary,
+        publishedAt: h.publishedAt,
+        isDemo: h.isDemo,
+        score: h.title.includes(term) ? 2 : 1,
+      }));
+    return ok(res, hits, { page: 1, pageSize: 20, total: hits.length });
+  }
 
   if (path === '/courses') {
     const list = courses

@@ -82,6 +82,9 @@ Legend: ✅ automated · 🟡 manual · ⬜ not yet covered
 | Payments | Paying or cancelling a paid order 409; payment events audited; paid email sent | API e2e | ✅ |
 | Orders | Stranger 404 on read/pay/cancel; finance reads but cannot act; user 403 on all orders | API e2e | ✅ |
 | Web | Buy button (sign-in first), order page trusts API status, cancel, mock gateway no redirect | Playwright | ✅ |
+| Search | Only published records; typed hits; all words required; space/ZWNJ equivalence; ranking | Unit + API e2e | ✅ |
+| Search | Type filter; short/invalid queries 400 | API e2e | ✅ |
+| Web | Search results with type links, excerpts, demo labels, empty/short/unavailable states | Playwright | ✅ |
 | Requests | Guest submit + tracking code + notification | API e2e | ✅ |
 | Requests | Honeypot / type-specific validation | Unit + e2e | ✅ |
 | Requests | Owner-only access, stranger gets 404 | API e2e | ✅ |

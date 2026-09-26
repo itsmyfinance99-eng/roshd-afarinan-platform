@@ -440,6 +440,7 @@ epics:
     goal: 'جست‌وجو روی مقالات، دانشنامه، دوره‌ها، پژوهش و فرصت‌ها از طریق SearchProvider.'
     stories:
       - id: ST-05.01
+        status: done
         title: 'PostgresSearchProvider و API جست‌وجو'
         sprint: S4
         points: 5
@@ -450,6 +451,7 @@ epics:
           - 'فقط محتوای منتشرشده برگردد'
           - 'نتایج نوع‌دار (article، knowledge، course، research، investment)'
       - id: ST-05.02
+        status: done
         title: 'صفحه نتایج جست‌وجو و جست‌وجو در Header'
         sprint: S4
         points: 3

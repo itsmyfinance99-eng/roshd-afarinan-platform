@@ -1,3 +1,5 @@
+import type { SearchType } from '@roshd/validation';
+
 /**
  * Port for site search (EPIC-05). Phase 1 implements it on PostgreSQL; an OpenSearch/Elastic
  * adapter can replace it without touching UI or business logic.
@@ -5,14 +7,7 @@
  */
 export const SEARCH_PROVIDER = Symbol('SEARCH_PROVIDER');
 
-export const SEARCHABLE_TYPES = [
-  'article',
-  'knowledge',
-  'course',
-  'research',
-  'investment',
-] as const;
-export type SearchableType = (typeof SEARCHABLE_TYPES)[number];
+export type SearchableType = SearchType;
 
 export interface SearchQuery {
   q: string;
@@ -26,7 +21,10 @@ export interface SearchHit {
   id: string;
   slug: string;
   title: string;
-  excerpt?: string;
+  excerpt: string | null;
+  publishedAt: Date | null;
+  /** Sample content (the UI labels it «نمونه نمایشی»). */
+  isDemo: boolean;
   /** Relevance score; higher is better. Provider-specific scale. */
   score: number;
 }

@@ -12,3 +12,4 @@ export * from './research';
 export * from './investment';
 export * from './audit';
 export * from './orders';
+export * from './search';

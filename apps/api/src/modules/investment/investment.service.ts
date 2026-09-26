@@ -7,6 +7,7 @@ import type {
 } from '@roshd/validation';
 import { ConflictError, NotFoundError } from '../../common/errors/app-exception';
 import { PageResult } from '../../common/http/page-result';
+import { scoreText, textFilter, type TextSearchResult } from '../../common/search/search-text';
 import type { RequestMeta } from '../../common/http/request-meta';
 import { Prisma } from '../../generated/prisma/client';
 import { AuditService } from '../audit/audit.service';
@@ -90,6 +91,38 @@ export class InvestmentService {
       this.prisma.investmentOpportunity.count({ where }),
     ]);
     return new PageResult(rows.map(toView), query.page, query.pageSize, total);
+  }
+
+  /** Published records containing every query word (site search; no bodies or money). */
+  async searchPublished(tokens: readonly string[], take: number): Promise<TextSearchResult> {
+    const where: Prisma.InvestmentOpportunityWhereInput = {
+      status: 'PUBLISHED',
+      AND: textFilter(['title', 'summary', 'province'] as const, tokens),
+    };
+    const [rows, total] = await this.prisma.$transaction([
+      this.prisma.investmentOpportunity.findMany({
+        where,
+        select: {
+          id: true,
+          slug: true,
+          title: true,
+          summary: true,
+          publishedAt: true,
+          isDemo: true,
+        },
+        orderBy: [{ publishedAt: 'desc' }, { id: 'desc' }],
+        take,
+      }),
+      this.prisma.investmentOpportunity.count({ where }),
+    ]);
+    return {
+      hits: rows.map(({ summary: excerpt, ...row }) => ({
+        ...row,
+        excerpt,
+        score: scoreText(tokens, row.title, excerpt),
+      })),
+      total,
+    };
   }
 
   /** Drafts and archived opportunities are indistinguishable from missing ones (404). */
