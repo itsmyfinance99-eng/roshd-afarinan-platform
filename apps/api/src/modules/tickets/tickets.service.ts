@@ -1,9 +1,11 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import type {
-  CreateTicketInput,
-  ListTicketsQuery,
-  ReplyTicketInput,
-  UpdateTicketStatusInput,
+import {
+  TICKET_STATUSES,
+  type CreateTicketInput,
+  type ListTicketsQuery,
+  type ReplyTicketInput,
+  type TicketStatus,
+  type UpdateTicketStatusInput,
 } from '@roshd/validation';
 import {
   ConflictError,
@@ -76,6 +78,17 @@ export class TicketsService {
     private readonly users: UsersService,
     @Inject(NOTIFICATION_PROVIDER) private readonly notifications: NotificationProvider,
   ) {}
+
+  /** Ticket count per status (every status present, zero when none). */
+  async statusCounts(): Promise<Record<TicketStatus, number>> {
+    const rows = await this.prisma.ticket.groupBy({ by: ['status'], _count: { _all: true } });
+    const counts = Object.fromEntries(TICKET_STATUSES.map((s) => [s, 0])) as Record<
+      TicketStatus,
+      number
+    >;
+    for (const row of rows) counts[row.status] = row._count._all;
+    return counts;
+  }
 
   async create(
     input: CreateTicketInput,

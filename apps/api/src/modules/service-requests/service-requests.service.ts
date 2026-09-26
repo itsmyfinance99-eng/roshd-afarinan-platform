@@ -1,6 +1,7 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import {
   SERVICE_REQUEST_EXPORT_MAX_ROWS,
+  SERVICE_REQUEST_STATUSES,
   type CreateServiceRequestInput,
   type ExportServiceRequestsQuery,
   type ListServiceRequestsQuery,
@@ -194,6 +195,25 @@ export class ServiceRequestsService {
     query: ListServiceRequestsQuery,
   ): Promise<PageResult<ServiceRequestView>> {
     return this.list({ ...this.filters(query), userId }, query);
+  }
+
+  /** Request count per status (every status present) and the number received since `since`. */
+  async statusCounts(since: Date): Promise<{
+    byStatus: Record<ServiceRequestStatus, number>;
+    total: number;
+    since: number;
+  }> {
+    const [rows, recent] = await Promise.all([
+      this.prisma.serviceRequest.groupBy({ by: ['status'], _count: { _all: true } }),
+      this.prisma.serviceRequest.count({ where: { createdAt: { gte: since } } }),
+    ]);
+    const byStatus = Object.fromEntries(SERVICE_REQUEST_STATUSES.map((s) => [s, 0])) as Record<
+      ServiceRequestStatus,
+      number
+    >;
+    for (const row of rows) byStatus[row.status] = row._count._all;
+    const total = Object.values(byStatus).reduce((a, b) => a + b, 0);
+    return { byStatus, total, since: recent };
   }
 
   async listAll(query: ListServiceRequestsQuery): Promise<PageResult<ServiceRequestView>> {

@@ -74,6 +74,9 @@ Legend: ✅ automated · 🟡 manual · ⬜ not yet covered
 | Admin | Audit metadata redaction (token, password, hash, …) at any depth | Unit + API e2e | ✅ |
 | Admin | Audit log 401 anonymous; 403 for user/support/editor/finance/expert | API e2e | ✅ |
 | Web | Audit page labels, filters, reversed-range guard; hidden without `audit:read` | Playwright | ✅ |
+| Admin | Dashboard stats equal live DB counts (requests, open tickets, active users) | API e2e | ✅ |
+| Admin | Each stats section only with its permission; none for users; 401 anonymous | Unit + API e2e | ✅ |
+| Web | Staff stats cards, status breakdown, error + retry; no section or request for users | Playwright | ✅ |
 | Requests | Guest submit + tracking code + notification | API e2e | ✅ |
 | Requests | Honeypot / type-specific validation | Unit + e2e | ✅ |
 | Requests | Owner-only access, stranger gets 404 | API e2e | ✅ |

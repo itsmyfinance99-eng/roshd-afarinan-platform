@@ -13,6 +13,7 @@ import { CmsModule } from './modules/cms/cms.module';
 import { AuthGuard } from './modules/auth/auth.guard';
 import { skipUnlessStrictThrottled } from './common/http/strict-rate-limit';
 import { AuthModule } from './modules/auth/auth.module';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { DatabaseModule } from './modules/database/database.module';
 import { FilesModule } from './modules/files/files.module';
 import { InvestmentModule } from './modules/investment/investment.module';
@@ -89,6 +90,7 @@ import { HealthModule } from './modules/health/health.module';
     ResearchModule,
     InvestmentModule,
     TicketsModule,
+    DashboardModule,
   ],
   providers: [
     // Guard order matters: rate limit → authenticate (default deny) → authorize.
