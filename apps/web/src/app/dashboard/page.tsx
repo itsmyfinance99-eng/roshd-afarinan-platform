@@ -3,6 +3,7 @@
 import { buttonClasses } from '@roshd/ui';
 import Link from 'next/link';
 import { useMe } from '@/components/dashboard/me-context';
+import { StaffStats } from '@/components/dashboard/stats';
 import type { ServiceRequestItem } from '@/components/dashboard/types';
 import { AsyncBoundary, PageTitle, RequestList } from '@/components/dashboard/ui';
 import { useApi } from '@/lib/use-api';
@@ -14,6 +15,7 @@ export default function DashboardHome() {
   return (
     <>
       <PageTitle title={`خوش آمدید، ${me.fullName}`} />
+      <StaffStats />
       <div className="mb-8 grid grid-cols-[repeat(auto-fit,minmax(min(100%,200px),1fr))] gap-3">
         <Link href="/feasibility/request" className={buttonClasses('primary', 'md')}>
           درخواست امکان‌سنجی

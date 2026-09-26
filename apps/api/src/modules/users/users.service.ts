@@ -134,6 +134,15 @@ export class UsersService {
     return new Map(rows.map((r) => [r.id, { fullName: r.fullName, email: r.email }]));
   }
 
+  /** Account count per status. */
+  async statusCounts(): Promise<{ active: number; suspended: number }> {
+    const [active, suspended] = await this.prisma.$transaction([
+      this.prisma.user.count({ where: { status: 'ACTIVE' } }),
+      this.prisma.user.count({ where: { status: 'SUSPENDED' } }),
+    ]);
+    return { active, suspended };
+  }
+
   async findIdByEmail(email: string): Promise<string | null> {
     const row = await this.prisma.user.findUnique({ where: { email }, select: { id: true } });
     return row?.id ?? null;
