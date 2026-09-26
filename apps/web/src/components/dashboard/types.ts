@@ -12,6 +12,12 @@ export interface Me {
   createdAt: string;
 }
 
+/** A staff member in staff-only views (e.g. an assignee). */
+export interface StaffRef {
+  id: string;
+  fullName: string;
+}
+
 /** Mirrors the service request views of the API. */
 export interface ServiceRequestItem {
   id: string;
@@ -26,6 +32,8 @@ export interface ServiceRequestItem {
   details: Record<string, string>;
   createdAt: string;
   updatedAt: string;
+  /** Staff views only; requesters never receive it. */
+  assignee?: StaffRef | null;
 }
 
 export interface ServiceRequestDetail extends ServiceRequestItem {

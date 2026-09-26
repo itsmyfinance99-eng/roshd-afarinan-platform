@@ -120,6 +120,9 @@ export function RequestList({
                 <span dir="ltr">{toPersianDigits(item.trackingCode)}</span> ·{' '}
                 {formatDateFa(item.createdAt)}
                 {showRequester ? ` · ${item.fullName}` : ''}
+                {item.assignee !== undefined
+                  ? ` · کارشناس: ${item.assignee?.fullName ?? 'ارجاع‌نشده'}`
+                  : ''}
               </span>
             </span>
             <StatusBadge status={item.status} />

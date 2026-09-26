@@ -1,11 +1,13 @@
 import { Controller, Get, Patch, Post } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
+  assignSchema,
   createTicketSchema,
   idSchema,
   listTicketsQuerySchema,
   replyTicketSchema,
   updateTicketStatusSchema,
+  type AssignInput,
   type CreateTicketInput,
   type ListTicketsQuery,
   type ReplyTicketInput,
@@ -40,9 +42,16 @@ export class TicketsController {
 
   @Get()
   @RequirePermissions('tickets:read-all')
-  @ApiOperation({ summary: 'All tickets (support)' })
-  list(@ZodQuery(listTicketsQuerySchema) query: ListTicketsQuery) {
-    return this.tickets.listAll(query);
+  @ApiOperation({ summary: 'All tickets (support); assignee=me|none filters by assignment' })
+  list(@CurrentUser() user: Principal, @ZodQuery(listTicketsQuerySchema) query: ListTicketsQuery) {
+    return this.tickets.listAll(query, user);
+  }
+
+  @Get('assignees')
+  @RequirePermissions('tickets:reply')
+  @ApiOperation({ summary: 'Active support staff a ticket can be assigned to' })
+  assignees() {
+    return this.tickets.assignees();
   }
 
   @Get(':id')
@@ -71,5 +80,17 @@ export class TicketsController {
     @Meta() meta: RequestMeta,
   ) {
     return this.tickets.changeStatus(id, body, user, meta);
+  }
+
+  @Patch(':id/assignee')
+  @RequirePermissions('tickets:reply')
+  @ApiOperation({ summary: 'Assign or unassign a support agent (audited; notifies the assignee)' })
+  assign(
+    @CurrentUser() user: Principal,
+    @ZodParam('id', idSchema) id: string,
+    @ZodBody(assignSchema) body: AssignInput,
+    @Meta() meta: RequestMeta,
+  ) {
+    return this.tickets.assign(id, body, user, meta);
   }
 }

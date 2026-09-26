@@ -80,3 +80,14 @@ export const paginationQuerySchema = z.object({
 });
 
 export type PaginationQuery = z.infer<typeof paginationQuerySchema>;
+
+/** Staff assignment of a request or ticket; `null` removes the assignee. */
+export const assignSchema = z.object({
+  assigneeId: z.uuid({ error: 'کارشناس انتخاب‌شده معتبر نیست.' }).nullable(),
+});
+export type AssignInput = z.infer<typeof assignSchema>;
+
+/** Staff list filter: `me` = assigned to the signed-in user, `none` = not assigned yet. */
+export const ASSIGNEE_FILTERS = ['me', 'none'] as const;
+export type AssigneeFilter = (typeof ASSIGNEE_FILTERS)[number];
+export const assigneeFilterSchema = z.enum(ASSIGNEE_FILTERS);

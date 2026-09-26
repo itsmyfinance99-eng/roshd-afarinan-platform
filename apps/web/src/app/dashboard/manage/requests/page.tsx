@@ -16,6 +16,7 @@ import {
   SERVICE_REQUEST_TYPES,
 } from '@roshd/validation';
 import { useState } from 'react';
+import { ASSIGNEE_FILTER_OPTIONS } from '@/components/dashboard/assignee';
 import { useCan } from '@/components/dashboard/me-context';
 import type { ServiceRequestItem } from '@/components/dashboard/types';
 import { AsyncBoundary, PageTitle, Pagination, RequestList } from '@/components/dashboard/ui';
@@ -29,6 +30,7 @@ export default function ManageRequestsPage() {
   const allowed = useCan('requests:read-all');
   const [status, setStatus] = useState<string>('NEW');
   const [type, setType] = useState<string>(ALL);
+  const [assignee, setAssignee] = useState<string>(ALL);
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const [page, setPage] = useState(1);
@@ -42,6 +44,7 @@ export default function ManageRequestsPage() {
   if (to) filters.set('to', to);
   const rangeInvalid = Boolean(from && to && from > to);
   const query = new URLSearchParams(filters);
+  if (assignee !== ALL) query.set('assignee', assignee);
   query.set('page', String(page));
   query.set('pageSize', String(PAGE_SIZE));
   const { state, reload } = useApi<ServiceRequestItem[]>(
@@ -108,6 +111,16 @@ export default function ManageRequestsPage() {
               label: SERVICE_REQUEST_TYPE_LABELS_FA[t],
             })),
           ]}
+        />
+        <ChipGroup
+          label="ارجاع"
+          size="sm"
+          value={assignee}
+          onChange={(v) => {
+            setAssignee(v);
+            setPage(1);
+          }}
+          options={ASSIGNEE_FILTER_OPTIONS}
         />
         <div className="flex flex-wrap items-end gap-3">
           <FieldShell id="req-from" label="از تاریخ">

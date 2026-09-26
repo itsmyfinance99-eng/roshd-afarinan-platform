@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { paginationQuerySchema, text } from './common';
+import { assigneeFilterSchema, paginationQuerySchema, text } from './common';
 import { attachmentIdsSchema } from './files';
 
 export const TICKET_STATUSES = ['OPEN', 'PENDING', 'ANSWERED', 'CLOSED'] as const;
@@ -53,6 +53,8 @@ export const updateTicketStatusSchema = z.object({ status: z.enum(TICKET_STATUSE
 
 export const listTicketsQuerySchema = paginationQuerySchema.extend({
   status: z.enum(TICKET_STATUSES).optional(),
+  /** Staff list only; ignored for the owner's own list. */
+  assignee: assigneeFilterSchema.optional(),
 });
 
 export type CreateTicketInput = z.infer<typeof createTicketSchema>;

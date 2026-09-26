@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import {
+  assigneeFilterSchema,
   DAY_RANGE_ERROR,
   emailSchema,
   isoDaySchema,
@@ -161,7 +162,11 @@ const requestFilterFields = {
 };
 
 export const listServiceRequestsQuerySchema = paginationQuerySchema
-  .extend(requestFilterFields)
+  .extend({
+    ...requestFilterFields,
+    /** Staff list only; ignored for the requester's own list. */
+    assignee: assigneeFilterSchema.optional(),
+  })
   .refine(validDayRange, { error: DAY_RANGE_ERROR, path: ['to'] });
 
 export const exportServiceRequestsQuerySchema = z

@@ -1,12 +1,14 @@
 import { Controller, Get, Patch, Post, Req, Res } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
+  assignSchema,
   createServiceRequestSchema,
   exportServiceRequestsQuerySchema,
   idSchema,
   listServiceRequestsQuerySchema,
   trackServiceRequestSchema,
   updateServiceRequestStatusSchema,
+  type AssignInput,
   type CreateServiceRequestInput,
   type ExportServiceRequestsQuery,
   type ListServiceRequestsQuery,
@@ -27,7 +29,9 @@ import {
   type ServiceRequestDetailView,
   type ServiceRequestReceipt,
   type ServiceRequestView,
+  type StaffServiceRequestView,
 } from './service-requests.service';
+import type { StaffRef } from '../users/staff-ref';
 
 @ApiTags('service-requests')
 @Controller('service-requests')
@@ -67,11 +71,19 @@ export class ServiceRequestsController {
 
   @Get()
   @RequirePermissions('requests:read-all')
-  @ApiOperation({ summary: 'All requests (staff)' })
+  @ApiOperation({ summary: 'All requests (staff); assignee=me|none filters by assignment' })
   list(
+    @CurrentUser() user: Principal,
     @ZodQuery(listServiceRequestsQuerySchema) query: ListServiceRequestsQuery,
-  ): Promise<PageResult<ServiceRequestView>> {
-    return this.requests.listAll(query);
+  ): Promise<PageResult<StaffServiceRequestView>> {
+    return this.requests.listAll(query, user);
+  }
+
+  @Get('assignees')
+  @RequirePermissions('requests:manage')
+  @ApiOperation({ summary: 'Active staff a request can be assigned to' })
+  assignees(): Promise<StaffRef[]> {
+    return this.requests.assignees();
   }
 
   @Get('export')
@@ -114,5 +126,17 @@ export class ServiceRequestsController {
     @Meta() meta: RequestMeta,
   ): Promise<ServiceRequestDetailView> {
     return this.requests.changeStatus(id, body, user, meta);
+  }
+
+  @Patch(':id/assignee')
+  @RequirePermissions('requests:manage')
+  @ApiOperation({ summary: 'Assign or unassign a staff member (audited; notifies the assignee)' })
+  assign(
+    @CurrentUser() user: Principal,
+    @ZodParam('id', idSchema) id: string,
+    @ZodBody(assignSchema) body: AssignInput,
+    @Meta() meta: RequestMeta,
+  ): Promise<ServiceRequestDetailView> {
+    return this.requests.assign(id, body, user, meta);
   }
 }

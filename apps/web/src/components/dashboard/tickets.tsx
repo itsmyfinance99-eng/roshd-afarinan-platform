@@ -25,6 +25,7 @@ import Link from 'next/link';
 import { type FormEvent, useState } from 'react';
 import { FileList, FileUploader, type FileItem } from '@/components/files/files';
 import { apiFetch } from '@/lib/api-client';
+import type { StaffRef } from './types';
 
 export interface TicketSummary {
   id: string;
@@ -35,6 +36,8 @@ export interface TicketSummary {
   status: TicketStatus;
   lastMessageAt: string;
   createdAt: string;
+  /** Staff views only; ticket owners never receive it. */
+  assignee?: StaffRef | null;
 }
 
 export interface TicketDetail extends TicketSummary {
@@ -92,6 +95,9 @@ export function TicketList({ items, hrefBase }: { items: TicketSummary[]; hrefBa
               <span className="text-[13px] text-ink-5">
                 <span dir="ltr">{toPersianDigits(t.code)}</span> ·{' '}
                 {TICKET_CATEGORY_LABELS_FA[t.category]} · آخرین پیام {formatDateFa(t.lastMessageAt)}
+                {t.assignee !== undefined
+                  ? ` · کارشناس: ${t.assignee?.fullName ?? 'ارجاع‌نشده'}`
+                  : ''}
               </span>
             </span>
             <TicketStatusBadge status={t.status} />

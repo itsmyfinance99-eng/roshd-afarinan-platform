@@ -9,6 +9,7 @@ import {
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { type FormEvent, useState } from 'react';
+import { AssigneeName, AssigneePicker } from '@/components/dashboard/assignee';
 import { useCan } from '@/components/dashboard/me-context';
 import type { ServiceRequestDetail } from '@/components/dashboard/types';
 import {
@@ -76,8 +77,21 @@ export default function ManageRequestDetailPage() {
             </div>
             <div className="flex flex-col gap-8">
               {canManage ? (
-                <StatusChanger item={item} onChanged={() => reload({ silent: true })} />
-              ) : null}
+                <>
+                  <AssigneePicker
+                    resource="/service-requests"
+                    id={item.id}
+                    current={item.assignee}
+                    onChanged={() => reload({ silent: true })}
+                  />
+                  <StatusChanger item={item} onChanged={() => reload({ silent: true })} />
+                </>
+              ) : (
+                <p className="text-[15px]">
+                  <span className="text-ink-5">کارشناس: </span>
+                  <AssigneeName assignee={item.assignee} />
+                </p>
+              )}
               <section aria-labelledby="timeline-title">
                 <h2 id="timeline-title" className="mb-4 text-base font-extrabold text-brand-900">
                   تاریخچه وضعیت

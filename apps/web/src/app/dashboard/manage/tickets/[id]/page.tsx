@@ -3,6 +3,7 @@
 import { ErrorMessage } from '@roshd/ui';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
+import { AssigneeName, AssigneePicker } from '@/components/dashboard/assignee';
 import { useCan } from '@/components/dashboard/me-context';
 import { TicketConversation, type TicketDetail } from '@/components/dashboard/tickets';
 import { AsyncBoundary, PageTitle } from '@/components/dashboard/ui';
@@ -30,11 +31,28 @@ export default function ManageTicketPage() {
       />
       <AsyncBoundary state={state} reload={reload}>
         {(ticket) => (
-          <TicketConversation
-            ticket={ticket}
-            mode={canReply ? 'staff' : 'owner'}
-            onChanged={() => reload({ silent: true })}
-          />
+          <div className="grid gap-8 lg:grid-cols-[1fr_300px]">
+            <TicketConversation
+              ticket={ticket}
+              mode={canReply ? 'staff' : 'owner'}
+              onChanged={() => reload({ silent: true })}
+            />
+            <div>
+              {canReply ? (
+                <AssigneePicker
+                  resource="/tickets"
+                  id={ticket.id}
+                  current={ticket.assignee}
+                  onChanged={() => reload({ silent: true })}
+                />
+              ) : (
+                <p className="text-[15px]">
+                  <span className="text-ink-5">کارشناس: </span>
+                  <AssigneeName assignee={ticket.assignee} />
+                </p>
+              )}
+            </div>
+          </div>
         )}
       </AsyncBoundary>
     </>

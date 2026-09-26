@@ -158,6 +158,17 @@ Automated suites: unit (Vitest), API e2e (Vitest + Supertest against a real Post
 | Unread count, mark read, mark all; other users' notifications 404; anonymous 401                    | API e2e    | ✅     |
 | Web: bell count, open marks read and follows dashboard links only, mark all, unread filter          | Playwright | ✅     |
 
+## Assignment
+
+| Scenario                                                                                                     | Level      | Status |
+| ------------------------------------------------------------------------------------------------------------ | ---------- | ------ |
+| Assign/unassign a request (requests:manage) or ticket (tickets:reply); audited; assignee notified (not self) | API e2e    | ✅     |
+| Assignee must be active and hold requests:read-all (requests) / tickets:reply (tickets), else 400            | API e2e    | ✅     |
+| Experts and users cannot assign (403); anonymous 401; unknown request 404; candidates list per permission    | API e2e    | ✅     |
+| `assignee=me` / `assignee=none` filters; owners never see the assignee; owner reply goes to assignee only    | API e2e    | ✅     |
+| Web: assign from the request page, "assigned to me" filter, read-only view for experts, ticket API errors    | Playwright | ✅     |
+| Assignment schema and list filters                                                                           | Unit       | ✅     |
+
 ## Infra
 
 | Scenario                                                                                           | Level             | Status |
