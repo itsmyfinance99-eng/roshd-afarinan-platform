@@ -33,6 +33,7 @@ const NAV: NavItem[] = [
   },
   { href: '/dashboard/manage/tickets', label: 'مدیریت تیکت‌ها', permission: 'tickets:read-all' },
   { href: '/dashboard/content', label: 'مدیریت محتوا', permission: 'cms:write' },
+  { href: '/dashboard/catalog', label: 'مدیریت کاتالوگ', permission: 'catalog:manage' },
   { href: '/dashboard/manage/users', label: 'مدیریت کاربران', permission: 'users:read' },
 ];
 

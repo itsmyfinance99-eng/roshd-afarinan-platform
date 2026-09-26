@@ -68,6 +68,8 @@ Legend: ✅ automated · 🟡 manual · ⬜ not yet covered
 | Investment | Drafts/archived 404; sector/stage/province filters; amount as digit string, never 0 | Unit + API e2e | ✅ |
 | Investment | Management 401/403 (investor, support); interest stored as INVESTMENT request + reference | API e2e | ✅ |
 | Web | Investment GET filters without JS, no-offer notice, interest form, noindex demo, real 404 | Playwright | ✅ |
+| Web | Catalog forms (courses, research, investments): typed payload, draft → publish, field errors | Playwright | ✅ |
+| Web | Catalog pages denied and hidden without `catalog:manage`; category add only with `cms:write` | Playwright | ✅ |
 | Requests | Guest submit + tracking code + notification | API e2e | ✅ |
 | Requests | Honeypot / type-specific validation | Unit + e2e | ✅ |
 | Requests | Owner-only access, stranger gets 404 | API e2e | ✅ |
