@@ -209,6 +209,7 @@ epics:
           - 'Interfaceهای IranSahamdarClient (به‌همراه mock)، AiProvider، BlockchainNetworkAdapter و FinancialCalculator تعریف شده باشند'
           - 'اجرای production با MockPaymentGateway متوقف شود'
       - id: ST-01.10
+        status: done
         title: 'Dockerfile برای api و web و راهنمای اجرای محلی'
         sprint: S1
         points: 3
