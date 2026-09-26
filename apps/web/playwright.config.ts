@@ -44,7 +44,7 @@ export default defineConfig({
     {
       command: `pnpm exec next start --port ${PORT} --hostname 127.0.0.1`,
       url: `http://127.0.0.1:${PORT}`,
-      env: { API_INTERNAL_URL: `http://127.0.0.1:${MOCK_API_PORT}` },
+      env: { API_INTERNAL_URL: `http://127.0.0.1:${MOCK_API_PORT}`, ENABLE_MOCK_GATEWAY: 'true' },
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
     },

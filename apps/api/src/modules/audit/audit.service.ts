@@ -10,6 +10,7 @@ export type AuditAction =
   | 'auth.login_failed'
   | 'auth.logout'
   | 'auth.refresh_reuse_detected'
+  | 'auth.account_locked'
   | 'users.roles_changed'
   | (string & {});
 

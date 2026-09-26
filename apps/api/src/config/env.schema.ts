@@ -38,6 +38,9 @@ export const envSchema = z.object({
   THROTTLE_LIMIT: z.coerce.number().int().positive().default(120),
   /** Stricter per-IP limit for login/register/refresh within THROTTLE_TTL_MS. */
   AUTH_THROTTLE_LIMIT: z.coerce.number().int().positive().default(5),
+  /** Per-account lockout: consecutive wrong passwords before sign-in is refused for a while. */
+  LOGIN_MAX_FAILURES: z.coerce.number().int().min(3).max(50).default(5),
+  LOGIN_LOCK_MINUTES: z.coerce.number().int().min(1).max(1440).default(15),
 
   /** HS256 secret for access tokens (≥ 32 chars). Generate with: openssl rand -base64 48 */
   JWT_ACCESS_SECRET: z.string().min(32, { error: 'must be at least 32 characters' }),

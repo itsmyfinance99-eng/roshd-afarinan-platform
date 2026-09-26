@@ -31,6 +31,10 @@ model User {
   lastLoginAt       DateTime?
   /// Access tokens issued before this instant are rejected (password change/reset, sign out everywhere, suspension).
   sessionsRevokedAt DateTime?
+  /// Consecutive failed sign-ins since the last success or lock (per-account lockout).
+  failedLoginCount  Int        @default(0)
+  /// Sign-in is refused until this instant after too many failures.
+  lockedUntil       DateTime?
   createdAt         DateTime   @default(now())
   updatedAt         DateTime   @updatedAt
 

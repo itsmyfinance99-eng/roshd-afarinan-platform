@@ -12,7 +12,12 @@ import type {
 } from '@roshd/validation';
 import { ConflictError, NotFoundError } from '../../common/errors/app-exception';
 import { PageResult } from '../../common/http/page-result';
-import { scoreText, textFilter, type TextSearchResult } from '../../common/search/search-text';
+import {
+  containsText,
+  scoreText,
+  type TextSearchResult,
+  textFilter,
+} from '../../common/search/search-text';
 import type { RequestMeta } from '../../common/http/request-meta';
 import { Prisma } from '../../generated/prisma/client';
 import { AuditService } from '../audit/audit.service';
@@ -87,10 +92,7 @@ export class CmsService {
       ...(query.category ? { category: { slug: query.category } } : {}),
       ...(query.q
         ? {
-            OR: [
-              { title: { contains: query.q, mode: 'insensitive' } },
-              { excerpt: { contains: query.q, mode: 'insensitive' } },
-            ],
+            OR: [{ title: containsText(query.q) }, { excerpt: containsText(query.q) }],
           }
         : {}),
     };
@@ -219,7 +221,7 @@ export class CmsService {
     const where: Prisma.ContentEntryWhereInput = {
       ...(query.kind ? { kind: query.kind } : {}),
       ...(query.status ? { status: query.status } : {}),
-      ...(query.q ? { title: { contains: query.q, mode: 'insensitive' } } : {}),
+      ...(query.q ? { title: containsText(query.q) } : {}),
     };
     const [items, total] = await this.prisma.$transaction([
       this.prisma.contentEntry.findMany({

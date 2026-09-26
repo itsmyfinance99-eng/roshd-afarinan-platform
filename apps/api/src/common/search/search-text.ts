@@ -16,16 +16,27 @@ export interface TextSearchResult {
 
 type Contains = { contains: string; mode: 'insensitive' };
 
+/**
+ * Prisma passes `contains` to SQL LIKE without escaping, so `%` and `_` in user input act as
+ * wildcards (`q=%` matched every row). Escapes them (and the escape character itself) with
+ * PostgreSQL's default LIKE escape, the backslash.
+ */
+export function escapeLike(value: string): string {
+  return value.replace(/[\\%_]/g, (c) => `\\${c}`);
+}
+
+/** Case-insensitive substring filter with user input taken literally. */
+export function containsText(value: string): Contains {
+  return { contains: escapeLike(value), mode: 'insensitive' };
+}
+
 /** `AND` conditions: every word appears in at least one of the fields (case-insensitive). */
 export function textFilter<F extends string>(
   fields: readonly F[],
   tokens: readonly string[],
 ): { OR: Partial<Record<F, Contains>>[] }[] {
   return tokens.map((token) => ({
-    OR: fields.map(
-      (field) =>
-        ({ [field]: { contains: token, mode: 'insensitive' } }) as Partial<Record<F, Contains>>,
-    ),
+    OR: fields.map((field) => ({ [field]: containsText(token) }) as Partial<Record<F, Contains>>),
   }));
 }
 

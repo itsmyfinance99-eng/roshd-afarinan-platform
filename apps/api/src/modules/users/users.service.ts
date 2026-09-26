@@ -14,6 +14,7 @@ import {
   decideStatusChange,
   normaliseRoles,
 } from '../rbac/role-assignment.policy';
+import { containsText, escapeLike } from '../../common/search/search-text';
 
 /** Public shape of a user. Never includes the password hash. */
 export interface UserView {
@@ -69,7 +70,7 @@ export class UsersService {
   findCredentialsByEmail(email: string) {
     return this.prisma.user.findUnique({
       where: { email },
-      select: { id: true, passwordHash: true, status: true },
+      select: { id: true, passwordHash: true, status: true, lockedUntil: true },
     });
   }
 
@@ -167,11 +168,40 @@ export class UsersService {
   }
 
   /** Replaces the password hash and invalidates every access token issued before `revokedAt`. */
+  /** New password (change or reset); also lifts a login lockout, since the owner proved control. */
   async setPassword(userId: string, passwordHash: string, revokedAt: Date): Promise<void> {
     await this.prisma.user.update({
       where: { id: userId },
-      data: { passwordHash, sessionsRevokedAt: revokedAt },
+      data: { passwordHash, sessionsRevokedAt: revokedAt, failedLoginCount: 0, lockedUntil: null },
     });
+  }
+
+  /**
+   * Counts a wrong password atomically (parallel guesses cannot all read the same count) and
+   * locks the account when the limit is reached. Returns the lock end when this failure locked it.
+   */
+  async recordLoginFailure(
+    userId: string,
+    policy: { maxFailures: number; lockMs: number },
+    now = new Date(),
+  ): Promise<Date | null> {
+    // An expired lock starts a fresh window.
+    await this.prisma.user.updateMany({
+      where: { id: userId, lockedUntil: { lte: now } },
+      data: { lockedUntil: null, failedLoginCount: 0 },
+    });
+    const { failedLoginCount } = await this.prisma.user.update({
+      where: { id: userId },
+      data: { failedLoginCount: { increment: 1 } },
+      select: { failedLoginCount: true },
+    });
+    if (failedLoginCount < policy.maxFailures) return null;
+    const lockedUntil = new Date(now.getTime() + policy.lockMs);
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { lockedUntil, failedLoginCount: 0 },
+    });
+    return lockedUntil;
   }
 
   /** Invalidates every access token issued before `revokedAt` (sign out everywhere). */
@@ -182,8 +212,12 @@ export class UsersService {
     });
   }
 
+  /** Successful sign-in: records the time and clears failed attempts. */
   async markLoggedIn(userId: string): Promise<void> {
-    await this.prisma.user.update({ where: { id: userId }, data: { lastLoginAt: new Date() } });
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { lastLoginAt: new Date(), failedLoginCount: 0, lockedUntil: null },
+    });
   }
 
   async list(query: ListUsersQuery): Promise<PageResult<UserView>> {
@@ -191,9 +225,9 @@ export class UsersService {
       ...(query.q
         ? {
             OR: [
-              { email: { contains: query.q, mode: 'insensitive' } },
-              { fullName: { contains: query.q, mode: 'insensitive' } },
-              { mobile: { contains: query.q } },
+              { email: containsText(query.q) },
+              { fullName: containsText(query.q) },
+              { mobile: { contains: escapeLike(query.q) } },
             ],
           }
         : {}),

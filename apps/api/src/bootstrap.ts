@@ -23,6 +23,11 @@ export function configureApp(app: INestApplication): AppConfig {
       'TRUST_PROXY=0 in production: behind a reverse proxy every visitor shares one IP for rate limits and audit logs (see infra/nginx/README.md).',
     );
   }
+  if (config.NODE_ENV === 'production' && !config.cookieSecure) {
+    logger.warn(
+      'COOKIE_SECURE=false in production: session cookies are sent over plain HTTP. Use it only for local testing.',
+    );
+  }
   express.set('trust proxy', config.TRUST_PROXY);
   express.disable('x-powered-by');
   express.useBodyParser('json', { limit: '1mb' });

@@ -34,3 +34,7 @@ Authentication lives **inside the API** (`auth` module), with no third-party ide
 - **Revocation**: `User.sessionsRevokedAt`. Access tokens carry a millisecond issue time (`iatMs`), and the guard rejects any token issued at or before that instant, so revocation is immediate even though access tokens live 15 minutes. Refresh tokens of the user are revoked at the same time.
 - A password **reset** and **sign out everywhere** end every session. A password **change** ends every other session and issues a fresh session to the current device. All of these are audited, and the account owner is notified by email.
 - **Suspension** (ST-25.04) sets `sessionsRevokedAt` as well. Refresh tokens created before `sessionsRevokedAt` are refused, so a session never revives after the account is reactivated or the password is changed.
+
+## Addendum: per-account lockout (ST-25.10)
+
+The per-IP login throttle does not stop guessing spread across many addresses. Each account now counts consecutive wrong passwords (`User.failedLoginCount`, incremented atomically) and refuses sign-in for `LOGIN_LOCK_MINUTES` after `LOGIN_MAX_FAILURES` failures (`User.lockedUntil`, 429 with the remaining minutes). A successful sign-in or a password reset clears the state. A locked account is refused before the password is checked. Trade-off: anyone who knows an email can lock that account for 15 minutes; the short lock and the reset link (which lifts it) keep that nuisance small. Unknown emails never lock.

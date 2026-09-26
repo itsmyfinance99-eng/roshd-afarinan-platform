@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { emailSchema, MESSAGES, mobileSchema, text } from './common';
+import { isCommonPassword } from './common-passwords';
 
 export const PASSWORD_MIN = 8;
 export const PASSWORD_MAX = 128;
@@ -9,7 +10,10 @@ export const passwordSchema = z
   .min(PASSWORD_MIN, { error: `رمز عبور باید حداقل ${PASSWORD_MIN} نویسه باشد.` })
   .max(PASSWORD_MAX, { error: MESSAGES.tooLong(PASSWORD_MAX) })
   .regex(/[A-Za-z؀-ۿ]/, { error: 'رمز عبور باید حداقل یک حرف داشته باشد.' })
-  .regex(/[0-9۰-۹]/, { error: 'رمز عبور باید حداقل یک عدد داشته باشد.' });
+  .regex(/[0-9۰-۹]/, { error: 'رمز عبور باید حداقل یک عدد داشته باشد.' })
+  .refine((value) => !isCommonPassword(value), {
+    error: 'این رمز عبور بسیار رایج است و به‌راحتی حدس زده می‌شود. رمز دیگری انتخاب کنید.',
+  });
 
 export const registerSchema = z.object({
   fullName: text(2, 120),

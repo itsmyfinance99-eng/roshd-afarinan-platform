@@ -1,6 +1,7 @@
 import { buttonClasses, Container, Notice } from '@roshd/ui';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import { mockGatewayEnabled } from '@/lib/env';
 
 export const metadata: Metadata = {
   title: 'درگاه پرداخت آزمایشی',
@@ -13,6 +14,7 @@ const CALLBACK_PATH = /^\/api\/v1\/payments\/callback\/[0-9a-f-]{36}$/;
 /**
  * Development stand-in for a PSP page, used only by the mock gateway (PAYMENT_PROVIDER=mock,
  * refused in production). No money moves; the API still verifies the result server-to-server.
+ * Production builds return 404 unless ENABLE_MOCK_GATEWAY=true.
  */
 export default async function MockGatewayPage({
   params,
@@ -21,6 +23,7 @@ export default async function MockGatewayPage({
   params: Promise<{ ref: string }>;
   searchParams: Promise<{ callback?: string | string[] }>;
 }) {
+  if (!mockGatewayEnabled()) notFound();
   const { ref } = await params;
   const { callback } = await searchParams;
   if (!/^MOCK-[0-9A-Z]{16}$/.test(ref) || typeof callback !== 'string') notFound();
