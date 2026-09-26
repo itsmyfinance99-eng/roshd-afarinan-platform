@@ -79,6 +79,9 @@ export function LoginForm() {
           {...form.register('password')}
         />
       </FieldShell>
+      <p className="-mt-2 text-sm">
+        <Link href="/forgot-password">رمز عبور را فراموش کرده‌اید؟</Link>
+      </p>
       {error ? <ErrorMessage>{error}</ErrorMessage> : null}
       <Button type="submit" size="lg" disabled={submitting || !hydrated}>
         {submitting ? 'در حال ورود…' : 'ورود'}

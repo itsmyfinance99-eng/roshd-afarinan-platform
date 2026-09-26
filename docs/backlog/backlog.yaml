@@ -969,6 +969,7 @@ epics:
           - 'پشت reverse proxy با TRUST_PROXY صحیح، IP کاربر از X-Forwarded-For معتبر خوانده شود'
           - 'راهنمای nginx و هشدار راه‌اندازی در production؛ تست جعل‌نشدن IP'
       - id: ST-25.02
+        status: done
         title: 'تغییر رمز، بازیابی رمز و مدیریت نشست‌ها'
         sprint: S9
         points: 8

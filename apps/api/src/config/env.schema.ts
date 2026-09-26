@@ -43,6 +43,8 @@ export const envSchema = z.object({
   JWT_ACCESS_SECRET: z.string().min(32, { error: 'must be at least 32 characters' }),
   JWT_ACCESS_TTL_SECONDS: z.coerce.number().int().min(60).max(3600).default(900),
   REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().min(1).max(90).default(30),
+  /** Lifetime of password reset links (minutes). */
+  PASSWORD_RESET_TTL_MINUTES: z.coerce.number().int().min(5).max(120).default(30),
   /** Defaults to true in production. */
   COOKIE_SECURE: bool.optional(),
   COOKIE_DOMAIN: z.string().optional(),

@@ -27,3 +27,9 @@ Authentication lives **inside the API** (`auth` module), with no third-party ide
 - No dependency on an external identity provider. The client owns user data.
 - The API is the single source of truth for sessions, and web and mobile share it.
 - Next.js does not need Auth.js. Middleware (proxy) only checks that a cookie is present for UX redirects. The API enforces authorization.
+
+## Update (ST-25.02): password recovery and session revocation
+
+- **Reset links**: 256-bit random token, only its SHA-256 is stored, 30-minute lifetime (`PASSWORD_RESET_TTL_MINUTES`), single use (conditional update), and a newer request invalidates older links. The request endpoint answers the same whether or not the account exists.
+- **Revocation**: `User.sessionsRevokedAt`. Access tokens carry a millisecond issue time (`iatMs`), and the guard rejects any token issued at or before that instant, so revocation is immediate even though access tokens live 15 minutes. Refresh tokens of the user are revoked at the same time.
+- A password **reset** and **sign out everywhere** end every session. A password **change** ends every other session and issues a fresh session to the current device. All of these are audited, and the account owner is notified by email.

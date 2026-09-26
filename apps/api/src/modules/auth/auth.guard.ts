@@ -43,11 +43,18 @@ export class AuthGuard implements CanActivate {
     const user = claims
       ? await this.prisma.user.findUnique({
           where: { id: claims.sub },
-          select: { id: true, status: true },
+          select: { id: true, status: true, sessionsRevokedAt: true },
         })
       : null;
 
-    if (!claims || !user || user.status !== 'ACTIVE') {
+    // Tokens issued before a password change, reset or "sign out everywhere" are dead.
+    const issuedAtMs = claims?.iatMs ?? (claims?.iat ?? 0) * 1000;
+    const revoked =
+      user?.sessionsRevokedAt !== null &&
+      user?.sessionsRevokedAt !== undefined &&
+      issuedAtMs <= user.sessionsRevokedAt.getTime();
+
+    if (!claims || !user || user.status !== 'ACTIVE' || revoked) {
       // A stale cookie must not break public pages; it only fails protected routes.
       if (isPublic) return true;
       throw new UnauthenticatedError();

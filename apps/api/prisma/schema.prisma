@@ -20,21 +20,24 @@ enum UserStatus {
 
 /// One identity per person; capabilities come from roles (student, applicant, investor, ...).
 model User {
-  id           String     @id @default(uuid(7)) @db.Uuid
-  email        String     @unique
-  mobile       String?    @unique
-  fullName     String
-  passwordHash String
-  status       UserStatus @default(ACTIVE)
+  id                String     @id @default(uuid(7)) @db.Uuid
+  email             String     @unique
+  mobile            String?    @unique
+  fullName          String
+  passwordHash      String
+  status            UserStatus @default(ACTIVE)
   /// Reserved: MFA is designed but not yet implemented (ADR-0002).
-  mfaEnabled   Boolean    @default(false)
-  lastLoginAt  DateTime?
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  mfaEnabled        Boolean    @default(false)
+  lastLoginAt       DateTime?
+  /// Access tokens issued before this instant are rejected (password change/reset, sign out everywhere, suspension).
+  sessionsRevokedAt DateTime?
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
 
-  roles           UserRole[]       @relation("UserRoles")
-  assignedRoles   UserRole[]       @relation("RoleAssigner")
+  roles           UserRole[]           @relation("UserRoles")
+  assignedRoles   UserRole[]           @relation("RoleAssigner")
   refreshTokens   RefreshToken[]
+  passwordResets  PasswordResetToken[]
   auditLogs       AuditLog[]
   serviceRequests ServiceRequest[]
   files           FileObject[]
@@ -95,6 +98,22 @@ model UserRole {
 
 /// Opaque refresh tokens (only the SHA-256 hash is stored). Tokens of one login share a familyId;
 /// presenting a revoked token revokes the whole family (reuse detection, ADR-0002).
+/// One-time password reset link (only the SHA-256 of the token is stored).
+model PasswordResetToken {
+  id          String    @id @default(uuid(7)) @db.Uuid
+  userId      String    @db.Uuid
+  tokenHash   String    @unique
+  expiresAt   DateTime
+  usedAt      DateTime?
+  requestedIp String?
+  createdAt   DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("password_reset_tokens")
+}
+
 model RefreshToken {
   id           String    @id @default(uuid(7)) @db.Uuid
   userId       String    @db.Uuid

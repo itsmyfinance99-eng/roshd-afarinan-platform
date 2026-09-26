@@ -34,10 +34,13 @@ Automated suites: unit (Vitest), API e2e (Vitest + Supertest against a real Post
 
 ## Rate limit
 
-| Scenario                                                                                                                         | Level   | Status |
-| -------------------------------------------------------------------------------------------------------------------------------- | ------- | ------ |
-| Login throttled 429                                                                                                              | API e2e | ✅     |
-| Per-visitor buckets behind a proxy; forged X-Forwarded-For ignored; SSR reads exempt by token, mutations never; real IP in audit | API e2e | ✅     |
+| Scenario                                                                                                                         | Level      | Status |
+| -------------------------------------------------------------------------------------------------------------------------------- | ---------- | ------ |
+| Login throttled 429                                                                                                              | API e2e    | ✅     |
+| Per-visitor buckets behind a proxy; forged X-Forwarded-For ignored; SSR reads exempt by token, mutations never; real IP in audit | API e2e    | ✅     |
+| Password reset: same answer for unknown email, single-use hashed token, expiry, superseded links, all sessions end               | API e2e    | ✅     |
+| Password change keeps this device, ends others immediately; sign out everywhere; 401 anonymous                                   | API e2e    | ✅     |
+| Web: forgot/reset/change password flows, mismatch and expired-link states, sign out everywhere                                   | Playwright | ✅     |
 
 ## Audit
 

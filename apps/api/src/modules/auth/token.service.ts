@@ -9,6 +9,10 @@ export interface AccessTokenClaims {
   sid: string;
   /** Informational for clients; authorization always re-reads roles from the database. */
   roles: Role[];
+  /** Issued-at (seconds), set by the signer. */
+  iat?: number;
+  /** Issued-at in milliseconds, so revocation is exact within the same second. */
+  iatMs?: number;
 }
 
 @Injectable()
@@ -27,11 +31,14 @@ export class TokenService {
   }
 
   signAccessToken(claims: AccessTokenClaims): Promise<string> {
-    return this.jwt.signAsync(claims, {
-      secret: this.config.JWT_ACCESS_SECRET,
-      expiresIn: this.config.JWT_ACCESS_TTL_SECONDS,
-      algorithm: 'HS256',
-    });
+    return this.jwt.signAsync(
+      { ...claims, iatMs: Date.now() },
+      {
+        secret: this.config.JWT_ACCESS_SECRET,
+        expiresIn: this.config.JWT_ACCESS_TTL_SECONDS,
+        algorithm: 'HS256',
+      },
+    );
   }
 
   /** Returns the claims, or undefined for any invalid/expired/tampered token. */
