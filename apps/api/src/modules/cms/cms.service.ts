@@ -352,6 +352,33 @@ export class CmsService {
     return this.prisma.author.create({ data: input, select: AUTHOR_SELECT });
   }
 
+  /** Editorial view of a page, including drafts (404 when it was never saved). */
+  async getPageForEditors(slug: string) {
+    const page = await this.prisma.page.findUnique({
+      where: { slug },
+      select: {
+        slug: true,
+        title: true,
+        sections: true,
+        status: true,
+        publishedAt: true,
+        metaTitle: true,
+        metaDescription: true,
+        noIndex: true,
+        updatedAt: true,
+      },
+    });
+    if (!page) throw new NotFoundError();
+    return page;
+  }
+
+  listPagesForEditors() {
+    return this.prisma.page.findMany({
+      select: { slug: true, title: true, status: true, updatedAt: true },
+      orderBy: { slug: 'asc' },
+    });
+  }
+
   async upsertPage(
     slug: string,
     input: UpsertPageInput,

@@ -1,5 +1,5 @@
 import 'server-only';
-import type { ContentKind } from '@roshd/validation';
+import type { ContentKind, PageSection } from '@roshd/validation';
 import { serverGet } from './server-api';
 
 export interface ContentCategory {
@@ -69,5 +69,23 @@ export function listCategories(scope: ContentKind) {
 export function sitemapContent() {
   return serverGet<{ kind: ContentKind; slug: string; updatedAt: string }[]>('/content/sitemap', {
     revalidate: 3600,
+  });
+}
+
+export interface PublishedPage {
+  slug: string;
+  title: string;
+  sections: PageSection[];
+  metaTitle: string | null;
+  metaDescription: string | null;
+  noIndex: boolean;
+  updatedAt: string;
+}
+
+/** A published institutional page (404 while it is only a draft or was never saved). */
+export function getPage(slug: string) {
+  return serverGet<PublishedPage>(`/pages/${encodeURIComponent(slug)}`, {
+    revalidate: 300,
+    tags: ['pages'],
   });
 }

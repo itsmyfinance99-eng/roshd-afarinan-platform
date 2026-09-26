@@ -94,13 +94,64 @@ export const createAuthorSchema = z.object({
   bio: optionalText(1000).optional(),
 });
 
-export const pageSectionSchema = z
-  .object({ type: z.string().min(1).max(40) })
-  .catchall(z.unknown());
+export const PAGE_SECTION_TYPES = ['intro', 'stats', 'list', 'richText'] as const;
+export type PageSectionType = (typeof PAGE_SECTION_TYPES)[number];
+
+export const PAGE_SECTION_LABELS_FA: Record<PageSectionType, string> = {
+  intro: 'معرفی (عنوان و متن کوتاه)',
+  stats: 'آمار',
+  list: 'فهرست',
+  richText: 'متن',
+};
+
+export const LIST_STYLES = ['numbered', 'chips', 'cards'] as const;
+export type ListStyle = (typeof LIST_STYLES)[number];
+
+export const LIST_STYLE_LABELS_FA: Record<ListStyle, string> = {
+  numbered: 'شماره‌دار',
+  chips: 'برچسب',
+  cards: 'کارت',
+};
+
+/** Typed sections of an institutional page; the web renders each type with its own component. */
+export const pageSectionSchema = z.discriminatedUnion('type', [
+  z.object({
+    type: z.literal('intro'),
+    title: text(2, 200),
+    lead: optionalText(800).optional(),
+  }),
+  z.object({
+    type: z.literal('stats'),
+    items: z
+      .array(
+        z.object({
+          value: text(1, 20),
+          label: text(2, 80),
+          detail: optionalText(240).optional(),
+        }),
+      )
+      .min(1)
+      .max(8),
+  }),
+  z.object({
+    type: z.literal('list'),
+    title: text(2, 120),
+    style: z.enum(LIST_STYLES),
+    items: z.array(text(1, 300)).min(1).max(50),
+    note: optionalText(400).optional(),
+  }),
+  z.object({
+    type: z.literal('richText'),
+    title: text(2, 120).optional(),
+    body: z.string().trim().min(1, { error: MESSAGES.required }).max(20_000),
+  }),
+]);
+
+export type PageSection = z.infer<typeof pageSectionSchema>;
 
 export const upsertPageSchema = z.object({
   title: text(2, 200),
-  sections: z.array(pageSectionSchema).max(50).default([]),
+  sections: z.array(pageSectionSchema).max(30).default([]),
   metaTitle: optionalText(70).nullable().optional(),
   metaDescription: optionalText(170).nullable().optional(),
   noIndex: z.boolean().default(false),

@@ -156,19 +156,54 @@ describe('CMS (e2e)', () => {
 
   it('serves only published pages and requires cms:publish to publish them', async () => {
     const pageSlug = slug('about');
+    const sections = [
+      { type: 'intro', title: 'درباره ما', lead: 'معرفی کوتاه' },
+      { type: 'stats', items: [{ value: '+۵۰', label: 'کارشناس' }] },
+      { type: 'list', title: 'حوزه‌ها', style: 'numbered', items: ['آموزش', 'پژوهش'] },
+      { type: 'richText', body: '## متن\nتوضیحات' },
+    ];
     await http()
       .put(`/api/v1/cms/pages/${pageSlug}`)
       .set(auth(editor.token))
-      .send({ title: 'درباره ما', sections: [{ type: 'text', body: 'متن' }] })
+      .send({ title: 'درباره ما', sections })
       .expect(200);
     await http().get(`/api/v1/pages/${pageSlug}`).expect(404);
+    const draft = await http()
+      .get(`/api/v1/cms/pages/${pageSlug}`)
+      .set(auth(editor.token))
+      .expect(200);
+    expect(draft.body.data).toMatchObject({ status: 'DRAFT', sections });
 
     await http()
       .put(`/api/v1/cms/pages/${pageSlug}?publish=true`)
       .set(auth(editor.token))
-      .send({ title: 'درباره ما', sections: [{ type: 'text', body: 'متن' }] })
+      .send({ title: 'درباره ما', sections })
       .expect(200);
     const page = await http().get(`/api/v1/pages/${pageSlug}`).expect(200);
-    expect(page.body.data.sections).toEqual([{ type: 'text', body: 'متن' }]);
+    expect(page.body.data.sections).toEqual(sections);
+    expect(page.body.data.status).toBeUndefined();
+  });
+
+  it('rejects unknown or malformed page sections and protects page editing', async () => {
+    const pageSlug = slug('bad');
+    for (const section of [
+      { type: 'html', body: '<script>alert(1)</script>' },
+      { type: 'stats', items: [] },
+      { type: 'list', title: 'فهرست', style: 'table', items: ['x'] },
+    ]) {
+      await http()
+        .put(`/api/v1/cms/pages/${pageSlug}`)
+        .set(auth(editor.token))
+        .send({ title: 'صفحه', sections: [section] })
+        .expect(400);
+    }
+    const user = await registerUser(app);
+    await http().get(`/api/v1/cms/pages/${pageSlug}`).set(auth(user.token)).expect(403);
+    await http().get('/api/v1/cms/pages').expect(401);
+    await http()
+      .put(`/api/v1/cms/pages/${pageSlug}`)
+      .set(auth(user.token))
+      .send({ title: 'صفحه', sections: [] })
+      .expect(403);
   });
 });
