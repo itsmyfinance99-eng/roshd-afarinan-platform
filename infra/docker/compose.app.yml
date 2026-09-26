@@ -80,6 +80,25 @@ services:
       - api
       - web
 
+  # On-demand backup (docs/operations/backup-restore.md):
+  #   docker compose -f infra/docker/compose.app.yml --profile ops run --rm backup
+  backup:
+    image: postgres:16-alpine
+    profiles: ['ops']
+    environment:
+      DATABASE_URL: postgresql://roshd:${POSTGRES_PASSWORD:-roshd_app_password}@postgres:5432/roshd
+      BACKUP_DIR: /backups
+      STORAGE_DIR: /storage
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-14}
+    volumes:
+      - ../backup:/scripts:ro
+      - app-storage:/storage:ro
+      - ${BACKUP_HOST_DIR:-./backups}:/backups
+    entrypoint: ['sh', '/scripts/backup.sh']
+    depends_on:
+      postgres:
+        condition: service_healthy
+
 volumes:
   app-postgres:
   app-storage:
