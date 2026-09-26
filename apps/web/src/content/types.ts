@@ -67,12 +67,3 @@ export interface EntryCardData {
   date: string;
   isDemo: boolean;
 }
-
-export interface DemoEntry extends DemoFlag {
-  id: string;
-  title: string;
-  summary: string;
-  category: string;
-  /** ISO date (rendered in the Persian calendar). */
-  date: string;
-}

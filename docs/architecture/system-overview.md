@@ -64,7 +64,7 @@ infra/            docker, nginx, scripts, ci
 | `tickets`                                                                     | Implemented (basic)                              |
 | `orders`, `payments`                                                          | Order + PaymentAttempt + mock gateway            |
 | `learning`                                                                    | Implemented (catalog + editorial API)            |
-| `research`                                                                    | Catalog                                          |
+| `research`                                                                    | Implemented (portfolio + editorial API)          |
 | `investment`                                                                  | Catalog (presentation only, no transactions)     |
 | `notifications`                                                               | Port + console/log adapter                       |
 | `feasibility`                                                                 | Skeleton: state machine contract + ports         |

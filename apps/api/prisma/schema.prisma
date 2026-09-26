@@ -239,8 +239,9 @@ model Category {
   name      String
   createdAt DateTime      @default(now())
 
-  entries ContentEntry[]
-  courses Course[]
+  entries  ContentEntry[]
+  courses  Course[]
+  research ResearchProject[]
 
   @@unique([scope, slug])
   @@map("categories")
@@ -370,6 +371,38 @@ model Course {
 
   @@index([status, publishedAt])
   @@map("courses")
+}
+
+// ───────────────────────────────── Research ─────────────────────────────────
+
+/// Public research portfolio (published studies and outputs). Research orders are ServiceRequests.
+model ResearchProject {
+  id              String        @id @default(uuid(7)) @db.Uuid
+  slug            String        @unique
+  title           String
+  summary         String
+  /// Markdown; rendered without raw HTML.
+  body            String
+  coverImageUrl   String?
+  /// Category with scope RESEARCH (shared taxonomy owned by the CMS).
+  categoryId      String?       @db.Uuid
+  /// Solar Hijri year the study was completed (e.g. 1403), when known.
+  year            Int?
+  status          ContentStatus @default(DRAFT)
+  publishedAt     DateTime?
+  metaTitle       String?
+  metaDescription String?
+  noIndex         Boolean       @default(false)
+  isDemo          Boolean       @default(false)
+  createdById     String?       @db.Uuid
+  updatedById     String?       @db.Uuid
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  category Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  @@index([status, publishedAt])
+  @@map("research_projects")
 }
 
 // ─────────────────────────────────── Files ───────────────────────────────────

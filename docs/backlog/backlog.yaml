@@ -577,6 +577,7 @@ epics:
     goal: 'معرفی پژوهش‌ها و سوابق مطالعاتی و ثبت سفارش پژوهش.'
     stories:
       - id: ST-09.01
+        status: done
         title: 'مدل ResearchProject، API و صفحات پژوهش'
         sprint: S7
         points: 5

@@ -12,6 +12,7 @@ const ROUTES = [
   '/feasibility',
   '/feasibility/request',
   '/research',
+  '/research/steel-value-chain',
   '/research/request',
   '/investment',
   '/iran-sahamdar',

@@ -2,10 +2,10 @@
  * DEMO ONLY — sample records from the Claude Design handoff (design/claude-design/project/mock-data.js).
  * They let the UI be reviewed before the CMS/catalog APIs exist. Every record is flagged
  * `isDemo: true` and rendered with a «نمونه نمایشی» label. Replace with API repositories
- * (EPIC-09/16); never present these as real projects, courses or research.
- * Articles, knowledge entries and courses now come from the API (demo copies: `pnpm db:seed:demo`).
+ * (EPIC-16); never present these as real projects, courses or research.
+ * Articles, knowledge entries, courses and research now come from the API (demo copies: `pnpm db:seed:demo`).
  */
-import type { DemoEntry, DemoProject, SectorKey } from './types';
+import type { DemoProject, SectorKey } from './types';
 
 export const sectors: { value: 'all' | SectorKey; label: string }[] = [
   { value: 'all', label: 'همه' },
@@ -76,40 +76,5 @@ export const demoProjects: DemoProject[] = [
     location: 'قزوین',
     stage: 'طرح توجیهی',
     service: 'مشاوره پروژه',
-  },
-];
-
-export const demoResearch: DemoEntry[] = [
-  {
-    id: 'r1',
-    isDemo: true,
-    title: 'نمونه: بررسی زنجیره ارزش فولاد',
-    summary: 'مطالعه‌ای نمونه درباره حلقه‌های زنجیره ارزش و گلوگاه‌های آن.',
-    category: 'صنعتی',
-    date: '2026-08-03',
-  },
-  {
-    id: 'r2',
-    isDemo: true,
-    title: 'نمونه: الگوهای تأمین مالی طرح‌های معدنی',
-    summary: 'مرور نمونه روش‌های رایج تأمین مالی در طرح‌های معدنی.',
-    category: 'مالی',
-    date: '2026-07-19',
-  },
-  {
-    id: 'r3',
-    isDemo: true,
-    title: 'نمونه: شاخص‌های توسعه منطقه‌ای',
-    summary: 'چارچوبی نمونه برای سنجش آمادگی مناطق برای سرمایه‌گذاری.',
-    category: 'توسعه‌ای',
-    date: '2026-06-05',
-  },
-  {
-    id: 'r4',
-    isDemo: true,
-    title: 'نمونه: تحلیل بازار مصالح ساختمانی',
-    summary: 'بررسی نمونه عرضه و تقاضا در بازار مصالح.',
-    category: 'اقتصادی',
-    date: '2026-04-29',
   },
 ];

@@ -37,7 +37,50 @@ const categories = {
     ['economics', 'اقتصاد'],
     ['investment', 'سرمایه‌گذاری'],
   ],
+  RESEARCH: [
+    ['industrial', 'صنعتی'],
+    ['financial', 'مالی'],
+    ['development', 'توسعه‌ای'],
+    ['economic', 'اقتصادی'],
+  ],
 } as const;
+
+const research: {
+  slug: string;
+  title: string;
+  summary: string;
+  category: string;
+  publishedAt: string;
+}[] = [
+  {
+    slug: 'demo-steel-value-chain',
+    title: 'نمونه: بررسی زنجیره ارزش فولاد',
+    summary: 'مطالعه‌ای نمونه درباره حلقه‌های زنجیره ارزش و گلوگاه‌های آن.',
+    category: 'industrial',
+    publishedAt: '2026-08-03',
+  },
+  {
+    slug: 'demo-mining-finance-models',
+    title: 'نمونه: الگوهای تأمین مالی طرح‌های معدنی',
+    summary: 'مرور نمونه روش‌های رایج تأمین مالی در طرح‌های معدنی.',
+    category: 'financial',
+    publishedAt: '2026-07-19',
+  },
+  {
+    slug: 'demo-regional-development-index',
+    title: 'نمونه: شاخص‌های توسعه منطقه‌ای',
+    summary: 'چارچوبی نمونه برای سنجش آمادگی مناطق برای سرمایه‌گذاری.',
+    category: 'development',
+    publishedAt: '2026-06-05',
+  },
+  {
+    slug: 'demo-building-materials-market',
+    title: 'نمونه: تحلیل بازار مصالح ساختمانی',
+    summary: 'بررسی نمونه عرضه و تقاضا در بازار مصالح.',
+    category: 'economic',
+    publishedAt: '2026-04-29',
+  },
+];
 
 type Level = 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED';
 
@@ -260,8 +303,28 @@ async function main(): Promise<void> {
         create: { slug: c.slug, ...data },
       });
     }
+    for (const r of research) {
+      const data = {
+        title: r.title,
+        summary: r.summary,
+        body: `${DEMO_NOTE}
+
+## ${r.title}
+
+${r.summary}`,
+        categoryId: categoryId.get(`RESEARCH:${r.category}`),
+        status: 'PUBLISHED' as const,
+        publishedAt: new Date(`${r.publishedAt}T08:00:00Z`),
+        isDemo: true,
+      };
+      await prisma.researchProject.upsert({
+        where: { slug: r.slug },
+        update: data,
+        create: { slug: r.slug, ...data },
+      });
+    }
     console.warn(
-      `Seeded ${entries.length} demo content entries and ${courses.length} demo courses (isDemo=true).`,
+      `Seeded ${entries.length} content entries, ${courses.length} courses and ${research.length} research projects (isDemo=true).`,
     );
   } finally {
     await prisma.$disconnect();
