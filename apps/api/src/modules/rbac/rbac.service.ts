@@ -32,6 +32,19 @@ export class RbacService {
     return rows.map((r) => r.role.key).filter(isRole);
   }
 
+  /** Active users holding a permission through any of their roles (staff notifications). */
+  async userIdsWithPermission(permission: Permission): Promise<string[]> {
+    const rows = await this.prisma.userRole.findMany({
+      where: {
+        user: { status: 'ACTIVE' },
+        role: { permissions: { some: { permission: { key: permission } } } },
+      },
+      select: { userId: true },
+      distinct: ['userId'],
+    });
+    return rows.map((r) => r.userId);
+  }
+
   invalidate(): void {
     this.cache = undefined;
   }

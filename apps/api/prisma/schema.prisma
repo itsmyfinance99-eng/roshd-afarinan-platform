@@ -38,6 +38,7 @@ model User {
   assignedRoles   UserRole[]           @relation("RoleAssigner")
   refreshTokens   RefreshToken[]
   passwordResets  PasswordResetToken[]
+  notifications   Notification[]
   auditLogs       AuditLog[]
   serviceRequests ServiceRequest[]
   files           FileObject[]
@@ -98,6 +99,25 @@ model UserRole {
 
 /// Opaque refresh tokens (only the SHA-256 hash is stored). Tokens of one login share a familyId;
 /// presenting a revoked token revokes the whole family (reuse detection, ADR-0002).
+/// In-app notification of one user (dashboard notification center).
+model Notification {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  userId    String    @db.Uuid
+  /// Event key, e.g. service_request.status_changed.
+  kind      String
+  title     String
+  body      String?
+  /// Site-relative dashboard path, set by the server only.
+  link      String?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt, createdAt])
+  @@map("notifications")
+}
+
 /// One-time password reset link (only the SHA-256 of the token is stored).
 model PasswordResetToken {
   id          String    @id @default(uuid(7)) @db.Uuid
