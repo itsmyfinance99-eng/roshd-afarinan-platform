@@ -85,6 +85,9 @@ Legend: ✅ automated · 🟡 manual · ⬜ not yet covered
 | Search | Only published records; typed hits; all words required; space/ZWNJ equivalence; ranking | Unit + API e2e | ✅ |
 | Search | Type filter; short/invalid queries 400 | API e2e | ✅ |
 | Web | Search results with type links, excerpts, demo labels, empty/short/unavailable states | Playwright | ✅ |
+| CMS | Typed page sections; unknown/malformed sections 400; drafts visible to editors only | API e2e | ✅ |
+| CMS | Page editing 401/403 without `cms:write`; publishing needs `cms:publish` | API e2e | ✅ |
+| Web | About falls back to content layer; page editor prefill, reorder, validation, publish | Playwright | ✅ |
 | Requests | Guest submit + tracking code + notification | API e2e | ✅ |
 | Requests | Honeypot / type-specific validation | Unit + e2e | ✅ |
 | Requests | Owner-only access, stranger gets 404 | API e2e | ✅ |

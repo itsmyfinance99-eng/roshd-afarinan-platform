@@ -18,3 +18,7 @@
 
 - Copy changes need a deploy until the Page-sections migration. This is accepted for the MVP.
 - Articles and knowledge stay separate entities (roadmap §13), which helps future semantic search and RAG.
+
+## Update (ST-03.04): editable institutional pages
+
+Institutional pages are CMS `Page` records made of typed sections (`intro`, `stats`, `list`, `richText`), validated by a discriminated union (unknown section types are rejected, and raw HTML is never rendered). The web renders a published page when one exists and otherwise falls back to the reviewed content layer (`apps/web/src/content/pages.ts`). The dashboard editor starts from those defaults, so the first save moves the copy into the CMS without a deploy. The About page is the first page migrated this way.

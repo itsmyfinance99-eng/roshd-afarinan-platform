@@ -107,6 +107,20 @@ export class CmsAdminController {
     return this.cms.createAuthor(body);
   }
 
+  @Get('pages')
+  @RequirePermissions('cms:write')
+  @ApiOperation({ summary: 'Institutional pages incl. drafts' })
+  pages() {
+    return this.cms.listPagesForEditors();
+  }
+
+  @Get('pages/:slug')
+  @RequirePermissions('cms:write')
+  @ApiOperation({ summary: 'One page incl. draft sections (editors)' })
+  pageForEditors(@ZodParam('slug', slugSchema) slug: string) {
+    return this.cms.getPageForEditors(slug);
+  }
+
   @Put('pages/:slug')
   @RequirePermissions('cms:write')
   @ApiOperation({
