@@ -8,9 +8,11 @@ import {
   coursePriceLabel,
   localCover,
 } from '@/components/courses/course-format';
+import { BuyCourseButton } from '@/components/courses/buy-course';
 import { courseJsonLd, loadCourse } from '@/components/courses/course-pages';
 import { PageIntro } from '@/components/layout/page-shell';
 import { site } from '@/content/site';
+import { getPaymentStatus } from '@/lib/learning-api';
 import { jsonLdScript } from '@/lib/seo';
 
 export const revalidate = 300;
@@ -41,8 +43,13 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
 }
 
 export default async function CoursePage({ params }: { params: Params }) {
-  const course = await loadCourse((await params).slug);
+  const [course, payment] = await Promise.all([
+    loadCourse((await params).slug),
+    getPaymentStatus(),
+  ]);
   const path = `/training/${course.slug}`;
+  const purchasable =
+    payment.ok && payment.data.enabled && !course.isFree && Boolean(course.priceRials);
   const duration = courseDurationLabel(course.durationHours);
   const facts: [string, string][] = [
     ['هزینه', coursePriceLabel(course)],
@@ -101,6 +108,7 @@ export default async function CoursePage({ params }: { params: Params }) {
           <Link href={`${path}/enroll`} className={buttonClasses('primary', 'lg', 'no-underline')}>
             درخواست ثبت‌نام
           </Link>
+          {purchasable ? <BuyCourseButton slug={course.slug} /> : null}
           <p className="text-[13px] leading-relaxed text-ink-5">
             پس از ثبت درخواست، کارشناسان آموزش برای هماهنگی ثبت‌نام با شما تماس می‌گیرند.
           </p>

@@ -39,6 +39,7 @@ model User {
   serviceRequests ServiceRequest[]
   files           FileObject[]
   tickets         Ticket[]
+  orders          Order[]
 
   @@map("users")
 }
@@ -451,6 +452,82 @@ model InvestmentOpportunity {
 
   @@index([status, sector, publishedAt])
   @@map("investment_opportunities")
+}
+
+// ──────────────────────────── Orders & Payments ────────────────────────────
+// Status changes only through the order service; payment success only via server-side verify.
+
+enum OrderStatus {
+  PENDING_PAYMENT
+  PAID
+  CANCELLED
+}
+
+enum OrderItemKind {
+  COURSE
+}
+
+enum PaymentAttemptStatus {
+  INITIATED
+  VERIFIED
+  FAILED
+}
+
+model Order {
+  id         String      @id @default(uuid(7)) @db.Uuid
+  /// Human-readable code shown to the customer, e.g. OR-7K3M9QPD.
+  code       String      @unique
+  userId     String      @db.Uuid
+  status     OrderStatus @default(PENDING_PAYMENT)
+  /// Whole rials, computed on the server from item snapshots.
+  totalRials Decimal     @db.Decimal(20, 0)
+  paidAt     DateTime?
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  user     User             @relation(fields: [userId], references: [id], onDelete: Restrict)
+  items    OrderItem[]
+  attempts PaymentAttempt[]
+
+  @@index([userId, createdAt])
+  @@index([status])
+  @@map("orders")
+}
+
+model OrderItem {
+  id             String        @id @default(uuid(7)) @db.Uuid
+  orderId        String        @db.Uuid
+  kind           OrderItemKind
+  /// Id of the purchased record (e.g. Course.id); title and price are snapshots.
+  referenceId    String        @db.Uuid
+  referenceSlug  String
+  title          String
+  unitPriceRials Decimal       @db.Decimal(20, 0)
+  quantity       Int           @default(1)
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@map("order_items")
+}
+
+model PaymentAttempt {
+  id                String               @id @default(uuid(7)) @db.Uuid
+  orderId           String               @db.Uuid
+  provider          String
+  status            PaymentAttemptStatus @default(INITIATED)
+  amountRials       Decimal              @db.Decimal(20, 0)
+  idempotencyKey    String               @unique
+  providerReference String?              @unique
+  trackingCode      String?
+  cardMask          String?
+  failureReason     String?
+  createdAt         DateTime             @default(now())
+  completedAt       DateTime?
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@map("payment_attempts")
 }
 
 // ─────────────────────────────────── Files ───────────────────────────────────

@@ -20,6 +20,7 @@ import { InvestmentModule } from './modules/investment/investment.module';
 import { IranSahamdarModule } from './modules/iran-sahamdar/iran-sahamdar.module';
 import { LearningModule } from './modules/learning/learning.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
+import { OrdersModule } from './modules/orders/orders.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { PermissionsGuard } from './modules/rbac/permissions.guard';
 import { RbacModule } from './modules/rbac/rbac.module';
@@ -91,6 +92,7 @@ import { HealthModule } from './modules/health/health.module';
     InvestmentModule,
     TicketsModule,
     DashboardModule,
+    OrdersModule,
   ],
   providers: [
     // Guard order matters: rate limit → authenticate (default deny) → authorize.

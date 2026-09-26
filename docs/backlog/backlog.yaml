@@ -503,6 +503,7 @@ epics:
     goal: 'Order و PaymentAttempt با callback idempotent پشت PaymentGateway.'
     stories:
       - id: ST-07.01
+        status: done
         title: 'مدل Order، OrderItem و PaymentAttempt'
         sprint: S6
         points: 5
@@ -512,6 +513,7 @@ epics:
         acceptance:
           - 'هر Order چند PaymentAttempt؛ state machine وضعیت'
       - id: ST-07.02
+        status: done
         title: 'شروع پرداخت و callback idempotent با verify سمت سرور'
         sprint: S6
         points: 8
@@ -561,6 +563,7 @@ epics:
           - 'منوی داشبورد بر اساس نقش'
           - 'ویرایش نام و موبایل با validation'
       - id: ST-08.03
+        status: done
         title: 'درخواست‌ها، تیکت‌ها، فایل‌ها و سفارش‌های من در داشبورد'
         sprint: S7
         points: 5

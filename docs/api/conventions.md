@@ -81,6 +81,8 @@ The API echoes `X-Request-Id` when the client sends one (max 128 safe chars). Ot
 
 Payment callbacks and any endpoint that creates money-moving side effects must be idempotent. Payment callbacks are keyed on the provider reference plus the attempt ID.
 
+`GET /payments/callback/:attemptId` is the gateway return URL. It verifies server-to-server with the reference stored at initiation (never one taken from the query), completes the attempt at most once, and answers with a `303` redirect to `/dashboard/orders/:id?payment=paid|failed`. The `payment` hint is only a message cue for the page, which always reads the order status from the API. Prices are never accepted from clients: orders are priced on the server from published catalog records.
+
 ## OpenAPI
 
 Swagger UI is served at `/docs` (disabled in production unless `SWAGGER_ENABLED=true`). Schemas are generated from Zod (`z.toJSONSchema`).

@@ -77,6 +77,11 @@ Legend: ✅ automated · 🟡 manual · ⬜ not yet covered
 | Admin | Dashboard stats equal live DB counts (requests, open tickets, active users) | API e2e | ✅ |
 | Admin | Each stats section only with its permission; none for users; 401 anonymous | Unit + API e2e | ✅ |
 | Web | Staff stats cards, status breakdown, error + retry; no section or request for users | Playwright | ✅ |
+| Orders | Server-side pricing (client price ignored); free/unpriced/unpublished courses refused | API e2e | ✅ |
+| Payments | Paid only after server verify; cancelled/tampered/forged returns fail; replay is a no-op | Unit + API e2e | ✅ |
+| Payments | Paying or cancelling a paid order 409; payment events audited; paid email sent | API e2e | ✅ |
+| Orders | Stranger 404 on read/pay/cancel; finance reads but cannot act; user 403 on all orders | API e2e | ✅ |
+| Web | Buy button (sign-in first), order page trusts API status, cancel, mock gateway no redirect | Playwright | ✅ |
 | Requests | Guest submit + tracking code + notification | API e2e | ✅ |
 | Requests | Honeypot / type-specific validation | Unit + e2e | ✅ |
 | Requests | Owner-only access, stranger gets 404 | API e2e | ✅ |

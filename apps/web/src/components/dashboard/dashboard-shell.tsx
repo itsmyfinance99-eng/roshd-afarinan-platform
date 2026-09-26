@@ -24,6 +24,7 @@ const NAV: NavItem[] = [
   { href: '/dashboard', label: 'پیشخوان' },
   { href: '/dashboard/requests', label: 'درخواست‌های من' },
   { href: '/dashboard/tickets', label: 'پشتیبانی' },
+  { href: '/dashboard/orders', label: 'سفارش‌های من' },
   { href: '/dashboard/files', label: 'فایل‌های من' },
   { href: '/dashboard/profile', label: 'پروفایل' },
   {

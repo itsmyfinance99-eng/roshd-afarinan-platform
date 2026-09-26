@@ -38,6 +38,11 @@ export const envSchema = z.object({
   COOKIE_SECURE: bool.optional(),
   COOKIE_DOMAIN: z.string().optional(),
 
+  /** Public origin of the web app (payment callbacks and post-payment redirects). */
+  WEB_BASE_URL: z
+    .url({ protocol: /^https?$/ })
+    .transform((v) => v.replace(/\/$/, ''))
+    .default('http://localhost:3000'),
   /** Payment provider (OQ-09). Defaults: mock outside production, disabled in production. */
   PAYMENT_PROVIDER: z.enum(['disabled', 'mock']).optional(),
   STORAGE_DRIVER: z.enum(['local']).default('local'),

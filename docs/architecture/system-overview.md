@@ -62,7 +62,7 @@ infra/            docker, nginx, scripts, ci
 | `files`                                                                       | Implemented (local private storage, signed URLs) |
 | `service-requests` (contact, feasibility request, research order, consulting) | Implemented (request intake only)                |
 | `tickets`                                                                     | Implemented (basic)                              |
-| `orders`, `payments`                                                          | Order + PaymentAttempt + mock gateway            |
+| `orders`, `payments`                                                          | Implemented (mock gateway until OQ-09)           |
 | `learning`                                                                    | Implemented (catalog + editorial API)            |
 | `research`                                                                    | Implemented (portfolio + editorial API)          |
 | `investment`                                                                  | Implemented (presentation only, no transactions) |
