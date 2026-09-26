@@ -51,6 +51,7 @@
     "@nestjs/testing": "^11.2.6",
     "@roshd/eslint-config": "workspace:*",
     "@roshd/tsconfig": "workspace:*",
+    "@swc/cli": "^0.8.1",
     "@swc/core": "^1.16.2",
     "@types/cookie-parser": "^1.4.10",
     "@types/express": "^5.0.6",
