@@ -16,7 +16,8 @@ export function pageMetadata({
 }): Metadata {
   const desc = description ?? site.description;
   return {
-    title,
+    // Omitted rather than undefined, so pages without a title keep the layout's default <title>.
+    ...(title ? { title } : {}),
     description: desc,
     alternates: { canonical: path },
     openGraph: {
