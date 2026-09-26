@@ -92,11 +92,11 @@ test.describe('assignment', () => {
     await page.goto('/dashboard/manage/requests/r1');
     const submit = page.getByRole('button', { name: 'ثبت ارجاع' });
     await expect(submit).toBeDisabled();
-    await page.getByLabel('کارشناس').selectOption({ label: 'نرگس کارشناس' });
+    await page.getByLabel('کارشناس', { exact: true }).selectOption({ label: 'نرگس کارشناس' });
     await submit.click();
     await expect(page.getByText('ارجاع ثبت شد.')).toBeVisible();
     expect(sent).toEqual({ assigneeId: 'u2' });
-    await expect(page.getByLabel('کارشناس')).toHaveValue('u2');
+    await expect(page.getByLabel('کارشناس', { exact: true })).toHaveValue('u2');
   });
 
   test('the "assigned to me" filter narrows the request queue', async ({ page }) => {
@@ -152,8 +152,8 @@ test.describe('assignment', () => {
     });
 
     await page.goto('/dashboard/manage/tickets/t1');
-    await expect(page.getByLabel('کارشناس')).toHaveValue('u2');
-    await page.getByLabel('کارشناس').selectOption({ label: 'بدون ارجاع' });
+    await expect(page.getByLabel('کارشناس', { exact: true })).toHaveValue('u2');
+    await page.getByLabel('کارشناس', { exact: true }).selectOption({ label: 'بدون ارجاع' });
     await page.getByRole('button', { name: 'ثبت ارجاع' }).click();
     await expect(page.getByText('کارشناس این تیکت هم‌زمان تغییر کرده است.')).toBeVisible();
     expect(sent).toEqual({ assigneeId: null });
