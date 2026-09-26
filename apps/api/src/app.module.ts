@@ -11,6 +11,7 @@ import { AuditLogModule } from './modules/audit/audit-log.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { CmsModule } from './modules/cms/cms.module';
 import { AuthGuard } from './modules/auth/auth.guard';
+import { isInternalRequest } from './common/http/internal-request';
 import { skipUnlessStrictThrottled } from './common/http/strict-rate-limit';
 import { AuthModule } from './modules/auth/auth.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
@@ -63,12 +64,19 @@ import { HealthModule } from './modules/health/health.module';
       inject: [APP_CONFIG],
       useFactory: (config: AppConfig) => ({
         throttlers: [
-          { name: 'default', ttl: config.THROTTLE_TTL_MS, limit: config.THROTTLE_LIMIT },
+          {
+            name: 'default',
+            ttl: config.THROTTLE_TTL_MS,
+            limit: config.THROTTLE_LIMIT,
+            skipIf: (context) => isInternalRequest(context, config.INTERNAL_API_TOKEN),
+          },
           {
             name: 'strict',
             ttl: config.THROTTLE_TTL_MS,
             limit: config.AUTH_THROTTLE_LIMIT,
-            skipIf: skipUnlessStrictThrottled,
+            skipIf: (context) =>
+              skipUnlessStrictThrottled(context) ||
+              isInternalRequest(context, config.INTERNAL_API_TOKEN),
           },
         ],
       }),

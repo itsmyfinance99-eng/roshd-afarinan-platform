@@ -16,7 +16,13 @@ export function configureApp(app: INestApplication): AppConfig {
   const config = app.get<AppConfig>(APP_CONFIG);
   const express = app as NestExpressApplication;
 
-  app.useLogger(app.get(Logger));
+  const logger = app.get(Logger);
+  app.useLogger(logger);
+  if (config.NODE_ENV === 'production' && config.TRUST_PROXY === 0) {
+    logger.warn(
+      'TRUST_PROXY=0 in production: behind a reverse proxy every visitor shares one IP for rate limits and audit logs (see infra/nginx/README.md).',
+    );
+  }
   express.set('trust proxy', config.TRUST_PROXY);
   express.disable('x-powered-by');
   express.useBodyParser('json', { limit: '1mb' });

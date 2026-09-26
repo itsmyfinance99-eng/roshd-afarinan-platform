@@ -59,6 +59,16 @@ describe('loadConfig', () => {
     expect(loadConfig({ ...BASE, NODE_ENV: 'production' }).cookieSecure).toBe(true);
   });
 
+  it('requires a long internal API token when one is set', () => {
+    expect(() => loadConfig({ ...BASE, INTERNAL_API_TOKEN: 'short' })).toThrow(
+      ConfigValidationError,
+    );
+    expect(
+      loadConfig({ ...BASE, INTERNAL_API_TOKEN: 'x'.repeat(32) }).INTERNAL_API_TOKEN,
+    ).toHaveLength(32);
+    expect(loadConfig(BASE).INTERNAL_API_TOKEN).toBeUndefined();
+  });
+
   it('never allows the mock payment gateway in production', () => {
     expect(loadConfig(BASE).PAYMENT_PROVIDER).toBe('mock');
     expect(loadConfig({ ...BASE, NODE_ENV: 'production' }).PAYMENT_PROVIDER).toBe('disabled');

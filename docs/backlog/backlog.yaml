@@ -957,6 +957,7 @@ epics:
     goal: 'رفع یافته‌های audit فاز ۱ و ساخت قابلیت‌های لازم برای اداره واقعی سایت، پیش از انتشار v0.2.0.'
     stories:
       - id: ST-25.01
+        status: done
         title: 'IP واقعی کاربر و rate limit پشت proxy'
         sprint: S9
         points: 5
