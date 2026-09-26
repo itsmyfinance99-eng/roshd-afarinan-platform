@@ -58,6 +58,10 @@ Legend: ✅ automated · 🟡 manual · ⬜ not yet covered
 | Admin | Export filters (type, status, Iran-time day range) shared with the staff list; audited | Unit + API e2e | ✅ |
 | Admin | Export 401 anonymous, 403 for user/editor/finance, no audit on denial | API e2e | ✅ |
 | Web | Export downloads the file, shows row count/errors, hidden without permission | Playwright | ✅ |
+| Admin | User search by name/email/Persian-digit mobile and role filter | API e2e | ✅ |
+| Admin | Support/editor/finance/expert 403 on user list and role changes; anonymous 401 | API e2e | ✅ |
+| Web | Role editor: shared policy locks own account, admin roles and `user`; server errors shown | Playwright | ✅ |
+| Web | User management hidden without `users:read`; read-only without `users:manage-roles` | Playwright | ✅ |
 | Requests | Guest submit + tracking code + notification | API e2e | ✅ |
 | Requests | Honeypot / type-specific validation | Unit + e2e | ✅ |
 | Requests | Owner-only access, stranger gets 404 | API e2e | ✅ |

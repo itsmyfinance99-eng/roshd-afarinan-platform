@@ -103,4 +103,43 @@ describe('RBAC (e2e)', () => {
     expect(res.body.meta.total).toBeGreaterThanOrEqual(2);
     expect(res.body.data[0].passwordHash).toBeUndefined();
   });
+
+  it('searches users by name, email or a mobile typed with Persian digits, and by role', async () => {
+    const admin = await registerUser(app, ['admin']);
+    const target = await registerUser(app, ['expert']);
+    const mobile = `0912${String(Date.now()).slice(-7)}`;
+    await app.get(PrismaService).user.update({ where: { id: target.id }, data: { mobile } });
+    const persian = mobile.replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[Number(d)] ?? d);
+
+    const byMobile = await http()
+      .get(`/api/v1/users?q=${encodeURIComponent(persian)}`)
+      .set(auth(admin.token))
+      .expect(200);
+    expect(byMobile.body.data.map((u: { id: string }) => u.id)).toEqual([target.id]);
+
+    const byEmail = await http()
+      .get(`/api/v1/users?q=${encodeURIComponent(target.email)}&role=expert`)
+      .set(auth(admin.token))
+      .expect(200);
+    expect(byEmail.body.data).toHaveLength(1);
+    const wrongRole = await http()
+      .get(`/api/v1/users?q=${encodeURIComponent(target.email)}&role=finance`)
+      .set(auth(admin.token))
+      .expect(200);
+    expect(wrongRole.body.data).toHaveLength(0);
+  });
+
+  it('keeps user management closed to staff roles without user permissions', async () => {
+    const target = await registerUser(app);
+    for (const roles of [['support'], ['editor'], ['finance'], ['expert']] as const) {
+      const staff = await registerUser(app, [...roles]);
+      await http().get('/api/v1/users').set(auth(staff.token)).expect(403);
+      await http()
+        .put(`/api/v1/users/${target.id}/roles`)
+        .set(auth(staff.token))
+        .send({ roles: ['user', 'support'] })
+        .expect(403);
+    }
+    await http().get('/api/v1/users').expect(401);
+  });
 });
