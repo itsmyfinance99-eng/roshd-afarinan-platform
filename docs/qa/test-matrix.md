@@ -34,9 +34,10 @@ Automated suites: unit (Vitest), API e2e (Vitest + Supertest against a real Post
 
 ## Rate limit
 
-| Scenario            | Level   | Status |
-| ------------------- | ------- | ------ |
-| Login throttled 429 | API e2e | ✅     |
+| Scenario                                                                                                                         | Level   | Status |
+| -------------------------------------------------------------------------------------------------------------------------------- | ------- | ------ |
+| Login throttled 429                                                                                                              | API e2e | ✅     |
+| Per-visitor buckets behind a proxy; forged X-Forwarded-For ignored; SSR reads exempt by token, mutations never; real IP in audit | API e2e | ✅     |
 
 ## Audit
 

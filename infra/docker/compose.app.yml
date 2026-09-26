@@ -1,6 +1,8 @@
 # Full stack in containers (production-like, for local verification and staging).
 # From the repository root:
-#   JWT_ACCESS_SECRET=... FILE_URL_SECRET=... docker compose -f infra/docker/compose.app.yml up --build
+#   JWT_ACCESS_SECRET=... FILE_URL_SECRET=... INTERNAL_API_TOKEN=... \
+#     docker compose -f infra/docker/compose.app.yml up --build   # site on http://localhost:8080
+# nginx (proxy) is the only public entry; see infra/nginx/README.md for the client-IP setup.
 # Secrets are required variables; nothing secret is baked into an image.
 name: roshd-afarinan-app
 
@@ -42,8 +44,10 @@ services:
       DATABASE_URL: postgresql://roshd:${POSTGRES_PASSWORD:-roshd_app_password}@postgres:5432/roshd
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?set JWT_ACCESS_SECRET (openssl rand -base64 48)}
       FILE_URL_SECRET: ${FILE_URL_SECRET:?set FILE_URL_SECRET (openssl rand -base64 48)}
-      WEB_BASE_URL: ${WEB_BASE_URL:-http://localhost:3000}
-      TRUST_PROXY: ${TRUST_PROXY:-0}
+      WEB_BASE_URL: ${WEB_BASE_URL:-http://localhost:8080}
+      # nginx is the only hop in front of the API (see infra/nginx/README.md).
+      TRUST_PROXY: 1
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:?set INTERNAL_API_TOKEN (openssl rand -base64 48)}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
     volumes:
       - app-storage:/app/storage
@@ -57,12 +61,24 @@ services:
       dockerfile: apps/web/Dockerfile
       args:
         API_INTERNAL_URL: http://api:4000
-        NEXT_PUBLIC_SITE_URL: ${WEB_BASE_URL:-http://localhost:3000}
+        NEXT_PUBLIC_SITE_URL: ${WEB_BASE_URL:-http://localhost:8080}
     restart: unless-stopped
-    ports:
-      - '3000:3000'
+    environment:
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:?set INTERNAL_API_TOKEN (openssl rand -base64 48)}
     depends_on:
       - api
+
+  # Only public entry point: routes /api/ to the API and the rest to the web app.
+  proxy:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    ports:
+      - '8080:80'
+    volumes:
+      - ../nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - api
+      - web
 
 volumes:
   app-postgres:

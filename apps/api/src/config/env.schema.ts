@@ -19,9 +19,18 @@ export const envSchema = z.object({
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
   /** Comma-separated origins allowed for CORS (non-browser/mobile clients). Web uses same-origin rewrites. */
   CORS_ORIGINS: csv.default([]),
-  /** Express "trust proxy" setting; set to the number of proxies (e.g. 1 behind nginx). */
+  /**
+   * Express "trust proxy": the number of proxies in front of the API that append to
+   * X-Forwarded-For. Use 1 behind nginx (see infra/nginx). With 0 every visitor looks like the
+   * proxy, so rate limits and audit IPs become site-wide.
+   */
   TRUST_PROXY: z.coerce.number().int().min(0).max(10).default(0),
   SWAGGER_ENABLED: bool.optional(),
+  /**
+   * Shared secret sent by the web server on server-side reads (header x-internal-token) so
+   * rendering is not throttled as one visitor (≥ 32 chars; same value in the web app).
+   */
+  INTERNAL_API_TOKEN: z.string().min(32, { error: 'must be at least 32 characters' }).optional(),
   DATABASE_URL: z
     .string()
     .regex(/^postgres(ql)?:\/\//, { error: 'must be a postgresql:// connection string' }),

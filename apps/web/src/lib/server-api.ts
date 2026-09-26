@@ -6,6 +6,15 @@ import { apiInternalUrl } from './env';
 export type ServerResult<T> = { ok: true; data: T; meta?: ApiMeta } | { ok: false; status: number };
 
 /**
+ * Server-side reads all leave from this one server; the shared token keeps them out of the
+ * public per-visitor rate limit (INTERNAL_API_TOKEN, same value as the API).
+ */
+const internalHeaders: Record<string, string> = {
+  Accept: 'application/json',
+  ...(process.env.INTERNAL_API_TOKEN ? { 'x-internal-token': process.env.INTERNAL_API_TOKEN } : {}),
+};
+
+/**
  * Server-side GET to the API (server components). Never throws: an unreachable API
  * yields `{ ok: false, status: 0 }` so pages render an error/empty state instead of failing.
  */
@@ -15,7 +24,7 @@ export async function serverGet<T>(
 ): Promise<ServerResult<T>> {
   try {
     const response = await fetch(`${apiInternalUrl}/api/v1${path}`, {
-      headers: { Accept: 'application/json' },
+      headers: internalHeaders,
       next: { revalidate: options.revalidate ?? 60, tags: options.tags },
       signal: AbortSignal.timeout(5_000),
     });
