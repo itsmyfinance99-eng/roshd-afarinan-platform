@@ -148,9 +148,10 @@ Automated suites: unit (Vitest), API e2e (Vitest + Supertest against a real Post
 
 ## Infra
 
-| Scenario                                                                                 | Level             | Status |
-| ---------------------------------------------------------------------------------------- | ----------------- | ------ |
-| API and web images build in CI (multi-stage, non-root); migrate image applies migrations | CI + manual smoke | ✅     |
+| Scenario                                                                                           | Level             | Status |
+| -------------------------------------------------------------------------------------------------- | ----------------- | ------ |
+| API and web images build in CI (multi-stage, non-root); migrate image applies migrations           | CI + manual smoke | ✅     |
+| Backup + restore drill: counts match, non-empty target refused, corrupted dump refused by checksum | Manual drill      | 🟡     |
 
 ## Web
 

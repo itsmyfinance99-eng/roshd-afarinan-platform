@@ -47,3 +47,7 @@ Thumbs.db
 
 # claude local settings
 .claude/settings.local.json
+
+# local backups (infra/backup)
+infra/docker/backups/
+backups/
