@@ -1,2 +1,8 @@
-/** The role-assignment policy lives in @roshd/types so the dashboard shares it. */
-export { decideRoleAssignment, normaliseRoles, type RoleAssignmentDecision } from '@roshd/types';
+/** The role and status policies live in @roshd/types so the dashboard shares them. */
+export {
+  decideRoleAssignment,
+  decideStatusChange,
+  normaliseRoles,
+  type RoleAssignmentDecision,
+  type StatusChangeDecision,
+} from '@roshd/types';

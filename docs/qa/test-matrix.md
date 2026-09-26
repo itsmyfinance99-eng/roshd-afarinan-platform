@@ -26,11 +26,14 @@ Automated suites: unit (Vitest), API e2e (Vitest + Supertest against a real Post
 
 ## RBAC
 
-| Scenario                                  | Level      | Status |
-| ----------------------------------------- | ---------- | ------ |
-| User cannot change roles 403              | API e2e    | ✅     |
-| Admin cannot grant admin; super_admin can | API e2e    | ✅     |
-| Self role change forbidden                | Unit + e2e | ✅     |
+| Scenario                                                                                                      | Level          | Status |
+| ------------------------------------------------------------------------------------------------------------- | -------------- | ------ |
+| User cannot change roles 403                                                                                  | API e2e        | ✅     |
+| Admin cannot grant admin; super_admin can                                                                     | API e2e        | ✅     |
+| Self role change forbidden                                                                                    | Unit + e2e     | ✅     |
+| Suspension: immediate sign-out, login refused, old sessions stay dead after reactivation, audited with reason | API e2e        | ✅     |
+| Suspension policy: no self, admin accounts need super_admin; 401/403 without users:manage-roles               | Unit + API e2e | ✅     |
+| Web: suspend with reason and reactivate; control hidden for own/admin accounts                                | Playwright     | ✅     |
 
 ## Rate limit
 

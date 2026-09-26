@@ -38,7 +38,7 @@ async function mockUsers(page: Page, items: unknown[], onQuery?: (url: URL) => v
   });
 }
 
-const editButton = (page: Page) => page.getByRole('button', { name: 'ویرایش نقش‌ها' });
+const editButton = (page: Page) => page.getByRole('button', { name: 'مدیریت حساب' });
 
 test.describe('user management', () => {
   test('an admin changes a role; admin roles stay locked without super_admin', async ({ page }) => {
@@ -80,9 +80,9 @@ test.describe('user management', () => {
     ]);
     await page.goto('/dashboard/manage/users');
     const row = (name: string) => page.getByRole('listitem').filter({ hasText: name });
-    await row('مدیر سامانه').getByRole('button', { name: 'ویرایش نقش‌ها' }).click();
+    await row('مدیر سامانه').getByRole('button', { name: 'مدیریت حساب' }).click();
     await expect(page.getByText('نقش‌های حساب خودتان را نمی‌توانید تغییر دهید.')).toBeVisible();
-    await row('مدیر دیگر').getByRole('button', { name: 'ویرایش نقش‌ها' }).click();
+    await row('مدیر دیگر').getByRole('button', { name: 'مدیریت حساب' }).click();
     await expect(
       page.getByText('تغییر نقش‌های این حساب فقط با دسترسی مدیر ارشد ممکن است.'),
     ).toBeVisible();
@@ -129,6 +129,62 @@ test.describe('user management', () => {
     await page.goto('/dashboard/manage/users');
     await expect(page.getByText('کاربر نمونه')).toBeVisible();
     await expect(editButton(page)).toHaveCount(0);
+  });
+
+  test('an admin suspends an account with a reason and can reactivate it', async ({ page }) => {
+    await signIn(page, ADMIN_PERMISSIONS, ['admin', 'user']);
+    let status = 'ACTIVE';
+    const bodies: unknown[] = [];
+    await page.route('**/api/v1/users?*', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: envelope([{ ...user('u6', 'کاربر متخلف', ['user']), status }], 1),
+      }),
+    );
+    await page.route('**/api/v1/users/u6/status', async (route) => {
+      const body = route.request().postDataJSON() as { status: string };
+      bodies.push(body);
+      status = body.status;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: envelope({ ...user('u6', 'کاربر متخلف', ['user']), status }),
+      });
+    });
+
+    await page.goto('/dashboard/manage/users');
+    await editButton(page).click();
+    await page.getByLabel(/دلیل تعلیق/).fill('ارسال پیام‌های نامرتبط');
+    await page.getByRole('button', { name: 'تعلیق حساب' }).click();
+    await expect(page.getByText('حساب تعلیق شد.')).toBeVisible();
+    await expect(page.getByText('تعلیق‌شده').first()).toBeVisible();
+    await page.getByRole('button', { name: 'فعال‌سازی حساب' }).click();
+    await expect(page.getByText('حساب فعال شد.')).toBeVisible();
+    expect(bodies).toEqual([
+      { status: 'SUSPENDED', reason: 'ارسال پیام‌های نامرتبط' },
+      { status: 'ACTIVE' },
+    ]);
+  });
+
+  test('status control is hidden for your own and, without super_admin, admin accounts', async ({
+    page,
+  }) => {
+    await signIn(page, ADMIN_PERMISSIONS, ['admin', 'user']);
+    await mockUsers(page, [
+      user('me', 'مدیر سامانه', ['admin', 'user']),
+      user('u7', 'مدیر دیگر', ['admin', 'user']),
+    ]);
+    await page.goto('/dashboard/manage/users');
+    for (const name of ['مدیر سامانه', 'مدیر دیگر']) {
+      await page
+        .getByRole('listitem')
+        .filter({ hasText: name })
+        .getByRole('button', { name: /مدیریت حساب|بستن/ })
+        .first()
+        .click();
+    }
+    await expect(page.getByRole('button', { name: 'تعلیق حساب' })).toHaveCount(0);
   });
 
   test('users without users:read see neither the menu item nor the page', async ({ page }) => {

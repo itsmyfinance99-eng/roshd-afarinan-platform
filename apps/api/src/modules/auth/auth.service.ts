@@ -133,11 +133,18 @@ export class AuthService {
     }
     if (record.expiresAt <= new Date()) throw new UnauthenticatedError(INVALID_SESSION);
 
-    const user = await this.users.findById(record.userId);
-    if (user.status !== 'ACTIVE') {
+    const account = await this.users.findCredentialsById(record.userId);
+    // Suspended accounts, and sessions older than a revocation (password change or reset,
+    // sign out everywhere, suspension), never come back, even after reactivation.
+    if (
+      !account ||
+      account.status !== 'ACTIVE' ||
+      (account.sessionsRevokedAt !== null && record.createdAt <= account.sessionsRevokedAt)
+    ) {
       await this.revokeFamily(record.familyId);
       throw new UnauthenticatedError(INVALID_SESSION);
     }
+    const user = await this.users.findById(record.userId);
 
     const next = this.newRefreshToken();
     const nextId = randomUUID();

@@ -4,9 +4,11 @@ import {
   assignRolesSchema,
   idSchema,
   listUsersQuerySchema,
+  setUserStatusSchema,
   updateProfileSchema,
   type AssignRolesInput,
   type ListUsersQuery,
+  type SetUserStatusInput,
   type UpdateProfileInput,
 } from '@roshd/validation';
 import type { PageResult } from '../../common/http/page-result';
@@ -41,6 +43,20 @@ export class UsersController {
   @ApiOperation({ summary: 'List users (admin)' })
   list(@ZodQuery(listUsersQuerySchema) query: ListUsersQuery): Promise<PageResult<UserView>> {
     return this.users.list(query);
+  }
+
+  @Patch(':id/status')
+  @RequirePermissions('users:manage-roles')
+  @ApiOperation({
+    summary: 'Suspend or reactivate an account (admins; admin accounts need super_admin)',
+  })
+  setStatus(
+    @CurrentUser() actor: Principal,
+    @ZodParam('id', idSchema) id: string,
+    @ZodBody(setUserStatusSchema) body: SetUserStatusInput,
+    @Meta() meta: RequestMeta,
+  ): Promise<UserView> {
+    return this.users.setStatus(actor, id, body, meta);
   }
 
   @Put(':id/roles')
