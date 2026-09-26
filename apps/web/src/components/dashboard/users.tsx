@@ -2,6 +2,7 @@
 
 import {
   decideRoleAssignment,
+  decideStatusChange,
   normaliseRoles,
   PRIVILEGED_ROLES,
   ROLE_LABELS_FA,
@@ -157,6 +158,88 @@ function RoleEditor({ user, onSaved }: { user: UserItem; onSaved: () => void }) 
   );
 }
 
+/**
+ * Suspend or reactivate an account. The shared policy disables what the API would refuse
+ * (own account; admin accounts without super_admin). Suspension ends every session at once.
+ */
+function StatusControl({ user, onSaved }: { user: UserItem; onSaved: () => void }) {
+  const me = useMe();
+  const uid = useId();
+  const [reason, setReason] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  const decision = decideStatusChange({
+    actorId: me.id,
+    actorRoles: me.roles,
+    targetId: user.id,
+    targetRoles: user.roles,
+  });
+  if (!decision.allowed) return null;
+
+  const suspended = user.status === 'SUSPENDED';
+  const submit = async () => {
+    setBusy(true);
+    setMessage(null);
+    const result = await apiFetch<UserItem>(`/users/${user.id}/status`, {
+      method: 'PATCH',
+      body: suspended
+        ? { status: 'ACTIVE' }
+        : { status: 'SUSPENDED', ...(reason.trim() ? { reason: reason.trim() } : {}) },
+    });
+    setBusy(false);
+    if (result.ok) {
+      setReason('');
+      setMessage({ ok: true, text: suspended ? 'حساب فعال شد.' : 'حساب تعلیق شد.' });
+      onSaved();
+    } else {
+      setMessage({ ok: false, text: result.message });
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-3 rounded-card border border-line p-4">
+      <p className="text-sm font-bold text-ink-2">وضعیت حساب</p>
+      {suspended ? (
+        <p className="text-sm text-ink-4">این حساب تعلیق شده است و امکان ورود ندارد.</p>
+      ) : (
+        <>
+          <p className="text-[13px] text-ink-5">
+            با تعلیق، کاربر فوراً از همه دستگاه‌ها خارج می‌شود و تا فعال‌سازی دوباره نمی‌تواند وارد
+            شود.
+          </p>
+          <label htmlFor={`${uid}-reason`} className="flex flex-col gap-1 text-sm">
+            دلیل تعلیق (در گزارش رویدادها ثبت می‌شود)
+            <input
+              id={`${uid}-reason`}
+              value={reason}
+              maxLength={500}
+              onChange={(e) => setReason(e.target.value)}
+              className="h-10 rounded-control border border-line-strong px-3 text-sm"
+            />
+          </label>
+        </>
+      )}
+      <div>
+        <Button
+          size="sm"
+          variant={suspended ? 'primary' : 'outline'}
+          disabled={busy}
+          onClick={() => void submit()}
+        >
+          {busy ? 'در حال ذخیره…' : suspended ? 'فعال‌سازی حساب' : 'تعلیق حساب'}
+        </Button>
+      </div>
+      {message ? (
+        message.ok ? (
+          <SuccessMessage>{message.text}</SuccessMessage>
+        ) : (
+          <ErrorMessage>{message.text}</ErrorMessage>
+        )
+      ) : null}
+    </div>
+  );
+}
+
 export function UserList({ items, onChanged }: { items: UserItem[]; onChanged: () => void }) {
   const canManage = useCan('users:manage-roles');
   const [open, setOpen] = useState<string | null>(null);
@@ -197,11 +280,16 @@ export function UserList({ items, onChanged }: { items: UserItem[]; onChanged: (
                 aria-expanded={open === user.id}
                 onClick={() => setOpen(open === user.id ? null : user.id)}
               >
-                {open === user.id ? 'بستن' : 'ویرایش نقش‌ها'}
+                {open === user.id ? 'بستن' : 'مدیریت حساب'}
               </Button>
             </div>
           ) : null}
-          {canManage && open === user.id ? <RoleEditor user={user} onSaved={onChanged} /> : null}
+          {canManage && open === user.id ? (
+            <>
+              <RoleEditor user={user} onSaved={onChanged} />
+              <StatusControl user={user} onSaved={onChanged} />
+            </>
+          ) : null}
         </li>
       ))}
     </ul>

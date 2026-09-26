@@ -30,6 +30,27 @@ export function decideRoleAssignment(input: {
   return { allowed: true };
 }
 
+export type StatusChangeDecision =
+  { allowed: true } | { allowed: false; reason: 'self' | 'privileged' };
+
+/**
+ * Pure policy for suspending or reactivating an account: nobody changes their own status, and
+ * only a super_admin may change the status of an admin or super_admin account.
+ */
+export function decideStatusChange(input: {
+  actorId: string;
+  actorRoles: readonly Role[];
+  targetId: string;
+  targetRoles: readonly Role[];
+}): StatusChangeDecision {
+  if (input.actorId === input.targetId) return { allowed: false, reason: 'self' };
+  const privileged = input.targetRoles.some((r) => PRIVILEGED_ROLES.includes(r));
+  if (privileged && !input.actorRoles.includes('super_admin')) {
+    return { allowed: false, reason: 'privileged' };
+  }
+  return { allowed: true };
+}
+
 /** Normalises a requested role set: unique, always includes `user`, never `guest`. */
 export function normaliseRoles(roles: readonly Role[]): Role[] {
   const set = new Set<Role>(roles.filter((r) => r !== 'guest'));

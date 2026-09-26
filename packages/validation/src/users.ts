@@ -22,6 +22,21 @@ export const listUsersQuerySchema = paginationQuerySchema.extend({
   role: roleSchema.optional(),
 });
 
+export const USER_STATUSES = ['ACTIVE', 'SUSPENDED'] as const;
+export type UserStatus = (typeof USER_STATUSES)[number];
+
+export const USER_STATUS_LABELS_FA: Record<UserStatus, string> = {
+  ACTIVE: 'فعال',
+  SUSPENDED: 'تعلیق‌شده',
+};
+
+export const setUserStatusSchema = z.object({
+  status: z.enum(USER_STATUSES),
+  /** Why the account is suspended; kept in the audit log. */
+  reason: z.string().trim().max(500).optional(),
+});
+
 export type AssignRolesInput = z.infer<typeof assignRolesSchema>;
+export type SetUserStatusInput = z.infer<typeof setUserStatusSchema>;
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
 export type ListUsersQuery = z.infer<typeof listUsersQuerySchema>;

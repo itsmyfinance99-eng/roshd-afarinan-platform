@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ROLES, type Role } from '@roshd/types';
-import type { ListUsersQuery, UpdateProfileInput } from '@roshd/validation';
+import type { ListUsersQuery, SetUserStatusInput, UpdateProfileInput } from '@roshd/validation';
 import { ConflictError, ForbiddenError, NotFoundError } from '../../common/errors/app-exception';
 import { PageResult } from '../../common/http/page-result';
 import type { RequestMeta } from '../../common/http/request-meta';
@@ -9,7 +9,11 @@ import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../database/prisma.service';
 import type { Principal } from '../rbac/principal';
 import { RbacService } from '../rbac/rbac.service';
-import { decideRoleAssignment, normaliseRoles } from '../rbac/role-assignment.policy';
+import {
+  decideRoleAssignment,
+  decideStatusChange,
+  normaliseRoles,
+} from '../rbac/role-assignment.policy';
 
 /** Public shape of a user. Never includes the password hash. */
 export interface UserView {
@@ -152,7 +156,13 @@ export class UsersService {
   findCredentialsById(id: string) {
     return this.prisma.user.findUnique({
       where: { id },
-      select: { id: true, email: true, passwordHash: true, status: true },
+      select: {
+        id: true,
+        email: true,
+        passwordHash: true,
+        status: true,
+        sessionsRevokedAt: true,
+      },
     });
   }
 
@@ -203,6 +213,51 @@ export class UsersService {
   }
 
   /** Replaces a user's roles according to the role-assignment policy; audited. */
+  /**
+   * Suspends or reactivates an account. Suspension ends every session immediately (access
+   * tokens via sessionsRevokedAt; refresh tokens issued before it are refused by AuthService).
+   */
+  async setStatus(
+    actor: Principal,
+    targetId: string,
+    input: SetUserStatusInput,
+    meta: RequestMeta,
+  ): Promise<UserView> {
+    const target = await this.findById(targetId);
+    const decision = decideStatusChange({
+      actorId: actor.userId,
+      actorRoles: actor.roles,
+      targetId,
+      targetRoles: target.roles,
+    });
+    if (!decision.allowed) {
+      throw new ForbiddenError(
+        decision.reason === 'self'
+          ? 'امکان تغییر وضعیت حساب خودتان وجود ندارد.'
+          : 'برای تغییر وضعیت حساب مدیران، دسترسی مدیر ارشد لازم است.',
+      );
+    }
+    if (target.status === input.status) return target;
+
+    const row = await this.prisma.user.update({
+      where: { id: targetId },
+      data: {
+        status: input.status,
+        ...(input.status === 'SUSPENDED' ? { sessionsRevokedAt: new Date() } : {}),
+      },
+      select: USER_SELECT,
+    });
+    await this.audit.record({
+      action: 'users.status_changed',
+      actorId: actor.userId,
+      entityType: 'user',
+      entityId: targetId,
+      metadata: { from: target.status, to: input.status, reason: input.reason ?? null },
+      meta,
+    });
+    return toView(row);
+  }
+
   async setRoles(
     actor: Principal,
     targetId: string,
