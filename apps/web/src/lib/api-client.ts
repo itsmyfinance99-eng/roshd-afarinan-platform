@@ -90,3 +90,61 @@ export async function apiFetch<T>(
     details: error?.details ?? [],
   };
 }
+
+export type DownloadResult =
+  | { ok: true; blob: Blob; fileName: string; rows: number | null }
+  | { ok: false; status: number; message: string };
+
+/** File name from `Content-Disposition` (plain `filename="…"` form used by the API). */
+function fileNameOf(response: Response, fallback: string): string {
+  const match = /filename="([^"]+)"/.exec(response.headers.get('Content-Disposition') ?? '');
+  return match?.[1] ?? fallback;
+}
+
+/**
+ * GET a file (e.g. a CSV export) with the same session refresh as `apiFetch`; errors still
+ * arrive as the JSON envelope and are mapped to a Persian message.
+ */
+export async function apiDownload(
+  path: string,
+  fallbackName = 'download',
+): Promise<DownloadResult> {
+  let response: Response;
+  try {
+    response = await send(path, 'GET', undefined);
+    if (response.status === 401 && (await refreshSession())) {
+      response = await send(path, 'GET', undefined);
+    }
+  } catch {
+    return { ok: false, status: 0, message: NETWORK_MESSAGE };
+  }
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => undefined)) as ApiError | undefined;
+    const code: ErrorCode =
+      payload?.error?.code ?? (response.status >= 500 ? 'INTERNAL_ERROR' : 'BAD_REQUEST');
+    return {
+      ok: false,
+      status: response.status,
+      message: payload?.error?.message ?? ERROR_MESSAGES_FA[code],
+    };
+  }
+  const rows = Number(response.headers.get('X-Export-Rows'));
+  return {
+    ok: true,
+    blob: await response.blob(),
+    fileName: fileNameOf(response, fallbackName),
+    rows: Number.isFinite(rows) && response.headers.has('X-Export-Rows') ? rows : null,
+  };
+}
+
+/** Hands a downloaded blob to the browser as a file. */
+export function saveBlob(blob: Blob, fileName: string): void {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = fileName;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+}

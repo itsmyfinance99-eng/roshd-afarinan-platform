@@ -877,6 +877,7 @@ epics:
     goal: 'ابزارهای مدیریتی داشبورد با کنترل دسترسی مبتنی بر مجوز، ثبت در Audit و بدون هیچ داده ساختگی.'
     stories:
       - id: ST-24.01
+        status: done
         title: 'خروجی Excel/CSV از درخواست‌های فرم‌ها'
         sprint: S8
         points: 5

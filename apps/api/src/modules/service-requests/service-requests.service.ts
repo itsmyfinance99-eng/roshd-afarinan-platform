@@ -1,13 +1,17 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import type {
-  CreateServiceRequestInput,
-  ListServiceRequestsQuery,
-  ServiceRequestStatus,
-  ServiceRequestType,
-  TrackServiceRequestInput,
-  UpdateServiceRequestStatusInput,
-} from '@roshd/validation';
 import {
+  SERVICE_REQUEST_EXPORT_MAX_ROWS,
+  type CreateServiceRequestInput,
+  type ExportServiceRequestsQuery,
+  type ListServiceRequestsQuery,
+  type ServiceRequestStatus,
+  type ServiceRequestType,
+  type TrackServiceRequestInput,
+  type UpdateServiceRequestStatusInput,
+} from '@roshd/validation';
+import { toCsv } from '../../common/csv/csv';
+import {
+  BadRequestError,
   ConflictError,
   NotFoundError,
   ValidationFailedError,
@@ -23,6 +27,7 @@ import {
   type NotificationProvider,
 } from '../notifications/ports/notification-provider';
 import { hasPermission, type Principal } from '../rbac/principal';
+import { EXPORT_HEADER, exportFileName, exportRow, tehranDayRange } from './domain/request-export';
 import { canTransition, generateTrackingCode } from './domain/service-request.policy';
 
 export interface ServiceRequestReceipt {
@@ -195,6 +200,49 @@ export class ServiceRequestsService {
     return this.list(this.filters(query), query);
   }
 
+  /**
+   * CSV export for staff (UTF-8 BOM, formula-safe). Every export is audited with its filters and
+   * row count because the file contains personal data.
+   */
+  async exportCsv(
+    query: ExportServiceRequestsQuery,
+    actor: Principal,
+    meta: RequestMeta,
+  ): Promise<{ fileName: string; csv: string; rows: number }> {
+    const where = this.filters(query);
+    const total = await this.prisma.serviceRequest.count({ where });
+    if (total > SERVICE_REQUEST_EXPORT_MAX_ROWS) {
+      throw new BadRequestError(
+        `تعداد درخواست‌ها بیش از ${SERVICE_REQUEST_EXPORT_MAX_ROWS.toLocaleString('fa-IR')} است؛ بازه تاریخ یا فیلترها را محدودتر کنید.`,
+      );
+    }
+    const rows = await this.prisma.serviceRequest.findMany({
+      where,
+      select: VIEW_SELECT,
+      orderBy: { createdAt: 'desc' },
+    });
+    await this.audit.record({
+      action: 'service_requests.exported',
+      actorId: actor.userId,
+      entityType: 'service_request',
+      metadata: {
+        filters: {
+          type: query.type ?? null,
+          status: query.status ?? null,
+          from: query.from ?? null,
+          to: query.to ?? null,
+        },
+        rows: rows.length,
+      },
+      meta,
+    });
+    return {
+      fileName: exportFileName(new Date()),
+      csv: toCsv(EXPORT_HEADER, rows.map(exportRow)),
+      rows: rows.length,
+    };
+  }
+
   /** Owners and staff with `requests:read-all` may read; everyone else gets 404 (no existence leak). */
   async getVisible(id: string, principal: Principal): Promise<ServiceRequestDetailView> {
     const row = await this.prisma.serviceRequest.findUnique({
@@ -266,10 +314,12 @@ export class ServiceRequestsService {
     return this.getVisible(id, actor);
   }
 
-  private filters(query: ListServiceRequestsQuery): Prisma.ServiceRequestWhereInput {
+  private filters(query: ExportServiceRequestsQuery): Prisma.ServiceRequestWhereInput {
+    const createdAt = tehranDayRange(query.from, query.to);
     return {
       ...(query.type ? { type: query.type } : {}),
       ...(query.status ? { status: query.status } : {}),
+      ...(createdAt.gte || createdAt.lt ? { createdAt } : {}),
     };
   }
 

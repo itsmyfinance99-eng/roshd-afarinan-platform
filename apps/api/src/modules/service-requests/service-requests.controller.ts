@@ -1,18 +1,21 @@
-import { Controller, Get, Patch, Post, Req } from '@nestjs/common';
+import { Controller, Get, Patch, Post, Req, Res } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
   createServiceRequestSchema,
+  exportServiceRequestsQuerySchema,
   idSchema,
   listServiceRequestsQuerySchema,
   trackServiceRequestSchema,
   updateServiceRequestStatusSchema,
   type CreateServiceRequestInput,
+  type ExportServiceRequestsQuery,
   type ListServiceRequestsQuery,
   type TrackServiceRequestInput,
   type UpdateServiceRequestStatusInput,
 } from '@roshd/validation';
-import type { Request } from 'express';
+import type { Request, Response } from 'express';
 import { Public } from '../../common/decorators/public.decorator';
+import { RawResponse } from '../../common/http/envelope.interceptor';
 import type { PageResult } from '../../common/http/page-result';
 import { Meta, type RequestMeta } from '../../common/http/request-meta';
 import { StrictRateLimit } from '../../common/http/strict-rate-limit';
@@ -69,6 +72,27 @@ export class ServiceRequestsController {
     @ZodQuery(listServiceRequestsQuerySchema) query: ListServiceRequestsQuery,
   ): Promise<PageResult<ServiceRequestView>> {
     return this.requests.listAll(query);
+  }
+
+  @Get('export')
+  @RequirePermissions('requests:read-all')
+  @RawResponse()
+  @ApiOperation({
+    summary: 'CSV export (UTF-8 BOM) filtered by type, status and Iran-time date range; audited',
+  })
+  async export(
+    @CurrentUser() user: Principal,
+    @ZodQuery(exportServiceRequestsQuerySchema) query: ExportServiceRequestsQuery,
+    @Meta() meta: RequestMeta,
+    @Res() res: Response,
+  ): Promise<void> {
+    const { fileName, csv, rows } = await this.requests.exportCsv(query, user, meta);
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Export-Rows', String(rows));
+    res.send(csv);
   }
 
   @Get(':id')
