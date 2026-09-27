@@ -142,6 +142,17 @@ export class NotificationsService {
     return this.unreadCount(userId);
   }
 
+  /**
+   * Drops notifications the user has already read and that are older than the retention window
+   * (ST-27.03). Unread ones stay however old they are: nobody has seen them yet.
+   */
+  async purgeOldRead(cutoff: Date): Promise<number> {
+    const { count } = await this.prisma.notification.deleteMany({
+      where: { readAt: { not: null, lt: cutoff } },
+    });
+    return count;
+  }
+
   async markAllRead(userId: string) {
     await this.prisma.notification.updateMany({
       where: { userId, readAt: null },

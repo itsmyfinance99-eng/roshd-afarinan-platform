@@ -57,6 +57,21 @@ Database outages, pool exhaustion and statement timeouts answer **503 SERVICE_UN
 - Log lines contain user ids and request ids (personal data under the privacy policy), so keep them only as long as needed, restrict access to operators and never copy them to third-party services without the privacy review (OQ-21).
 - Proposed retention: 14 days on the server, plus 90 days in a central log store if one is introduced. The period is an open decision (OQ-24). Audit events are stored in the database (`audit_logs`) and follow the backup policy, not log rotation.
 
+## Data retention
+
+The API deletes records that can no longer serve a purpose, once a day (the first pass runs five
+minutes after boot, so a restart loop cannot become a delete loop). Each job logs only counts.
+
+| What                                                  | Variable                      | Default | Rule                                                                                                                                                                                 |
+| ----------------------------------------------------- | ----------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Unattached uploads                                    | `UPLOAD_RETENTION_HOURS`      | 72      | An upload nobody attached to a record is deleted from the database and from storage (ST-26.04).                                                                                      |
+| Refresh, password-reset and email-verification tokens | `TOKEN_RETENTION_DAYS`        | 30      | Deleted once the row is expired or revoked **and** older than the window, so reuse detection and a recent incident review still have their history. A live session is never touched. |
+| Notifications                                         | `NOTIFICATION_RETENTION_DAYS` | 180     | Only ones the user has already read. Unread notifications stay however old they are.                                                                                                 |
+
+Set a variable to `0` to switch its job off — for a deployment whose retention policy is decided
+elsewhere (OQ-24). `audit_logs` is append-only and is **not** pruned by these jobs; it follows the
+backup policy.
+
 ## When an alert fires
 
 1. Call `/api/v1/health/ready`. A 503 names the failing dependency: `database` → check the `postgres` container and disk space; `storage` → check the `app-storage` volume.

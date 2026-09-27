@@ -32,6 +32,7 @@ import { ServiceRequestsModule } from './modules/service-requests/service-reques
 import { TicketsModule } from './modules/tickets/tickets.module';
 import { UsersModule } from './modules/users/users.module';
 import { HealthModule } from './modules/health/health.module';
+import { MaintenanceModule } from './modules/maintenance/maintenance.module';
 import { MonitoringModule } from './modules/monitoring/monitoring.module';
 
 @Module({
@@ -108,6 +109,7 @@ import { MonitoringModule } from './modules/monitoring/monitoring.module';
     DashboardModule,
     OrdersModule,
     SearchModule,
+    MaintenanceModule,
   ],
   providers: [
     // Guard order matters: rate limit → authenticate (default deny) → authorize.

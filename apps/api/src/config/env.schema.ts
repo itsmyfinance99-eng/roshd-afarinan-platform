@@ -98,6 +98,13 @@ export const envSchema = z.object({
   UPLOAD_QUOTA_FILES: z.coerce.number().int().min(1).max(1000).default(50),
   /** Unattached uploads older than this are deleted by the cleanup job (0 disables it). */
   UPLOAD_RETENTION_HOURS: z.coerce.number().int().min(0).max(8760).default(72),
+  /**
+   * Data retention (ST-27.03); 0 disables a job. Spent credentials are kept this long so a
+   * recent incident can still be explained, then deleted.
+   */
+  TOKEN_RETENTION_DAYS: z.coerce.number().int().min(0).max(3650).default(30),
+  /** Notifications the user has already read are deleted after this many days. */
+  NOTIFICATION_RETENTION_DAYS: z.coerce.number().int().min(0).max(3650).default(180),
 });
 
 export type Env = z.infer<typeof envSchema>;
