@@ -6,7 +6,12 @@ import { PageResult } from '../../common/http/page-result';
 import { PrismaService } from '../database/prisma.service';
 import { RbacService } from '../rbac/rbac.service';
 import { UsersService } from '../users/users.service';
-import { NOTIFICATION_PROVIDER, type NotificationProvider } from './ports/notification-provider';
+import { withTimeout } from '../../common/time/with-timeout';
+import {
+  NOTIFICATION_PROVIDER,
+  NOTIFICATION_SEND_TIMEOUT_MS,
+  type NotificationProvider,
+} from './ports/notification-provider';
 
 export interface InAppNotification {
   /** Event key, e.g. `service_request.status_changed`. */
@@ -91,12 +96,16 @@ export class NotificationsService {
   /** Email to an address without an account (e.g. a guest request). */
   async sendEmail(to: string, email: EmailNotification): Promise<void> {
     try {
-      await this.provider.send({
-        channel: 'email',
-        to,
-        template: email.template,
-        data: email.data,
-      });
+      await withTimeout(
+        this.provider.send({
+          channel: 'email',
+          to,
+          template: email.template,
+          data: email.data,
+        }),
+        NOTIFICATION_SEND_TIMEOUT_MS,
+        'notification send',
+      );
     } catch (error) {
       this.logger.warn({ err: error, template: email.template }, 'email notification failed');
     }

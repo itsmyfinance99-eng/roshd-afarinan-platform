@@ -1,12 +1,12 @@
 import { z } from 'zod';
-import { normalizePersianText, toLatinDigits } from './normalize';
+import { normalizePersianText, toLatinDigits, toPersianDigits } from './normalize';
 
 export const MESSAGES = {
   required: 'این فیلد الزامی است.',
   invalidEmail: 'ایمیل معتبر نیست.',
   invalidMobile: 'شماره موبایل باید با ۰۹ شروع شود و ۱۱ رقم باشد.',
-  tooShort: (min: number) => `حداقل ${min} نویسه وارد کنید.`,
-  tooLong: (max: number) => `حداکثر ${max} نویسه مجاز است.`,
+  tooShort: (min: number) => `حداقل ${toPersianDigits(min)} نویسه وارد کنید.`,
+  tooLong: (max: number) => `حداکثر ${toPersianDigits(max)} نویسه مجاز است.`,
   invalidSlug: 'نامک فقط می‌تواند شامل حروف کوچک انگلیسی، عدد و خط تیره باشد.',
 } as const;
 

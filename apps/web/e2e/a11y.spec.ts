@@ -9,11 +9,19 @@ import { expect, type Page, type TestInfo, test } from '@playwright/test';
  */
 const WCAG_TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'];
 const BLOCKING = new Set(['serious', 'critical']);
+/**
+ * Rules that fail the build regardless of the impact axe assigns them. `heading-order` is only
+ * "moderate", yet a page that jumps from h1 to h3 is unreadable with a screen reader's heading
+ * list, and the card grids regressed exactly that way (ST-26.10, finding I-10).
+ */
+const BLOCKING_RULES = new Set(['heading-order']);
 
 async function audit(page: Page, testInfo: TestInfo) {
   const results = await new AxeBuilder({ page }).withTags(WCAG_TAGS).analyze();
-  const blocking = results.violations.filter((v) => BLOCKING.has(v.impact ?? ''));
-  const minor = results.violations.filter((v) => !BLOCKING.has(v.impact ?? ''));
+  const fails = (v: { id: string; impact?: string | null }) =>
+    BLOCKING.has(v.impact ?? '') || BLOCKING_RULES.has(v.id);
+  const blocking = results.violations.filter(fails);
+  const minor = results.violations.filter((v) => !fails(v));
   if (minor.length) {
     await testInfo.attach('minor-violations', {
       body: JSON.stringify(
@@ -31,6 +39,24 @@ async function audit(page: Page, testInfo: TestInfo) {
       .map((n) => ({ target: n.target.join(' '), summary: n.failureSummary })),
   }));
   expect(summary, `axe violations on ${page.url()}`).toEqual([]);
+  await expectHeadingOrder(page);
+}
+
+/**
+ * Heading levels must descend one step at a time: a screen reader's heading list is the page
+ * outline, and a jump (h1 straight to the h3 of a card) loses a level of structure. axe reports
+ * this as "moderate", so it is asserted here instead (ST-26.10, finding I-10).
+ */
+async function expectHeadingOrder(page: Page) {
+  const levels = await page.evaluate(() =>
+    [...document.querySelectorAll('h1, h2, h3, h4, h5, h6')]
+      .filter((el) => el.checkVisibility({ checkVisibilityCSS: false }))
+      .map((el) => ({ level: Number(el.tagName[1]), text: el.textContent?.trim().slice(0, 40) })),
+  );
+  const skips = levels.filter(
+    (heading, i) => i > 0 && heading.level - (levels[i - 1]?.level ?? 0) > 1,
+  );
+  expect(skips, `skipped heading levels on ${page.url()}`).toEqual([]);
 }
 
 const PUBLIC_ROUTES = [

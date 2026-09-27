@@ -68,6 +68,7 @@ docker build -f apps/web/Dockerfile --build-arg API_INTERNAL_URL=http://api:4000
 - Run the `migrate` image once per release, before starting the new API. It applies migrations and seeds reference data (never demo data).
 - The API reads all configuration from environment variables (see `.env.example`), and private uploads live in the `/app/storage` volume. In production the payment gateway stays `disabled` until a PSP is chosen (OQ-09).
 - `NEXT_PUBLIC_*` and `API_INTERNAL_URL` are fixed when the web image is built, because the `/api` rewrite is compiled in.
+- The web image ships with `NEXT_PUBLIC_DEMO_MODE=false`; a demo server that serves seeded content passes `--build-arg NEXT_PUBLIC_DEMO_MODE=true` so the header says the data is a sample.
 - Full stack in containers: `JWT_ACCESS_SECRET=… FILE_URL_SECRET=… INTERNAL_API_TOKEN=… docker compose -f infra/docker/compose.app.yml up --build` (site on :8080 behind nginx).
 - **Backups**: `docker compose -f infra/docker/compose.app.yml --profile ops run --rm backup`; restore and drill steps in [docs/operations/backup-restore.md](docs/operations/backup-restore.md).
 - **Production needs a reverse proxy** so rate limits and audit logs see each visitor's real IP: see [infra/nginx/README.md](infra/nginx/README.md).

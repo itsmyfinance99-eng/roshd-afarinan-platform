@@ -13,3 +13,11 @@ export function toLatinDigits(input: string): string {
 export function normalizePersianText(input: string): string {
   return input.replace(/ي/g, 'ی').replace(/ك/g, 'ک').trim();
 }
+
+/**
+ * Converts ASCII digits to Persian ones (۰-۹). User-facing messages that carry a number must
+ * show Persian digits (CLAUDE.md), so it is applied where a limit is interpolated into copy.
+ */
+export function toPersianDigits(input: string | number): string {
+  return String(input).replace(/\d/g, (ch) => PERSIAN_DIGITS[Number(ch)] ?? ch);
+}

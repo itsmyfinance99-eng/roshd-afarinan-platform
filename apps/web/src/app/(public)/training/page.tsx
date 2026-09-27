@@ -100,11 +100,18 @@ export default async function TrainingPage({ searchParams }: { searchParams: Sea
             }
           />
         ) : (
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,270px),1fr))] gap-5">
-            {items.map((course) => (
-              <CourseCard key={course.id} course={course} />
-            ))}
-          </div>
+          // A named section between the page title and the h3 card titles keeps the heading
+          // order intact and gives the list an accessible name (ST-26.10, finding I-10).
+          <section aria-labelledby="courses-heading">
+            <h2 id="courses-heading" className="sr-only">
+              فهرست دوره‌ها
+            </h2>
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,270px),1fr))] gap-5">
+              {items.map((course) => (
+                <CourseCard key={course.id} course={course} />
+              ))}
+            </div>
+          </section>
         )}
         {courses.ok ? (
           <PageLinks

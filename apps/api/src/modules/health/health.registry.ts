@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { withTimeout } from '../../common/time/with-timeout';
 
 export type HealthCheck = () => Promise<void>;
 
@@ -25,7 +26,7 @@ export class HealthRegistry {
     const entries = await Promise.all(
       [...this.checks.entries()].map(async ([name, check]) => {
         try {
-          await withTimeout(check(), CHECK_TIMEOUT_MS);
+          await withTimeout(check(), CHECK_TIMEOUT_MS, `health check ${name}`);
           return [name, 'up'] as const;
         } catch {
           return [name, 'down'] as const;
@@ -36,20 +37,4 @@ export class HealthRegistry {
     const status = entries.every(([, state]) => state === 'up') ? 'ok' : 'error';
     return { status, checks };
   }
-}
-
-function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error(`timed out after ${ms}ms`)), ms);
-    promise.then(
-      (value) => {
-        clearTimeout(timer);
-        resolve(value);
-      },
-      (error: unknown) => {
-        clearTimeout(timer);
-        reject(error instanceof Error ? error : new Error(String(error)));
-      },
-    );
-  });
 }
