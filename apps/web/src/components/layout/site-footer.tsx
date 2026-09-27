@@ -23,6 +23,7 @@ export function SiteFooter() {
             .map((item) => (
               <Link
                 key={item.key}
+                prefetch={false}
                 href={item.href}
                 className="text-sm text-on-dark no-underline hover:text-white"
               >
@@ -36,6 +37,7 @@ export function SiteFooter() {
           {consultingServices.map((service) => (
             <Link
               key={service.key}
+              prefetch={false}
               href="/consulting"
               className="text-sm text-on-dark no-underline hover:text-white"
             >
@@ -72,7 +74,11 @@ export function SiteFooter() {
               </a>
             ))}
           </div>
-          <Link href="/contact" className="mt-2 font-bold text-white no-underline hover:underline">
+          <Link
+            prefetch={false}
+            href="/contact"
+            className="mt-2 font-bold text-white no-underline hover:underline"
+          >
             فرم تماس با ما ‹
           </Link>
         </div>
@@ -82,7 +88,11 @@ export function SiteFooter() {
           <span>
             © {year} {site.legalName}. همه حقوق محفوظ است.
           </span>
-          <Link href="/track" className="text-on-dark no-underline hover:text-white">
+          <Link
+            prefetch={false}
+            href="/track"
+            className="text-on-dark no-underline hover:text-white"
+          >
             پیگیری درخواست
           </Link>
         </div>

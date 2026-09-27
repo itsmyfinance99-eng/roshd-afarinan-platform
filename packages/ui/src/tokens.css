@@ -4,7 +4,8 @@
  * (e.g. bg-brand-900, text-ink-3, rounded-card). Change values here, not in components.
  */
 @theme {
-  --font-sans: 'Vazirmatn Variable', Vazirmatn, Tahoma, sans-serif;
+  /* 'Vazirmatn Fallback' is metric-matched in the app's globals.css to avoid a reflow. */
+  --font-sans: 'Vazirmatn Variable', Vazirmatn, 'Vazirmatn Fallback', Tahoma, sans-serif;
 
   /* Brand */
   --color-brand-950: #081a44;
