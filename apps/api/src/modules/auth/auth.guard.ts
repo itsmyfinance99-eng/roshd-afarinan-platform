@@ -40,12 +40,16 @@ export class AuthGuard implements CanActivate {
     }
 
     const claims = await this.tokens.verifyAccessToken(token);
-    const user = claims
-      ? await this.prisma.user.findUnique({
-          where: { id: claims.sub },
-          select: { id: true, status: true, sessionsRevokedAt: true },
+    // `sid` is the refresh-token family of this session, so one query answers both questions:
+    // does the session still exist (logout and reuse detection revoke the family, ST-26.08,
+    // finding F-04), and what is the account's current state?
+    const session = claims
+      ? await this.prisma.refreshToken.findFirst({
+          where: { familyId: claims.sid, userId: claims.sub, revokedAt: null },
+          select: { user: { select: { id: true, status: true, sessionsRevokedAt: true } } },
         })
       : null;
+    const user = session?.user ?? null;
 
     // Tokens issued before a password change, reset or "sign out everywhere" are dead.
     const issuedAtMs = claims?.iatMs ?? (claims?.iat ?? 0) * 1000;

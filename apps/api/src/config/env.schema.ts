@@ -24,7 +24,18 @@ export const envSchema = z.object({
    * X-Forwarded-For. Use 1 behind nginx (see infra/nginx). With 0 every visitor looks like the
    * proxy, so rate limits and audit IPs become site-wide.
    */
-  TRUST_PROXY: z.coerce.number().int().min(0).max(10).default(0),
+  /**
+   * Either a hop count or a list of trusted proxy addresses/CIDRs (Express "trust proxy").
+   * A list is safer: a forwarded header from any other source is then ignored, which matters
+   * when the API is reachable directly as well (ST-26.08, finding F-11).
+   */
+  TRUST_PROXY: z
+    .string()
+    .default('0')
+    .refine((v) => /^\d+$/.test(v) || v.split(',').every((part) => part.trim().length > 0), {
+      error: 'must be a hop count or a comma-separated list of addresses/CIDRs',
+    })
+    .transform((v) => (/^\d+$/.test(v) ? Number(v) : v.split(',').map((p) => p.trim()))),
   SWAGGER_ENABLED: bool.optional(),
   /**
    * Shared secret sent by the web server on server-side reads (header x-internal-token) so

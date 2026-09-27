@@ -248,6 +248,8 @@ model ServiceRequest {
   @@index([userId, createdAt])
   @@index([assigneeId, createdAt])
   @@index([type, status, createdAt])
+  /// Staff list without filters, newest first (ST-26.07).
+  @@index([createdAt])
   @@map("service_requests")
 }
 
@@ -693,6 +695,8 @@ model Ticket {
   @@index([userId, lastMessageAt])
   @@index([assigneeId, lastMessageAt])
   @@index([status, lastMessageAt])
+  /// Staff list without a status filter, newest message first (ST-26.07).
+  @@index([lastMessageAt])
   @@map("tickets")
 }
 

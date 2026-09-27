@@ -4,6 +4,7 @@ import {
   assignSchema,
   emailSchema,
   idSchema,
+  MAX_PAGE,
   mobileSchema,
   paginationQuerySchema,
   slugSchema,
@@ -117,5 +118,15 @@ describe('idSchema', () => {
     expect(idSchema.safeParse('0199aaaa-0000-7000-8000-000000000000').success).toBe(true);
     expect(idSchema.safeParse('not-a-uuid').success).toBe(false);
     expect(idSchema.safeParse("1' OR '1'='1").success).toBe(false);
+  });
+});
+
+describe('pagination', () => {
+  it('caps the page number so a deep OFFSET cannot be requested', () => {
+    expect(paginationQuerySchema.parse({ page: String(MAX_PAGE) }).page).toBe(MAX_PAGE);
+    expect(paginationQuerySchema.safeParse({ page: String(MAX_PAGE + 1) }).success).toBe(false);
+    expect(paginationQuerySchema.safeParse({ page: '4000' }).success).toBe(false);
+    expect(paginationQuerySchema.safeParse({ page: '0' }).success).toBe(false);
+    expect(paginationQuerySchema.parse({}).page).toBe(1);
   });
 });

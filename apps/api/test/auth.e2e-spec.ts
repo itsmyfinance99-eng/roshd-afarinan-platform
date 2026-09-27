@@ -177,18 +177,72 @@ describe('Auth (e2e)', () => {
   });
 
   describe('refresh token rotation', () => {
-    it('rotates tokens and revokes the whole family when a used token is replayed', async () => {
-      const { id, refreshToken: first } = await registerUser(app);
+    it('ends the access token too, not just the refresh token, on logout', async () => {
+      // ST-26.08 (F-04): the access token used to stay valid for up to 15 minutes after logout.
+      const user = await registerUser(app);
+      const auth = { Authorization: `Bearer ${user.token}` };
+      await http().get('/api/v1/auth/me').set(auth).expect(200);
 
+      await http()
+        .post('/api/v1/auth/logout')
+        .set(TOKEN_TRANSPORT)
+        .send({ refreshToken: user.refreshToken })
+        .expect(200);
+
+      await http().get('/api/v1/auth/me').set(auth).expect(401);
+      await http()
+        .post('/api/v1/auth/refresh')
+        .set(TOKEN_TRANSPORT)
+        .send({ refreshToken: user.refreshToken })
+        .expect(401);
+    });
+
+    it('replays a rotation raced by another tab instead of ending the session', async () => {
+      // ST-26.08 (F-05): two tabs present the same token within milliseconds. That is a race,
+      // not theft, so the session survives and both callers end up with working tokens.
+      const { refreshToken: first } = await registerUser(app);
       const rotated = await http()
         .post('/api/v1/auth/refresh')
         .set(TOKEN_TRANSPORT)
         .send({ refreshToken: first })
         .expect(200);
       const second = rotated.body.data.refreshToken as string;
-      expect(second).not.toBe(first);
 
-      // Replay of the first (already used) token → theft suspected
+      const replay = await http()
+        .post('/api/v1/auth/refresh')
+        .set(TOKEN_TRANSPORT)
+        .send({ refreshToken: first })
+        .expect(200);
+      const third = replay.body.data.refreshToken as string;
+      expect(third).not.toBe(second);
+
+      // The session still works, with the token the last caller received.
+      await http()
+        .get('/api/v1/auth/me')
+        .set({ Authorization: `Bearer ${replay.body.data.accessToken as string}` })
+        .expect(200);
+      await http()
+        .post('/api/v1/auth/refresh')
+        .set(TOKEN_TRANSPORT)
+        .send({ refreshToken: third })
+        .expect(200);
+    });
+
+    it('revokes the whole family when a used token is replayed later', async () => {
+      const { id, refreshToken: first } = await registerUser(app);
+      const rotated = await http()
+        .post('/api/v1/auth/refresh')
+        .set(TOKEN_TRANSPORT)
+        .send({ refreshToken: first })
+        .expect(200);
+      const second = rotated.body.data.refreshToken as string;
+
+      // Outside the replay window the old token means theft.
+      await prisma.refreshToken.updateMany({
+        where: { userId: id, revokedAt: { not: null } },
+        data: { revokedAt: new Date(Date.now() - 10 * 60_000) },
+      });
+
       await http()
         .post('/api/v1/auth/refresh')
         .set(TOKEN_TRANSPORT)

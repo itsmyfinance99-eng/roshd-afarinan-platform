@@ -82,6 +82,28 @@ describe('loadConfig', () => {
     );
   });
 
+  // ST-26.08 (F-11): a hop count trusts any forwarded header when the API is also reachable
+  // directly; a list names which proxies may be believed.
+  describe('TRUST_PROXY', () => {
+    it('accepts a hop count', () => {
+      expect(loadConfig({ ...BASE, TRUST_PROXY: '2' }).TRUST_PROXY).toBe(2);
+      expect(loadConfig(BASE).TRUST_PROXY).toBe(0);
+    });
+
+    it('accepts a list of trusted addresses', () => {
+      expect(loadConfig({ ...BASE, TRUST_PROXY: 'loopback, 172.16.0.0/12' }).TRUST_PROXY).toEqual([
+        'loopback',
+        '172.16.0.0/12',
+      ]);
+    });
+
+    it('refuses an empty entry', () => {
+      expect(() => loadConfig({ ...BASE, TRUST_PROXY: 'loopback,,10.0.0.1' })).toThrow(
+        ConfigValidationError,
+      );
+    });
+  });
+
   // ST-26.03 (F-08): a length check alone accepted the .env.example placeholders.
   describe('secret strength in production', () => {
     const prod = (extra: Record<string, string>) =>

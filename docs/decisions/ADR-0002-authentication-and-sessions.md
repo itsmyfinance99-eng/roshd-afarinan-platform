@@ -38,3 +38,16 @@ Authentication lives **inside the API** (`auth` module), with no third-party ide
 ## Addendum: per-account lockout (ST-25.10)
 
 The per-IP login throttle does not stop guessing spread across many addresses. Each account now counts consecutive wrong passwords (`User.failedLoginCount`, incremented atomically) and refuses sign-in for `LOGIN_LOCK_MINUTES` after `LOGIN_MAX_FAILURES` failures (`User.lockedUntil`, 429 with the remaining minutes). A successful sign-in or a password reset clears the state. A locked account is refused before the password is checked. Trade-off: anyone who knows an email can lock that account for 15 minutes; the short lock and the reset link (which lifts it) keep that nuisance small. Unknown emails never lock.
+
+## Addendum: session revocation and the refresh replay window (ST-26.08)
+
+- **Logout now ends the access token as well.** `sid` is the refresh-token family, so the guard
+  loads the user through the family's active token: one query answers both "is this session still
+  alive?" and "what is the account's state?". Logging out (or reuse detection) revokes the family,
+  and the access token stops working immediately instead of lasting up to 15 more minutes.
+- **A rotation raced within 20 seconds is replayed, not punished.** Two tabs can present the same
+  refresh token milliseconds apart; that is a race, not theft. Within the window the caller that
+  arrives second rotates from the live successor and receives a usable pair, so the session
+  survives. Outside the window, or when the successor is already gone, reuse detection still
+  revokes the whole family. The trade-off is deliberate: a stolen token replayed within those
+  seconds works once, while the previous behaviour logged real users out of every device.
