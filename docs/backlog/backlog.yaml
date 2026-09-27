@@ -1121,6 +1121,7 @@ epics:
         acceptance:
           - 'Release PR develop→main، tag و GitHub Release'
       - id: ST-21.03
+        status: done
         title: 'آزمون امنیتی و کارایی مبتنی بر شواهد (adversarial audit)'
         sprint: S10
         points: 13
@@ -1184,6 +1185,7 @@ epics:
     goal: 'رفع یافته‌های گزارش docs/qa/security-performance-audit-2026-09-27.md به ترتیب شدت، با تست رگرسیون برای هر مورد.'
     stories:
       - id: ST-26.01
+        status: done
         title: 'رفع F-01: محدودسازی پارامتر types در جست‌وجو (DoS بدون احراز هویت)'
         sprint: S11
         points: 2
@@ -1197,6 +1199,7 @@ epics:
           - 'تست: با types تکراری هر منبع یک بار صدا زده شود (spy)؛ تست منفی 400'
 
       - id: ST-26.02
+        status: done
         title: 'رفع F-02 و F-12: CSRF ورود/ثبت‌نام و open redirect پس از ورود'
         sprint: S11
         points: 3
@@ -1211,6 +1214,7 @@ epics:
           - 'تست: واحد برای /\t/x، /\n/x، /\\x، //x، https://x؛ Playwright ورود با next مخرب روی سایت بماند؛ API e2e برای CSRF'
 
       - id: ST-26.03
+        status: done
         title: 'رفع F-08: اعتبارسنجی قوت secretها در production'
         sprint: S11
         points: 2
@@ -1223,6 +1227,7 @@ epics:
           - 'تست: loadConfig برای هر حالت ضعیف در production خطای ConfigValidationError بدهد'
 
       - id: ST-26.04
+        status: done
         title: 'رفع F-07: سهمیه آپلود و پاک‌سازی فایل‌های پیوست‌نشده'
         sprint: S11
         points: 5
@@ -1236,6 +1241,7 @@ epics:
           - 'تست: عبور از سهمیه رد شود؛ کار پاک‌سازی فایل قدیمی را حذف و فایل پیوست‌شده را نگه دارد'
 
       - id: ST-26.05
+        status: done
         title: 'رفع F-13: timeout دیتابیس و نگاشت خطای در دسترس نبودن'
         sprint: S11
         points: 3
@@ -1248,6 +1254,7 @@ epics:
           - 'تست: با دیتابیس معلق شبیه‌سازی‌شده، پاسخ 503 ظرف timeout تنظیم‌شده برگردد'
 
       - id: ST-26.06
+        status: done
         title: 'رفع F-03: حذف داده شخصی و امضاها از لاگ‌ها'
         sprint: S11
         points: 2
@@ -1260,6 +1267,7 @@ epics:
           - 'تست: پس از فراخوانی track و دانلود امضاشده، لاگ شامل mobile= و sig= نباشد'
 
       - id: ST-26.07
+        status: done
         title: 'رفع P-01 و P-02: ایندکس فهرست‌های کارکنان و سقف صفحه‌بندی'
         sprint: S11
         points: 3
@@ -1273,6 +1281,7 @@ epics:
           - 'تست: page بیش از سقف پاسخ 400؛ تست کارایی با داده حجیم مستند شود'
 
       - id: ST-26.08
+        status: done
         title: 'رفع یافته‌های Low امنیتی: خروج، refresh هم‌زمان، حافظه آداپتر، خطای بدنه، پروکسی مورد اعتماد'
         sprint: S11
         points: 5
@@ -1287,6 +1296,7 @@ epics:
           - 'F-11: TRUST_PROXY فهرست آدرس یا CIDR بپذیرد و مستند شود'
 
       - id: ST-26.09
+        status: done
         title: 'رفع یافته‌های کارایی وب: کش صفحه‌های عمومی، فونت، داشبورد و prefetch'
         sprint: S11
         points: 5
@@ -1302,6 +1312,7 @@ epics:
           - 'P-03: خروجی CSV به‌صورت جریانی ساخته شود'
 
       - id: ST-26.10
+        status: done
         title: 'موارد Info و پاک‌سازی‌های کوچک آزمون'
         sprint: S11
         points: 2
