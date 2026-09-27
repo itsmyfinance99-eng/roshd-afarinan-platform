@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <title>درباره ما — رشدآفرینان صنعت و معدن (نمونه)</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800;900&amp;display=swap">
+  <script src="mock-data.js"></script>
+  <style>html,body{margin:0;background:#FFFFFF;font-family:Vazirmatn,Tahoma,sans-serif;direction:rtl}*{box-sizing:border-box}a{color:#1450C8}a:hover{color:#0B2257}:focus-visible{outline:3px solid #0BA5E0;outline-offset:2px}</style>
+</helmet>
+<div dir="rtl" lang="fa-IR" style="font-family:Vazirmatn,Tahoma,sans-serif;color:#0E1A33;min-height:100vh">
+  <dc-import name="SiteHeader" active="about" hint-size="100%,112px" style="position:sticky;top:0;z-index:50;display:block"></dc-import>
+  <main>
+    <dc-import name="PageHero" crumb="درباره ما" eyebrow="درباره ما" title="رشدآفرینان صنعت و معدن" lead="گروهی تخصصی با بیش از ۵۰ کارشناس در حوزه‌های مهندسی، اقتصاد، مدیریت، حقوق، بیمه، مالیات و فناوری اطلاعات که از سال ۱۳۸۸ در آموزش، پژوهش و مشاوره فعالیت می‌کند." hint-size="100%,360px"></dc-import>
+    <section style="max-width:1280px;margin:0 auto;padding:72px 24px">
+      <dl style="margin:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:0;border-top:2px solid #0B2257">
+        <sc-for list="{{ stats }}" as="s" hint-placeholder-count="3">
+          <div style="padding:28px 0 28px 24px;border-bottom:1px solid #E3E7EF;display:flex;flex-direction:column;gap:8px">
+            <dt style="order:2;font-size:17px;font-weight:700">{{ s.label }}</dt>
+            <dd style="order:1;margin:0;font-size:48px;font-weight:900;color:#1450C8;line-height:1.2">{{ s.value }}</dd>
+            <dd style="order:3;margin:0;font-size:14px;line-height:1.9;color:#4A5670">{{ s.detail }}</dd>
+          </div>
+        </sc-for>
+      </dl>
+    </section>
+    <section aria-labelledby="areas" style="background:#F3F6FA;border-top:1px solid #E3E7EF;border-bottom:1px solid #E3E7EF">
+      <div style="max-width:1280px;margin:0 auto;padding:72px 24px;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,380px),1fr));gap:48px">
+        <div>
+          <h2 id="areas" style="margin:0 0 20px;font-size:clamp(24px,2.8vw,32px);font-weight:800;color:#0B2257">حوزه‌های اصلی فعالیت</h2>
+          <ul style="list-style:none;margin:0;padding:0;border-top:1px solid #D5DCE8">
+            <sc-for list="{{ areas }}" as="a" hint-placeholder-count="3">
+              <li style="padding:18px 0;border-bottom:1px solid #D5DCE8;display:flex;gap:16px;align-items:baseline"><span style="font-size:13px;color:#5B667D">{{ a.n }}</span><span style="font-size:20px;font-weight:800">{{ a.t }}</span></li>
+            </sc-for>
+          </ul>
+        </div>
+        <div>
+          <h2 style="margin:0 0 20px;font-size:clamp(24px,2.8vw,32px);font-weight:800;color:#0B2257">تخصص‌های تیم</h2>
+          <div style="display:flex;flex-wrap:wrap;gap:8px">
+            <sc-for list="{{ expertise }}" as="e" hint-placeholder-count="7"><span style="padding:10px 16px;background:#FFFFFF;border:1px solid #D5DCE8;border-radius:4px;font-size:15px">{{ e }}</span></sc-for>
+          </div>
+        </div>
+      </div>
+    </section>
+    <section style="max-width:1280px;margin:0 auto;padding:72px 24px">
+      <h2 style="margin:0 0 20px;font-size:clamp(22px,2.4vw,28px);font-weight:800;color:#0B2257">همکاری‌ها و مدارک</h2>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,180px),1fr));gap:12px">
+        <sc-for list="{{ slots }}" as="l" hint-placeholder-count="6"><div style="height:96px;background:repeating-linear-gradient(135deg,#F3F6FA 0 8px,#ECF0F6 8px 16px);border:1px dashed #C9D2E3;border-radius:6px;display:flex;align-items:center;justify-content:center;font-family:ui-monospace,Menlo,monospace;font-size:12px;color:#5B667D">{{ l }}</div></sc-for>
+      </div>
+      <p style="margin:12px 0 0;font-size:13px;color:#5B667D">این بخش فقط با مدارک رسمی تأییدشده تکمیل می‌شود.</p>
+    </section>
+  </main>
+  <dc-import name="SiteFooter" hint-size="100%,420px"></dc-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  componentDidMount() { if (!window.RoshdData) this.poll = setInterval(() => { if (window.RoshdData) { clearInterval(this.poll); this.forceUpdate(); } }, 60); }
+  componentWillUnmount() { clearInterval(this.poll); }
+  renderVals() {
+    const D = window.RoshdData || { stats: [], expertise: [] };
+    return { stats: D.stats, expertise: D.expertise, areas: [{ n: '۰۱', t: 'آموزش' }, { n: '۰۲', t: 'پژوهش' }, { n: '۰۳', t: 'مشاوره' }], slots: ['نشان همکار', 'نشان همکار', 'مجوز / گواهی', 'نشان همکار', 'مجوز / گواهی', 'نشان همکار'] };
+  }
+}
+</script>
+</body>
+</html>

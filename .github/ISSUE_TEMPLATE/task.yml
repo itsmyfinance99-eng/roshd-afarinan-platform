@@ -1,0 +1,19 @@
+name: Technical task
+description: Engineering work without direct user-facing value (tooling, refactor, upgrade)
+title: 'task: '
+labels: ['type:task']
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+    validations:
+      required: true
+  - type: textarea
+    id: done
+    attributes:
+      label: Done when
+      value: |
+        - [ ]
+    validations:
+      required: true

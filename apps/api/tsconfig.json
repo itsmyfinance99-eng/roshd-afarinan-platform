@@ -1,0 +1,9 @@
+{
+  "extends": "@roshd/tsconfig/nestjs.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "outDir": "dist",
+    "types": ["node"]
+  },
+  "include": ["src", "test", "prisma", "prisma.config.ts"]
+}

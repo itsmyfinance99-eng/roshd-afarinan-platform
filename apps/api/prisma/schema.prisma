@@ -1,0 +1,718 @@
+// Roshd Afarinan platform — database schema (owned by apps/api).
+// Every change requires a migration: pnpm --filter @roshd/api db:migrate:dev --name <change>
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ───────────────────────────── Identity & Access ─────────────────────────────
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+/// One identity per person; capabilities come from roles (student, applicant, investor, ...).
+model User {
+  id                String     @id @default(uuid(7)) @db.Uuid
+  email             String     @unique
+  mobile            String?    @unique
+  fullName          String
+  passwordHash      String
+  status            UserStatus @default(ACTIVE)
+  /// Reserved: MFA is designed but not yet implemented (ADR-0002).
+  mfaEnabled        Boolean    @default(false)
+  lastLoginAt       DateTime?
+  /// Set when the user opens a verification link (or completes a password reset by email).
+  emailVerifiedAt   DateTime?
+  /// Access tokens issued before this instant are rejected (password change/reset, sign out everywhere, suspension).
+  sessionsRevokedAt DateTime?
+  /// Consecutive failed sign-ins since the last success or lock (per-account lockout).
+  failedLoginCount  Int        @default(0)
+  /// Sign-in is refused until this instant after too many failures.
+  lockedUntil       DateTime?
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+
+  roles              UserRole[]               @relation("UserRoles")
+  assignedRoles      UserRole[]               @relation("RoleAssigner")
+  refreshTokens      RefreshToken[]
+  passwordResets     PasswordResetToken[]
+  emailVerifications EmailVerificationToken[]
+  notifications      Notification[]
+  auditLogs          AuditLog[]
+  serviceRequests    ServiceRequest[]         @relation("ServiceRequestOwner")
+  assignedRequests   ServiceRequest[]         @relation("ServiceRequestAssignee")
+  files              FileObject[]
+  tickets            Ticket[]                 @relation("TicketOwner")
+  assignedTickets    Ticket[]                 @relation("TicketAssignee")
+  orders             Order[]
+
+  @@map("users")
+}
+
+model Role {
+  id          String  @id @default(uuid(7)) @db.Uuid
+  /// Stable machine key, one of ROLES in @roshd/types.
+  key         String  @unique
+  name        String
+  description String?
+
+  permissions RolePermission[]
+  users       UserRole[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id          String  @id @default(uuid(7)) @db.Uuid
+  /// `resource:action`, one of PERMISSIONS in @roshd/types.
+  key         String  @unique
+  description String?
+
+  roles RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       String @db.Uuid
+  permissionId String @db.Uuid
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model UserRole {
+  userId       String   @db.Uuid
+  roleId       String   @db.Uuid
+  assignedById String?  @db.Uuid
+  createdAt    DateTime @default(now())
+
+  user       User  @relation("UserRoles", fields: [userId], references: [id], onDelete: Cascade)
+  role       Role  @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  assignedBy User? @relation("RoleAssigner", fields: [assignedById], references: [id], onDelete: SetNull)
+
+  @@id([userId, roleId])
+  @@map("user_roles")
+}
+
+/// Opaque refresh tokens (only the SHA-256 hash is stored). Tokens of one login share a familyId;
+/// presenting a revoked token revokes the whole family (reuse detection, ADR-0002).
+/// In-app notification of one user (dashboard notification center).
+model Notification {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  userId    String    @db.Uuid
+  /// Event key, e.g. service_request.status_changed.
+  kind      String
+  title     String
+  body      String?
+  /// Site-relative dashboard path, set by the server only.
+  link      String?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt, createdAt])
+  @@map("notifications")
+}
+
+/// One-time email verification link (only the SHA-256 of the token is stored).
+model EmailVerificationToken {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  userId    String    @db.Uuid
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("email_verification_tokens")
+}
+
+/// One-time password reset link (only the SHA-256 of the token is stored).
+model PasswordResetToken {
+  id          String    @id @default(uuid(7)) @db.Uuid
+  userId      String    @db.Uuid
+  tokenHash   String    @unique
+  expiresAt   DateTime
+  usedAt      DateTime?
+  requestedIp String?
+  createdAt   DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("password_reset_tokens")
+}
+
+model RefreshToken {
+  id           String    @id @default(uuid(7)) @db.Uuid
+  userId       String    @db.Uuid
+  familyId     String    @db.Uuid
+  tokenHash    String    @unique
+  expiresAt    DateTime
+  revokedAt    DateTime?
+  replacedById String?   @db.Uuid
+  ip           String?
+  userAgent    String?
+  createdAt    DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([familyId])
+  @@map("refresh_tokens")
+}
+
+// ─────────────────────────────────── Audit ───────────────────────────────────
+
+/// Security and business events (not an error log). Append-only.
+model AuditLog {
+  id         String   @id @default(uuid(7)) @db.Uuid
+  actorId    String?  @db.Uuid
+  action     String
+  entityType String?
+  entityId   String?
+  metadata   Json?
+  ip         String?
+  userAgent  String?
+  requestId  String?
+  createdAt  DateTime @default(now())
+
+  actor User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([actorId])
+  @@index([entityType, entityId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// ───────────────────────────── Service requests ──────────────────────────────
+
+enum ServiceRequestType {
+  FEASIBILITY
+  RESEARCH
+  CONSULTING
+  TRAINING
+  INVESTMENT
+  CONTACT
+}
+
+enum ServiceRequestStatus {
+  NEW
+  IN_REVIEW
+  RESPONDED
+  CLOSED
+}
+
+/// Intake of every service enquiry from the public site (EPIC-11). Guests and users alike;
+/// `userId` links the request when the submitter was signed in.
+model ServiceRequest {
+  id           String               @id @default(uuid(7)) @db.Uuid
+  /// Human-friendly public reference (RA-XXXXXXXX), used with the mobile number for guest tracking.
+  trackingCode String               @unique
+  type         ServiceRequestType
+  status       ServiceRequestStatus @default(NEW)
+  userId       String?              @db.Uuid
+  fullName     String
+  mobile       String
+  email        String?
+  subject      String?
+  message      String
+  /// Type-specific fields (sector, stage, location, service, topic, reference).
+  details      Json                 @default("{}")
+  source       String               @default("web")
+  /// Staff member handling the request (holds requests:read-all when assigned).
+  assigneeId   String?              @db.Uuid
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+
+  user     User?                       @relation("ServiceRequestOwner", fields: [userId], references: [id], onDelete: SetNull)
+  assignee User?                       @relation("ServiceRequestAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  events   ServiceRequestStatusEvent[]
+
+  @@index([userId, createdAt])
+  @@index([assigneeId, createdAt])
+  @@index([type, status, createdAt])
+  /// Staff list without filters, newest first (ST-26.07).
+  @@index([createdAt])
+  @@map("service_requests")
+}
+
+/// Status history (who changed what, when, with an optional staff note).
+model ServiceRequestStatusEvent {
+  id         String                @id @default(uuid(7)) @db.Uuid
+  requestId  String                @db.Uuid
+  fromStatus ServiceRequestStatus?
+  toStatus   ServiceRequestStatus
+  actorId    String?               @db.Uuid
+  note       String?
+  createdAt  DateTime              @default(now())
+
+  request ServiceRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([requestId, createdAt])
+  @@map("service_request_status_events")
+}
+
+// ──────────────────────────────────── CMS ────────────────────────────────────
+
+enum ContentKind {
+  ARTICLE
+  KNOWLEDGE
+}
+
+enum ContentStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum CategoryScope {
+  ARTICLE
+  KNOWLEDGE
+  RESEARCH
+  COURSE
+}
+
+model Author {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  name      String
+  bio       String?
+  /// Optional link to a platform account (editor/expert).
+  userId    String?  @unique @db.Uuid
+  createdAt DateTime @default(now())
+
+  entries ContentEntry[]
+
+  @@map("authors")
+}
+
+model Category {
+  id        String        @id @default(uuid(7)) @db.Uuid
+  scope     CategoryScope
+  slug      String
+  name      String
+  createdAt DateTime      @default(now())
+
+  entries  ContentEntry[]
+  courses  Course[]
+  research ResearchProject[]
+
+  @@unique([scope, slug])
+  @@map("categories")
+}
+
+/// Articles and knowledge-base entries are distinct content kinds (separate APIs, routes,
+/// sitemaps; ADR-0005) that share one editorial lifecycle and the same SEO fields.
+model ContentEntry {
+  id              String        @id @default(uuid(7)) @db.Uuid
+  kind            ContentKind
+  slug            String
+  title           String
+  excerpt         String?
+  /// Markdown; rendered without raw HTML.
+  body            String
+  coverImageUrl   String?
+  status          ContentStatus @default(DRAFT)
+  publishedAt     DateTime?
+  authorId        String?       @db.Uuid
+  categoryId      String?       @db.Uuid
+  tags            String[]      @default([])
+  /// Sources for reference content: [{ title, url? }]
+  references      Json          @default("[]")
+  // SEO
+  metaTitle       String?
+  metaDescription String?
+  canonicalUrl    String?
+  noIndex         Boolean       @default(false)
+  ogImageUrl      String?
+  /// Sample content (never presented as real).
+  isDemo          Boolean       @default(false)
+  createdById     String?       @db.Uuid
+  updatedById     String?       @db.Uuid
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  author   Author?   @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  category Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  @@unique([kind, slug])
+  @@index([kind, status, publishedAt])
+  @@map("content_entries")
+}
+
+/// Institutional pages with structured sections (moves copy out of the web content layer).
+model Page {
+  id              String        @id @default(uuid(7)) @db.Uuid
+  slug            String        @unique
+  title           String
+  /// [{ type, ...fields }] — rendered by typed web components.
+  sections        Json          @default("[]")
+  status          ContentStatus @default(DRAFT)
+  publishedAt     DateTime?
+  metaTitle       String?
+  metaDescription String?
+  noIndex         Boolean       @default(false)
+  updatedById     String?       @db.Uuid
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@map("pages")
+}
+
+// ───────────────────────────────── Learning ─────────────────────────────────
+// Phase 1: public catalog only. LMS entities (lessons, enrollments, …) arrive in Phase 2.
+
+enum CourseLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+}
+
+enum DeliveryMode {
+  ONLINE
+  IN_PERSON
+  HYBRID
+}
+
+model Instructor {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  name      String
+  /// Short professional title, e.g. «کارشناس ارشد امکان‌سنجی».
+  title     String?
+  bio       String?
+  /// Optional link to a platform account.
+  userId    String?  @unique @db.Uuid
+  isDemo    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  courses Course[]
+
+  @@map("instructors")
+}
+
+model Course {
+  id              String        @id @default(uuid(7)) @db.Uuid
+  slug            String        @unique
+  title           String
+  summary         String
+  /// Markdown; rendered without raw HTML.
+  description     String
+  coverImageUrl   String?
+  /// Category with scope COURSE (shared taxonomy owned by the CMS).
+  categoryId      String?       @db.Uuid
+  instructorId    String?       @db.Uuid
+  level           CourseLevel
+  deliveryMode    DeliveryMode
+  durationHours   Int?
+  isFree          Boolean       @default(false)
+  /// Whole rials. Null on a paid course means "price on request" (no invented prices).
+  priceRials      Decimal?      @db.Decimal(18, 0)
+  startsAt        DateTime?
+  status          ContentStatus @default(DRAFT)
+  publishedAt     DateTime?
+  metaTitle       String?
+  metaDescription String?
+  noIndex         Boolean       @default(false)
+  /// Sample content (never presented as real).
+  isDemo          Boolean       @default(false)
+  createdById     String?       @db.Uuid
+  updatedById     String?       @db.Uuid
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  category   Category?   @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  instructor Instructor? @relation(fields: [instructorId], references: [id], onDelete: SetNull)
+
+  @@index([status, publishedAt])
+  @@map("courses")
+}
+
+// ───────────────────────────────── Research ─────────────────────────────────
+
+/// Public research portfolio (published studies and outputs). Research orders are ServiceRequests.
+model ResearchProject {
+  id              String        @id @default(uuid(7)) @db.Uuid
+  slug            String        @unique
+  title           String
+  summary         String
+  /// Markdown; rendered without raw HTML.
+  body            String
+  coverImageUrl   String?
+  /// Category with scope RESEARCH (shared taxonomy owned by the CMS).
+  categoryId      String?       @db.Uuid
+  /// Solar Hijri year the study was completed (e.g. 1403), when known.
+  year            Int?
+  status          ContentStatus @default(DRAFT)
+  publishedAt     DateTime?
+  metaTitle       String?
+  metaDescription String?
+  noIndex         Boolean       @default(false)
+  isDemo          Boolean       @default(false)
+  createdById     String?       @db.Uuid
+  updatedById     String?       @db.Uuid
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  category Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  @@index([status, publishedAt])
+  @@map("research_projects")
+}
+
+// ──────────────────────────────── Investment ────────────────────────────────
+// Presentation only: no transactions, no returns, no "open for investment" claims.
+
+enum InvestmentSector {
+  MINING
+  INDUSTRY
+  ENERGY
+  AGRI_FOOD
+  SERVICES_INFRA
+}
+
+enum ProjectStage {
+  IDEA
+  MARKET_STUDY
+  TECHNICAL_STUDY
+  FEASIBILITY_STUDY
+}
+
+model InvestmentOpportunity {
+  id                       String           @id @default(uuid(7)) @db.Uuid
+  slug                     String           @unique
+  title                    String
+  summary                  String
+  /// Markdown; rendered without raw HTML.
+  description              String
+  coverImageUrl            String?
+  sector                   InvestmentSector
+  stage                    ProjectStage
+  province                 String?
+  /// Service the project needs, e.g. «مطالعات امکان‌سنجی».
+  serviceNeeded            String?
+  /// Whole rials; only from approved project data (never estimated by the platform).
+  estimatedInvestmentRials Decimal?         @db.Decimal(20, 0)
+  status                   ContentStatus    @default(DRAFT)
+  publishedAt              DateTime?
+  metaTitle                String?
+  metaDescription          String?
+  noIndex                  Boolean          @default(false)
+  isDemo                   Boolean          @default(false)
+  createdById              String?          @db.Uuid
+  updatedById              String?          @db.Uuid
+  createdAt                DateTime         @default(now())
+  updatedAt                DateTime         @updatedAt
+
+  @@index([status, sector, publishedAt])
+  @@map("investment_opportunities")
+}
+
+// ──────────────────────────── Orders & Payments ────────────────────────────
+// Status changes only through the order service; payment success only via server-side verify.
+
+enum OrderStatus {
+  PENDING_PAYMENT
+  PAID
+  CANCELLED
+}
+
+enum OrderItemKind {
+  COURSE
+}
+
+enum PaymentAttemptStatus {
+  INITIATED
+  VERIFIED
+  FAILED
+}
+
+model Order {
+  id         String      @id @default(uuid(7)) @db.Uuid
+  /// Human-readable code shown to the customer, e.g. OR-7K3M9QPD.
+  code       String      @unique
+  userId     String      @db.Uuid
+  status     OrderStatus @default(PENDING_PAYMENT)
+  /// Whole rials, computed on the server from item snapshots.
+  totalRials Decimal     @db.Decimal(20, 0)
+  paidAt     DateTime?
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  user     User             @relation(fields: [userId], references: [id], onDelete: Restrict)
+  items    OrderItem[]
+  attempts PaymentAttempt[]
+
+  @@index([userId, createdAt])
+  @@index([status])
+  @@map("orders")
+}
+
+model OrderItem {
+  id             String        @id @default(uuid(7)) @db.Uuid
+  orderId        String        @db.Uuid
+  kind           OrderItemKind
+  /// Id of the purchased record (e.g. Course.id); title and price are snapshots.
+  referenceId    String        @db.Uuid
+  referenceSlug  String
+  title          String
+  unitPriceRials Decimal       @db.Decimal(20, 0)
+  quantity       Int           @default(1)
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@map("order_items")
+}
+
+model PaymentAttempt {
+  id                String               @id @default(uuid(7)) @db.Uuid
+  orderId           String               @db.Uuid
+  provider          String
+  status            PaymentAttemptStatus @default(INITIATED)
+  amountRials       Decimal              @db.Decimal(20, 0)
+  idempotencyKey    String               @unique
+  providerReference String?              @unique
+  trackingCode      String?
+  cardMask          String?
+  failureReason     String?
+  createdAt         DateTime             @default(now())
+  completedAt       DateTime?
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@map("payment_attempts")
+}
+
+// ─────────────────────────────────── Files ───────────────────────────────────
+
+enum FilePurpose {
+  SERVICE_REQUEST_ATTACHMENT
+  TICKET_ATTACHMENT
+  USER_DOCUMENT
+  /// Public media library image (CMS and catalog covers), served same-origin at /api/v1/media/:id.
+  PUBLIC_IMAGE
+}
+
+enum FileAccessLevel {
+  PRIVATE
+  PUBLIC
+}
+
+enum FileStatus {
+  ACTIVE
+  DELETED
+}
+
+/// Uploaded file metadata (roadmap §26, AI-ready metadata §14). Bytes live in the private
+/// FileStorageProvider under `storageKey`; access only via authorization + signed URLs.
+model FileObject {
+  id           String          @id @default(uuid(7)) @db.Uuid
+  ownerId      String          @db.Uuid
+  purpose      FilePurpose
+  /// Linked business entity (e.g. service_request + id), set when attached.
+  entityType   String?
+  entityId     String?
+  accessLevel  FileAccessLevel @default(PRIVATE)
+  originalName String
+  mimeType     String
+  size         Int
+  /// SHA-256 hex of the content.
+  checksum     String
+  storageKey   String          @unique
+  version      Int             @default(1)
+  source       String          @default("upload")
+  status       FileStatus      @default(ACTIVE)
+  createdAt    DateTime        @default(now())
+  deletedAt    DateTime?
+
+  owner User @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@index([ownerId, createdAt])
+  @@index([entityType, entityId])
+  @@index([purpose, status, createdAt])
+  @@map("files")
+}
+
+// ────────────────────────────────── Tickets ──────────────────────────────────
+
+enum TicketStatus {
+  OPEN
+  PENDING
+  ANSWERED
+  CLOSED
+}
+
+enum TicketPriority {
+  LOW
+  NORMAL
+  HIGH
+}
+
+enum TicketCategory {
+  GENERAL
+  REQUEST
+  TECHNICAL
+  BILLING
+}
+
+/// Support conversation between a user and staff (EPIC-12). Optional link to a service request.
+model Ticket {
+  id               String         @id @default(uuid(7)) @db.Uuid
+  /// Human-friendly reference, e.g. TK-7K3M9Q.
+  code             String         @unique
+  userId           String         @db.Uuid
+  subject          String
+  category         TicketCategory @default(GENERAL)
+  priority         TicketPriority @default(NORMAL)
+  status           TicketStatus   @default(OPEN)
+  serviceRequestId String?        @db.Uuid
+  /// Support agent handling the ticket (holds tickets:reply when assigned).
+  assigneeId       String?        @db.Uuid
+  lastMessageAt    DateTime       @default(now())
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  user     User            @relation("TicketOwner", fields: [userId], references: [id], onDelete: Cascade)
+  assignee User?           @relation("TicketAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  messages TicketMessage[]
+
+  @@index([userId, lastMessageAt])
+  @@index([assigneeId, lastMessageAt])
+  @@index([status, lastMessageAt])
+  /// Staff list without a status filter, newest message first (ST-26.07).
+  @@index([lastMessageAt])
+  @@map("tickets")
+}
+
+model TicketMessage {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  ticketId  String   @db.Uuid
+  authorId  String?  @db.Uuid
+  /// True when written by staff (shown as «پشتیبانی» to the user).
+  fromStaff Boolean  @default(false)
+  /// Internal staff notes are never shown to the ticket owner.
+  internal  Boolean  @default(false)
+  body      String
+  createdAt DateTime @default(now())
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId, createdAt])
+  @@map("ticket_messages")
+}

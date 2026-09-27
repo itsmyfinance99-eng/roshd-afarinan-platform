@@ -1,0 +1,118 @@
+# Full stack in containers (production-like, for local verification and staging).
+# From the repository root:
+#   JWT_ACCESS_SECRET=... FILE_URL_SECRET=... INTERNAL_API_TOKEN=... COOKIE_SECURE=false \
+#     docker compose -f infra/docker/compose.app.yml up --build   # site on http://localhost:8080
+# COOKIE_SECURE=false is only for plain-http local testing; behind HTTPS leave it unset (secure).
+# nginx (proxy) is the only public entry; see infra/nginx/README.md for the client-IP setup.
+# Secrets are required variables; nothing secret is baked into an image.
+name: roshd-afarinan-app
+
+# Container logs rotate instead of filling the disk (docs/operations/monitoring.md). Defaults keep
+# about 5 × 20 MB per service; the retention period is still an open decision (OQ-24).
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: ${LOG_MAX_SIZE:-20m}
+    max-file: '${LOG_MAX_FILES:-5}'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    logging: *logging
+    environment:
+      POSTGRES_USER: roshd
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-roshd_app_password}
+      POSTGRES_DB: roshd
+    volumes:
+      - app-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U roshd -d roshd']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # One-off job: migrations + reference data (roles/permissions), then exits.
+  migrate:
+    build:
+      context: ../..
+      dockerfile: apps/api/Dockerfile
+      target: migrate
+    environment:
+      DATABASE_URL: postgresql://roshd:${POSTGRES_PASSWORD:-roshd_app_password}@postgres:5432/roshd
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    build:
+      context: ../..
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    logging: *logging
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://roshd:${POSTGRES_PASSWORD:-roshd_app_password}@postgres:5432/roshd
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?set JWT_ACCESS_SECRET (openssl rand -base64 48)}
+      FILE_URL_SECRET: ${FILE_URL_SECRET:?set FILE_URL_SECRET (openssl rand -base64 48)}
+      WEB_BASE_URL: ${WEB_BASE_URL:-http://localhost:8080}
+      # nginx is the only hop in front of the API (see infra/nginx/README.md).
+      TRUST_PROXY: 1
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:?set INTERNAL_API_TOKEN (openssl rand -base64 48)}
+      # Secure (HTTPS-only) session cookies unless explicitly turned off for local http testing.
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+    volumes:
+      - app-storage:/app/storage
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  web:
+    build:
+      context: ../..
+      dockerfile: apps/web/Dockerfile
+      args:
+        API_INTERNAL_URL: http://api:4000
+        NEXT_PUBLIC_SITE_URL: ${WEB_BASE_URL:-http://localhost:8080}
+    restart: unless-stopped
+    logging: *logging
+    environment:
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:?set INTERNAL_API_TOKEN (openssl rand -base64 48)}
+    depends_on:
+      - api
+
+  # Only public entry point: routes /api/ to the API and the rest to the web app.
+  proxy:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    logging: *logging
+    ports:
+      - '8080:80'
+    volumes:
+      - ../nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - api
+      - web
+
+  # On-demand backup (docs/operations/backup-restore.md):
+  #   docker compose -f infra/docker/compose.app.yml --profile ops run --rm backup
+  backup:
+    image: postgres:16-alpine
+    profiles: ['ops']
+    environment:
+      DATABASE_URL: postgresql://roshd:${POSTGRES_PASSWORD:-roshd_app_password}@postgres:5432/roshd
+      BACKUP_DIR: /backups
+      STORAGE_DIR: /storage
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-14}
+    volumes:
+      - ../backup:/scripts:ro
+      - app-storage:/storage:ro
+      - ${BACKUP_HOST_DIR:-./backups}:/backups
+    entrypoint: ['sh', '/scripts/backup.sh']
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  app-postgres:
+  app-storage:

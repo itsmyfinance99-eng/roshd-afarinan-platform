@@ -1,0 +1,37 @@
+{
+  "name": "roshd-afarinan-platform",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Roshd Afarinan Sanat va Madan platform (monorepo)",
+  "packageManager": "pnpm@11.22.0",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "test:e2e": "turbo run test:e2e",
+    "verify": "turbo run lint typecheck test build --concurrency=1",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "backlog:sync": "node infra/scripts/backlog-sync.mjs",
+    "backlog:check": "node infra/scripts/backlog-sync.mjs --dry-run",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^21.2.3",
+    "@commitlint/config-conventional": "^21.2.3",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.5.1",
+    "prettier": "^3.9.9",
+    "turbo": "^2.11.4",
+    "typescript": "~5.9.3",
+    "yaml": "^2.8.1"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,mjs,cjs,json,md,yml,yaml,css}": "prettier --write"
+  }
+}
