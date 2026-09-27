@@ -4,6 +4,21 @@
 /* Scan the shared UI package for class names. */
 @source '../../../../packages/ui/src';
 
+/*
+ * Metric-matched fallback while Vazirmatn loads. `font-display: swap` replaces the fallback
+ * once the web font arrives, and without these adjustments the text reflows, which showed up
+ * as a layout shift of up to 0.318 in Lighthouse (ST-26.09, finding P-06). The values scale
+ * Tahoma to Vazirmatn's metrics (unitsPerEm 2048, ascent 2101, descent 623, lineGap 0).
+ */
+@font-face {
+  font-family: 'Vazirmatn Fallback';
+  src: local('Tahoma'), local('Segoe UI'), local('Arial');
+  size-adjust: 103%;
+  ascent-override: 99.6%;
+  descent-override: 29.5%;
+  line-gap-override: 0%;
+}
+
 @layer base {
   html {
     background: #fff;

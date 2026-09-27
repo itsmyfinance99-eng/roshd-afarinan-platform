@@ -3,7 +3,7 @@
 import { cn, toPersianDigits } from '@roshd/ui';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useApi } from '@/lib/use-api';
 
 /** Mirrors the API notification view. */
@@ -30,8 +30,15 @@ const POLL_MS = 60_000;
 export function NotificationBell() {
   const pathname = usePathname();
   const { state, reload } = useApi<{ unread: number }>('/notifications/unread-count');
+  const mounted = useRef(false);
 
   useEffect(() => {
+    // useApi already fetches on mount; refresh only when the route actually changes,
+    // otherwise every dashboard load asks for the count twice (ST-26.09, finding P-07).
+    if (!mounted.current) {
+      mounted.current = true;
+      return;
+    }
     reload({ silent: true });
   }, [pathname, reload]);
 
