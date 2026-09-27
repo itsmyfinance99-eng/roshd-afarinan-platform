@@ -11,8 +11,21 @@ export const XHR = { 'X-Requested-With': 'XMLHttpRequest' } as const;
 export const TOKEN_TRANSPORT = { 'X-Auth-Transport': 'token' } as const;
 export const PASSWORD = 'correct-horse-9';
 
-export async function createTestApp(controllers: Type[] = []): Promise<INestApplication> {
-  const moduleRef = await Test.createTestingModule({ imports: [AppModule], controllers }).compile();
+/** A provider to swap for a test double, e.g. the site cache port (ST-27.04). */
+export interface ProviderOverride {
+  token: unknown;
+  value: unknown;
+}
+
+export async function createTestApp(
+  controllers: Type[] = [],
+  overrides: ProviderOverride[] = [],
+): Promise<INestApplication> {
+  let builder = Test.createTestingModule({ imports: [AppModule], controllers });
+  for (const { token, value } of overrides) {
+    builder = builder.overrideProvider(token).useValue(value);
+  }
+  const moduleRef = await builder.compile();
   const app = moduleRef.createNestApplication({ bufferLogs: true });
   configureApp(app);
   await app.init();

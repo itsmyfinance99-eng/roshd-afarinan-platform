@@ -83,6 +83,25 @@ Payment callbacks and any endpoint that creates money-moving side effects must b
 
 `GET /payments/callback/:attemptId` is the gateway return URL. It verifies server-to-server with the reference stored at initiation (never one taken from the query), completes the attempt at most once, and answers with a `303` redirect to `/dashboard/orders/:id?payment=paid|failed`. The `payment` hint is only a message cue for the page, which always reads the order status from the API. Prices are never accepted from clients: orders are priced on the server from published catalog records.
 
+## Telling the site a published collection changed
+
+The public site caches its pages (ISR), so an editorial change would otherwise appear only after
+the window. Publishing, editing a published record, or archiving one therefore calls the
+`SiteCache` port (`apps/api/src/modules/publishing`), which POSTs to the web app:
+
+```
+POST {WEB_BASE_URL}/internal/revalidate
+x-internal-token: <INTERNAL_API_TOKEN>
+{ "tags": ["content"] }
+```
+
+Tags are `content`, `pages`, `courses`, `research` and `investments`; the web route refuses an
+unknown tag, a path that is not site-relative, and any caller without the token. The call is
+best-effort by contract and bounded by a timeout: the editor's change is already saved, so an
+unreachable site only means the page refreshes on its own schedule instead. Editing a **draft**
+invalidates nothing, because a draft is not on the public site. With no `INTERNAL_API_TOKEN`
+configured the port is a no-op (local API-only work and tests).
+
 ## OpenAPI
 
 Swagger UI is served at `/docs` (disabled in production unless `SWAGGER_ENABLED=true`). Schemas are generated from Zod (`z.toJSONSchema`).

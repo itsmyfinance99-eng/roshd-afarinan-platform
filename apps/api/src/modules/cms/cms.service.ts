@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import type {
   CategoryScope,
   ContentKind,
@@ -21,6 +21,7 @@ import {
 import type { RequestMeta } from '../../common/http/request-meta';
 import { Prisma } from '../../generated/prisma/client';
 import { AuditService } from '../audit/audit.service';
+import { SITE_CACHE, type SiteCache } from '../publishing/ports/site-cache';
 import { PrismaService } from '../database/prisma.service';
 import type { Principal } from '../rbac/principal';
 
@@ -78,6 +79,7 @@ export class CmsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    @Inject(SITE_CACHE) private readonly siteCache: SiteCache,
   ) {}
 
   // ─────────────────────────────── public (published only) ───────────────────────────────
@@ -264,6 +266,7 @@ export class CmsService {
         metadata: { kind: entry.kind, slug: entry.slug },
         meta,
       });
+      if (entry.status === 'PUBLISHED') await this.siteCache.invalidate(['content']);
       return entry;
     } catch (error) {
       if (isUniqueViolation(error)) throw new ConflictError(SLUG_TAKEN);
@@ -290,6 +293,8 @@ export class CmsService {
         entityId: id,
         meta,
       });
+      // Only a published entry is on the public site; a draft edit changes nothing there.
+      if (entry.status === 'PUBLISHED') await this.siteCache.invalidate(['content']);
       return entry;
     } catch (error) {
       if (isUniqueViolation(error)) throw new ConflictError(SLUG_TAKEN);
@@ -317,6 +322,7 @@ export class CmsService {
       metadata: { kind: entry.kind, slug: entry.slug },
       meta,
     });
+    await this.siteCache.invalidate(['content']);
     return entry;
   }
 
@@ -334,6 +340,8 @@ export class CmsService {
       entityId: id,
       meta,
     });
+    // Archiving takes a page off the site, so the cached copy has to go too.
+    await this.siteCache.invalidate(['content']);
     return entry;
   }
 
@@ -407,6 +415,7 @@ export class CmsService {
       entityId: slug,
       meta,
     });
+    if (page.status === 'PUBLISHED') await this.siteCache.invalidate(['pages']);
     return page;
   }
 }

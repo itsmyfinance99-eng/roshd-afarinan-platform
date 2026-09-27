@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import type {
   CreateResearchInput,
   ListPublishedResearchQuery,
@@ -20,6 +20,7 @@ import {
 import type { RequestMeta } from '../../common/http/request-meta';
 import { Prisma } from '../../generated/prisma/client';
 import { AuditService } from '../audit/audit.service';
+import { SITE_CACHE, type SiteCache } from '../publishing/ports/site-cache';
 import { CmsService, type CategoryView } from '../cms/cms.service';
 import { PrismaService } from '../database/prisma.service';
 import type { Principal } from '../rbac/principal';
@@ -66,6 +67,7 @@ export class ResearchService {
     private readonly prisma: PrismaService,
     private readonly cms: CmsService,
     private readonly audit: AuditService,
+    @Inject(SITE_CACHE) private readonly siteCache: SiteCache,
   ) {}
 
   // ─────────────────────────────── public (published only) ───────────────────────────────
@@ -200,6 +202,8 @@ export class ResearchService {
         select: ADMIN_SELECT,
       });
       await this.record('research.project_updated', row, actor, meta);
+      // Only a published project is on the site; a draft edit changes nothing there.
+      if (row.status === 'PUBLISHED') await this.siteCache.invalidate(['research']);
       return await this.withCategory(row);
     } catch (error) {
       if (isUniqueViolation(error)) throw new ConflictError(SLUG_TAKEN);
@@ -220,6 +224,7 @@ export class ResearchService {
       select: ADMIN_SELECT,
     });
     await this.record('research.project_published', row, actor, meta);
+    await this.siteCache.invalidate(['research']);
     return this.withCategory(row);
   }
 
@@ -231,6 +236,8 @@ export class ResearchService {
       select: ADMIN_SELECT,
     });
     await this.record('research.project_archived', row, actor, meta);
+    // Archiving takes it off the site, so the cached copy has to go too.
+    await this.siteCache.invalidate(['research']);
     return this.withCategory(row);
   }
 

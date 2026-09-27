@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import type {
   CreateCourseInput,
   CreateInstructorInput,
@@ -21,6 +21,7 @@ import {
 import type { RequestMeta } from '../../common/http/request-meta';
 import { Prisma } from '../../generated/prisma/client';
 import { AuditService } from '../audit/audit.service';
+import { SITE_CACHE, type SiteCache } from '../publishing/ports/site-cache';
 import { CmsService, type CategoryView } from '../cms/cms.service';
 import { PrismaService } from '../database/prisma.service';
 import type { Principal } from '../rbac/principal';
@@ -84,6 +85,7 @@ export class LearningService {
     private readonly prisma: PrismaService,
     private readonly cms: CmsService,
     private readonly audit: AuditService,
+    @Inject(SITE_CACHE) private readonly siteCache: SiteCache,
   ) {}
 
   // ─────────────────────────────── public (published only) ───────────────────────────────
@@ -240,6 +242,8 @@ export class LearningService {
         entityId: id,
         meta,
       });
+      // Only a published course is on the site; a draft edit changes nothing there.
+      if (row.status === 'PUBLISHED') await this.siteCache.invalidate(['courses']);
       return this.toView(row);
     } catch (error) {
       if (isUniqueViolation(error)) throw new ConflictError(SLUG_TAKEN);
@@ -300,6 +304,8 @@ export class LearningService {
       metadata: { slug: row.slug },
       meta,
     });
+    // Publishing adds the course to /training, archiving removes it: both invalidate.
+    await this.siteCache.invalidate(['courses']);
     return this.toView(row);
   }
 
