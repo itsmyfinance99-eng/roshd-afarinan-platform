@@ -21,3 +21,21 @@ describe('notifications', () => {
     expect(provider.sent).toHaveLength(1);
   });
 });
+
+describe('LogNotificationProvider memory', () => {
+  it('remembers only the most recent messages', async () => {
+    // ST-26.08 (F-09): this adapter is the production default and each message holds a live link.
+    const provider = new LogNotificationProvider();
+    for (let i = 0; i < 250; i++) {
+      await provider.send({
+        channel: 'email',
+        to: `user${i}@example.com`,
+        template: 'auth.password-reset',
+        data: { resetUrl: `https://site/reset-password?token=t${i}` },
+      });
+    }
+    expect(provider.sent).toHaveLength(100);
+    expect(provider.sent.at(-1)?.to).toBe('user249@example.com');
+    expect(JSON.stringify(provider.sent)).not.toContain('token=t0"');
+  });
+});

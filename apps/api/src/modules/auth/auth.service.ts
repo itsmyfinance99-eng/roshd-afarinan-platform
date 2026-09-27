@@ -44,6 +44,12 @@ export interface MeView extends UserView {
 
 const INVALID_CREDENTIALS = 'ایمیل یا رمز عبور نادرست است.';
 const INVALID_SESSION = 'نشست شما معتبر نیست. لطفاً دوباره وارد شوید.';
+/**
+ * How long after a rotation the previous token may still be presented. Two tabs, or one retried
+ * request, race within milliseconds; theft replayed later still ends the session (ST-26.08, F-05).
+ */
+const REFRESH_REPLAY_MS = 20_000;
+
 const INVALID_RESET_LINK = 'لینک بازیابی نامعتبر یا منقضی است. دوباره درخواست دهید.';
 
 /** 429 for a locked account; the password reset link is the way back in before the lock ends. */
@@ -164,12 +170,19 @@ export class AuthService {
    */
   async refresh(presented: string | undefined, meta: RequestMeta): Promise<IssuedSession> {
     if (!presented) throw new UnauthenticatedError(INVALID_SESSION);
+    const now = new Date();
     const record = await this.prisma.refreshToken.findUnique({
       where: { tokenHash: this.tokens.hashRefreshToken(presented) },
     });
     if (!record) throw new UnauthenticatedError(INVALID_SESSION);
 
     if (record.revokedAt) {
+      // Two tabs (or a retried request) can present the same token at almost the same moment.
+      // Inside a short window the rotation is simply replayed: the successor that the first
+      // caller received is returned again, instead of ending the session (ST-26.08, F-05).
+      const replay = await this.replayRotation(record, meta, now);
+      if (replay) return replay;
+
       await this.revokeFamily(record.familyId);
       await this.audit.record({
         action: 'auth.refresh_reuse_detected',
@@ -193,8 +206,31 @@ export class AuthService {
       await this.revokeFamily(record.familyId);
       throw new UnauthenticatedError(INVALID_SESSION);
     }
-    const user = await this.users.findById(record.userId);
+    const rotated = await this.rotate(record, meta);
+    if (rotated) return rotated;
 
+    // Another caller consumed this very row a moment ago: the same race as above, seen from the
+    // losing side. Replay its rotation instead of ending the session (ST-26.08, finding F-05).
+    const consumed = await this.prisma.refreshToken.findUnique({
+      where: { id: record.id },
+      select: { id: true, familyId: true, userId: true, revokedAt: true, replacedById: true },
+    });
+    const replay = consumed && (await this.replayRotation(consumed, meta, new Date()));
+    if (replay) return replay;
+
+    await this.revokeFamily(record.familyId);
+    throw new UnauthenticatedError(INVALID_SESSION);
+  }
+
+  /**
+   * Replaces one refresh token with its successor inside a transaction and issues a session for
+   * it. Returns undefined when another caller consumed the same row first.
+   */
+  private async rotate(
+    record: { id: string; familyId: string; userId: string },
+    meta: RequestMeta,
+  ): Promise<IssuedSession | undefined> {
+    const user = await this.users.findById(record.userId);
     const next = this.newRefreshToken();
     const nextId = randomUUID();
     // Conditional revoke closes the race where the same token is refreshed twice concurrently.
@@ -217,12 +253,7 @@ export class AuthService {
       });
       return true;
     });
-    if (!consumed) {
-      await this.revokeFamily(record.familyId);
-      throw new UnauthenticatedError(INVALID_SESSION);
-    }
-
-    return this.issue(user, record.familyId, next);
+    return consumed ? this.issue(user, record.familyId, next) : undefined;
   }
 
   /** Revokes the session family of the presented refresh token (idempotent). */
@@ -409,6 +440,35 @@ export class AuthService {
         'auth notification failed',
       );
     }
+  }
+
+  /**
+   * A token rotated moments ago is a race between the user's own tabs, not theft. Within
+   * REFRESH_REPLAY_MS the successor is still active, so a fresh access token is issued for it
+   * and the session survives. Outside the window, or when the successor is already gone, the
+   * caller falls through to reuse detection.
+   */
+  private async replayRotation(
+    record: {
+      id: string;
+      familyId: string;
+      revokedAt: Date | null;
+      replacedById: string | null;
+      userId: string;
+    },
+    meta: RequestMeta,
+    now: Date,
+  ): Promise<IssuedSession | undefined> {
+    if (!record.revokedAt || !record.replacedById) return undefined;
+    if (now.getTime() - record.revokedAt.getTime() > REFRESH_REPLAY_MS) return undefined;
+    const successor = await this.prisma.refreshToken.findFirst({
+      where: { id: record.replacedById, revokedAt: null, expiresAt: { gt: now } },
+      select: { id: true, familyId: true, userId: true, createdAt: true },
+    });
+    if (!successor) return undefined;
+    // Rotate from the successor instead, so the family keeps exactly one active token and this
+    // caller receives a usable pair.
+    return this.rotate(successor, meta).catch(() => undefined);
   }
 
   private async startSession(user: UserView, meta: RequestMeta): Promise<IssuedSession> {

@@ -75,8 +75,19 @@ export const DAY_RANGE_ERROR = 'تاریخ شروع نباید بعد از تا�
 export const validDayRange = (v: { from?: string; to?: string }) =>
   !v.from || !v.to || v.from <= v.to;
 
+/**
+ * Deep pages make PostgreSQL walk every skipped row (OFFSET), which grows without bound on
+ * tables like the audit log. Beyond this point callers must narrow their filters (ST-26.07).
+ */
+export const MAX_PAGE = 500;
+
 export const paginationQuerySchema = z.object({
-  page: z.coerce.number().int().min(1).default(1),
+  page: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(MAX_PAGE, { error: 'برای دیدن نتایج قدیمی‌تر، فیلترها را محدودتر کنید.' })
+    .default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
 });
 

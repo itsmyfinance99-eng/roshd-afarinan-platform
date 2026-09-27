@@ -10,6 +10,7 @@ import { ZodBody } from '../src/common/http/zod';
 import { HealthRegistry } from '../src/modules/health/health.registry';
 import type { LogErrorReporter } from '../src/modules/monitoring/adapters/log-error-reporter';
 import { ERROR_REPORTER } from '../src/modules/monitoring/ports/error-reporter';
+import { registerUser } from './helpers';
 
 @Public()
 @Controller('e2e-probe')
@@ -118,6 +119,21 @@ describe('HTTP foundation (e2e)', () => {
     const serialized = JSON.stringify(report);
     expect(serialized).not.toContain('maryam@example.com');
     expect(serialized).not.toContain('09121234567');
+  });
+
+  // ST-26.07 (P-02): deep pages make PostgreSQL walk every skipped row.
+  it('refuses a page number beyond the cap', async () => {
+    const user = await registerUser(app);
+    const auth = { Authorization: `Bearer ${user.token}` };
+    const refused = await request(app.getHttpServer())
+      .get('/api/v1/service-requests/mine?page=4000')
+      .set(auth)
+      .expect(400);
+    expect(refused.body.error.code).toBe('VALIDATION_FAILED');
+    await request(app.getHttpServer())
+      .get('/api/v1/service-requests/mine?page=500')
+      .set(auth)
+      .expect(200);
   });
 
   it('does not report client errors', async () => {
