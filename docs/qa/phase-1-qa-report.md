@@ -55,20 +55,20 @@ All Phase 1 stories in the backlog (sprints S0–S8) and all EPIC-25 Operational
 
 ## Known issues and gaps
 
-| #   | Severity | Issue                                                                                                                                   | Plan                                                    |
-| --- | -------- | --------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
-| 1   | Medium   | No real payment gateway: production keeps `PAYMENT_PROVIDER=disabled` (OQ-09)                                                           | ST-07.03 once the PSP is chosen                         |
-| 2   | Medium   | Official privacy and terms texts are missing, so their links are hidden (OQ-21)                                                         | Publish when the texts are approved                     |
-| 3   | Medium   | No automated accessibility audit (axe). Semantics, labels and keyboard paths are tested functionally only                               | Resolved: axe audit in Playwright (ST-25.09)            |
-| 4   | Medium   | SMS/email providers not chosen; notifications and verification/reset emails are logged only (OQ-08)                                     | Adapter once the provider is chosen                     |
-| 5   | Low      | Date filters (request export, audit) use the browser's Gregorian date picker                                                            | Jalali date picker component                            |
-| 6   | Low      | Search is `ILIKE` without stemming or typo tolerance                                                                                    | Sufficient for current volume; OpenSearch adapter later |
-| 7   | Low      | Home, About and Iran Sahamdar are refreshed every 5 minutes (ISR), so CMS edits appear with that delay                                  | On-demand revalidation from the API                     |
-| 8   | Low      | Payment callback accepts GET only; some PSPs post back with POST                                                                        | With the real PSP adapter (ST-07.03)                    |
-| 9   | Low      | Refund policy undefined; duplicate verified payments are flagged (`payment.duplicate`) for manual follow-up (OQ-23)                     | Business decision                                       |
-| 10  | Low      | API runtime image is about 750 MB, and the migrate image contains the full workspace                                                    | Prune dependencies, dedicated migrate bundle            |
-| 11  | Low      | Only same-origin cover images render (CSP `img-src 'self'`)                                                                             | Resolved: media library served same-origin (ST-25.07)   |
-| 12  | Info     | Real courses, research, opportunities and credentials are pending (OQ-17, OQ-22); the site shows labelled demo data only in development | Content entry through the new admin forms               |
+| #   | Severity | Issue                                                                                                                                   | Plan                                                                 |
+| --- | -------- | --------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| 1   | Medium   | No real payment gateway: production keeps `PAYMENT_PROVIDER=disabled` (OQ-09)                                                           | ST-07.03 once the PSP is chosen                                      |
+| 2   | Medium   | Official privacy and terms texts are missing, so their links are hidden (OQ-21)                                                         | Publish when the texts are approved                                  |
+| 3   | Medium   | No automated accessibility audit (axe). Semantics, labels and keyboard paths are tested functionally only                               | Resolved: axe audit in Playwright (ST-25.09)                         |
+| 4   | Medium   | SMS/email providers not chosen; notifications and verification/reset emails are logged only (OQ-08)                                     | Adapter once the provider is chosen                                  |
+| 5   | Low      | Date filters (request export, audit) use the browser's Gregorian date picker                                                            | Jalali date picker component                                         |
+| 6   | Low      | Search is `ILIKE` without stemming or typo tolerance                                                                                    | Sufficient for current volume; OpenSearch adapter later              |
+| 7   | Low      | Home, About and Iran Sahamdar are refreshed every 5 minutes (ISR), so CMS edits appear with that delay                                  | Resolved: the API invalidates the site's cache on publish (ST-27.04) |
+| 8   | Low      | Payment callback accepts GET only; some PSPs post back with POST                                                                        | With the real PSP adapter (ST-07.03)                                 |
+| 9   | Low      | Refund policy undefined; duplicate verified payments are flagged (`payment.duplicate`) for manual follow-up (OQ-23)                     | Business decision                                                    |
+| 10  | Low      | API runtime image is about 750 MB, and the migrate image contains the full workspace                                                    | Prune dependencies, dedicated migrate bundle                         |
+| 11  | Low      | Only same-origin cover images render (CSP `img-src 'self'`)                                                                             | Resolved: media library served same-origin (ST-25.07)                |
+| 12  | Info     | Real courses, research, opportunities and credentials are pending (OQ-17, OQ-22); the site shows labelled demo data only in development | Content entry through the new admin forms                            |
 
 | 13 | Medium | The adversarial security and performance audit (ST-21.03) has not run yet; this report reflects the automated suites only | ST-21.03 before production use |
 | 14 | Low | CSP keeps `script-src 'unsafe-inline'` (Next.js hydration); a nonce-based CSP would disable static rendering and ISR | Decision recorded in the security baseline |

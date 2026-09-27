@@ -24,6 +24,7 @@ import { LearningModule } from './modules/learning/learning.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { OrdersModule } from './modules/orders/orders.module';
 import { PaymentsModule } from './modules/payments/payments.module';
+import { PublishingModule } from './modules/publishing/publishing.module';
 import { PermissionsGuard } from './modules/rbac/permissions.guard';
 import { RbacModule } from './modules/rbac/rbac.module';
 import { SearchModule } from './modules/search/search.module';
@@ -98,6 +99,7 @@ import { MonitoringModule } from './modules/monitoring/monitoring.module';
     FilesModule,
     NotificationsModule,
     PaymentsModule,
+    PublishingModule,
     IranSahamdarModule,
     // Domain modules (Phase 1)
     ServiceRequestsModule,

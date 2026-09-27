@@ -166,6 +166,12 @@ createServer((req, res) => {
 
   if (req.method !== 'GET') return notFound(res);
   if (path === '/health/live') return ok(res, { status: 'ok' });
+  // Test-only hook: lets a test change published data so on-demand revalidation is observable
+  // (ST-27.04). GET so the method guard above still holds; this server is never deployed.
+  if (path === '/_fixture/course-title') {
+    courses[0].title = q.get('value') ?? courses[0].title;
+    return ok(res, { title: courses[0].title });
+  }
   if (path === '/payments/status') return ok(res, { enabled: true, testMode: true });
   if (path === '/search') {
     const term = q.get('q') ?? '';

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import type {
   CreateInvestmentInput,
   ListInvestmentsAdminQuery,
@@ -16,6 +16,7 @@ import {
 import type { RequestMeta } from '../../common/http/request-meta';
 import { Prisma } from '../../generated/prisma/client';
 import { AuditService } from '../audit/audit.service';
+import { SITE_CACHE, type SiteCache } from '../publishing/ports/site-cache';
 import { PrismaService } from '../database/prisma.service';
 import type { Principal } from '../rbac/principal';
 
@@ -66,6 +67,7 @@ export class InvestmentService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    @Inject(SITE_CACHE) private readonly siteCache: SiteCache,
   ) {}
 
   // ─────────────────────────────── public (published only) ───────────────────────────────
@@ -197,6 +199,8 @@ export class InvestmentService {
         select: ADMIN_SELECT,
       });
       await this.record('investment.opportunity_updated', row, actor, meta);
+      // Only a published opportunity is on the site; a draft edit changes nothing there.
+      if (row.status === 'PUBLISHED') await this.siteCache.invalidate(['investments']);
       return toView(row);
     } catch (error) {
       if (isUniqueViolation(error)) throw new ConflictError(SLUG_TAKEN);
@@ -217,6 +221,7 @@ export class InvestmentService {
       select: ADMIN_SELECT,
     });
     await this.record('investment.opportunity_published', row, actor, meta);
+    await this.siteCache.invalidate(['investments']);
     return toView(row);
   }
 
@@ -228,6 +233,8 @@ export class InvestmentService {
       select: ADMIN_SELECT,
     });
     await this.record('investment.opportunity_archived', row, actor, meta);
+    // Archiving takes it off the site, so the cached copy has to go too.
+    await this.siteCache.invalidate(['investments']);
     return toView(row);
   }
 

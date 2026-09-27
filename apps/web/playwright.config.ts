@@ -2,6 +2,8 @@ import { defineConfig, devices } from '@playwright/test';
 
 const PORT = Number(process.env.E2E_PORT ?? 3100);
 const MOCK_API_PORT = Number(process.env.MOCK_API_PORT ?? 4100);
+/** Throwaway token shared with the web server under test (never a real secret). */
+export const E2E_INTERNAL_TOKEN = 'e2e-internal-token-0123456789abcdef';
 
 /**
  * Web e2e (ADR-0006): smoke + interaction tests against the production build.
@@ -44,7 +46,12 @@ export default defineConfig({
     {
       command: `pnpm exec next start --port ${PORT} --hostname 127.0.0.1`,
       url: `http://127.0.0.1:${PORT}`,
-      env: { API_INTERNAL_URL: `http://127.0.0.1:${MOCK_API_PORT}`, ENABLE_MOCK_GATEWAY: 'true' },
+      env: {
+        API_INTERNAL_URL: `http://127.0.0.1:${MOCK_API_PORT}`,
+        ENABLE_MOCK_GATEWAY: 'true',
+        // Test-only value: the revalidation endpoint refuses callers without it (ST-27.04).
+        INTERNAL_API_TOKEN: E2E_INTERNAL_TOKEN,
+      },
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
     },
