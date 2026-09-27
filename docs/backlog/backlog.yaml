@@ -1116,6 +1116,7 @@ epics:
         acceptance:
           - 'docs/qa/test-matrix.md به‌روز؛ مشکلات با severity ثبت'
       - id: ST-21.02
+        status: done
         title: 'انتشار v0.1.0 (فاز ۰) و v0.2.0 (فاز ۱) با CHANGELOG'
         sprint: S8
         points: 2
