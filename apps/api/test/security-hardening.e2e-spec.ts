@@ -96,6 +96,52 @@ describe('Security hardening (e2e)', () => {
     });
   });
 
+  // ST-26.02 (F-02): a form on another site must not be able to change state here.
+  describe('cross-site requests', () => {
+    const CROSS = { 'Sec-Fetch-Site': 'cross-site' } as const;
+
+    it('refuses a cross-site login, register and request submission', async () => {
+      const user = await registerUser(app);
+      for (const [path, body] of [
+        ['/api/v1/auth/login', { email: user.email, password: PASSWORD }],
+        ['/api/v1/auth/register', { fullName: 'مهاجم', email: uniqueEmail(), password: PASSWORD }],
+        [
+          '/api/v1/service-requests',
+          { type: 'CONTACT', fullName: 'فرم', mobile: '09120000055', message: 'پیام از سایت دیگر' },
+        ],
+      ] as const) {
+        const res = await http().post(path).set(CROSS).send(body).expect(403);
+        expect(res.body.error.code).toBe('FORBIDDEN');
+        expect(res.headers['set-cookie']).toBeUndefined();
+      }
+    });
+
+    it('allows the site itself, direct navigation and API clients', async () => {
+      const user = await registerUser(app);
+      for (const site of ['same-origin', 'none']) {
+        await http()
+          .post('/api/v1/auth/login')
+          .set({ 'Sec-Fetch-Site': site, ...TOKEN_TRANSPORT })
+          .send({ email: user.email, password: PASSWORD })
+          .expect(200);
+      }
+      // No Sec-Fetch-Site at all: mobile and partner clients.
+      await login(user.email, PASSWORD).expect(200);
+      // Safe methods are never blocked (the payment gateway returns with a cross-site GET).
+      await http().get('/api/v1/health/live').set(CROSS).expect(200);
+    });
+
+    it('does not parse form-encoded bodies at all', async () => {
+      const user = await registerUser(app);
+      const res = await http()
+        .post('/api/v1/auth/login')
+        .type('form')
+        .send({ email: user.email, password: PASSWORD });
+      expect(res.status).not.toBe(200);
+      expect(res.headers['set-cookie']).toBeUndefined();
+    });
+  });
+
   it('rejects common passwords on registration', async () => {
     const res = await http()
       .post('/api/v1/auth/register')
