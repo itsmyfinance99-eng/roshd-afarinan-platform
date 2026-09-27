@@ -42,6 +42,11 @@ export function configureApp(app: INestApplication): AppConfig {
     app.enableCors({ origin: config.CORS_ORIGINS, credentials: true });
   }
 
+  // A handler that never settles (for example a stalled database) must not hold the socket.
+  const server = app.getHttpServer() as { requestTimeout?: number; headersTimeout?: number };
+  server.requestTimeout = config.REQUEST_TIMEOUT_MS;
+  server.headersTimeout = config.REQUEST_TIMEOUT_MS + 5_000;
+
   app.setGlobalPrefix(API_PREFIX);
   app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });
   app.enableShutdownHooks();

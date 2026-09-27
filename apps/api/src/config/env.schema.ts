@@ -45,6 +45,14 @@ export const envSchema = z.object({
   DATABASE_URL: z
     .string()
     .regex(/^postgres(ql)?:\/\//, { error: 'must be a postgresql:// connection string' }),
+  /** Connections in the pool. Keep it below the server's max_connections divided by instances. */
+  DATABASE_POOL_SIZE: z.coerce.number().int().min(1).max(100).default(10),
+  /** How long to wait for a free connection before failing with 503 (ST-26.05). */
+  DATABASE_CONNECT_TIMEOUT_MS: z.coerce.number().int().min(500).max(60_000).default(5_000),
+  /** Server-side cap on a single statement; a stalled database then fails fast instead of hanging. */
+  DATABASE_STATEMENT_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(120_000).default(15_000),
+  /** Node's own cap on a whole request, so a stuck handler cannot hold a socket forever. */
+  REQUEST_TIMEOUT_MS: z.coerce.number().int().min(5_000).max(300_000).default(30_000),
   THROTTLE_TTL_MS: z.coerce.number().int().positive().default(60_000),
   THROTTLE_LIMIT: z.coerce.number().int().positive().default(120),
   /** Stricter per-IP limit for login/register/refresh within THROTTLE_TTL_MS. */
@@ -81,6 +89,15 @@ export const envSchema = z.object({
   /** HMAC secret for signed file-download URLs (≥ 32 chars, different from JWT secret). */
   FILE_URL_SECRET: z.string().min(32, { error: 'must be at least 32 characters' }),
   SIGNED_URL_TTL_SECONDS: z.coerce.number().int().min(30).max(3600).default(300),
+  /** Per-user ceiling on uploads that are not attached to a record yet (ST-26.04). */
+  UPLOAD_QUOTA_BYTES: z.coerce
+    .number()
+    .int()
+    .min(1024 * 1024)
+    .default(200 * 1024 * 1024),
+  UPLOAD_QUOTA_FILES: z.coerce.number().int().min(1).max(1000).default(50),
+  /** Unattached uploads older than this are deleted by the cleanup job (0 disables it). */
+  UPLOAD_RETENTION_HOURS: z.coerce.number().int().min(0).max(8760).default(72),
 });
 
 export type Env = z.infer<typeof envSchema>;

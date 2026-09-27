@@ -1,10 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { ConfigValidationError, loadConfig } from './app-config';
 
+/** Random-looking values: production also checks that secrets are strong and distinct. */
+const JWT_SECRET = 'Jv7pQ2mK9xR4tB6wZ8nL3sY5cF1hD0gA-jw';
+const FILE_SECRET = 'Ht4kM8zP1vC6qX3bN9rW5yJ2sG7dL0fE-fu';
+const INTERNAL_TOKEN = 'Qs9wE2rT5yU8iO1pA4sD7fG0hJ3kL6zX-in';
+
 const BASE = {
   DATABASE_URL: 'postgresql://u:p@127.0.0.1:5432/db',
-  JWT_ACCESS_SECRET: 'x'.repeat(32),
-  FILE_URL_SECRET: 'f'.repeat(32),
+  JWT_ACCESS_SECRET: JWT_SECRET,
+  FILE_URL_SECRET: FILE_SECRET,
 };
 
 describe('loadConfig', () => {
@@ -63,9 +68,9 @@ describe('loadConfig', () => {
     expect(() => loadConfig({ ...BASE, INTERNAL_API_TOKEN: 'short' })).toThrow(
       ConfigValidationError,
     );
-    expect(
-      loadConfig({ ...BASE, INTERNAL_API_TOKEN: 'x'.repeat(32) }).INTERNAL_API_TOKEN,
-    ).toHaveLength(32);
+    expect(loadConfig({ ...BASE, INTERNAL_API_TOKEN: INTERNAL_TOKEN }).INTERNAL_API_TOKEN).toBe(
+      INTERNAL_TOKEN,
+    );
     expect(loadConfig(BASE).INTERNAL_API_TOKEN).toBeUndefined();
   });
 
@@ -96,6 +101,51 @@ describe('loadConfig', () => {
       expect(() => loadConfig({ ...BASE, TRUST_PROXY: 'loopback,,10.0.0.1' })).toThrow(
         ConfigValidationError,
       );
+    });
+  });
+
+  // ST-26.03 (F-08): a length check alone accepted the .env.example placeholders.
+  describe('secret strength in production', () => {
+    const prod = (extra: Record<string, string>) =>
+      loadConfig({ ...BASE, NODE_ENV: 'production', ...extra });
+
+    it('accepts distinct, random-looking secrets', () => {
+      expect(prod({ INTERNAL_API_TOKEN: INTERNAL_TOKEN }).isProduction).toBe(true);
+    });
+
+    it.each([
+      ['placeholder', 'change-me-dev-only-secret-at-least-32-characters'],
+      ['example wording', 'example-secret-value-for-local-development-only'],
+      ['repeated character', 'a'.repeat(48)],
+      ['short alphabet', 'abcabcabcabcabcabcabcabcabcabcabcabc'],
+    ])('refuses a %s secret', (_name, value) => {
+      expect(() => prod({ JWT_ACCESS_SECRET: value })).toThrow(ConfigValidationError);
+      expect(() => prod({ FILE_URL_SECRET: value })).toThrow(ConfigValidationError);
+      expect(() => prod({ INTERNAL_API_TOKEN: value })).toThrow(ConfigValidationError);
+    });
+
+    it('refuses secrets reused across variables', () => {
+      expect(() => prod({ FILE_URL_SECRET: JWT_SECRET })).toThrow(ConfigValidationError);
+      expect(() => prod({ INTERNAL_API_TOKEN: JWT_SECRET })).toThrow(ConfigValidationError);
+    });
+
+    it('names the offending variable and never prints its value', () => {
+      let error: ConfigValidationError | undefined;
+      try {
+        prod({ JWT_ACCESS_SECRET: 'change-me-dev-only-secret-at-least-32-characters' });
+      } catch (e) {
+        error = e as ConfigValidationError;
+      }
+      const issues = error?.issues.join('\n') ?? '';
+      expect(issues).toContain('JWT_ACCESS_SECRET');
+      expect(issues).not.toContain('change-me-dev-only');
+    });
+
+    it('leaves development and test alone', () => {
+      expect(() => loadConfig({ ...BASE, JWT_ACCESS_SECRET: 'a'.repeat(48) })).not.toThrow();
+      expect(() =>
+        loadConfig({ ...BASE, NODE_ENV: 'test', JWT_ACCESS_SECRET: 'a'.repeat(48) }),
+      ).not.toThrow();
     });
   });
 });
