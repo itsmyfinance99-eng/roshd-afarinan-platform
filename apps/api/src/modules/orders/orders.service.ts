@@ -10,6 +10,7 @@ import {
 } from '../../common/errors/app-exception';
 import { PageResult } from '../../common/http/page-result';
 import type { RequestMeta } from '../../common/http/request-meta';
+import { withTimeout } from '../../common/time/with-timeout';
 import { Prisma } from '../../generated/prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../database/prisma.service';
@@ -19,7 +20,11 @@ import {
   type NotificationProvider,
 } from '../notifications/ports/notification-provider';
 import { NotificationsService } from '../notifications/notifications.service';
-import { PAYMENT_GATEWAY, type PaymentGateway } from '../payments/ports/payment-gateway';
+import {
+  PAYMENT_GATEWAY,
+  PAYMENT_GATEWAY_TIMEOUT_MS,
+  type PaymentGateway,
+} from '../payments/ports/payment-gateway';
 import { hasPermission, type Principal } from '../rbac/principal';
 import { UsersService } from '../users/users.service';
 import { canCancel, canStartPayment, generateOrderCode, orderTotal } from './domain/order.policy';
@@ -246,14 +251,18 @@ export class OrdersService {
     });
     try {
       const user = await this.users.findById(principal.userId);
-      const result = await this.gateway.initiate({
-        attemptId: attempt.id,
-        amountRials: toRials(order.totalRials),
-        callbackUrl: `${this.config.WEB_BASE_URL}/api/v1/payments/callback/${attempt.id}`,
-        description: `سفارش ${order.code}`,
-        idempotencyKey,
-        payer: { email: user.email, ...(user.mobile ? { mobile: user.mobile } : {}) },
-      });
+      const result = await withTimeout(
+        this.gateway.initiate({
+          attemptId: attempt.id,
+          amountRials: toRials(order.totalRials),
+          callbackUrl: `${this.config.WEB_BASE_URL}/api/v1/payments/callback/${attempt.id}`,
+          description: `سفارش ${order.code}`,
+          idempotencyKey,
+          payer: { email: user.email, ...(user.mobile ? { mobile: user.mobile } : {}) },
+        }),
+        PAYMENT_GATEWAY_TIMEOUT_MS,
+        'payment initiate',
+      );
       await this.prisma.paymentAttempt.update({
         where: { id: attempt.id },
         data: { providerReference: result.providerReference },
@@ -310,12 +319,18 @@ export class OrdersService {
       return { orderId: attempt.orderId, outcome: 'failed' };
     }
 
-    const result = await this.gateway.verify({
-      attemptId: attempt.id,
-      providerReference: attempt.providerReference,
-      amountRials: toRials(attempt.amountRials),
-      callbackParams: params,
-    });
+    // A timeout here throws and leaves the attempt INITIATED on purpose: the payer may well have
+    // paid, so only a real provider answer decides the outcome (ST-26.10, finding I-08).
+    const result = await withTimeout(
+      this.gateway.verify({
+        attemptId: attempt.id,
+        providerReference: attempt.providerReference,
+        amountRials: toRials(attempt.amountRials),
+        callbackParams: params,
+      }),
+      PAYMENT_GATEWAY_TIMEOUT_MS,
+      'payment verify',
+    );
     if (result.status === 'FAILED') {
       await this.failAttempt(attempt.id, attempt.orderId, result.reason, meta);
       return { orderId: attempt.orderId, outcome: 'failed' };

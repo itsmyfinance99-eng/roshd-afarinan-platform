@@ -143,11 +143,16 @@ export default async function InvestmentPage({ searchParams }: { searchParams: S
                 }
               />
             ) : (
-              <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,280px),1fr))] gap-5">
-                {items.map((project) => (
-                  <ProjectCard key={project.id} project={project} />
-                ))}
-              </div>
+              <section aria-labelledby="projects-heading">
+                <h2 id="projects-heading" className="sr-only">
+                  فهرست طرح‌های سرمایه‌گذاری
+                </h2>
+                <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,280px),1fr))] gap-5">
+                  {items.map((project) => (
+                    <ProjectCard key={project.id} project={project} />
+                  ))}
+                </div>
+              </section>
             )}
             {result.ok ? (
               <PageLinks

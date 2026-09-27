@@ -11,7 +11,7 @@ import {
 } from './common';
 import { listServiceRequestsQuerySchema } from './service-requests';
 import { listTicketsQuerySchema } from './tickets';
-import { normalizePersianText, toLatinDigits } from './normalize';
+import { normalizePersianText, toLatinDigits, toPersianDigits } from './normalize';
 
 describe('normalize', () => {
   it('converts Persian and Arabic digits', () => {
@@ -21,6 +21,21 @@ describe('normalize', () => {
 
   it('normalises Arabic yeh and kaf', () => {
     expect(normalizePersianText(' كتاب علي ')).toBe('کتاب علی');
+  });
+
+  // ST-26.10 (I-01): numbers shown to users are Persian, including inside messages.
+  it('converts ASCII digits to Persian ones and leaves other characters alone', () => {
+    expect(toPersianDigits(120)).toBe('۱۲۰');
+    expect(toPersianDigits('v1.2-beta')).toBe('v۱.۲-beta');
+  });
+
+  it('writes limits in validation messages with Persian digits', () => {
+    const short = text(2, 120).safeParse('a');
+    expect(short.error?.issues[0]?.message).toBe('حداقل ۲ نویسه وارد کنید.');
+    const long = text(2, 120).safeParse('a'.repeat(121));
+    expect(long.error?.issues[0]?.message).toBe('حداکثر ۱۲۰ نویسه مجاز است.');
+    const weak = registerSchema.safeParse({ fullName: 'علی', email: 'a@b.ir', password: 'a1' });
+    expect(JSON.stringify(weak.error?.issues)).toContain('حداقل ۸ نویسه');
   });
 });
 

@@ -26,6 +26,7 @@
 | Passwords | Minimum 8 characters with a letter and a digit; top breached passwords and common words padded with digits (`password123`, `2024qwerty`) are rejected (`isCommonPassword`) |
 | Dev-only UI | The payment simulator page (`/mock-gateway`) returns 404 in production builds unless `ENABLE_MOCK_GATEWAY=true` (demo/test servers only); the API refuses `PAYMENT_PROVIDER=mock` in production |
 | CSP | `script-src 'self' 'unsafe-inline'` on the web: Next.js needs inline hydration scripts. A nonce-based CSP would force every page to render dynamically (no static pages or ISR), so it is deferred; the risk is contained because no raw HTML is ever rendered (React escaping, Markdown `skipHtml`, URL allowlist) and `connect-src`, `frame-ancestors` and `object-src` stay locked down |
+| Production overrides | Two variables loosen a production default and are accepted on purpose, for a demo or a plain-http test server: `SWAGGER_ENABLED=true` publishes `/docs`, which otherwise stays off in production, and `COOKIE_SECURE=false` sends the session cookies over http (the API logs a warning at boot). Neither is ever set on a real deployment, and a change to either is a reviewable configuration change (ST-26.10, finding I-05) |
 
 ## Mandatory negative tests (DoD)
 

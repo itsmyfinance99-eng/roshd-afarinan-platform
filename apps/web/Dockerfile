@@ -3,13 +3,17 @@
 #   docker build -f apps/web/Dockerfile \
 #     --build-arg NEXT_PUBLIC_SITE_URL=https://example.ir \
 #     --build-arg API_INTERNAL_URL=http://api:4000 -t roshd-web .
+# A demo server adds --build-arg NEXT_PUBLIC_DEMO_MODE=true to show the "sample data" notice.
 # NEXT_PUBLIC_* values and the /api rewrite target are fixed at build time.
 
-ARG NODE_IMAGE=node:24-alpine
+# Pinned by digest (ST-26.10, finding I-11) so a rebuild cannot silently pick up a
+# different base; update the digest and the tag together.
+ARG NODE_IMAGE=node:24-alpine@sha256:ebfe2f90462722a7a4de65e91990e97fe0d401c70e0e762c5b53302f905ec1c1
 
 FROM ${NODE_IMAGE} AS build
 ARG NEXT_PUBLIC_SITE_URL=http://localhost:3000
-ARG NEXT_PUBLIC_DEMO_MODE=true
+# Demo content is opt-in: only a demo server passes true (ST-26.10, finding I-12).
+ARG NEXT_PUBLIC_DEMO_MODE=false
 ARG API_INTERNAL_URL=http://api:4000
 ENV PNPM_HOME=/pnpm PATH=/pnpm:$PATH CI=true NEXT_TELEMETRY_DISABLED=1 \
     NEXT_PUBLIC_SITE_URL=${NEXT_PUBLIC_SITE_URL} \

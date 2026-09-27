@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { emailSchema, MESSAGES, mobileSchema, text } from './common';
+import { toPersianDigits } from './normalize';
 import { isCommonPassword } from './common-passwords';
 
 export const PASSWORD_MIN = 8;
@@ -7,7 +8,7 @@ export const PASSWORD_MAX = 128;
 
 export const passwordSchema = z
   .string({ error: MESSAGES.required })
-  .min(PASSWORD_MIN, { error: `رمز عبور باید حداقل ${PASSWORD_MIN} نویسه باشد.` })
+  .min(PASSWORD_MIN, { error: `رمز عبور باید حداقل ${toPersianDigits(PASSWORD_MIN)} نویسه باشد.` })
   .max(PASSWORD_MAX, { error: MESSAGES.tooLong(PASSWORD_MAX) })
   .regex(/[A-Za-z؀-ۿ]/, { error: 'رمز عبور باید حداقل یک حرف داشته باشد.' })
   .regex(/[0-9۰-۹]/, { error: 'رمز عبور باید حداقل یک عدد داشته باشد.' })

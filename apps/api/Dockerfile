@@ -4,7 +4,9 @@
 #   docker build -f apps/api/Dockerfile --target migrate -t roshd-api-migrate .
 # Configuration comes only from environment variables at run time (see .env.example).
 
-ARG NODE_IMAGE=node:24-alpine
+# Pinned by digest (ST-26.10, finding I-11) so a rebuild cannot silently pick up a
+# different base; update the digest and the tag together.
+ARG NODE_IMAGE=node:24-alpine@sha256:ebfe2f90462722a7a4de65e91990e97fe0d401c70e0e762c5b53302f905ec1c1
 
 # ── workspace build ──────────────────────────────────────────────────────────────
 FROM ${NODE_IMAGE} AS build
