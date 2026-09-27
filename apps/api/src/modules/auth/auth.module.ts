@@ -6,12 +6,20 @@ import { AuthGuard } from './auth.guard';
 import { AuthService } from './auth.service';
 import { EmailVerificationService } from './email-verification.service';
 import { PasswordHasher } from './password-hasher';
+import { TokenRetentionService } from './token-retention.service';
 import { TokenService } from './token.service';
 
 @Module({
   imports: [JwtModule.register({}), UsersModule],
   controllers: [AuthController],
-  providers: [AuthService, AuthGuard, EmailVerificationService, PasswordHasher, TokenService],
-  exports: [AuthGuard, PasswordHasher],
+  providers: [
+    AuthService,
+    AuthGuard,
+    EmailVerificationService,
+    PasswordHasher,
+    TokenService,
+    TokenRetentionService,
+  ],
+  exports: [AuthGuard, PasswordHasher, TokenRetentionService],
 })
 export class AuthModule {}
