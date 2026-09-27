@@ -214,6 +214,7 @@ const DASHBOARD_ROUTES = [
   '/dashboard/manage/tickets',
   '/dashboard/manage/tickets/t1',
   '/dashboard/manage/orders',
+  '/dashboard/manage/files',
   '/dashboard/manage/users',
   '/dashboard/manage/audit',
   '/dashboard/content',

@@ -3,7 +3,7 @@ import { expect, type Page, test } from '@playwright/test';
 const envelope = (data: unknown) => JSON.stringify({ data, meta: { requestId: 't' } });
 const PDF = Buffer.from('%PDF-1.7\n%%EOF\n');
 
-async function signIn(page: Page) {
+async function signIn(page: Page, permissions: string[] = []) {
   await page.goto('/');
   await page.context().addCookies([{ name: 'ra_session', value: '1', url: page.url() }]);
   await page.route('**/api/v1/auth/me', (route) =>
@@ -15,8 +15,8 @@ async function signIn(page: Page) {
         email: 'u@example.com',
         mobile: null,
         fullName: 'کاربر آزمایشی',
-        roles: ['user'],
-        permissions: [],
+        roles: permissions.length ? ['admin'] : ['user'],
+        permissions,
         createdAt: '2026-09-01T00:00:00Z',
       }),
     }),
@@ -108,6 +108,82 @@ test.describe('files', () => {
 
     await expect(page.getByTestId('tracking-code')).toBeVisible();
     expect(body?.attachmentIds).toEqual(['a1']);
+  });
+
+  // ST-27.02: `files:read-all` had neither an endpoint nor a page before.
+  test('staff browse every file, filter by owner, download and delete', async ({ page }) => {
+    await signIn(page, ['files:read-all']);
+    const staffFile = (extra: Record<string, unknown> = {}) => ({
+      ...uploaded('f1', 'evidence.pdf'),
+      purpose: 'SERVICE_REQUEST_ATTACHMENT',
+      entityType: 'service_request',
+      entityId: 'r1',
+      checksum: 'abc',
+      status: 'ACTIVE',
+      deletedAt: null,
+      owner: { id: 'u9', fullName: 'مریم رضایی', email: 'maryam@example.com' },
+      ...extra,
+    });
+    const queries: string[] = [];
+    let deleted = false;
+    await page.route('**/api/v1/files?*', (route) => {
+      const q = new URL(route.request().url()).searchParams;
+      queries.push(q.toString());
+      const rows = deleted || q.get('owner') === 'nobody' ? [] : [staffFile()];
+      void route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: envelope(rows),
+      });
+    });
+    await page.route('**/api/v1/files/f1/download-url', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: envelope({ url: '/api/v1/files/f1/content?exp=1&sig=x', expiresAt: null }),
+      }),
+    );
+    await page.route('**/api/v1/files/f1', async (route) => {
+      if (route.request().method() === 'DELETE') {
+        deleted = true;
+        await route.fulfill({ status: 200, contentType: 'application/json', body: envelope(null) });
+        return;
+      }
+      await route.fallback();
+    });
+
+    await page.goto('/dashboard/manage/files');
+    await expect(page.getByRole('link', { name: 'فایل‌های کاربران' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+    await expect(page.getByText('maryam@example.com')).toBeVisible();
+    await expect(page.getByText(/پیوست‌شده/)).toBeVisible();
+    // The list asks for active files unless the other chip is chosen.
+    expect(queries[0]).toContain('status=ACTIVE');
+
+    await page.getByLabel('مالک').fill('nobody');
+    await page.getByRole('button', { name: 'جست‌وجو' }).click();
+    await expect(page.getByText('فایلی با این فیلترها یافت نشد.')).toBeVisible();
+    expect(queries.some((q) => q.includes('owner=nobody'))).toBe(true);
+
+    await page.getByRole('button', { name: 'حذف جست‌وجو' }).click();
+    await expect(page.getByText('evidence.pdf')).toBeVisible();
+
+    // Deleting an attached file warns first, because the record loses its attachment.
+    page.once('dialog', (dialog) => {
+      expect(dialog.message()).toContain('پیوست');
+      void dialog.accept();
+    });
+    await page.getByRole('button', { name: 'حذف evidence.pdf' }).click();
+    await expect(page.getByText('فایلی با این فیلترها یافت نشد.')).toBeVisible();
+  });
+
+  test('a user without files:read-all is refused the file browser', async ({ page }) => {
+    await signIn(page);
+    await page.goto('/dashboard/manage/files');
+    await expect(page.getByText('اجازه دسترسی به این بخش را ندارید.')).toBeVisible();
+    await expect(page.getByRole('link', { name: 'فایل‌های کاربران' })).toHaveCount(0);
   });
 
   test('guests are invited to sign in before attaching', async ({ page }) => {

@@ -4,6 +4,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import {
   type AllowedMimeType,
   type FilePurpose,
+  type ListFilesQuery,
   MAX_FILE_BYTES,
   mediaUrl,
   PUBLIC_IMAGE_TYPES,
@@ -47,6 +48,16 @@ const VIEW_SELECT = {
 } satisfies Prisma.FileObjectSelect;
 
 export type FileView = Prisma.FileObjectGetPayload<{ select: typeof VIEW_SELECT }>;
+
+/** The staff browser also answers whose file it is and whether it is still available. */
+const STAFF_SELECT = {
+  ...VIEW_SELECT,
+  status: true,
+  deletedAt: true,
+  owner: { select: { id: true, fullName: true, email: true } },
+} satisfies Prisma.FileObjectSelect;
+
+export type StaffFileView = Prisma.FileObjectGetPayload<{ select: typeof STAFF_SELECT }>;
 
 const MEDIA_SELECT = {
   id: true,
@@ -294,6 +305,40 @@ export class FilesService {
     return new PageResult(items, page, pageSize, total);
   }
 
+  /**
+   * Every user's files, for staff holding `files:read-all` (ST-27.02). The owner is named so a
+   * staff member can act on the right person's document, and deleted rows stay listable for
+   * the audit trail.
+   */
+  async listAll(query: ListFilesQuery): Promise<PageResult<StaffFileView>> {
+    const owner = query.owner?.trim();
+    const where: Prisma.FileObjectWhereInput = {
+      status: query.status,
+      ...(query.purpose ? { purpose: query.purpose } : {}),
+      ...(owner
+        ? {
+            owner: {
+              OR: [
+                { fullName: { contains: owner, mode: 'insensitive' } },
+                { email: { contains: owner, mode: 'insensitive' } },
+              ],
+            },
+          }
+        : {}),
+    };
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.fileObject.findMany({
+        where,
+        select: STAFF_SELECT,
+        orderBy: { createdAt: 'desc' },
+        skip: (query.page - 1) * query.pageSize,
+        take: query.pageSize,
+      }),
+      this.prisma.fileObject.count({ where }),
+    ]);
+    return new PageResult(items, query.page, query.pageSize, total);
+  }
+
   /** Owner, `files:read-all`, or staff allowed to read the linked entity; others get 404. */
   async getVisible(id: string, principal: Principal): Promise<FileView> {
     const file = await this.prisma.fileObject.findFirst({
@@ -333,14 +378,23 @@ export class FilesService {
     return { stream: await this.storage.get(file.storageKey), file };
   }
 
-  /** Owners may delete files that are not yet attached to a business record. */
+  /**
+   * Owners may delete files that are not yet attached to a business record. Staff holding
+   * `files:read-all` may delete any file, including an attached one — that is the point of the
+   * permission (unlawful or mistaken content has to be removable) — and the audit entry names
+   * the owner and the record it was attached to (ST-27.02).
+   */
   async remove(id: string, principal: Principal, meta: RequestMeta): Promise<void> {
     const file = await this.prisma.fileObject.findFirst({
       where: { id, status: 'ACTIVE' },
-      select: { ownerId: true, entityId: true, storageKey: true },
+      select: { ownerId: true, entityType: true, entityId: true, storageKey: true },
     });
-    if (!file || file.ownerId !== principal.userId) throw new NotFoundError();
-    if (file.entityId) throw new ConflictError('این فایل به یک درخواست پیوست شده و قابل حذف نیست.');
+    const staff = hasPermission(principal, 'files:read-all');
+    if (!file || (file.ownerId !== principal.userId && !staff)) throw new NotFoundError();
+    const own = file.ownerId === principal.userId;
+    if (file.entityId && !staff) {
+      throw new ConflictError('این فایل به یک درخواست پیوست شده و قابل حذف نیست.');
+    }
     await this.prisma.fileObject.update({
       where: { id },
       data: { status: 'DELETED', deletedAt: new Date() },
@@ -351,6 +405,13 @@ export class FilesService {
       actorId: principal.userId,
       entityType: 'file',
       entityId: id,
+      metadata: own
+        ? undefined
+        : {
+            ownerId: file.ownerId,
+            ...(file.entityType ? { attachedTo: file.entityType } : {}),
+            ...(file.entityId ? { attachedId: file.entityId } : {}),
+          },
       meta,
     });
   }

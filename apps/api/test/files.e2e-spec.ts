@@ -179,4 +179,85 @@ describe('Files (e2e)', () => {
     await http().delete(`/api/v1/files/${id}`).set(auth(owner.token)).expect(200);
     await http().get(`/api/v1/files/${id}`).set(auth(owner.token)).expect(404);
   });
+
+  // ST-27.02: `files:read-all` had no endpoint at all, so nothing used the permission.
+  it('lets staff browse every file, filter it and find the owner', async () => {
+    const owner = await registerUser(app);
+    const other = await registerUser(app);
+    const admin = await registerUser(app, ['admin']);
+    const mine = (await upload(owner.token, PDF, 'mine.pdf').expect(201)).body.data.id as string;
+    await upload(other.token, PDF, 'theirs.pdf', 'TICKET_ATTACHMENT').expect(201);
+
+    await http().get('/api/v1/files').set(auth(owner.token)).expect(403);
+    await http().get('/api/v1/files').expect(401);
+
+    const byOwner = await http()
+      .get(`/api/v1/files?owner=${encodeURIComponent(owner.email)}`)
+      .set(auth(admin.token))
+      .expect(200);
+    expect(byOwner.body.data).toHaveLength(1);
+    expect(byOwner.body.data[0]).toMatchObject({
+      originalName: 'mine.pdf',
+      owner: { id: owner.id, email: owner.email },
+    });
+    expect(byOwner.body.data[0].id).toBe(mine);
+
+    const byPurpose = await http()
+      .get('/api/v1/files?purpose=TICKET_ATTACHMENT')
+      .set(auth(admin.token))
+      .expect(200);
+    expect(
+      byPurpose.body.data.every((f: { purpose: string }) => f.purpose === 'TICKET_ATTACHMENT'),
+    ).toBe(true);
+    expect(byPurpose.body.data.map((f: { originalName: string }) => f.originalName)).toContain(
+      'theirs.pdf',
+    );
+
+    await http().get('/api/v1/files?purpose=NOPE').set(auth(admin.token)).expect(400);
+
+    // Staff read someone else's file through the same short-lived signed URL, never directly.
+    const signed = await http()
+      .post(`/api/v1/files/${mine}/download-url`)
+      .set(auth(admin.token))
+      .expect(200);
+    expect(signed.body.data.url).toMatch(/\?exp=\d+&sig=[\w-]+$/);
+  });
+
+  it('lets staff delete an attached file and records the owner in the audit trail', async () => {
+    const owner = await registerUser(app);
+    const admin = await registerUser(app, ['admin']);
+    const fileId = (
+      await upload(owner.token, PDF, 'evidence.pdf', 'SERVICE_REQUEST_ATTACHMENT').expect(201)
+    ).body.data.id as string;
+    await http()
+      .post('/api/v1/service-requests')
+      .set(auth(owner.token))
+      .send({
+        type: 'CONTACT',
+        fullName: 'علی رضایی',
+        mobile: '09121234567',
+        message: 'مدارک طرح پیوست شده است.',
+        attachmentIds: [fileId],
+      })
+      .expect(201);
+
+    // The owner may no longer delete it, but staff may.
+    await http().delete(`/api/v1/files/${fileId}`).set(auth(owner.token)).expect(409);
+    await http().delete(`/api/v1/files/${fileId}`).set(auth(admin.token)).expect(200);
+
+    const deleted = await http()
+      .get('/api/v1/files?status=DELETED')
+      .set(auth(admin.token))
+      .expect(200);
+    expect(deleted.body.data.map((f: { id: string }) => f.id)).toContain(fileId);
+
+    const log = await http()
+      .get('/api/v1/audit-logs?action=file.deleted')
+      .set(auth(admin.token))
+      .expect(200);
+    const entry = (
+      log.body.data as { entityId: string; metadata: Record<string, unknown> | null }[]
+    ).find((e) => e.entityId === fileId);
+    expect(entry?.metadata).toMatchObject({ ownerId: owner.id, attachedTo: 'service_request' });
+  });
 });

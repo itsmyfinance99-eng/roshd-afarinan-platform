@@ -43,6 +43,7 @@ const NAV: NavItem[] = [
     label: 'سفارش‌ها و پرداخت‌ها',
     permission: 'orders:read-all',
   },
+  { href: '/dashboard/manage/files', label: 'فایل‌های کاربران', permission: 'files:read-all' },
   { href: '/dashboard/manage/users', label: 'مدیریت کاربران', permission: 'users:read' },
   { href: '/dashboard/manage/audit', label: 'گزارش رویدادها', permission: 'audit:read' },
 ];
