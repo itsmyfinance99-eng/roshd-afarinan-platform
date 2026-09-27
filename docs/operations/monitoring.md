@@ -20,6 +20,7 @@ Alert after two consecutive failures to avoid paging on a single dropped request
 - **API:** every 5xx response and every crash outside a request (uncaught exception or unhandled rejection) goes through the `ErrorReporter` port (`apps/api/src/modules/monitoring`). The only adapter today is `log` (`ERROR_REPORTER_DRIVER=log`): one structured `error` line with the logger context `ErrorReporter`. A hosted error tracker can be added later as another adapter behind the same port without touching callers.
 - **Web:** server rendering and route errors are written by `apps/web/src/instrumentation.ts` (`onRequestError`) as one JSON line on stderr with `"source":"web"`.
 - **What a report contains:** error name, message and the first 12 stack frames, request id, method, route pattern or path **without the query string**, status code and user id.
+- **The request log keeps the path only.** Query strings carry mobile numbers (guest tracking), signed download signatures and search terms, so they are replaced with `?[REDACTED]` in both the API log (`requestSerializer`) and nginx (`log_format roshd`).
 - **What it never contains:** request bodies, headers, cookies or query strings. Emails, mobile numbers, card-like numbers, tokens, JWTs, passwords and long keys are replaced in messages and stacks (`scrub` in `@roshd/types`).
 - 4xx responses are expected client errors and are not reported.
 
@@ -35,6 +36,19 @@ docker compose -f infra/docker/compose.app.yml logs web | grep '<digest>'
 ```
 
 Log lines written inside a request include the request (`req.id`), so one id finds the request line, the error report and any warnings logged while handling it.
+
+## Timeouts
+
+A stalled database used to leave requests waiting forever. These bounds now apply (ST-26.05):
+
+| Setting                         | Default | Effect                                                                             |
+| ------------------------------- | ------- | ---------------------------------------------------------------------------------- |
+| `DATABASE_POOL_SIZE`            | 10      | Connections per API instance; keep the total below the server's `max_connections`. |
+| `DATABASE_CONNECT_TIMEOUT_MS`   | 5000    | Waiting for a free connection fails with 503 instead of hanging.                   |
+| `DATABASE_STATEMENT_TIMEOUT_MS` | 15000   | The database cancels a long statement; the API answers 503.                        |
+| `REQUEST_TIMEOUT_MS`            | 30000   | Node's own cap on a whole request, so a stuck handler cannot hold a socket.        |
+
+Database outages, pool exhaustion and statement timeouts answer **503 SERVICE_UNAVAILABLE**, not 500, so they do not raise error reports. Verified locally against a proxy that stalls the connection: `/articles` answers 503 in about 2 s and login in about 5 s, and everything recovers without a restart.
 
 ## Log retention
 

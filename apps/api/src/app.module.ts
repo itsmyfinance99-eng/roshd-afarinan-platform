@@ -4,6 +4,7 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { LoggerModule } from 'nestjs-pino';
 import { AllExceptionsFilter } from './common/http/all-exceptions.filter';
 import { EnvelopeInterceptor } from './common/http/envelope.interceptor';
+import { requestSerializer } from './common/http/log-serializers';
 import { resolveRequestId } from './common/http/request-id';
 import { APP_CONFIG, type AppConfig } from './config/app-config';
 import { AppConfigModule } from './config/config.module';
@@ -42,6 +43,8 @@ import { MonitoringModule } from './modules/monitoring/monitoring.module';
         pinoHttp: {
           level: config.LOG_LEVEL,
           genReqId: resolveRequestId,
+          // Keeps the path but never the query string (mobile numbers, signed URLs, search terms).
+          serializers: { req: requestSerializer },
           redact: {
             paths: [
               'req.headers.authorization',

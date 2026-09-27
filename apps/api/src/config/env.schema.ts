@@ -34,6 +34,14 @@ export const envSchema = z.object({
   DATABASE_URL: z
     .string()
     .regex(/^postgres(ql)?:\/\//, { error: 'must be a postgresql:// connection string' }),
+  /** Connections in the pool. Keep it below the server's max_connections divided by instances. */
+  DATABASE_POOL_SIZE: z.coerce.number().int().min(1).max(100).default(10),
+  /** How long to wait for a free connection before failing with 503 (ST-26.05). */
+  DATABASE_CONNECT_TIMEOUT_MS: z.coerce.number().int().min(500).max(60_000).default(5_000),
+  /** Server-side cap on a single statement; a stalled database then fails fast instead of hanging. */
+  DATABASE_STATEMENT_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(120_000).default(15_000),
+  /** Node's own cap on a whole request, so a stuck handler cannot hold a socket forever. */
+  REQUEST_TIMEOUT_MS: z.coerce.number().int().min(5_000).max(300_000).default(30_000),
   THROTTLE_TTL_MS: z.coerce.number().int().positive().default(60_000),
   THROTTLE_LIMIT: z.coerce.number().int().positive().default(120),
   /** Stricter per-IP limit for login/register/refresh within THROTTLE_TTL_MS. */

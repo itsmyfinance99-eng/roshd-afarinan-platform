@@ -120,6 +120,39 @@ describe('HTTP foundation (e2e)', () => {
     expect(serialized).not.toContain('09121234567');
   });
 
+  // ST-26.05 (F-10): malformed bodies are client mistakes, not server errors, and must not
+  // raise error reports.
+  it('maps oversized, malformed and wrongly encoded bodies to 4xx without reporting them', async () => {
+    const reporter = app.get<LogErrorReporter>(ERROR_REPORTER);
+    const before = reporter.recent.length;
+    const post = (body: string, headers: Record<string, string>) =>
+      request(app.getHttpServer()).post('/api/v1/e2e-probe/echo').set(headers).send(body);
+
+    const tooLarge = await post('x'.repeat(2 * 1024 * 1024), {
+      'Content-Type': 'application/json',
+    });
+    expect(tooLarge.status).toBe(413);
+    expect(tooLarge.body.error.code).toBe('PAYLOAD_TOO_LARGE');
+
+    const badJson = await post('{"email":', { 'Content-Type': 'application/json' });
+    expect(badJson.status).toBe(400);
+
+    // A corrupt gzip body is malformed (400); an encoding the server cannot read is 415.
+    const corruptGzip = await post('not-gzip', {
+      'Content-Type': 'application/json',
+      'Content-Encoding': 'gzip',
+    });
+    expect(corruptGzip.status).toBe(400);
+    const unknownEncoding = await post('{}', {
+      'Content-Type': 'application/json',
+      'Content-Encoding': 'exotic',
+    });
+    expect(unknownEncoding.status).toBe(415);
+    expect(unknownEncoding.body.error.code).toBe('UNSUPPORTED_MEDIA_TYPE');
+
+    expect(reporter.recent).toHaveLength(before);
+  });
+
   it('does not report client errors', async () => {
     const reporter = app.get<LogErrorReporter>(ERROR_REPORTER);
     const before = reporter.recent.length;

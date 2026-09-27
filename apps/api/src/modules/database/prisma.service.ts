@@ -14,7 +14,17 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     @Inject(APP_CONFIG) config: AppConfig,
     private readonly health: HealthRegistry,
   ) {
-    super({ adapter: new PrismaPg({ connectionString: config.DATABASE_URL }) });
+    // Without these the pg pool waits forever for a connection and a statement never gives up,
+    // so a stalled database turns every request into a hanging one (ST-26.05, finding F-13).
+    super({
+      adapter: new PrismaPg({
+        connectionString: config.DATABASE_URL,
+        max: config.DATABASE_POOL_SIZE,
+        connectionTimeoutMillis: config.DATABASE_CONNECT_TIMEOUT_MS,
+        statement_timeout: config.DATABASE_STATEMENT_TIMEOUT_MS,
+        query_timeout: config.DATABASE_STATEMENT_TIMEOUT_MS,
+      }),
+    });
   }
 
   async onModuleInit(): Promise<void> {
