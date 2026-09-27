@@ -31,7 +31,7 @@ const order = (status: string, extra: Record<string, unknown> = {}) => ({
   ...extra,
 });
 
-async function signIn(page: Page) {
+async function signIn(page: Page, permissions: string[] = []) {
   await page.goto('/');
   await page.context().addCookies([{ name: 'ra_session', value: '1', url: page.url() }]);
   await page.route('**/api/v1/auth/me', (route) =>
@@ -41,8 +41,8 @@ async function signIn(page: Page) {
         email: 'buyer@example.com',
         mobile: null,
         fullName: 'خریدار',
-        roles: ['user'],
-        permissions: [],
+        roles: permissions.length ? ['finance'] : ['user'],
+        permissions,
         createdAt: '2026-09-01T00:00:00Z',
       }),
     ),
@@ -137,6 +137,61 @@ test.describe('course orders and payment', () => {
       'page',
     );
     await expect(page.getByText('OR-۷K۳M۹QPD', { exact: false })).toBeVisible();
+  });
+
+  // ST-27.01: before this, `orders:read-all` had no page at all.
+  test('finance browses every order, searches by code and opens a read-only detail', async ({
+    page,
+  }) => {
+    await signIn(page, ['orders:read-all']);
+    const staffOrder = {
+      ...order('PAID'),
+      customer: { id: 'u1', fullName: 'مریم رضایی', email: 'maryam@example.com' },
+      attempts: [
+        {
+          id: 'a1',
+          status: 'VERIFIED',
+          amountRials: '25000000',
+          trackingCode: 'TRK-99',
+          cardMask: '6104-****-****-1234',
+          failureReason: null,
+          createdAt: '2026-09-26T07:30:00Z',
+        },
+      ],
+    };
+    const queries: string[] = [];
+    await page.route('**/api/v1/orders?*', (route) => {
+      const q = new URL(route.request().url()).searchParams;
+      queries.push(q.toString());
+      void route.fulfill(json(q.get('q') === 'ZZZZ' ? [] : [staffOrder]));
+    });
+    await page.route('**/api/v1/orders/o1', (route) => route.fulfill(json(staffOrder)));
+
+    await page.goto('/dashboard/manage/orders');
+    await expect(page.getByRole('link', { name: 'سفارش‌ها و پرداخت‌ها' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+    await expect(page.getByText('مریم رضایی')).toBeVisible();
+
+    await page.getByLabel('کد سفارش').fill('ZZZZ');
+    await page.getByRole('button', { name: 'جست‌وجو' }).click();
+    await expect(page.getByText('سفارشی با این فیلترها یافت نشد')).toBeVisible();
+    expect(queries.some((q) => q.includes('q=ZZZZ'))).toBe(true);
+
+    await page.goto('/dashboard/manage/orders/o1');
+    await expect(page.getByText('maryam@example.com')).toBeVisible();
+    await expect(page.getByText('TRK-99')).toBeVisible();
+    // Staff read; they never pay or cancel on someone's behalf.
+    await expect(page.getByRole('button', { name: 'لغو سفارش' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'پرداخت آنلاین' })).toHaveCount(0);
+  });
+
+  test('a user without the finance permission is refused the orders desk', async ({ page }) => {
+    await signIn(page);
+    await page.goto('/dashboard/manage/orders');
+    await expect(page.getByText('اجازه دسترسی به این بخش را ندارید.')).toBeVisible();
+    await expect(page.getByRole('link', { name: 'سفارش‌ها و پرداخت‌ها' })).toHaveCount(0);
   });
 
   test('the mock gateway refuses foreign callbacks', async ({ page }) => {

@@ -222,4 +222,42 @@ describe('Orders and payments (e2e)', () => {
     const mine = await http().get('/api/v1/orders/mine').set(auth(buyer.token)).expect(200);
     expect(mine.body.data.map((o: { id: string }) => o.id)).toEqual([orderId]);
   });
+
+  // ST-27.01: the finance list names the customer and can be narrowed by order code; the
+  // owner's own views never carry another person's details.
+  it('gives finance the customer and a code search, and keeps the owner view free of it', async () => {
+    const buyer = await registerUser(app);
+    const finance = await registerUser(app, ['finance']);
+    const created = (await order(buyer.token, await course()).expect(201)).body.data as {
+      id: string;
+      code: string;
+    };
+
+    const list = await http()
+      .get(`/api/v1/orders?q=${created.code.slice(3, 7).toLowerCase()}`)
+      .set(auth(finance.token))
+      .expect(200);
+    const found = (list.body.data as { id: string; customer: { email: string } | null }[]).find(
+      (o) => o.id === created.id,
+    );
+    expect(found?.customer).toMatchObject({ email: buyer.email });
+
+    const detail = await http()
+      .get(`/api/v1/orders/${created.id}`)
+      .set(auth(finance.token))
+      .expect(200);
+    expect(detail.body.data.customer).toMatchObject({ fullName: expect.any(String) });
+
+    const own = await http().get(`/api/v1/orders/${created.id}`).set(auth(buyer.token)).expect(200);
+    expect(own.body.data).not.toHaveProperty('customer');
+    expect(own.body.data).not.toHaveProperty('userId');
+
+    // An unknown code is an empty page, not an error, and an over-long one is refused.
+    const none = await http().get('/api/v1/orders?q=ZZZZZZZZ').set(auth(finance.token)).expect(200);
+    expect(none.body.data).toEqual([]);
+    await http()
+      .get('/api/v1/orders?q=' + 'x'.repeat(17))
+      .set(auth(finance.token))
+      .expect(400);
+  });
 });

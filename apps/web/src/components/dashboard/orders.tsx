@@ -107,6 +107,132 @@ export function OrderList({ items }: { items: OrderView[] }) {
   );
 }
 
+/** The finance list and detail name the customer (ST-27.01). */
+export interface StaffOrderView extends OrderView {
+  customer: { id: string; fullName: string; email: string } | null;
+}
+
+export function StaffOrderList({ items }: { items: StaffOrderView[] }) {
+  if (items.length === 0) {
+    return (
+      <EmptyState
+        title="سفارشی با این فیلترها یافت نشد"
+        description="وضعیت دیگری را انتخاب کنید یا جست‌وجوی کد را بردارید."
+      />
+    );
+  }
+  return (
+    <ul className="flex flex-col gap-3">
+      {items.map((order) => (
+        <li key={order.id}>
+          <Link
+            href={`/dashboard/manage/orders/${order.id}`}
+            className="flex flex-wrap items-center justify-between gap-3 rounded-card border border-line bg-white p-4 text-ink no-underline hover:border-line-hover hover:text-ink"
+          >
+            <span className="flex min-w-0 flex-col gap-1">
+              <span className="font-bold">
+                <span dir="ltr">{toPersianDigits(order.code)}</span> ·{' '}
+                {formatRials(order.totalRials)}
+              </span>
+              <span className="text-[13px] text-ink-5">
+                {order.customer?.fullName ?? 'کاربر حذف‌شده'} ·{' '}
+                {order.items.map((i) => i.title).join('، ')} · {formatDateTimeFa(order.createdAt)}
+              </span>
+            </span>
+            <OrderStatusBadge status={order.status} />
+          </Link>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** Read-only detail for finance: no pay or cancel button, and every attempt is shown in full. */
+export function StaffOrderDetail({ order }: { order: StaffOrderView }) {
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-wrap items-center gap-3 text-sm text-ink-4">
+        <OrderStatusBadge status={order.status} />
+        <span dir="ltr">{toPersianDigits(order.code)}</span>
+        <span>ثبت: {formatDateTimeFa(order.createdAt)}</span>
+        {order.paidAt ? <span>پرداخت: {formatDateTimeFa(order.paidAt)}</span> : null}
+      </div>
+
+      <dl className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-4 rounded-card bg-surface p-4 text-sm">
+        <div>
+          <dt className="text-ink-5">مشتری</dt>
+          <dd className="font-bold">{order.customer?.fullName ?? 'کاربر حذف‌شده'}</dd>
+        </div>
+        {order.customer ? (
+          <div>
+            <dt className="text-ink-5">ایمیل</dt>
+            <dd dir="ltr">{order.customer.email}</dd>
+          </div>
+        ) : null}
+        <div>
+          <dt className="text-ink-5">جمع کل</dt>
+          <dd className="font-extrabold text-brand-900">{formatRials(order.totalRials)}</dd>
+        </div>
+      </dl>
+
+      <table className="w-full border-collapse text-[15px]">
+        <caption className="sr-only">اقلام سفارش</caption>
+        <thead>
+          <tr className="border-b border-line text-start text-sm text-ink-5">
+            <th scope="col" className="py-2 text-start font-semibold">
+              قلم
+            </th>
+            <th scope="col" className="py-2 text-end font-semibold">
+              مبلغ
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {order.items.map((item) => (
+            <tr key={item.id} className="border-b border-line-2">
+              <td className="py-3">{item.title}</td>
+              <td className="py-3 text-end">{formatRials(item.unitPriceRials)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      <section aria-labelledby="staff-attempts-title">
+        <h2 id="staff-attempts-title" className="mb-2 text-sm font-bold text-ink-2">
+          تلاش‌های پرداخت
+        </h2>
+        {order.attempts.length === 0 ? (
+          <p className="text-sm text-ink-5">هنوز تلاش پرداختی ثبت نشده است.</p>
+        ) : (
+          <ul className="flex flex-col gap-2 text-sm">
+            {order.attempts.map((a) => (
+              <li key={a.id} className="flex flex-col gap-1 rounded-card bg-surface p-3">
+                <span className="font-bold">
+                  {PAYMENT_ATTEMPT_STATUS_LABELS_FA[a.status]} · {formatRials(a.amountRials)} ·{' '}
+                  {formatDateTimeFa(a.createdAt)}
+                </span>
+                <span className="flex flex-wrap gap-x-4 gap-y-1 text-ink-4">
+                  {a.trackingCode ? (
+                    <span>
+                      کد رهگیری: <span dir="ltr">{a.trackingCode}</span>
+                    </span>
+                  ) : null}
+                  {a.cardMask ? (
+                    <span>
+                      کارت: <span dir="ltr">{toPersianDigits(a.cardMask)}</span>
+                    </span>
+                  ) : null}
+                  {a.failureReason ? <span>علت: {a.failureReason}</span> : null}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    </div>
+  );
+}
+
 /**
  * Order detail with pay/cancel. The `payment` hint from the gateway return is only a message
  * cue: the status shown always comes from the API (server-side verification).

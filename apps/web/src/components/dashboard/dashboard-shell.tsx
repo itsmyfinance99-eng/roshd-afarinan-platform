@@ -38,6 +38,11 @@ const NAV: NavItem[] = [
   { href: '/dashboard/content', label: 'مدیریت محتوا', permission: 'cms:write' },
   { href: '/dashboard/pages', label: 'صفحات سازمانی', permission: 'cms:write' },
   { href: '/dashboard/catalog', label: 'مدیریت کاتالوگ', permission: 'catalog:manage' },
+  {
+    href: '/dashboard/manage/orders',
+    label: 'سفارش‌ها و پرداخت‌ها',
+    permission: 'orders:read-all',
+  },
   { href: '/dashboard/manage/users', label: 'مدیریت کاربران', permission: 'users:read' },
   { href: '/dashboard/manage/audit', label: 'گزارش رویدادها', permission: 'audit:read' },
 ];
