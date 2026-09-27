@@ -66,7 +66,7 @@ All Phase 1 stories in the backlog (sprints S0–S8) and all EPIC-25 Operational
 | 7   | Low      | Home, About and Iran Sahamdar are refreshed every 5 minutes (ISR), so CMS edits appear with that delay                                  | Resolved: the API invalidates the site's cache on publish (ST-27.04) |
 | 8   | Low      | Payment callback accepts GET only; some PSPs post back with POST                                                                        | With the real PSP adapter (ST-07.03)                                 |
 | 9   | Low      | Refund policy undefined; duplicate verified payments are flagged (`payment.duplicate`) for manual follow-up (OQ-23)                     | Business decision                                                    |
-| 10  | Low      | API runtime image is about 750 MB, and the migrate image contains the full workspace                                                    | Prune dependencies, dedicated migrate bundle                         |
+| 10  | Low      | API runtime image is about 750 MB, and the migrate image contains the full workspace                                                    | Resolved: 476 MB and 1.08 GB after pruning (ST-27.06)                |
 | 11  | Low      | Only same-origin cover images render (CSP `img-src 'self'`)                                                                             | Resolved: media library served same-origin (ST-25.07)                |
 | 12  | Info     | Real courses, research, opportunities and credentials are pending (OQ-17, OQ-22); the site shows labelled demo data only in development | Content entry through the new admin forms                            |
 
