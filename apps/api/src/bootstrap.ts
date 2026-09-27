@@ -4,6 +4,7 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import { Logger } from 'nestjs-pino';
+import { blockCrossSiteMutations } from './common/http/cross-site';
 import { APP_CONFIG, type AppConfig } from './config/app-config';
 
 export const API_PREFIX = 'api';
@@ -31,8 +32,10 @@ export function configureApp(app: INestApplication): AppConfig {
   express.set('trust proxy', config.TRUST_PROXY);
   express.disable('x-powered-by');
   express.useBodyParser('json', { limit: '1mb' });
-  express.useBodyParser('urlencoded', { extended: false, limit: '1mb' });
+  // No urlencoded parser: every client sends JSON (uploads use multipart), and accepting form
+  // bodies would let a cross-site HTML form post to the API (ST-26.02).
   app.use(helmet());
+  app.use(blockCrossSiteMutations);
   app.use(cookieParser());
 
   if (config.CORS_ORIGINS.length > 0) {
