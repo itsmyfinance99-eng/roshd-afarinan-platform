@@ -4,7 +4,7 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
-## [0.2.0] - Phase 1 (MVP)
+## [0.2.0] - 2026-09-27 — Phase 1 (MVP + operational readiness)
 
 ### Added
 
@@ -37,11 +37,31 @@ All notable changes to this project are documented here. The format follows [Kee
 - Per-account login lockout, rejection of common passwords, literal `%`/`_` in search, safer Markdown links, a secure `COOKIE_SECURE` default in compose, `/mock-gateway` hidden in production builds, and dependency overrides that leave `pnpm audit` clean (#169).
 - Route ids are validated as UUIDs, so malformed ids return 400 instead of 500 (#165).
 
+#### Security and performance audit (ST-21.03, EPIC-26)
+
+- An evidence-based adversarial audit ran against a local instance and a `*_test` database: an authorization matrix over every route and role, mass-assignment and privilege-escalation probes, session and token handling, injection and ReDoS scans, file-upload abuse, rate limiting, resilience under a failing database, and a performance baseline on seeded volume (50k requests, 200k audit rows) with `EXPLAIN ANALYZE`, autocannon and Lighthouse. The report is [docs/qa/security-performance-audit-2026-09-27.md](docs/qa/security-performance-audit-2026-09-27.md), and every finding it raised is fixed in this release:
+- **Search**: the `types` filter is bounded and de-duplicated, so one small request can no longer exhaust the database pool (#188).
+- **Sessions**: cross-site mutations are refused, the post-login redirect only accepts same-origin paths, the auth guard resolves a session rather than just a user, and two tabs refreshing at once no longer sign each other out (#189, #192).
+- **Configuration**: production refuses weak, placeholder or reused secrets; the database pool, connect and statement timeouts and a request timeout are configurable; database and body errors map to the right status instead of 500 (#190).
+- **Uploads**: a per-user ceiling on unattached uploads, with a job that deletes stale ones (#191).
+- **Logs**: query strings and personal data are removed from logs and error reports (#190).
+- **Performance**: indexes for the staff list sorts and a page-number cap, so a deep page cannot make PostgreSQL walk every skipped row (#192); a font fallback that stops the layout shifting, plus fewer needless requests on the dashboard (#193).
+- **Supply chain**: GitHub Actions pinned to commit SHAs and the Node base image pinned by digest; the web image ships with demo mode off; the notification and payment ports carry timeouts (#194).
+
+#### Phase 1 follow-ups (EPIC-27)
+
+- **Finance**: an orders and payments desk for the `finance` role, which had the permission but no page (#204).
+- **Files**: a staff file browser with owner, purpose and status filters; staff deletions are audited with the owner and the record the file was attached to (#205).
+- **Retention**: a daily job that deletes spent refresh, password-reset and verification tokens, and notifications the user has already read (#206).
+- **Publishing**: an editorial change now drops the site's cache immediately instead of waiting for the ISR window (#207).
+- **Dates**: a Jalali date picker replaces the browser's Gregorian date input in the export and audit filters (#208).
+- **Images**: the API runtime image is about 40% smaller and the migration image about 80% smaller, and CI now runs both instead of only building them (#209).
+
 ### Known limitations
 
-- Production payment is disabled until a PSP is chosen (OQ-09). Legal texts (OQ-21), SMS/email providers (OQ-08) and log retention (OQ-24) are pending. The security and performance audit (ST-21.03) is still to run. See [docs/qa/phase-1-qa-report.md](docs/qa/phase-1-qa-report.md).
+- Production payment is disabled until a PSP is chosen (OQ-09). Legal texts (OQ-21), SMS/email providers (OQ-08) and log retention (OQ-24) are pending decisions. Two performance findings were deliberately left as they are, with measurements recorded in the audit report: streaming the CSV export (the 10,000-row cap already bounds it) and CDN-cacheable HTML (the data cache already covers the case). See [docs/qa/phase-1-qa-report.md](docs/qa/phase-1-qa-report.md).
 
-## [0.1.0] - Phase 0 (Foundation)
+## [0.1.0] - 2026-09-25 — Phase 0 (Foundation)
 
 ### Added
 
