@@ -65,7 +65,14 @@ const ORDER_SELECT = {
   },
 } satisfies Prisma.OrderSelect;
 
+/** The finance list also answers "whose order is this?" (ST-27.01). */
+const STAFF_ORDER_SELECT = {
+  ...ORDER_SELECT,
+  user: { select: { id: true, fullName: true, email: true } },
+} satisfies Prisma.OrderSelect;
+
 type OrderRow = Prisma.OrderGetPayload<{ select: typeof ORDER_SELECT }>;
+type StaffOrderRow = Prisma.OrderGetPayload<{ select: typeof STAFF_ORDER_SELECT }>;
 
 const toRials = (d: Prisma.Decimal) => BigInt(d.toFixed(0));
 
@@ -81,6 +88,14 @@ function toView(row: OrderRow) {
 }
 
 export type OrderView = ReturnType<typeof toView>;
+
+/** Same view plus the customer, for staff holding `orders:read-all`. */
+function toStaffView(row: StaffOrderRow) {
+  const { user, ...rest } = row;
+  return { ...toView(rest), customer: user };
+}
+
+export type StaffOrderView = ReturnType<typeof toStaffView>;
 
 export type PaymentOutcome = 'paid' | 'failed' | 'unknown';
 
@@ -200,16 +215,35 @@ export class OrdersService {
   }
 
   async listAll(query: ListOrdersQuery) {
-    return this.list(query.status ? { status: query.status } : {}, query);
+    const where: Prisma.OrderWhereInput = {
+      ...(query.status ? { status: query.status } : {}),
+      // A partial code is enough: staff read it off an invoice or a support message.
+      ...(query.q ? { code: { contains: query.q } } : {}),
+    };
+    const [rows, total] = await this.prisma.$transaction([
+      this.prisma.order.findMany({
+        where,
+        select: STAFF_ORDER_SELECT,
+        orderBy: { createdAt: 'desc' },
+        skip: (query.page - 1) * query.pageSize,
+        take: query.pageSize,
+      }),
+      this.prisma.order.count({ where }),
+    ]);
+    return new PageResult(rows.map(toStaffView), query.page, query.pageSize, total);
   }
 
-  /** Owners and `orders:read-all` staff may read; everyone else gets 404 (no existence leak). */
-  async getVisible(id: string, principal: Principal): Promise<OrderView> {
-    const row = await this.prisma.order.findUnique({ where: { id }, select: ORDER_SELECT });
-    if (!row || (row.userId !== principal.userId && !hasPermission(principal, 'orders:read-all'))) {
-      throw new NotFoundError();
-    }
-    return toView(row);
+  /**
+   * Owners and `orders:read-all` staff may read; everyone else gets 404 (no existence leak).
+   * Staff also see who the customer is; an owner reading their own order does not need it
+   * and never receives the field (ST-27.01).
+   */
+  async getVisible(id: string, principal: Principal): Promise<OrderView | StaffOrderView> {
+    const row = await this.prisma.order.findUnique({ where: { id }, select: STAFF_ORDER_SELECT });
+    const staff = hasPermission(principal, 'orders:read-all');
+    if (!row || (row.userId !== principal.userId && !staff)) throw new NotFoundError();
+    const { user: _user, ...rest } = row;
+    return staff ? toStaffView(row) : toView(rest);
   }
 
   async cancel(id: string, principal: Principal, meta: RequestMeta): Promise<OrderView> {

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { paginationQuerySchema, slugSchema } from './common';
+import { toLatinDigits } from './normalize';
 
 export const ORDER_STATUSES = ['PENDING_PAYMENT', 'PAID', 'CANCELLED'] as const;
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
@@ -32,6 +33,16 @@ export const createOrderSchema = z.object({
 
 export const listOrdersQuerySchema = paginationQuerySchema.extend({
   status: z.enum(ORDER_STATUSES).optional(),
+  /**
+   * Order-code search for the finance list (ST-27.01). Codes are `OR-` plus eight upper-case
+   * characters, so the value is upper-cased and bounded; the owner's own list ignores it.
+   */
+  q: z
+    .string()
+    .trim()
+    .max(16)
+    .transform((v) => toLatinDigits(v).toUpperCase())
+    .optional(),
 });
 
 export type CreateOrderInput = z.infer<typeof createOrderSchema>;
