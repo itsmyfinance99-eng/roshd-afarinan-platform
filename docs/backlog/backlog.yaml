@@ -1121,6 +1121,7 @@ epics:
         acceptance:
           - 'Release PR develop→main، tag و GitHub Release'
       - id: ST-21.03
+        status: done
         title: 'آزمون امنیتی و کارایی مبتنی بر شواهد (adversarial audit)'
         sprint: S10
         points: 13
