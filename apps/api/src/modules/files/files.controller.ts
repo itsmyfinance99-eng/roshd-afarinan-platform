@@ -13,10 +13,12 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
   idSchema,
+  listFilesQuerySchema,
   MAX_FILE_BYTES,
   paginationQuerySchema,
   uploadFileSchema,
   z,
+  type ListFilesQuery,
   type PaginationQuery,
   type UploadFileInput,
 } from '@roshd/validation';
@@ -26,6 +28,7 @@ import { Public } from '../../common/decorators/public.decorator';
 import { RawResponse } from '../../common/http/envelope.interceptor';
 import { Meta, type RequestMeta } from '../../common/http/request-meta';
 import { ZodParam, ZodQuery, ZodValidationPipe } from '../../common/http/zod';
+import { RequirePermissions } from '../rbac/permissions.decorator';
 import { CurrentUser, type Principal } from '../rbac/principal';
 import { FilesService, type UploadedFile as UploadedFileData } from './files.service';
 
@@ -77,6 +80,13 @@ export class FilesController {
     return this.files.listMine(user.userId, query.page, query.pageSize);
   }
 
+  @Get()
+  @RequirePermissions('files:read-all')
+  @ApiOperation({ summary: "Every user's files (staff browser)" })
+  list(@ZodQuery(listFilesQuerySchema) query: ListFilesQuery) {
+    return this.files.listAll(query);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'File metadata (owner or authorized staff; others 404)' })
   get(@CurrentUser() user: Principal, @ZodParam('id', idSchema) id: string) {
@@ -114,7 +124,9 @@ export class FilesController {
 
   @Delete(':id')
   @HttpCode(200)
-  @ApiOperation({ summary: 'Delete an unattached file you own' })
+  @ApiOperation({
+    summary: 'Delete an unattached file you own, or any file with files:read-all',
+  })
   async remove(
     @CurrentUser() user: Principal,
     @ZodParam('id', idSchema) id: string,

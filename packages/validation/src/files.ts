@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { optionalText, paginationQuerySchema } from './common';
 
 export const FILE_PURPOSES = [
   'SERVICE_REQUEST_ATTACHMENT',
@@ -6,6 +7,28 @@ export const FILE_PURPOSES = [
   'USER_DOCUMENT',
 ] as const;
 export type FilePurpose = (typeof FILE_PURPOSES)[number];
+
+/**
+ * Every purpose stored in the database. Uploads accept only `FILE_PURPOSES`; a media-library
+ * image is created by the CMS, so staff must still be able to list and filter it (ST-27.02).
+ */
+export const ALL_FILE_PURPOSES = [...FILE_PURPOSES, 'PUBLIC_IMAGE'] as const;
+export type AnyFilePurpose = (typeof ALL_FILE_PURPOSES)[number];
+
+export const FILE_PURPOSE_LABELS_FA: Record<AnyFilePurpose, string> = {
+  SERVICE_REQUEST_ATTACHMENT: 'پیوست درخواست',
+  TICKET_ATTACHMENT: 'پیوست تیکت',
+  USER_DOCUMENT: 'مدرک کاربر',
+  PUBLIC_IMAGE: 'تصویر کتابخانه رسانه',
+};
+
+export const FILE_STATUSES = ['ACTIVE', 'DELETED'] as const;
+export type FileStatus = (typeof FILE_STATUSES)[number];
+
+export const FILE_STATUS_LABELS_FA: Record<FileStatus, string> = {
+  ACTIVE: 'موجود',
+  DELETED: 'حذف‌شده',
+};
 
 /** Upload limit. Kept below the web proxy body limit (10 MB). */
 export const MAX_FILE_BYTES = 8 * 1024 * 1024;
@@ -34,6 +57,15 @@ export const ALLOWED_EXTENSIONS: readonly string[] = Object.values(ALLOWED_FILE_
 export const uploadFileSchema = z.object({
   purpose: z.enum(FILE_PURPOSES).default('USER_DOCUMENT'),
 });
+
+/** Staff file browser (`files:read-all`, ST-27.02). */
+export const listFilesQuerySchema = paginationQuerySchema.extend({
+  purpose: z.enum(ALL_FILE_PURPOSES).optional(),
+  status: z.enum(FILE_STATUSES).default('ACTIVE'),
+  /** Matches the owner's name or email; a staff member searches by whichever they have. */
+  owner: optionalText(120).optional(),
+});
+export type ListFilesQuery = z.infer<typeof listFilesQuerySchema>;
 
 export const attachmentIdsSchema = z
   .array(z.uuid())
