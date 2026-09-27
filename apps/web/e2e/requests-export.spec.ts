@@ -45,8 +45,10 @@ test.describe('request export', () => {
 
     await page.goto('/dashboard/manage/requests');
     await page.getByRole('button', { name: 'سفارش پژوهش' }).click();
-    await page.getByLabel('از تاریخ').fill('2026-09-01');
-    await page.getByLabel('تا تاریخ').fill('2026-09-25');
+    // The filter is a Jalali field now (ST-27.05); the API still receives ISO Gregorian days.
+    await page.getByLabel('از تاریخ').fill('۱۴۰۵/۰۶/۱۰');
+    await page.getByLabel('تا تاریخ').fill('۱۴۰۵/۰۷/۰۳');
+    await page.getByLabel('تا تاریخ').blur();
     const download = page.waitForEvent('download');
     await page.getByRole('button', { name: 'خروجی Excel (CSV)' }).click();
     expect((await download).suggestedFilename()).toBe('service-requests-20260926-1430.csv');
@@ -62,8 +64,9 @@ test.describe('request export', () => {
   test('a reversed date range disables the export', async ({ page }) => {
     await signIn(page, ['requests:read-all'], ['user', 'expert']);
     await page.goto('/dashboard/manage/requests');
-    await page.getByLabel('از تاریخ').fill('2026-09-25');
-    await page.getByLabel('تا تاریخ').fill('2026-09-01');
+    await page.getByLabel('از تاریخ').fill('۱۴۰۵/۰۷/۰۳');
+    await page.getByLabel('تا تاریخ').fill('۱۴۰۵/۰۶/۱۰');
+    await page.getByLabel('تا تاریخ').blur();
     await expect(page.getByText('تاریخ شروع نباید بعد از تاریخ پایان باشد.')).toBeVisible();
     await expect(page.getByRole('button', { name: 'خروجی Excel (CSV)' })).toBeDisabled();
   });

@@ -6,6 +6,7 @@ import {
   ErrorMessage,
   FieldShell,
   formatDateTimeFa,
+  JalaliDateInput,
   Select,
   TextInput,
 } from '@roshd/ui';
@@ -100,27 +101,20 @@ export default function AuditLogPage() {
             onChange={(e) => set('actor', e.target.value)}
           />
         </FieldShell>
-        <FieldShell id="a-from" label="از تاریخ">
-          <TextInput
+        <FieldShell id="a-from" label="از تاریخ" hint="مانند ۱۴۰۵/۰۱/۰۱">
+          <JalaliDateInput
             id="a-from"
-            type="date"
-            dir="ltr"
+            hasHint
             value={draft.from}
-            onChange={(e) => set('from', e.target.value)}
+            onChange={(iso) => set('from', iso)}
           />
         </FieldShell>
-        <FieldShell
-          id="a-to"
-          label="تا تاریخ"
-          error={rangeInvalid ? 'تاریخ شروع نباید بعد از تاریخ پایان باشد.' : undefined}
-        >
-          <TextInput
+        <FieldShell id="a-to" label="تا تاریخ">
+          <JalaliDateInput
             id="a-to"
-            type="date"
-            dir="ltr"
             value={draft.to}
             error={rangeInvalid ? 'تاریخ شروع نباید بعد از تاریخ پایان باشد.' : undefined}
-            onChange={(e) => set('to', e.target.value)}
+            onChange={(iso) => set('to', iso)}
           />
         </FieldShell>
         <Button type="submit" disabled={rangeInvalid}>
