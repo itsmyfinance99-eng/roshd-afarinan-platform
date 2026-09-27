@@ -38,6 +38,9 @@ export function searchTokens(query: string): string[] {
   ].slice(0, MAX_TOKENS);
 }
 
+/** Every type once, comma-separated: the longest legitimate `types` value. */
+const MAX_TYPES_LENGTH = SEARCH_TYPES.join(',').length;
+
 export const searchQuerySchema = z.object({
   q: z
     .string()
@@ -48,12 +51,16 @@ export const searchQuerySchema = z.object({
         .min(2, { error: 'دست‌کم ۲ نویسه برای جستجو وارد کنید.' })
         .max(100, { error: 'حداکثر ۱۰۰ نویسه مجاز است.' }),
     ),
-  /** Comma-separated result types, e.g. `course,research`. */
+  /**
+   * Comma-separated result types, e.g. `course,research`. Bounded and de-duplicated: each type
+   * costs one database query, so a repeated value must not multiply the work (ST-26.01).
+   */
   types: z
     .string()
+    .max(MAX_TYPES_LENGTH, { error: 'فهرست نوع‌ها نامعتبر است.' })
     .optional()
-    .transform((v) => (v ? v.split(',').map((t) => t.trim()) : undefined))
-    .pipe(z.array(z.enum(SEARCH_TYPES)).min(1).optional()),
+    .transform((v) => (v ? [...new Set(v.split(',').map((t) => t.trim()))] : undefined))
+    .pipe(z.array(z.enum(SEARCH_TYPES)).min(1).max(SEARCH_TYPES.length).optional()),
   page: z.coerce.number().int().min(1).max(20).default(1),
   pageSize: z.coerce.number().int().min(1).max(50).default(20),
 });

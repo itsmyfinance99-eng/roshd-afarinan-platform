@@ -96,4 +96,21 @@ describe('Site search (e2e)', () => {
       .expect(400);
     await http().get('/api/v1/search').expect(400);
   });
+
+  // ST-26.01: one type = one query per source, so a repeated type must not multiply the work.
+  it('rejects a flooded type list and counts a repeated type once', async () => {
+    const flood = Array.from({ length: 1500 }, () => 'article').join(',');
+    await http()
+      .get(`/api/v1/search?q=${encodeURIComponent(word)}&types=${flood}`)
+      .expect(400);
+
+    const repeated = await http()
+      .get(`/api/v1/search?q=${encodeURIComponent(word)}&types=article,article,article`)
+      .expect(200);
+    const once = await http()
+      .get(`/api/v1/search?q=${encodeURIComponent(word)}&types=article`)
+      .expect(200);
+    expect(repeated.body.data).toEqual(once.body.data);
+    expect(repeated.body.meta.total).toBe(once.body.meta.total);
+  });
 });
