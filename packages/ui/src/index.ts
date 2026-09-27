@@ -7,3 +7,5 @@ export * from './components/page-hero';
 export * from './components/chip';
 export * from './components/accordion';
 export * from './components/field';
+export * from './components/jalali-date-input';
+export * from './jalali';

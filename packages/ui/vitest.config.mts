@@ -7,7 +7,7 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./vitest.setup.ts'],
-    include: ['src/**/*.test.tsx'],
+    include: ['src/**/*.test.{ts,tsx}'],
     // jsdom + user-event can be slow when turbo runs many tasks in parallel
     testTimeout: 20_000,
   },

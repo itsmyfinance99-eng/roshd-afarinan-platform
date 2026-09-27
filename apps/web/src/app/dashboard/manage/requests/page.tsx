@@ -5,6 +5,7 @@ import {
   ChipGroup,
   ErrorMessage,
   FieldShell,
+  JalaliDateInput,
   SuccessMessage,
   TextInput,
   toPersianDigits,
@@ -123,33 +124,24 @@ export default function ManageRequestsPage() {
           options={ASSIGNEE_FILTER_OPTIONS}
         />
         <div className="flex flex-wrap items-end gap-3">
-          <FieldShell id="req-from" label="از تاریخ">
-            <TextInput
+          <FieldShell id="req-from" label="از تاریخ" hint="مانند ۱۴۰۵/۰۱/۰۱">
+            <JalaliDateInput
               id="req-from"
-              type="date"
-              dir="ltr"
+              hasHint
               value={from}
-              max={to || undefined}
-              onChange={(e) => {
-                setFrom(e.target.value);
+              onChange={(iso) => {
+                setFrom(iso);
                 setPage(1);
               }}
             />
           </FieldShell>
-          <FieldShell
-            id="req-to"
-            label="تا تاریخ"
-            error={rangeInvalid ? 'تاریخ شروع نباید بعد از تاریخ پایان باشد.' : undefined}
-          >
-            <TextInput
+          <FieldShell id="req-to" label="تا تاریخ">
+            <JalaliDateInput
               id="req-to"
-              type="date"
-              dir="ltr"
               value={to}
-              min={from || undefined}
               error={rangeInvalid ? 'تاریخ شروع نباید بعد از تاریخ پایان باشد.' : undefined}
-              onChange={(e) => {
-                setTo(e.target.value);
+              onChange={(iso) => {
+                setTo(iso);
                 setPage(1);
               }}
             />
