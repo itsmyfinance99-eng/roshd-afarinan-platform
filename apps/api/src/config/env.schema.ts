@@ -78,6 +78,15 @@ export const envSchema = z.object({
   /** HMAC secret for signed file-download URLs (≥ 32 chars, different from JWT secret). */
   FILE_URL_SECRET: z.string().min(32, { error: 'must be at least 32 characters' }),
   SIGNED_URL_TTL_SECONDS: z.coerce.number().int().min(30).max(3600).default(300),
+  /** Per-user ceiling on uploads that are not attached to a record yet (ST-26.04). */
+  UPLOAD_QUOTA_BYTES: z.coerce
+    .number()
+    .int()
+    .min(1024 * 1024)
+    .default(200 * 1024 * 1024),
+  UPLOAD_QUOTA_FILES: z.coerce.number().int().min(1).max(1000).default(50),
+  /** Unattached uploads older than this are deleted by the cleanup job (0 disables it). */
+  UPLOAD_RETENTION_HOURS: z.coerce.number().int().min(0).max(8760).default(72),
 });
 
 export type Env = z.infer<typeof envSchema>;

@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import type { Readable } from 'node:stream';
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import {
   type AllowedMimeType,
   type FilePurpose,
@@ -23,6 +23,7 @@ import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../database/prisma.service';
 import { hasPermission, type Principal } from '../rbac/principal';
 import { extensionMatches, sanitizeFileName, sniffMimeType } from './domain/file-type';
+import { checkUploadQuota, type QuotaUsage } from './domain/upload-quota';
 import { canManageMedia } from './domain/media-policy';
 import { signFileUrl, verifyFileSignature } from './domain/signed-url';
 import { FILE_STORAGE, type FileStorageProvider } from './ports/file-storage';
@@ -79,6 +80,8 @@ const ENTITY_READ_PERMISSION = {
 
 @Injectable()
 export class FilesService {
+  private readonly logger = new Logger(FilesService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
@@ -176,6 +179,7 @@ export class FilesService {
       throw new ValidationFailedError([{ path: 'file', message: 'فایلی انتخاب نشده است.' }]);
     }
     if (file.size > MAX_FILE_BYTES) throw new AppException('PAYLOAD_TOO_LARGE');
+    await this.assertWithinQuota(owner.userId, file.size);
 
     const originalName = sanitizeFileName(
       Buffer.from(file.originalname, 'latin1').toString('utf8'),
@@ -219,6 +223,60 @@ export class FilesService {
       meta,
     });
     return created;
+  }
+
+  /** Uploads of this user that no record references yet; only these count against the quota. */
+  async quotaUsage(userId: string): Promise<QuotaUsage> {
+    const { _sum, _count } = await this.prisma.fileObject.aggregate({
+      where: { ownerId: userId, status: 'ACTIVE', entityId: null },
+      _sum: { size: true },
+      _count: { _all: true },
+    });
+    return { bytes: _sum.size ?? 0, files: _count._all };
+  }
+
+  /**
+   * Nothing owns an unattached upload, so without a ceiling one account can fill the disk
+   * (ST-26.04, finding F-07). Attached files belong to real records and are not counted.
+   */
+  private async assertWithinQuota(userId: string, size: number): Promise<void> {
+    const decision = checkUploadQuota(await this.quotaUsage(userId), size, {
+      maxBytes: this.config.UPLOAD_QUOTA_BYTES,
+      maxFiles: this.config.UPLOAD_QUOTA_FILES,
+    });
+    if (!decision.allowed) throw new AppException('PAYLOAD_TOO_LARGE', decision.message);
+  }
+
+  /**
+   * Deletes uploads that were never attached to a record and are older than the retention
+   * window. Runs on a schedule; safe to call at any time.
+   */
+  async removeStaleUploads(now = new Date()): Promise<{ removed: number }> {
+    const hours = this.config.UPLOAD_RETENTION_HOURS;
+    if (hours === 0) return { removed: 0 };
+    const cutoff = new Date(now.getTime() - hours * 3_600_000);
+    const stale = await this.prisma.fileObject.findMany({
+      where: { status: 'ACTIVE', entityId: null, createdAt: { lt: cutoff } },
+      select: { id: true, storageKey: true },
+      take: 500,
+    });
+    let removed = 0;
+    for (const file of stale) {
+      // The row is marked first: a storage failure must not leave it advertised as available.
+      const { count } = await this.prisma.fileObject.updateMany({
+        where: { id: file.id, status: 'ACTIVE' },
+        data: { status: 'DELETED', deletedAt: now },
+      });
+      if (count !== 1) continue;
+      try {
+        await this.storage.delete(file.storageKey);
+      } catch (error) {
+        this.logger.warn({ err: error, fileId: file.id }, 'stale upload not removed from storage');
+      }
+      removed += 1;
+    }
+    if (removed > 0) this.logger.log({ removed }, 'stale uploads removed');
+    return { removed };
   }
 
   async listMine(userId: string, page: number, pageSize: number): Promise<PageResult<FileView>> {
