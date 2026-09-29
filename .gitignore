@@ -51,3 +51,9 @@ Thumbs.db
 # local backups (infra/backup)
 infra/docker/backups/
 backups/
+
+# Written by `next dev` into the app directory (agent rules that point at the
+# installed Next docs). Regenerated on every run, so they are not ours to track.
+# The repository's own CLAUDE.md at the root is tracked and unaffected.
+apps/web/AGENTS.md
+apps/web/CLAUDE.md
