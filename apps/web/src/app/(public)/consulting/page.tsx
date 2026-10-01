@@ -43,7 +43,7 @@ export default function ConsultingPage() {
             <Link
               href={`/consulting/request?service=${service.key}`}
               aria-label={`درخواست این خدمت: ${service.title}`}
-              className="justify-self-end text-[15px] font-bold text-accent no-underline hover:text-ink"
+              className="justify-self-end py-1 text-[15px] font-bold text-accent no-underline hover:text-ink"
             >
               درخواست این خدمت ‹
             </Link>

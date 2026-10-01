@@ -340,11 +340,9 @@ export function TrustBento() {
           />
           <span className="relative text-sm font-bold text-accent">{trust.expertsKicker}</span>
           <div className="relative">
-            <Ticker
-              to={50}
-              prefix="+"
-              className="block text-[clamp(72px,9vw,120px)] leading-none font-black text-ink"
-            />
+            <span className="block text-[clamp(72px,9vw,120px)] leading-none font-black text-ink">
+              <Ticker to={50} prefix="+" />
+            </span>
             <span className="mt-3 block text-[22px] font-extrabold">{experts?.label}</span>
             <span className="mt-2 block text-sm leading-[1.9] text-ink-3">{experts?.detail}</span>
           </div>
@@ -363,7 +361,7 @@ export function TrustBento() {
           data-reveal=""
           className={cn(
             small,
-            'flex flex-col gap-4 bg-brand-700 min-[700px]:col-span-2 lg:col-span-1 lg:col-start-3 lg:row-span-3 lg:row-start-1',
+            'order-last flex flex-col gap-4 bg-brand-700 min-[700px]:col-span-2 lg:order-none lg:col-span-1 lg:col-start-3 lg:row-span-3 lg:row-start-1',
           )}
         >
           <h3 className="font-display text-lg font-extrabold text-ink">{trust.credentialsTitle}</h3>

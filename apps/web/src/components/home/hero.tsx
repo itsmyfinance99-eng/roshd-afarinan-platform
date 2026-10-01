@@ -106,13 +106,13 @@ function Stats() {
       data-delay="280"
       className={cn('mt-10 flex flex-wrap gap-y-5 border-t pt-6', rule)}
     >
-      <div className={cn('me-7 flex flex-col border-e pe-7', rule)}>
+      <div className={cn('me-5 flex flex-col border-e pe-5 sm:me-7 sm:pe-7', rule)}>
         <dt className="order-2 text-sm text-ink-5">کارشناس</dt>
         <dd className="order-1 text-[32px] leading-[1.3] font-black text-ink">
           <Ticker to={50} prefix="+" />
         </dd>
       </div>
-      <div className={cn('me-7 flex flex-col border-e pe-7', rule)}>
+      <div className={cn('me-5 flex flex-col border-e pe-5 sm:me-7 sm:pe-7', rule)}>
         <dt className="order-2 text-sm text-ink-5">حوزه اصلی فعالیت</dt>
         <dd className="order-1 text-center text-[32px] leading-[1.3] font-black text-ink">
           <Ticker to={3} />

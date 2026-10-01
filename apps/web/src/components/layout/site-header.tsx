@@ -119,6 +119,7 @@ export function SiteHeader({ demoMode }: { demoMode: boolean }) {
             )}
           />
           <div
+            data-top-row=""
             className={cn(
               'relative mx-auto h-11 max-w-(--container-page) items-center justify-between gap-4 px-6',
               pillOpen ? 'flex' : 'hidden nav:flex',
@@ -130,7 +131,7 @@ export function SiteHeader({ demoMode }: { demoMode: boolean }) {
                   key={item.key}
                   href={item.href}
                   aria-current={isActive(pathname, item.href) ? 'page' : undefined}
-                  className="text-ink-5 no-underline transition-colors hover:text-accent aria-[current=page]:text-accent"
+                  className="py-1 text-ink-5 no-underline transition-colors hover:text-accent aria-[current=page]:text-accent"
                 >
                   {item.label}
                 </Link>
@@ -139,6 +140,7 @@ export function SiteHeader({ demoMode }: { demoMode: boolean }) {
             {pillOpen ? (
               <div
                 role="note"
+                data-demo-pill=""
                 className="ms-auto flex h-[30px] max-w-full items-center gap-2 overflow-hidden rounded-full border border-primary-line bg-primary-soft ps-3 pe-1 text-[12.5px] whitespace-nowrap text-ink"
               >
                 <span

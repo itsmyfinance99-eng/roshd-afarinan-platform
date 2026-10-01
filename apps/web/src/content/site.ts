@@ -201,7 +201,8 @@ export const processSteps: ProcessStep[] = [
 
 export const futureCapabilities: FutureCapability[] = [
   {
-    title: 'دستیار هوشمند (AI Assistant)',
+    // FSI…PDI isolate the Latin words so the brackets stay put when the title wraps (RTL).
+    title: 'دستیار هوشمند (\u2068AI Assistant\u2069)',
     description: 'پاسخ‌گویی و راهنمایی در مسیر آموزش و امکان‌سنجی',
   },
   { title: 'تحلیل هوشمند اسناد', description: 'استخراج نکات کلیدی از گزارش‌ها و مدارک' },

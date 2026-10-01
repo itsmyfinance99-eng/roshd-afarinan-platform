@@ -49,6 +49,24 @@ test.describe('motion layer', () => {
     }
   });
 
+  test('animations do not shift the layout (CLS stays under 0.1)', async ({ page }) => {
+    await page.addInitScript(() => {
+      sessionStorage.setItem('ra-intro-seen', '1');
+      const w = window as unknown as { __cls: number };
+      w.__cls = 0;
+      new PerformanceObserver((list) => {
+        for (const entry of list.getEntries() as Array<PerformanceEntry & { value: number }>) {
+          w.__cls += entry.value;
+        }
+      }).observe({ type: 'layout-shift', buffered: true });
+    });
+    await page.goto('/');
+    // Tickers count up and the word loop turns over during this window.
+    await page.waitForTimeout(3500);
+    const cls = await page.evaluate(() => (window as unknown as { __cls: number }).__cls);
+    expect(cls).toBeLessThan(0.1);
+  });
+
   test('reduced motion shows the static end state and no intro', async ({ browser }) => {
     const context = await browser.newContext({ reducedMotion: 'reduce' });
     const page = await context.newPage();

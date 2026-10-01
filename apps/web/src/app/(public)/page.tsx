@@ -100,7 +100,7 @@ export default async function HomePage() {
           <div>
             <div data-reveal="" className="mb-5 flex items-baseline justify-between">
               <h2 className="font-display text-[26px] font-extrabold text-ink">پژوهش‌های منتخب</h2>
-              <Link href="/research" className={sectionLinkClasses('text-sm')}>
+              <Link href="/research" className={sectionLinkClasses('sm')}>
                 همه ‹
               </Link>
             </div>
@@ -130,7 +130,7 @@ export default async function HomePage() {
           <div>
             <div data-reveal="" className="mb-5 flex items-baseline justify-between">
               <h2 className="font-display text-[26px] font-extrabold text-ink">مطالب دانشنامه</h2>
-              <Link href="/knowledge" className={sectionLinkClasses('text-sm')}>
+              <Link href="/knowledge" className={sectionLinkClasses('sm')}>
                 همه ‹
               </Link>
             </div>

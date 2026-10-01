@@ -123,7 +123,7 @@ export default async function IranSahamdarPage() {
         >
           جایگاه در مسیر پلتفرم
         </h2>
-        <ol data-stagger="50" className="flex flex-wrap items-center gap-y-2.5">
+        <ol data-stagger="50" className="flex flex-wrap items-center gap-y-2.5 max-sm:gap-2">
           {pathSteps.map((label, i) => (
             <li key={label} data-reveal="" className="flex items-center">
               <span
@@ -137,7 +137,9 @@ export default async function IranSahamdarPage() {
               >
                 {label}
               </span>
-              {i < last ? <span aria-hidden="true" className="h-0.5 w-5 bg-line-strong" /> : null}
+              {i < last ? (
+                <span aria-hidden="true" className="h-0.5 w-5 bg-line-strong max-sm:hidden" />
+              ) : null}
             </li>
           ))}
         </ol>

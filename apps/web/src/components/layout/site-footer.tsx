@@ -3,7 +3,7 @@ import { consultingServices, contact, navigation, site } from '@/content/site';
 import { Logo } from './logo';
 
 const columnTitle = 'mb-1.5 font-display text-[15px] font-extrabold text-ink';
-const columnLink = 'text-sm text-ink-3 no-underline transition-colors hover:text-accent';
+const columnLink = 'py-1 text-sm text-ink-3 no-underline transition-colors hover:text-accent';
 const panelLink =
   'flex h-11 items-center justify-between rounded-control border border-accent/22 bg-white/6 px-3.5 text-sm font-semibold text-ink no-underline transition-colors hover:border-accent hover:bg-accent/10 hover:text-ink';
 
@@ -53,7 +53,7 @@ export function SiteFooter({ demoMode = false }: { demoMode?: boolean }) {
           </div>
         </div>
 
-        <nav aria-labelledby="footer-links" data-reveal="" className="flex flex-col gap-2.5">
+        <nav aria-labelledby="footer-links" data-reveal="" className="flex flex-col gap-1">
           <h2 id="footer-links" className={columnTitle}>
             دسترسی سریع
           </h2>
@@ -66,7 +66,7 @@ export function SiteFooter({ demoMode = false }: { demoMode?: boolean }) {
             ))}
         </nav>
 
-        <div data-reveal="" className="flex flex-col gap-2.5">
+        <div data-reveal="" className="flex flex-col gap-1">
           <h2 className={columnTitle}>خدمات</h2>
           {consultingServices.map((service) => (
             <Link key={service.key} prefetch={false} href="/consulting" className={columnLink}>

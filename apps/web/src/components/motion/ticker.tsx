@@ -1,6 +1,6 @@
 'use client';
 
-import { formatNumber } from '@roshd/ui';
+import { cn, formatNumber } from '@roshd/ui';
 import { useEffect, useRef, useState } from 'react';
 import { motionEnabled } from './motion-env';
 
@@ -50,10 +50,19 @@ export function Ticker({
     };
   }, [to, delay, duration]);
 
+  // The box is sized by the final value alone (invisible, same grid cell); the counting text
+  // is taken out of sizing (w-0 min-w-full) because Persian digits are proportional — «۳» is
+  // wider than «۵» — and a changing width re-wraps the surrounding row on every frame (CLS).
   return (
-    <span ref={ref} className={className}>
-      {prefix}
-      {formatNumber(value)}
+    <span ref={ref} className={cn('inline-grid', className)}>
+      <span aria-hidden="true" className="invisible col-start-1 row-start-1">
+        {prefix}
+        {formatNumber(to)}
+      </span>
+      <span className="col-start-1 row-start-1 w-0 min-w-full whitespace-nowrap">
+        {prefix}
+        {formatNumber(value)}
+      </span>
     </span>
   );
 }

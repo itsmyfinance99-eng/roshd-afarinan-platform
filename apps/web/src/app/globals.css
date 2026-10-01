@@ -551,6 +551,16 @@ html:not(.ra-motion) [data-dot],
   transform-origin: top;
 }
 
+/* Demo pill dismissed earlier in the session: hidden before hydration (no flash or shift). */
+html.ra-pill-closed [data-demo-pill] {
+  display: none;
+}
+@media (width < 77.5rem) {
+  html.ra-pill-closed [data-top-row] {
+    display: none;
+  }
+}
+
 /* Home intro cover until the Intro island draws (see MOTION_BOOT_SCRIPT). */
 html.ra-intro {
   overflow: hidden;

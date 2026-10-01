@@ -130,7 +130,7 @@ export default async function CoursePage({ params }: { params: Params }) {
                   <h2 id="c-rel" className={sectionTitle.replace('mb-5 ', '')}>
                     دوره‌های مرتبط
                   </h2>
-                  <Link href="/training" className={sectionLinkClasses('text-sm')}>
+                  <Link href="/training" className={sectionLinkClasses('sm')}>
                     همه دوره‌ها ‹
                   </Link>
                 </div>
@@ -195,7 +195,7 @@ export default async function CoursePage({ params }: { params: Params }) {
                 </p>
                 <Link
                   href="/contact"
-                  className="text-center text-sm font-bold text-accent no-underline hover:text-ink"
+                  className="py-1.5 text-center text-sm font-bold text-accent no-underline hover:text-ink"
                 >
                   پرسش درباره دوره ‹
                 </Link>

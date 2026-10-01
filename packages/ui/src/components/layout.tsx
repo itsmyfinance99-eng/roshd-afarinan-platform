@@ -84,7 +84,10 @@ export function SectionHeader({
   );
 }
 
-/** "همه ‹" style link used beside section titles. */
-export function sectionLinkClasses(className?: string) {
-  return cn('text-[15px] font-bold text-accent no-underline hover:text-ink', className);
+/** "همه ‹" style link used beside section titles (`sm` for the compact column headers). */
+export function sectionLinkClasses(size: 'md' | 'sm' = 'md') {
+  return cn(
+    'inline-block py-1 font-bold text-accent no-underline hover:text-ink',
+    size === 'md' ? 'text-[15px]' : 'text-sm',
+  );
 }

@@ -29,7 +29,7 @@ export function PageHero({
       <div aria-hidden="true" className="pointer-events-none absolute inset-0">
         <div className="dots absolute inset-0 [--dot-color:var(--color-line)] [mask-image:radial-gradient(ellipse_65%_90%_at_20%_10%,#000_20%,transparent_72%)]" />
         <div className="absolute top-[-40%] left-[-10%] h-[120%] w-[60%] bg-[radial-gradient(closest-side,color-mix(in_srgb,var(--color-primary)_14%,transparent),transparent)] blur-[20px]" />
-        <div className="absolute top-[26%] left-[14%] size-[140px]">
+        <div className="absolute top-[26%] left-[14%] size-[140px] max-sm:hidden">
           <span
             data-anim="ping"
             className="absolute inset-0 rounded-full border border-primary/35"
@@ -54,7 +54,10 @@ export function PageHero({
                       {crumb.label}
                     </span>
                   ) : (
-                    <a href={crumb.href} className="text-accent no-underline hover:text-ink">
+                    <a
+                      href={crumb.href}
+                      className="inline-block py-1 text-accent no-underline hover:text-ink"
+                    >
                       {crumb.label}
                     </a>
                   )}
