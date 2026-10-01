@@ -166,6 +166,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@fontsource-variable/noto-kufi-arabic':
+        specifier: ^5.3.0
+        version: 5.3.0
       '@fontsource-variable/vazirmatn':
         specifier: ^5.3.0
         version: 5.3.0
@@ -848,6 +851,9 @@ packages:
     peerDependenciesMeta:
       '@noble/hashes':
         optional: true
+
+  '@fontsource-variable/noto-kufi-arabic@5.3.0':
+    resolution: {integrity: sha512-I2VKOHPcXg2ltFjSnVY7tfhI/gpWl+kuKzDdC8mv9lSlNQOgbSZBbKSrARDNVJ/d4tWS5ma1POH6OczJV9HL5w==}
 
   '@fontsource-variable/vazirmatn@5.3.0':
     resolution: {integrity: sha512-ZA68W8JHbMdNzzwjYHUWKB2PH22QpxNEnk0ukcXM+XiqYMV6ZWJZAKuNXcrMR2JjuIAwsfAU3KknCXPI6wXUvw==}
@@ -6814,6 +6820,8 @@ snapshots:
   '@exodus/bytes@1.16.0(@noble/hashes@1.8.0)':
     optionalDependencies:
       '@noble/hashes': 1.8.0
+
+  '@fontsource-variable/noto-kufi-arabic@5.3.0': {}
 
   '@fontsource-variable/vazirmatn@5.3.0': {}
 

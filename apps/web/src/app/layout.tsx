@@ -1,7 +1,10 @@
 import '@fontsource-variable/vazirmatn';
+import '@fontsource-variable/noto-kufi-arabic';
 import './globals.css';
 import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
+import { MotionEngine } from '@/components/motion/motion-engine';
+import { MOTION_BOOT_SCRIPT } from '@/components/motion/motion-env';
 import { site } from '@/content/site';
 import { siteUrl } from '@/lib/env';
 
@@ -15,15 +18,23 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: '#0b2257',
+  themeColor: '#111418',
+  colorScheme: 'dark',
   width: 'device-width',
   initialScale: 1,
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="fa-IR" dir="rtl">
-      <body>{children}</body>
+    // The boot script adds classes to <html> before hydration (motion on/off, intro cover).
+    <html lang="fa-IR" dir="rtl" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: MOTION_BOOT_SCRIPT }} />
+      </head>
+      <body>
+        {children}
+        <MotionEngine />
+      </body>
     </html>
   );
 }

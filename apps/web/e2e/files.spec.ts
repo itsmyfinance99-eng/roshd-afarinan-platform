@@ -93,14 +93,18 @@ test.describe('files', () => {
     });
 
     await page.goto('/feasibility/request');
+    const next = page.getByRole('button', { name: 'مرحله بعد' });
+    await page.getByLabel(/نام و نام خانوادگی/).fill('علی رضایی');
+    await page.getByLabel(/شماره موبایل/).fill('09121234567');
+    await next.click();
+    await page.getByLabel(/حوزه طرح/).selectOption('صنعتی');
+    await page.getByLabel(/مرحله فعلی/).selectOption('مطالعه فنی');
+    await next.click();
+    // Attachments are part of the last step, beside the description.
     await page
       .locator('input[type="file"]')
       .setInputFiles({ name: 'plan.pdf', mimeType: 'application/pdf', buffer: PDF });
     await expect(page.getByText('plan.pdf')).toBeVisible();
-    await page.getByLabel(/نام و نام خانوادگی/).fill('علی رضایی');
-    await page.getByLabel(/شماره موبایل/).fill('09121234567');
-    await page.getByLabel(/حوزه طرح/).selectOption('صنعتی');
-    await page.getByLabel(/مرحله فعلی/).selectOption('مطالعه فنی');
     await page
       .getByLabel(/شرح کوتاه طرح/)
       .fill('طرح تولید قطعات صنعتی با ظرفیت متوسط در استان یزد');

@@ -83,7 +83,12 @@ export function TrackRequestForm() {
           />
         </FieldShell>
         <div className="col-span-full">
-          <Button type="submit" size="lg" disabled={form.formState.isSubmitting || !hydrated}>
+          <Button
+            type="submit"
+            variant="cta"
+            size="xl"
+            disabled={form.formState.isSubmitting || !hydrated}
+          >
             {form.formState.isSubmitting ? 'در حال جستجو…' : 'پیگیری'}
           </Button>
         </div>
@@ -93,12 +98,12 @@ export function TrackRequestForm() {
       {result ? (
         <dl
           role="status"
-          className="grid grid-cols-[auto_1fr] gap-x-5 gap-y-3 rounded-card bg-surface p-6 text-[15px]"
+          className="grid grid-cols-[auto_1fr] gap-x-5 gap-y-3 rounded-card border border-line bg-brand-800 p-6 text-[15px] text-ink"
         >
           <dt className="text-ink-5">نوع درخواست</dt>
           <dd>{SERVICE_REQUEST_TYPE_LABELS_FA[result.type]}</dd>
           <dt className="text-ink-5">وضعیت</dt>
-          <dd className="font-bold text-primary" data-testid="track-status">
+          <dd className="font-bold text-accent" data-testid="track-status">
             {SERVICE_REQUEST_STATUS_LABELS_FA[result.status]}
           </dd>
           <dt className="text-ink-5">تاریخ ثبت</dt>

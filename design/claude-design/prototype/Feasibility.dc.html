@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <title>امکان‌سنجی — رشدآفرینان صنعت و معدن (نمونه v2 · مس و گرافیت)</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300..900&amp;family=Noto+Kufi+Arabic:wght@600..800&amp;display=swap">
+  <script src="mock-data.js"></script>
+  <script>window.RoshdForceMotion = true;</script>
+  <script src="motion.js"></script>
+  <style>html,body{margin:0;background:#111418;font-family:Vazirmatn,Tahoma,sans-serif;direction:rtl}*{box-sizing:border-box}a{color:#E7B386}a:hover{color:#EDEFF2}:focus-visible{outline:3px solid #D08A4E;outline-offset:2px}</style>
+</helmet>
+<div dir="rtl" lang="fa-IR" style="font-family:Vazirmatn,Tahoma,sans-serif;color:#EDEFF2;background:#111418;min-height:100vh">
+  <dc-import name="SiteHeader" active="feasibility" hint-size="100%,116px" style="position:sticky;top:0;z-index:50;display:block"></dc-import>
+  <main>
+    <dc-import name="PageHero" crumb="امکان‌سنجی" eyebrow="امکان‌سنجی" title="از ایده اولیه تا مطالعات امکان‌سنجی و طرح توجیهی" lead="ارزیابی فنی، بازار و مالی طرح پیش از ورود به اجرا، با همراهی کارشناسان در هر مرحله." hint-size="100%,380px"></dc-import>
+
+    <section aria-labelledby="deliver" style="max-width:1280px;margin:0 auto;padding:80px 24px">
+      <h2 id="deliver" data-reveal="" style="font-family:'Noto Kufi Arabic',Vazirmatn,sans-serif;margin:0 0 28px;font-size:clamp(26px,3vw,36px);font-weight:800;color:#EDEFF2">دامنه مطالعات</h2>
+      <div data-stagger="70" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:16px">
+        <sc-for list="{{ scopes }}" as="s" hint-placeholder-count="4">
+          <div data-reveal="" data-spotlight="" style="position:relative;overflow:hidden;background:#1A1F26;border:1px solid #2A313B;border-radius:10px;padding:28px;display:flex;flex-direction:column;gap:10px;transition:transform 200ms cubic-bezier(0.22,1,0.36,1),border-color 200ms,box-shadow 200ms" style-hover="transform:translateY(-3px);border-color:#D08A4E;box-shadow:0 20px 44px -28px rgba(208,138,78,0.5)">
+            <span data-spot="" aria-hidden="true" style="position:absolute;inset:0;pointer-events:none;opacity:0;background:radial-gradient(300px circle at var(--mx,50%) var(--my,50%),rgba(208,138,78,0.08),transparent 60%)"></span>
+            <span style="position:relative;font-size:14px;font-weight:700;color:#E7B386">{{ s.n }}</span>
+            <h3 style="font-family:'Noto Kufi Arabic',Vazirmatn,sans-serif;position:relative;margin:0;font-size:20px;font-weight:800;color:#EDEFF2">{{ s.t }}</h3>
+            <p style="position:relative;margin:0;font-size:14.5px;line-height:1.95;color:#C3C9D2">{{ s.d }}</p>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+
+    <section id="request" aria-labelledby="req-title" style="position:relative;background:#F4F1EC;border-top:1px solid #DDD6CB;border-bottom:1px solid #DDD6CB;overflow:hidden">
+      <div aria-hidden="true" style="position:absolute;inset:0;background-image:radial-gradient(#DDD6CB 1px,transparent 1.2px);background-size:22px 22px;mask-image:radial-gradient(ellipse 45% 60% at 90% 10%,#000,transparent 70%);-webkit-mask-image:radial-gradient(ellipse 45% 60% at 90% 10%,#000,transparent 70%)"></div>
+      <div style="position:relative;max-width:1280px;margin:0 auto;padding:88px 24px;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,400px),1fr));gap:48px;align-items:start">
+        <div data-reveal="">
+          <p style="margin:0 0 10px;font-size:14px;font-weight:700;color:#9A5A26">گام اول</p>
+          <h2 id="req-title" style="font-family:'Noto Kufi Arabic',Vazirmatn,sans-serif;margin:0 0 16px;font-size:clamp(26px,3vw,38px);font-weight:800;color:#1A1F26">درخواست امکان‌سنجی</h2>
+          <p style="margin:0;font-size:16px;line-height:2;color:#4A5260;max-width:460px">اطلاعات اولیه طرح را ثبت کنید. کارشناسان پس از بررسی اولیه، دامنه خدمت را مشخص می‌کنند.</p>
+          <ol style="list-style:none;margin:32px 0 0;padding:0;display:flex;flex-direction:column;gap:4px">
+            <sc-for list="{{ steps }}" as="s" hint-placeholder-count="3">
+              <li aria-current="{{ s.current }}" style="display:flex;align-items:center;gap:14px;padding:10px 0;opacity:{{ s.op }};transition:opacity 300ms">
+                <span style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;background:{{ s.bg }};color:{{ s.fg }};border:2px solid {{ s.bd }};transition:background 300ms,color 300ms,border-color 300ms">{{ s.mark }}</span>
+                <span style="font-size:15.5px;font-weight:{{ s.w }};color:#1A1F26">{{ s.label }}</span>
+              </li>
+            </sc-for>
+          </ol>
+          <p style="margin:28px 0 0;padding:12px 14px;background:#FFF8E8;border:1px solid #EFD9A6;border-radius:6px;font-size:13px;color:#5E3C00;max-width:460px">نسخه نمایشی: اطلاعات فرم ارسال یا ذخیره نمی‌شود.</p>
+        </div>
+
+        <div data-reveal="" data-delay="100" style="background:#FAF8F4;border:1px solid #DDD6CB;border-radius:16px;box-shadow:0 30px 60px -40px rgba(26,31,38,0.45);overflow:hidden">
+          <div aria-hidden="true" style="height:4px;background:#E8E2D8"><div style="height:100%;background:linear-gradient(270deg,#9A5A26,#9A5A26);transform:scaleX({{ progress }});transform-origin:right;transition:transform 350ms cubic-bezier(0.65,0,0.35,1)"></div></div>
+          <div style="padding:clamp(20px,3vw,36px)">
+            <sc-if value="{{ sent }}">
+              <div role="status" style="padding:28px 8px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:10px">
+                <svg width="72" height="72" viewBox="0 0 72 72" fill="none" aria-hidden="true"><circle cx="36" cy="36" r="32" stroke="#1F8A4C" stroke-width="3" pathLength="1" data-draw="" data-dur="700"></circle><path d="M23 37l9 9 18-19" stroke="#1F8A4C" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" pathLength="1" data-draw="" data-delay="550" data-dur="500"></path></svg>
+                <h3 data-reveal="" data-delay="600" style="font-family:'Noto Kufi Arabic',Vazirmatn,sans-serif;margin:8px 0 0;font-size:22px;font-weight:800;color:#1A1F26">درخواست نمونه ثبت شد</h3>
+                <p data-reveal="" data-delay="680" style="margin:0 0 12px;font-size:14px;color:#4A5260">کد پیگیری نمونه: RA-۱۴۰۵-۰۰۰۱</p>
+                <button type="button" onClick="{{ reset }}" style="height:44px;padding:0 18px;border:1px solid #9A5A26;background:#FAF8F4;color:#9A5A26;border-radius:6px;font:700 14px Vazirmatn,sans-serif;cursor:pointer">ثبت درخواست جدید</button>
+              </div>
+            </sc-if>
+            <sc-if value="{{ notSent }}" hint-placeholder-val="{{ true }}">
+              <form onSubmit="{{ submit }}" novalidate="" aria-labelledby="step-title">
+                <p style="margin:0 0 4px;font-size:13px;font-weight:700;color:#9A5A26">{{ stepOf }}</p>
+                <h3 id="step-title" style="font-family:'Noto Kufi Arabic',Vazirmatn,sans-serif;margin:0 0 24px;font-size:21px;font-weight:800;color:#1A1F26">{{ stepTitle }}</h3>
+                <div key="{{ stepKey }}" data-reveal="" data-dur="350" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:18px">
+                  <sc-for list="{{ fields }}" as="f" hint-placeholder-count="2">
+                    <div style="display:flex;flex-direction:column;gap:6px;grid-column:{{ f.span }}">
+                      <label for="{{ f.id }}" style="font-size:14px;font-weight:600;color:#1A1F26">{{ f.label }} <span style="color:#B42318">{{ f.req }}</span></label>
+                      <sc-if value="{{ f.isInput }}"><input id="{{ f.id }}" value="{{ f.value }}" onChange="{{ f.onChange }}" dir="{{ f.dir }}" inputmode="{{ f.mode }}" placeholder="{{ f.ph }}" aria-invalid="{{ f.invalid }}" aria-describedby="{{ f.errId }}" style="height:48px;border:1px solid {{ f.border }};border-radius:6px;padding:0 14px;font:400 15px Vazirmatn,sans-serif;background:#FAF8F4;text-align:right;outline:none;transition:border-color 200ms,box-shadow 250ms cubic-bezier(0.65,0,0.35,1)" style-focus="border-color:#9A5A26;box-shadow:0 0 0 4px rgba(154,90,38,0.15)"></sc-if>
+                      <sc-if value="{{ f.isSelect }}"><select id="{{ f.id }}" value="{{ f.value }}" onChange="{{ f.onChange }}" aria-invalid="{{ f.invalid }}" aria-describedby="{{ f.errId }}" style="height:48px;border:1px solid {{ f.border }};border-radius:6px;padding:0 12px;font:400 15px Vazirmatn,sans-serif;background:#FAF8F4;outline:none;transition:border-color 200ms,box-shadow 250ms" style-focus="border-color:#9A5A26;box-shadow:0 0 0 4px rgba(154,90,38,0.15)"><sc-for list="{{ f.options }}" as="o"><option value="{{ o }}">{{ o }}</option></sc-for></select></sc-if>
+                      <sc-if value="{{ f.isArea }}"><textarea id="{{ f.id }}" value="{{ f.value }}" onChange="{{ f.onChange }}" aria-invalid="{{ f.invalid }}" aria-describedby="{{ f.errId }}" rows="5" style="border:1px solid {{ f.border }};border-radius:6px;padding:12px 14px;font:400 15px/1.9 Vazirmatn,sans-serif;resize:vertical;outline:none;transition:border-color 200ms,box-shadow 250ms" style-focus="border-color:#9A5A26;box-shadow:0 0 0 4px rgba(154,90,38,0.15)"></textarea></sc-if>
+                      <sc-if value="{{ f.err }}"><span id="{{ f.errId }}" role="alert" data-reveal="" data-dur="250" style="display:flex;align-items:center;gap:6px;font-size:13px;color:#B42318"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v5M12 16.5v.5"></path></svg>{{ f.err }}</span></sc-if>
+                      <sc-if value="{{ f.hint }}"><span style="font-size:12.5px;color:#4A5260">{{ f.hint }}</span></sc-if>
+                    </div>
+                  </sc-for>
+                  <sc-if value="{{ isReview }}">
+                    <dl style="grid-column:1/-1;margin:0;padding:16px;border-radius:8px;background:#F4F1EC;border:1px solid #DDD6CB;display:grid;grid-template-columns:auto 1fr;gap:8px 16px;font-size:14px">
+                      <sc-for list="{{ summary }}" as="r" hint-placeholder-count="4"><dt style="color:#4A5260">{{ r.k }}</dt><dd style="margin:0;color:#1A1F26;font-weight:600">{{ r.v }}</dd></sc-for>
+                    </dl>
+                  </sc-if>
+                </div>
+                <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;margin-top:28px;padding-top:20px;border-top:1px solid #E8E2D8">
+                  <sc-if value="{{ canBack }}"><button type="button" onClick="{{ back }}" style="white-space:nowrap;height:48px;padding:0 18px;border:1px solid #CFC6B8;background:#FAF8F4;color:#1A1F26;border-radius:6px;font:600 15px Vazirmatn,sans-serif;cursor:pointer" style-hover="border-color:#9A5A26;color:#9A5A26">› مرحله قبل</button></sc-if>
+                  <button type="submit" disabled="{{ submitting }}" style="white-space:nowrap;margin-inline-start:auto;height:50px;padding:0 28px;border:none;border-radius:6px;background:#D08A4E;color:#111418;font:700 15px Vazirmatn,sans-serif;cursor:pointer;opacity:{{ btnOpacity }};box-shadow:0 12px 28px -12px rgba(154,90,38,0.8);transition:background 150ms,transform 150ms" style-hover="background:#E09A5C;transform:translateY(-1px)">{{ btnLabel }}</button>
+                </div>
+              </form>
+            </sc-if>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section aria-labelledby="faq-title">
+      <div style="max-width:880px;margin:0 auto;padding:88px 24px">
+        <h2 id="faq-title" data-reveal="" style="font-family:'Noto Kufi Arabic',Vazirmatn,sans-serif;margin:0 0 24px;font-size:clamp(26px,3vw,36px);font-weight:800;color:#EDEFF2">پرسش‌های متداول</h2>
+        <div data-stagger="60" style="display:flex;flex-direction:column;gap:10px">
+          <sc-for list="{{ faq }}" as="q" hint-placeholder-count="4">
+            <div data-reveal="" style="border:1px solid {{ q.bd }};border-radius:10px;background:{{ q.bg }};transition:border-color 250ms,background 250ms">
+              <h3 style="font-family:'Noto Kufi Arabic',Vazirmatn,sans-serif;margin:0"><button type="button" id="{{ q.bid }}" aria-expanded="{{ q.open }}" aria-controls="{{ q.pid }}" onClick="{{ q.toggle }}" style="width:100%;display:flex;justify-content:space-between;align-items:center;gap:16px;padding:18px 20px;background:none;border:none;font:700 16px Vazirmatn,sans-serif;color:#EDEFF2;text-align:right;cursor:pointer">{{ q.q }}<span aria-hidden="true" style="flex-shrink:0;width:28px;height:28px;border-radius:50%;background:#232A33;color:#E7B386;display:flex;align-items:center;justify-content:center;font-size:18px;transform:{{ q.rot }};transition:transform 300ms cubic-bezier(0.65,0,0.35,1)">+</span></button></h3>
+              <sc-if value="{{ q.open }}"><div id="{{ q.pid }}" role="region" aria-labelledby="{{ q.bid }}" data-reveal="" data-dur="300" style="padding:0 20px 20px;font-size:15px;line-height:2;color:#C3C9D2">{{ q.a }}</div></sc-if>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </section>
+  </main>
+  <dc-import name="SiteFooter" hint-size="100%,640px"></dc-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  blank = { name: '', phone: '', sector: 'انتخاب کنید', location: '', stage: 'انتخاب کنید', desc: '' };
+  state = { v: { ...this.blank }, errors: {}, step: 0, submitting: false, sent: false, open: 0 };
+  componentDidMount() { if (!window.RoshdData) this.poll = setInterval(() => { if (window.RoshdData) { clearInterval(this.poll); this.forceUpdate(); } }, 60); }
+  componentWillUnmount() { clearInterval(this.poll); clearTimeout(this.t); }
+  STEPS = [
+    { label: 'اطلاعات تماس', keys: ['name', 'phone'] },
+    { label: 'مشخصات طرح', keys: ['sector', 'stage', 'location'] },
+    { label: 'شرح و ارسال', keys: ['desc'] },
+  ];
+  validate(v, keys) {
+    const e = {};
+    const has = k => keys.includes(k);
+    if (has('name') && v.name.trim().length < 3) e.name = 'نام و نام خانوادگی را وارد کنید.';
+    const p = v.phone.replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d));
+    if (has('phone') && !/^09\d{9}$/.test(p)) e.phone = 'شماره موبایل باید ۱۱ رقم و با ۰۹ شروع شود.';
+    if (has('sector') && v.sector === 'انتخاب کنید') e.sector = 'حوزه طرح را انتخاب کنید.';
+    if (has('stage') && v.stage === 'انتخاب کنید') e.stage = 'مرحله فعلی طرح را انتخاب کنید.';
+    if (has('desc') && v.desc.trim().length < 20) e.desc = 'شرح طرح دست‌کم ۲۰ نویسه باشد.';
+    return e;
+  }
+  set(k, val) {
+    const v = { ...this.state.v, [k]: val };
+    const errors = { ...this.state.errors };
+    if (errors[k]) { const e = this.validate(v, [k]); if (e[k]) errors[k] = e[k]; else delete errors[k]; }
+    this.setState({ v, errors });
+  }
+  submit = (ev) => {
+    ev.preventDefault();
+    const { step, v } = this.state;
+    const errors = this.validate(v, this.STEPS[step].keys);
+    this.setState({ errors });
+    if (Object.keys(errors).length) return;
+    if (step < 2) { this.setState({ step: step + 1 }); return; }
+    this.setState({ submitting: true });
+    this.t = setTimeout(() => this.setState({ submitting: false, sent: true }), 900);
+  };
+  renderVals() {
+    const D = window.RoshdData || { faq: [] };
+    const { v, errors, submitting, sent, open, step } = this.state;
+    const fa = n => String(n).replace(/\d/g, d => '۰۱۲۳۴۵۶۷۸۹'[d]);
+    const defs = {
+      name: { label: 'نام و نام خانوادگی', type: 'input', req: '*' },
+      phone: { label: 'شماره موبایل', type: 'input', req: '*', dir: 'ltr', mode: 'numeric', ph: '09xxxxxxxxx' },
+      sector: { label: 'حوزه طرح', type: 'select', req: '*', options: ['انتخاب کنید', 'معدنی', 'صنعتی', 'انرژی', 'کشاورزی و غذایی', 'خدمات و زیرساخت', 'سایر'] },
+      stage: { label: 'مرحله فعلی', type: 'select', req: '*', options: ['انتخاب کنید', 'ایده اولیه', 'مطالعه بازار', 'مطالعه فنی', 'طرح توجیهی'] },
+      location: { label: 'محل اجرا', type: 'input', req: '', span: '1/-1', hint: 'اختیاری — استان یا شهر' },
+      desc: { label: 'شرح کوتاه طرح', type: 'area', req: '*', span: '1/-1', hint: 'محصول یا خدمت، ظرفیت تقریبی و پرسش اصلی شما' },
+    };
+    const fields = this.STEPS[step].keys.map(k => { const d = defs[k]; return {
+      id: 'f-' + k, errId: 'f-' + k + '-err', label: d.label, req: d.req, span: d.span || 'auto', dir: d.dir || 'rtl', mode: d.mode || 'text', ph: d.ph || '', hint: errors[k] ? '' : (d.hint || ''),
+      options: d.options || [], value: v[k], onChange: e => this.set(k, e.target.value),
+      isInput: d.type === 'input', isSelect: d.type === 'select', isArea: d.type === 'area',
+      err: errors[k] || '', invalid: !!errors[k], border: errors[k] ? '#F97066' : '#3A4250',
+    }; });
+    return {
+      scopes: [
+        { n: '۱', t: 'مطالعه بازار', d: 'بررسی عرضه، تقاضا و شرایط رقابتی محصول یا خدمت.' },
+        { n: '۲', t: 'مطالعه فنی', d: 'ارزیابی فناوری، ظرفیت، محل و نیازهای اجرایی.' },
+        { n: '۳', t: 'مطالعه مالی', d: 'برآورد هزینه‌ها و شاخص‌های ارزیابی طرح.' },
+        { n: '۴', t: 'طرح توجیهی', d: 'جمع‌بندی مطالعات در قالب طرح توجیهی.' },
+      ],
+      steps: this.STEPS.map((s, i) => { const done = sent || i < step, cur = !sent && i === step; return {
+        label: s.label, current: cur ? 'step' : undefined, mark: done ? '✓' : fa(i + 1), op: done || cur ? 1 : 0.55, w: cur ? 800 : 600,
+        bg: done ? '#D08A4E' : cur ? '#1A1F26' : 'transparent', fg: done ? '#111418' : '#E7B386', bd: done || cur ? '#D08A4E' : '#3A4250',
+      }; }),
+      progress: sent ? 1 : (step + 1) / 3,
+      stepOf: 'مرحله ' + fa(step + 1) + ' از ۳', stepTitle: this.STEPS[step].label, stepKey: 'st' + step,
+      fields, submit: this.submit, submitting, sent, notSent: !sent,
+      isReview: step === 2, summary: [
+        { k: 'نام', v: v.name || '—' }, { k: 'موبایل', v: v.phone || '—' }, { k: 'حوزه', v: v.sector }, { k: 'مرحله', v: v.stage },
+      ],
+      canBack: step > 0, back: () => this.setState({ step: step - 1, errors: {} }),
+      btnLabel: submitting ? 'در حال ارسال…' : step < 2 ? 'مرحله بعد ‹' : 'ثبت درخواست', btnOpacity: submitting ? 0.7 : 1,
+      reset: () => this.setState({ sent: false, step: 0, errors: {}, v: { ...this.blank } }),
+      faq: D.faq.map((q, i) => { const o = open === i; return { ...q, bid: 'fq-b' + i, pid: 'fq-p' + i, open: o, rot: o ? 'rotate(45deg)' : 'rotate(0)', bd: o ? '#D08A4E' : '#2A313B', bg: o ? '#1E1712' : '#1A1F26', toggle: () => this.setState({ open: o ? -1 : i }) }; }),
+    };
+  }
+}
+</script>
+</body>
+</html>

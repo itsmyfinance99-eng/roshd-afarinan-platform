@@ -15,9 +15,9 @@ export function toPersianDigits(value: string | number): string {
   return String(value).replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[Number(d)] ?? d);
 }
 
-/** Two-digit Persian ordinal used by the design (۰۱، ۰۲، …). */
+/** Persian step number for a zero-based index, without a leading zero (design v2): 0 → ۱. */
 export function ordinal(index: number): string {
-  return toPersianDigits(String(index + 1).padStart(2, '0'));
+  return toPersianDigits(index + 1);
 }
 
 /** Formats an ISO date in the Persian (Jalali) calendar: ۱۴۰۵/۰۶/۲۰. */

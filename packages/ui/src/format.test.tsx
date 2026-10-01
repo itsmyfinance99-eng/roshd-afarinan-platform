@@ -20,7 +20,7 @@ describe('format', () => {
 
   it('converts digits and ordinals', () => {
     expect(toPersianDigits('RA-1405-0001')).toBe('RA-۱۴۰۵-۰۰۰۱');
-    expect(ordinal(0)).toBe('۰۱');
+    expect(ordinal(0)).toBe('۱');
     expect(ordinal(9)).toBe('۱۰');
   });
 

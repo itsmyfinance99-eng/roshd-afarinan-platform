@@ -20,8 +20,13 @@ export default function TrackPage() {
         title="پیگیری درخواست"
         lead="کد پیگیری که پس از ثبت درخواست دریافت کرده‌اید و شماره موبایل ثبت‌شده را وارد کنید."
       />
-      <Container className="max-w-3xl py-16">
-        <TrackRequestForm />
+      <Container className="max-w-3xl pt-14 pb-20">
+        <div
+          data-reveal=""
+          className="rounded-tile border border-line bg-brand-700 p-[clamp(20px,3vw,36px)] shadow-form"
+        >
+          <TrackRequestForm />
+        </div>
       </Container>
     </>
   );

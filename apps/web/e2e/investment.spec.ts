@@ -13,19 +13,34 @@ test.describe('investment opportunities', () => {
     await expect(page.getByText('۲ طرح')).toBeVisible();
   });
 
-  test('the GET filter form narrows results, shows an empty state and resets', async ({ page }) => {
+  test('sector chips and the stage select narrow results, then reset', async ({ page }) => {
     await page.goto('/investment');
-    await page.getByLabel('حوزه').selectOption('ENERGY');
-    await page.getByRole('button', { name: 'اعمال فیلترها' }).click();
+    const sectors = page.getByRole('navigation', { name: 'حوزه' });
+    await sectors.getByRole('link', { name: 'انرژی' }).click();
     await expect(page).toHaveURL(/sector=ENERGY/);
     await expect(page.locator('article')).toHaveCount(1);
+    await expect(sectors.getByRole('link', { name: 'انرژی' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
 
     await page.getByLabel('مرحله').selectOption('FEASIBILITY_STUDY');
-    await page.getByRole('button', { name: 'اعمال فیلترها' }).click();
+    await expect(page).toHaveURL(/stage=FEASIBILITY_STUDY/);
+    await expect(page).toHaveURL(/sector=ENERGY/);
     await expect(page.getByText('طرحی با این فیلترها یافت نشد')).toBeVisible();
-    await page.getByRole('link', { name: 'حذف فیلترها' }).click();
+    await page.getByRole('link', { name: 'حذف فیلترها', exact: true }).click();
     await expect(page).toHaveURL(/\/investment$/);
     await expect(page.locator('article')).toHaveCount(2);
+  });
+
+  test('the search box is a GET form that also works without JavaScript', async ({ browser }) => {
+    const context = await browser.newContext({ javaScriptEnabled: false });
+    const page = await context.newPage();
+    await page.goto('/investment');
+    await page.getByLabel('جستجو در پروژه‌ها').fill('سنگ');
+    await page.getByRole('button', { name: 'اعمال فیلترها' }).click();
+    await expect(page).toHaveURL(/q=/);
+    await context.close();
   });
 
   test('an opportunity page shows facts and records interest as a service request', async ({

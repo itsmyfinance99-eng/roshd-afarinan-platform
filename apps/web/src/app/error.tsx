@@ -14,8 +14,10 @@ export default function ErrorPage({
       id="main"
       className="mx-auto flex min-h-[70vh] max-w-xl flex-col items-center justify-center gap-4 px-6 text-center"
     >
-      <h1 className="text-2xl font-extrabold text-brand-900">مشکلی در نمایش این صفحه پیش آمد</h1>
-      <p className="text-ink-4">
+      <h1 className="font-display text-2xl font-extrabold text-ink">
+        مشکلی در نمایش این صفحه پیش آمد
+      </h1>
+      <p className="text-ink-3">
         لطفاً دوباره تلاش کنید. اگر مشکل ادامه داشت، با پشتیبانی تماس بگیرید.
       </p>
       {error.digest ? (

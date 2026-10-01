@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<section style="position:relative;overflow:hidden;background:#15191F;border-bottom:1px solid #2A313B;font-family:Vazirmatn,Tahoma,sans-serif;direction:rtl;min-height:clamp(300px,40vh,440px);display:flex;align-items:flex-end">
+  <div aria-hidden="true" style="position:absolute;inset:0;pointer-events:none">
+    <div style="position:absolute;inset:0;background-image:radial-gradient(#2A313B 1.1px,transparent 1.3px);background-size:22px 22px;mask-image:radial-gradient(ellipse 65% 90% at 20% 10%,#000 20%,transparent 72%);-webkit-mask-image:radial-gradient(ellipse 65% 90% at 20% 10%,#000 20%,transparent 72%)"></div>
+    <div style="position:absolute;left:-10%;top:-40%;width:60%;height:120%;background:radial-gradient(closest-side,rgba(208,138,78,0.14),transparent);filter:blur(20px)"></div>
+    <div style="position:absolute;left:14%;top:26%;width:140px;height:140px">
+      <span data-anim="ping" style="position:absolute;inset:0;border-radius:50%;border:1px solid rgba(208,138,78,0.35)"></span>
+      <span style="position:absolute;left:50%;top:50%;width:8px;height:8px;margin:-4px 0 0 -4px;border-radius:50%;background:#D08A4E;box-shadow:0 0 0 4px rgba(208,138,78,0.18)"></span>
+    </div>
+  </div>
+  <div style="position:relative;width:100%;max-width:1280px;margin:0 auto;padding:28px 24px 56px">
+    <nav aria-label="مسیر صفحه" data-reveal="" data-dur="500" style="font-size:13px;color:#9AA3AF;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <a href="Home.dc.html" style="color:#E7B386;text-decoration:none" style-hover="color:#EDEFF2">صفحه اصلی</a>
+      <span aria-hidden="true">‹</span>
+      <sc-if value="{{ hasParent }}"><a href="{{ parentHref }}" style="color:#E7B386;text-decoration:none">{{ parent }}</a><span aria-hidden="true">‹</span></sc-if>
+      <span aria-current="page" style="color:#EDEFF2">{{ crumb }}</span>
+    </nav>
+    <div style="margin-top:44px;max-width:780px">
+      <p data-reveal="" data-delay="60" style="margin:0 0 14px;display:inline-flex;align-items:center;gap:8px;font-size:14px;font-weight:700;color:#E7B386"><span aria-hidden="true" style="width:18px;height:2px;background:#D08A4E;border-radius:2px"></span>{{ eyebrow }}</p>
+      <h1 style="font-family:'Noto Kufi Arabic',Vazirmatn,sans-serif;margin:0;font-size:clamp(30px,4vw,48px);line-height:1.4;font-weight:800;color:#EDEFF2;text-wrap:balance">{{ title }}</h1>
+      <p data-reveal="words" data-delay="160" style="margin:18px 0 0;font-size:clamp(16px,1.6vw,18px);line-height:2;color:#C3C9D2;text-wrap:pretty">{{ lead }}</p>
+    </div>
+  </div>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:&quot;1200px&quot;,&quot;height&quot;:&quot;420px&quot;},&quot;title&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;عنوان صفحه&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;lead&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;توضیح کوتاه صفحه&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;crumb&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;صفحه&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;eyebrow&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;parent&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;parentHref&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  renderVals() { return { hasParent: !!this.props.parent }; }
+}
+</script>
+</body>
+</html>

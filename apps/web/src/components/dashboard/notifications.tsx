@@ -81,7 +81,7 @@ export function NotificationBell() {
         <span
           aria-hidden="true"
           className={cn(
-            'absolute -top-0.5 -end-0.5 min-w-5 rounded-full bg-danger px-1 text-center text-[11px] leading-5 font-bold text-white',
+            'absolute -top-0.5 -end-0.5 min-w-5 rounded-full bg-danger px-1 text-center text-[11px] leading-5 font-bold text-brand-950',
           )}
         >
           {unread > 99 ? '۹۹+' : toPersianDigits(unread)}

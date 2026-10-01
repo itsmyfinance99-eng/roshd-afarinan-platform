@@ -59,10 +59,14 @@ export default async function AboutPage() {
       />
       <PageSections sections={body} />
       <Container className="pb-[72px]">
-        <section aria-labelledby="office">
+        <section
+          aria-labelledby="office"
+          data-reveal=""
+          className="rounded-card border border-line bg-brand-800 p-7"
+        >
           <h2
             id="office"
-            className="mb-4 text-[clamp(22px,2.4vw,28px)] font-extrabold text-brand-900"
+            className="mb-3 font-display text-[clamp(22px,2.4vw,28px)] font-extrabold text-ink"
           >
             دفتر مرکزی
           </h2>

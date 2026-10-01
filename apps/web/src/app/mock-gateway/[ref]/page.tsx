@@ -37,12 +37,12 @@ export default async function MockGatewayPage({
 
   return (
     <Container className="max-w-xl py-16">
-      <h1 className="mb-4 text-2xl font-extrabold text-brand-900">درگاه پرداخت آزمایشی</h1>
+      <h1 className="mb-4 font-display text-2xl font-extrabold text-ink">درگاه پرداخت آزمایشی</h1>
       <Notice className="mb-6">
         این صفحه فقط برای توسعه و آزمایش است و هیچ مبلغ واقعی پرداخت نمی‌شود. نتیجه نهایی را سرور با
         استعلام از درگاه تعیین می‌کند.
       </Notice>
-      <p className="mb-6 text-sm text-ink-4">
+      <p className="mb-6 text-sm text-ink-3">
         شناسه تراکنش: <span dir="ltr">{ref}</span>
       </p>
       <div className="flex flex-wrap gap-3">

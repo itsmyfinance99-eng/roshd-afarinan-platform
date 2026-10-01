@@ -1,4 +1,12 @@
-import { cn, Container, DemoBadge, EmptyState, ErrorMessage, toPersianDigits } from '@roshd/ui';
+import {
+  buttonClasses,
+  cn,
+  Container,
+  DemoBadge,
+  EmptyState,
+  ErrorMessage,
+  toPersianDigits,
+} from '@roshd/ui';
 import {
   SEARCH_TYPE_LABELS_FA,
   SEARCH_TYPE_ROUTES,
@@ -44,10 +52,10 @@ export default async function SearchPage({ searchParams }: { searchParams: Searc
   };
   const chip = (on: boolean) =>
     cn(
-      'inline-flex h-9 items-center rounded-chip border px-3 text-[13px] font-semibold no-underline',
+      'inline-flex h-9 items-center rounded-chip border px-3 text-[13px] font-semibold no-underline transition-colors',
       on
-        ? 'border-brand-900 bg-brand-900 text-white hover:text-white'
-        : 'border-line-strong bg-white text-ink-2 hover:border-primary',
+        ? 'border-primary bg-primary text-on-primary hover:text-on-primary'
+        : 'border-line-strong bg-brand-700 text-ink-3 hover:border-primary hover:text-ink',
     );
 
   return (
@@ -70,13 +78,10 @@ export default async function SearchPage({ searchParams }: { searchParams: Searc
             minLength={2}
             maxLength={100}
             placeholder="جستجو در دوره‌ها، پژوهش‌ها، طرح‌ها، مقالات و دانشنامه…"
-            className="h-12 min-w-0 flex-1 rounded-control border border-line-strong px-4 outline-none focus-visible:border-primary"
+            className="h-[54px] min-w-0 flex-1 rounded-control border border-line-strong bg-brand-700 px-4 text-base text-ink outline-none transition-[border-color,box-shadow] duration-200 placeholder:text-ink-5 focus:border-focus focus:shadow-[0_0_0_4px_color-mix(in_srgb,var(--color-focus)_15%,transparent)] focus-visible:outline-none"
           />
           {type ? <input type="hidden" name="type" value={type} /> : null}
-          <button
-            type="submit"
-            className="h-12 cursor-pointer rounded-control bg-primary px-6 font-bold text-white"
-          >
+          <button type="submit" className={buttonClasses('primary', 'lg')}>
             جستجو
           </button>
         </form>
@@ -123,18 +128,18 @@ export default async function SearchPage({ searchParams }: { searchParams: Searc
               />
             ) : count > 0 ? (
               <>
-                <p aria-live="polite" className="mb-4 text-sm text-ink-4">
+                <p aria-live="polite" className="mb-4 text-[13px] text-ink-5">
                   {toPersianDigits(count)} نتیجه
                 </p>
-                <ul className="flex flex-col gap-1">
+                <ul className="flex flex-col gap-1 border-t border-line pt-2">
                   {staticHits.map((hit) => (
                     <li key={`static-${hit.href}-${hit.title}`}>
                       <Link
                         href={hit.href}
-                        className="flex items-center justify-between gap-3 rounded-control p-3 text-ink no-underline hover:bg-primary-soft hover:text-ink"
+                        className="flex items-center justify-between gap-3 rounded-control p-3 text-ink no-underline transition-colors hover:bg-graphite-600 hover:text-ink"
                       >
                         <span className="text-[15px]">{hit.title}</span>
-                        <span className="shrink-0 rounded-chip bg-surface-2 px-2 py-[3px] text-xs text-ink-4">
+                        <span className="shrink-0 rounded-chip bg-graphite-600 px-2 py-[3px] text-xs text-ink-3">
                           {hit.type}
                         </span>
                       </Link>
@@ -144,17 +149,17 @@ export default async function SearchPage({ searchParams }: { searchParams: Searc
                     <li key={`${hit.type}-${hit.id}`}>
                       <Link
                         href={`${SEARCH_TYPE_ROUTES[hit.type]}/${hit.slug}`}
-                        className="flex items-start justify-between gap-3 rounded-control p-3 text-ink no-underline hover:bg-primary-soft hover:text-ink"
+                        className="flex items-start justify-between gap-3 rounded-control p-3 text-ink no-underline transition-colors hover:bg-graphite-600 hover:text-ink"
                       >
                         <span className="flex min-w-0 flex-col gap-1">
                           <span className="text-[15px] font-semibold">{hit.title}</span>
                           {hit.excerpt ? (
-                            <span className="line-clamp-2 text-sm text-ink-4">{hit.excerpt}</span>
+                            <span className="line-clamp-2 text-sm text-ink-3">{hit.excerpt}</span>
                           ) : null}
                         </span>
                         <span className="flex shrink-0 items-center gap-2">
                           {hit.isDemo ? <DemoBadge /> : null}
-                          <span className="rounded-chip bg-surface-2 px-2 py-[3px] text-xs text-ink-4">
+                          <span className="rounded-chip bg-graphite-600 px-2 py-[3px] text-xs text-ink-3">
                             {SEARCH_TYPE_LABELS_FA[hit.type]}
                           </span>
                         </span>

@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <title>رشدآفرینان صنعت و معدن — صفحه اصلی (نمونه v2 · مس و گرافیت)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300..900&amp;family=Noto+Kufi+Arabic:wght@600..800&amp;display=swap">
+  <script src="mock-data.js"></script>
+  <script>window.RoshdIntro = true;</script>
+  <script>window.RoshdForceMotion = true;</script>
+  <script src="motion.js"></script>
+  <style>html,body{margin:0;background:#111418;font-family:Vazirmatn,Tahoma,sans-serif;direction:rtl}*{box-sizing:border-box}a{color:#E7B386}a:hover{color:#EDEFF2}:focus-visible{outline:3px solid #D08A4E;outline-offset:2px}</style>
+</helmet>
+<div dir="rtl" lang="fa-IR" style="font-family:Vazirmatn,Tahoma,sans-serif;color:#EDEFF2;background:#1A1F26;min-height:100vh">
+  <div style="position:sticky;top:0;z-index:50;height:0"><dc-import name="SiteHeader" active="home" overlay="{{ h.overlay }}" hint-size="100%,116px"></dc-import></div>
+
+  <main id="main">
+    <!-- 2 · HERO (variant A light / B dark) -->
+    <section aria-labelledby="hero-title" style="position:relative;overflow:hidden;background:{{ h.bg }};border-bottom:1px solid {{ h.edge }}">
+      <canvas data-sonar="" data-dot="{{ h.dot }}" data-ring="#D08A4E" data-alpha="{{ h.dotAlpha }}" aria-hidden="true" key="{{ h.key }}" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none"></canvas>
+      <div aria-hidden="true" style="position:absolute;inset:0;pointer-events:none;background:{{ h.fade }}"></div>
+      <sc-if value="{{ h.light }}">
+        <div aria-hidden="true" style="position:absolute;inset:0;pointer-events:none;overflow:hidden">
+          <div data-anim="drift" style="position:absolute;left:-6%;top:-20%;width:55%;height:85%;background:radial-gradient(closest-side,rgba(208,138,78,0.08),transparent);filter:blur(40px)"></div>
+          <div data-anim="drift" style="position:absolute;left:24%;top:30%;width:45%;height:75%;background:radial-gradient(closest-side,rgba(143,160,181,0.06),transparent);filter:blur(50px);animation-delay:-7s"></div>
+        </div>
+      </sc-if>
+      <sc-if value="{{ h.dark }}">
+        <div aria-hidden="true" style="position:absolute;inset:0;pointer-events:none;overflow:hidden">
+          <div data-anim="drift" style="position:absolute;left:-8%;top:-30%;width:62%;height:90%;background:radial-gradient(closest-side,rgba(208,138,78,0.10),transparent);filter:blur(40px)"></div>
+          <div data-anim="drift" style="position:absolute;left:28%;top:-40%;width:50%;height:80%;background:radial-gradient(closest-side,rgba(143,160,181,0.08),transparent);filter:blur(50px);animation-delay:-9s"></div>
+          <div data-anim="breathe" style="position:absolute;left:-20%;right:-20%;bottom:-46%;height:70%;background:radial-gradient(50% 50% at 50% 50%,rgba(208,138,78,0.38),rgba(154,90,38,0.16) 45%,transparent 70%);filter:blur(24px)"></div>
+          <div style="position:absolute;left:0;right:0;bottom:22%;height:1px;background:linear-gradient(90deg,transparent,rgba(231,179,134,0.7) 30%,#F0CBA6 50%,rgba(231,179,134,0.7) 70%,transparent)"></div>
+        </div>
+      </sc-if>
+      <div style="position:relative;max-width:1280px;margin:0 auto;padding:calc(116px + clamp(28px,5vw,72px)) 24px clamp(56px,7vw,96px);display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,480px),1fr));gap:48px;align-items:center">
+        <div>
+          <p data-reveal="" data-dur="500" style="margin:0 0 22px;display:inline-flex;align-items:center;gap:10px;height:34px;padding:0 14px;border-radius:999px;background:{{ h.pillBg }};border:1px solid {{ h.pillBorder }};font-size:14px;font-weight:700;color:{{ h.eyebrow }};white-space:nowrap"><span aria-hidden="true" style="width:7px;height:7px;border-radius:50%;background:#D08A4E;box-shadow:0 0 0 4px rgba(208,138,78,0.2)"></span>رشدآفرینان صنعت و معدن</p>
+          <h1 id="hero-title" style="font-family:'Noto Kufi Arabic',Vazirmatn,sans-serif;margin:0;font-size:clamp(36px,5vw,64px);line-height:1.35;font-weight:800;color:{{ h.ink }};text-wrap:balance">
+            <sc-if value="{{ loopOn }}" hint-placeholder-val="{{ true }}">
+              <span style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap">از ایده تا امکان‌سنجی، پژوهش و مسیر سرمایه‌گذاری</span>
+              <span aria-hidden="true">از ایده تا<br><span data-loop="امکان‌سنجی|پژوهش|تأمین مالی|سرمایه‌گذاری" style="display:inline-block;padding-bottom:0.08em;background-image:{{ h.loopGrad }};-webkit-background-clip:text;background-clip:text;color:transparent">امکان‌سنجی</span></span>
+            </sc-if>
+            <sc-if value="{{ loopOff }}">از ایده تا امکان‌سنجی، پژوهش و مسیر سرمایه‌گذاری</sc-if>
+          </h1>
+          <p data-reveal="" data-delay="120" style="margin:24px 0 0;font-size:clamp(16px,1.6vw,19px);line-height:2.05;color:{{ h.lead }};max-width:600px;text-wrap:pretty">رشدآفرینان صنعت و معدن؛ پلتفرم تخصصی آموزش، پژوهش، مشاوره، امکان‌سنجی و اتصال به فرصت‌های سرمایه‌گذاری.</p>
+          <div data-reveal="" data-delay="200" style="display:flex;flex-wrap:wrap;gap:12px;margin-top:34px">
+            <a href="Feasibility.dc.html#request" style="position:relative;overflow:hidden;white-space:nowrap;flex-shrink:0;height:54px;padding:0 28px;display:flex;align-items:center;gap:10px;background:#D08A4E;color:#111418;border-radius:6px;font-size:16px;font-weight:700;text-decoration:none;box-shadow:0 12px 30px -12px rgba(208,138,78,0.8);transition:background 150ms,transform 150ms" style-hover="background:#E09A5C;color:#111418;transform:translateY(-2px)">
+              <span data-anim="shine" aria-hidden="true" style="position:absolute;top:0;bottom:0;left:0;width:40%;background:linear-gradient(100deg,transparent,rgba(255,255,255,0.35),transparent);transform:translateX(140%)"></span>
+              <span style="position:relative">درخواست امکان‌سنجی</span><span aria-hidden="true" style="position:relative">‹</span>
+            </a>
+            <a href="Investment.dc.html" style="white-space:nowrap;flex-shrink:0;height:54px;padding:0 24px;display:flex;align-items:center;background:{{ h.ghostBg }};border:1px solid {{ h.ghostBorder }};color:{{ h.ghostFg }};border-radius:6px;font-size:16px;font-weight:600;text-decoration:none;backdrop-filter:blur(6px);transition:border-color 150ms,transform 150ms" style-hover="border-color:#D08A4E;transform:translateY(-2px)">مشاهده فرصت‌های سرمایه‌گذاری</a>
+          </div>
+          <dl data-reveal="" data-delay="280" style="display:flex;flex-wrap:wrap;gap:20px 0;margin:40px 0 0;padding-top:24px;border-top:1px solid {{ h.rule }}">
+            <div style="display:flex;flex-direction:column;padding-inline-end:28px;margin-inline-end:28px;border-inline-end:1px solid {{ h.rule }}">
+              <dt style="order:2;font-size:14px;color:{{ h.lead }}">کارشناس</dt>
+              <dd style="order:1;margin:0;font-size:32px;font-weight:900;line-height:1.3;color:{{ h.ink }}"><span data-ticker="50" data-prefix="+">+۵۰</span></dd>
+            </div>
+            <div style="display:flex;flex-direction:column;padding-inline-end:28px;margin-inline-end:28px;border-inline-end:1px solid {{ h.rule }}">
+              <dt style="order:2;font-size:14px;color:{{ h.lead }}">حوزه اصلی فعالیت</dt>
+              <dd style="order:1;margin:0;font-size:32px;font-weight:900;line-height:1.3;color:{{ h.ink }};text-align:center"><span data-ticker="3">۳</span></dd>
+            </div>
+            <div style="display:flex;flex-direction:column">
+              <dt style="order:2;font-size:14px;color:{{ h.lead }};text-align:center">آغاز فعالیت</dt>
+              <dd style="order:1;margin:0;font-size:32px;font-weight:900;line-height:1.3;color:{{ h.ink }}"><span style="position:relative;display:inline-block">۱۳۸۸<svg viewBox="0 0 100 12" preserveAspectRatio="none" aria-hidden="true" data-reveal="wipe" data-delay="900" data-dur="900" style="position:absolute;right:-4%;bottom:-4px;width:108%;height:12px;overflow:hidden"><g data-anim="wave"><path d="M0 6 Q6.25 1.5 12.5 6 Q18.75 10.5 25 6 Q31.25 1.5 37.5 6 Q43.75 10.5 50 6 Q56.25 1.5 62.5 6 Q68.75 10.5 75 6 Q81.25 1.5 87.5 6 Q93.75 10.5 100 6 Q106.25 1.5 112.5 6 Q118.75 10.5 125 6" fill="none" stroke="#D08A4E" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path></g></svg></span></dd>
+            </div>
+          </dl>
+        </div>
+
+        <sc-if value="{{ wide }}" hint-placeholder-val="{{ true }}">
+          <figure style="margin:0;padding:24px 24px 44px;border-radius:20px;background:{{ h.plate }};border:1px solid {{ h.plateBorder }};backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);box-shadow:{{ h.plateShadow }}">
+            <figcaption style="font-size:14px;font-weight:700;color:{{ h.lead }};display:flex;align-items:center;gap:8px"><span aria-hidden="true" style="width:18px;height:2px;background:#D08A4E;border-radius:2px"></span>مسیر حرفه‌ای در پلتفرم</figcaption>
+            <div style="position:relative;aspect-ratio:100/84;margin-top:8px">
+              <svg viewBox="0 0 100 84" aria-hidden="true" style="position:absolute;inset:0;width:100%;height:100%;overflow:visible">
+                <defs><linearGradient id="raSpiral" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#D08A4E"></stop><stop offset="1" stop-color="{{ h.spiralEnd }}"></stop></linearGradient></defs>
+                
+                <path d="M46.51 49.79 L47.17 49.83 L47.83 49.93 L48.5 50.08 L49.18 50.3 L49.85 50.58 L50.51 50.93 L51.16 51.34 L51.78 51.81 L52.38 52.35 L52.94 52.96 L53.47 53.62 L53.95 54.35 L54.37 55.13 L54.74 55.97 L55.05 56.86 L55.28 57.8 L55.44 58.78 L55.52 59.79 L55.51 60.84 L55.41 61.9 L55.22 62.98 L54.92 64.07 L54.53 65.16 L54.04 66.24 L53.44 67.3 L52.73 68.33 L51.92 69.33 L51.01 70.28 L49.99 71.17 L48.87 71.99 L47.66 72.73 L46.35 73.39 L44.96 73.94 L43.49 74.39 L41.94 74.72 L40.34 74.93 L38.68 75 L36.97 74.93 L35.24 74.71 L33.48 74.33 L31.72 73.8 L29.96 73.1 L28.22 72.23 L26.52 71.19 L24.87 69.98 L23.29 68.6 L21.79 67.06 L20.4 65.35 L19.11 63.47 L17.97 61.45 L16.97 59.28 L16.13 56.98 L15.48 54.55 L15.02 52.01 L14.78 49.37 L14.75 46.66 L14.96 43.88 L15.41 41.05 L16.12 38.2 L17.09 35.35 L18.33 32.52 L19.85 29.73 L21.64 27.01 L23.7 24.38 L26.04 21.87 L28.65 19.51 L31.52 17.32 L34.65 15.33 L38.02 13.56 L41.61 12.05 L45.42 10.81 L49.43 9.88 L53.6 9.27 L57.92 9.01 L62.36 9.11 L66.89 9.61 L71.48 10.5 L76.1 11.82 L80.71 13.56 L85.27 15.74" pathLength="1" data-draw="" data-delay="150" data-dur="950" fill="none" stroke="url(#raSpiral)" stroke-width="0.55" stroke-linecap="round"></path>
+              </svg>
+              <ol style="list-style:none;margin:0;padding:0">
+                <sc-for list="{{ spiral }}" as="n" hint-placeholder-count="8">
+                  <li data-reveal="pop" data-delay="{{ n.delay }}" style="position:absolute;left:{{ n.x }}%;top:{{ n.y }}%;width:0;height:0">
+                    <sc-if value="{{ n.em }}">
+                      <span data-anim="pulse" aria-hidden="true" style="position:absolute;left:0;top:0;width:38px;height:38px;border-radius:50%;border:2px solid #D08A4E;transform:translate(-50%,-50%)"></span>
+                    </sc-if>
+                    <span aria-hidden="true" style="position:absolute;left:0;top:0;width:{{ n.size }}px;height:{{ n.size }}px;border-radius:50%;transform:translate(-50%,-50%);background:{{ n.dotBg }};border:3px solid {{ n.dotBorder }};box-shadow:{{ n.glow }}"></span>
+                    <span style="position:absolute;left:{{ n.cl }};right:{{ n.cr }};top:{{ n.ct }};bottom:{{ n.cb }};transform:{{ n.tf }};white-space:nowrap;display:flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:{{ n.chipBg }};border:1px solid {{ n.chipBorder }};font-size:14px;font-weight:{{ n.weight }};color:{{ n.chipFg }};box-shadow:0 6px 16px -10px rgba(0,0,0,0.45)"><span style="font-size:11px;opacity:0.8">{{ n.no }}</span>{{ n.label }}</span>
+                  </li>
+                </sc-for>
+              </ol>
+            </div>
+          </figure>
+        </sc-if>
+        <sc-if value="{{ narrow }}">
+          <figure style="margin:0;padding:22px 20px;border-radius:16px;background:{{ h.plate }};border:1px solid {{ h.plateBorder }}">
+            <figcaption style="font-size:14px;font-weight:700;color:{{ h.lead }};margin-bottom:14px">مسیر حرفه‌ای در پلتفرم</figcaption>
+            <ol data-stagger="70" style="position:relative;list-style:none;margin:0;padding:0 34px 0 0;display:flex;flex-direction:column;gap:14px">
+              <span aria-hidden="true" data-reveal="grow-y" data-dur="1000" style="position:absolute;right:8px;top:10px;bottom:10px;width:2px;border-radius:2px;background:linear-gradient(180deg,#D08A4E,{{ h.spiralEnd }})"></span>
+              <sc-for list="{{ spiral }}" as="n" hint-placeholder-count="8">
+                <li data-reveal="" style="position:relative;display:flex;align-items:center;gap:10px;white-space:nowrap;font-size:16px;font-weight:{{ n.weight }};color:{{ h.ink }}">
+                  <span aria-hidden="true" style="position:absolute;right:-34px;top:50%;width:{{ n.size }}px;height:{{ n.size }}px;margin-right:{{ n.offset }}px;border-radius:50%;transform:translateY(-50%);background:{{ n.dotBg }};border:3px solid {{ n.dotBorder }};box-shadow:{{ n.glow }}"></span>
+                  <span style="font-size:12px;color:{{ h.lead }}">{{ n.no }}</span>{{ n.label }}
+                </li>
+              </sc-for>
+            </ol>
+          </figure>
+        </sc-if>
+      </div>
+    </section>
+
+    <!-- 3 · EXPERIENCE MARQUEE -->
+    <section aria-labelledby="exp-title" style="padding:44px 0 48px;border-bottom:1px solid #2A313B;background:#1A1F26">
+      <div style="max-width:1280px;margin:0 auto 22px;padding:0 24px;display:flex;align-items:center;gap:14px">
+        <h2 id="exp-title" style="font-family:'Noto Kufi Arabic',Vazirmatn,sans-serif;margin:0;font-size:15px;font-weight:800;color:#EDEFF2;white-space:nowrap">حوزه‌های تجربه</h2>
+        <span aria-hidden="true" style="flex:1;height:1px;background:linear-gradient(270deg,#3A4250,transparent)"></span>
+      </div>
+      <div data-marquee="" data-speed="52" tabindex="0" aria-label="فهرست حوزه‌های تجربه" style="position:relative;overflow:hidden;mask-image:linear-gradient(90deg,transparent,#000 10%,#000 90%,transparent);-webkit-mask-image:linear-gradient(90deg,transparent,#000 10%,#000 90%,transparent)">
+        <div data-track="" style="display:flex;width:max-content">
+          <ul style="display:flex;gap:12px;margin:0;padding:4px 0 4px 12px;list-style:none">
+            <sc-for list="{{ experience }}" as="e" hint-placeholder-count="12">
+              <li style="height:44px;padding:0 18px;display:flex;align-items:center;gap:10px;border:1px solid #2A313B;border-radius:999px;background:#1A1F26;font-size:15px;font-weight:600;color:#EDEFF2;white-space:nowrap"><span aria-hidden="true" style="width:6px;height:6px;border-radius:50%;background:#D08A4E"></span>{{ e }}</li>
+            </sc-for>
+          </ul>
+          <ul data-dup="" aria-hidden="true" style="display:flex;gap:12px;margin:0;padding:4px 0 4px 12px;list-style:none">
+            <sc-for list="{{ experience }}" as="e" hint-placeholder-count="12">
+              <li style="height:44px;padding:0 18px;display:flex;align-items:center;gap:10px;border:1px solid #2A313B;border-radius:999px;background:#1A1F26;font-size:15px;font-weight:600;color:#EDEFF2;white-space:nowrap"><span style="width:6px;height:6px;border-radius:50%;background:#D08A4E"></span>{{ e }}</li>
+            </sc-for>
+          </ul>
+        </div>
+        <span aria-hidden="true" style="position:absolute;top:0;bottom:0;left:0;width:90px;backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);mask-image:linear-gradient(90deg,#000,transparent);-webkit-mask-image:linear-gradient(90deg,#000,transparent)"></span>
+        <span aria-hidden="true" style="position:absolute;top:0;bottom:0;right:0;width:90px;backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);mask-image:linear-gradient(270deg,#000,transparent);-webkit-mask-image:linear-gradient(270deg,#000,transparent)"></span>
+      </div>
+    </section>
+
+    <!-- 4 · FOUR PATHS (bento) -->
+    <section aria-labelledby="journeys-title" style="max-width:1280px;margin:0 auto;padding:96px 24px 40px">
+      <div data-reveal="" style="display:flex;justify-content:space-between;align-items:end;flex-wrap:wrap;gap:16px;margin-bottom:36px">
+        <div>
+          <p style="margin:0 0 10px;font-size:14px;font-weight:700;color:#E7B386">مسیرها</p>
+          <h2 id="journeys-title" style="font-family:'Noto Kufi Arabic',Vazirmatn,sans-serif;margin:0;font-size:clamp(28px,3.4vw,42px);line-height:1.4;font-weight:800;color:#EDEFF2">چهار مسیر اصلی</h2>
+        </div>
+      </div>
+      <div data-stagger="80" style="display:grid;grid-template-columns:{{ L.bentoCols }};gap:16px">
+        <a href="Training.dc.html" data-reveal="" data-spotlight="" style="position:relative;overflow:hidden;display:flex;flex-direction:column;gap:12px;min-height:250px;padding:28px;border-radius:16px;background:#1A1F26;border:1px solid #2A313B;text-decoration:none;color:#EDEFF2;grid-column:{{ L.b1 }};transition:transform 200ms cubic-bezier(0.22,1,0.36,1),border-color 200ms,box-shadow 200ms" style-hover="transform:translateY(-4px);border-color:#D08A4E;box-shadow:0 24px 48px -28px rgba(208,138,78,0.5);color:#EDEFF2" style-focus="outline:none;border-color:#D08A4E;box-shadow:0 0 0 3px rgba(208,138,78,0.4),0 0 36px rgba(208,138,78,0.35)">
+          <span data-spot="" aria-hidden="true" style="position:absolute;inset:0;pointer-events:none;opacity:0;background:radial-gradient(420px circle at var(--mx,50%) var(--my,50%),rgba(208,138,78,0.09),transparent 60%)"></span>
+          <svg width="150" height="100" viewBox="0 0 150 100" fill="none" stroke="#4A5568" stroke-width="1.4" stroke-linecap="round" aria-hidden="true" style="position:absolute;left:24px;top:24px"><path d="M10 22h52a8 8 0 018 8v60a8 8 0 00-8-8H10z" pathLength="1" data-draw="" data-dur="1100"></path><path d="M130 22H78a8 8 0 00-8 8v60a8 8 0 018-8h52z" pathLength="1" data-draw="" data-delay="150" data-dur="1100"></path><path d="M20 38h36" pathLength="1" stroke="#8FA0B5" data-anim="trace"></path><path d="M20 50h36" pathLength="1" stroke="#8FA0B5" data-anim="trace" data-anim-delay="0.5s"></path><path d="M20 62h26" pathLength="1" stroke="#8FA0B5" data-anim="trace" data-anim-delay="1s"></path><path d="M84 38h36" pathLength="1" stroke="#8FA0B5" data-anim="trace" data-anim-delay="1.5s"></path><path d="M84 50h36" pathLength="1" stroke="#8FA0B5" data-anim="trace" data-anim-delay="2s"></path><path d="M84 62h26" pathLength="1" stroke="#8FA0B5" data-anim="trace" data-anim-delay="2.5s"></path><circle cx="130" cy="10" r="4" fill="#D08A4E" stroke="none" data-anim="float"></circle><circle cx="130" cy="10" r="4" fill="none" stroke="#D08A4E" data-anim="node" style="transform-box:fill-box;transform-origin:center"></circle></svg>
+          <span style="position:relative;font-size:15px;font-weight:700;color:#E7B386">۱</span>
+          <h3 style="font-family:'Noto Kufi Arabic',Vazirmatn,sans-serif;position:relative;margin:0;font-size:30px;font-weight:800;color:#EDEFF2">آموزش</h3>
+          <p style="position:relative;margin:0;font-size:16px;line-height:2;color:#C3C9D2;max-width:420px;text-wrap:pretty">آموزش تخصصی سرمایه‌گذاری، اقتصاد، امکان‌سنجی و تأمین مالی</p>
+          <span style="position:relative;margin-top:auto;font-size:15px;font-weight:700;color:#E7B386">ورود به مسیر ‹</span>
+        </a>
+        <a href="Feasibility.dc.html" data-reveal="" data-spotlight="" style="position:relative;overflow:hidden;display:flex;flex-direction:column;gap:14px;min-height:{{ L.bigH }};padding:32px;border-radius:20px;background:linear-gradient(155deg,#1E1712,#241A12 60%,#2A1D12);border:1px solid #5A3E27;text-decoration:none;color:#EDEFF2;grid-column:{{ L.b2 }};grid-row:{{ L.b2r }};transition:transform 200ms cubic-bezier(0.22,1,0.36,1),box-shadow 200ms" style-hover="transform:translateY(-4px);box-shadow:0 30px 60px -28px rgba(0,0,0,0.8);color:#EDEFF2" style-focus="outline:none;box-shadow:0 0 0 3px #D08A4E,0 0 40px rgba(208,138,78,0.45)">
+          <span data-spot="" aria-hidden="true" style="position:absolute;inset:0;pointer-events:none;opacity:0;background:radial-gradient(480px circle at var(--mx,50%) var(--my,50%),rgba(231,179,134,0.16),transparent 60%)"></span>
+          <div aria-hidden="true" style="position:absolute;left:-60px;bottom:-60px;width:380px;height:380px;background-image:linear-gradient(rgba(231,179,134,0.12) 1px,transparent 1px),linear-gradient(90deg,rgba(231,179,134,0.12) 1px,transparent 1px);background-size:32px 32px;mask-image:radial-gradient(closest-side,#000,transparent);-webkit-mask-image:radial-gradient(closest-side,#000,transparent)"></div>
+          <div aria-hidden="true" style="position:absolute;left:70px;bottom:70px;width:120px;height:120px">
+            <span style="position:absolute;inset:0;border-radius:50%;border:1px solid rgba(231,179,134,0.35)"></span>
+            <span style="position:absolute;inset:-40px;border-radius:50%;border:1px solid rgba(231,179,134,0.22)"></span>
+            <span style="position:absolute;inset:-80px;border-radius:50%;border:1px solid rgba(231,179,134,0.12)"></span>
+            <span data-anim="ping" style="position:absolute;inset:0;border-radius:50%;border:2px solid rgba(208,138,78,0.7)"></span>
+            <span style="position:absolute;left:50%;top:50%;width:12px;height:12px;margin:-6px 0 0 -6px;border-radius:50%;background:#D08A4E;box-shadow:0 0 0 5px rgba(208,138,78,0.25),0 0 24px #D08A4E"></span>
+          </div>
+          <span style="position:relative;font-size:15px;font-weight:700;color:#E7B386">۲</span>
+          <h3 style="font-family:'Noto Kufi Arabic',Vazirmatn,sans-serif;position:relative;margin:0;font-size:clamp(34px,3.6vw,46px);font-weight:800;color:#EDEFF2">امکان‌سنجی</h3>
+          <p style="position:relative;margin:0;font-size:17px;line-height:2;color:#C3C9D2;max-width:380px;text-wrap:pretty">از ایده اولیه تا مطالعات امکان‌سنجی و طرح توجیهی</p>
+          <span style="position:relative;margin-top:auto;display:inline-flex;align-self:flex-start;align-items:center;height:44px;padding:0 18px;border-radius:6px;background:#D08A4E;color:#111418;font-size:15px;font-weight:800">ورود به مسیر ‹</span>
+        </a>
+        <a href="Research.dc.html" data-reveal="" data-spotlight="" style="position:relative;overflow:hidden;display:flex;flex-direction:column;gap:12px;min-height:250px;padding:28px;border-radius:16px;background:#1A1F26;border:1px solid #2A313B;text-decoration:none;color:#EDEFF2;transition:transform 200ms cubic-bezier(0.22,1,0.36,1),border-color 200ms,box-shadow 200ms" style-hover="transform:translateY(-4px);border-color:#D08A4E;box-shadow:0 24px 48px -28px rgba(208,138,78,0.5);color:#EDEFF2" style-focus="outline:none;border-color:#D08A4E;box-shadow:0 0 0 3px rgba(208,138,78,0.4),0 0 36px rgba(208,138,78,0.35)">
+          <span data-spot="" aria-hidden="true" style="position:absolute;inset:0;pointer-events:none;opacity:0;background:radial-gradient(360px circle at var(--mx,50%) var(--my,50%),rgba(208,138,78,0.09),transparent 60%)"></span>
+          <svg width="92" height="70" viewBox="0 0 92 70" fill="none" stroke="#4A5568" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="position:absolute;left:22px;top:22px"><path d="M6 64h80"></path><path d="M14 64V40" stroke-width="4" stroke="#3A4250" data-anim="bar" data-anim-delay="0.00s" style="transform-box:fill-box;transform-origin:bottom"></path><path d="M30 64V28" stroke-width="4" stroke="#3A4250" data-anim="bar" data-anim-delay="0.35s" style="transform-box:fill-box;transform-origin:bottom"></path><path d="M46 64V44" stroke-width="4" stroke="#3A4250" data-anim="bar" data-anim-delay="0.70s" style="transform-box:fill-box;transform-origin:bottom"></path><path d="M62 64V20" stroke-width="4" stroke="#3A4250" data-anim="bar" data-anim-delay="1.05s" style="transform-box:fill-box;transform-origin:bottom"></path><path d="M78 64V34" stroke-width="4" stroke="#3A4250" data-anim="bar" data-anim-delay="1.40s" style="transform-box:fill-box;transform-origin:bottom"></path><path d="M10 30l18-12 16 10 18-18 20 8" stroke="#D08A4E" stroke-width="1.8" pathLength="1" data-anim="trace"></path><circle cx="62" cy="10" r="3" fill="#E7B386" stroke="none" data-anim="float"></circle></svg>
+          <span style="position:relative;font-size:15px;font-weight:700;color:#E7B386">۳</span>
+          <h3 style="font-family:'Noto Kufi Arabic',Vazirmatn,sans-serif;position:relative;margin:0;font-size:26px;font-weight:800;color:#EDEFF2">پژوهش</h3>
+          <p style="position:relative;margin:0;font-size:15px;line-height:2;color:#C3C9D2;text-wrap:pretty">مطالعات اقتصادی، صنعتی، مالی و توسعه‌ای</p>
+          <span style="position:relative;margin-top:auto;font-size:15px;font-weight:700;color:#E7B386">ورود به مسیر ‹</span>
+        </a>
+        <a href="Iran Sahamdar.dc.html" data-reveal="" data-spotlight="" style="position:relative;overflow:hidden;display:flex;flex-direction:column;gap:12px;min-height:250px;padding:28px;border-radius:16px;background:#1A1F26;border:1px solid #2A313B;text-decoration:none;color:#EDEFF2;transition:transform 200ms cubic-bezier(0.22,1,0.36,1),border-color 200ms,box-shadow 200ms" style-hover="transform:translateY(-4px);border-color:#D08A4E;box-shadow:0 24px 48px -28px rgba(208,138,78,0.5);color:#EDEFF2" style-focus="outline:none;border-color:#D08A4E;box-shadow:0 0 0 3px rgba(208,138,78,0.4),0 0 36px rgba(208,138,78,0.35)">
+          <span data-spot="" aria-hidden="true" style="position:absolute;inset:0;pointer-events:none;opacity:0;background:radial-gradient(360px circle at var(--mx,50%) var(--my,50%),rgba(208,138,78,0.09),transparent 60%)"></span>
+          <svg width="92" height="70" viewBox="0 0 92 70" fill="none" stroke="#4A5568" stroke-width="1.4" stroke-linecap="round" aria-hidden="true" style="position:absolute;left:22px;top:4px"><path d="M20 16L46 34 72 14M46 34v26M20 16l-6 34M72 14l8 38M14 50l32 10 34-8" pathLength="1" data-draw="" data-dur="1200"></path><path d="M20 16L46 34 72 14M46 34v26M20 16l-6 34M72 14l8 38M14 50l32 10 34-8" pathLength="1" stroke="#E7B386" stroke-width="1.8" data-anim="flow"></path><circle cx="46" cy="34" r="7" fill="none" stroke="#D08A4E" data-anim="node" style="transform-box:fill-box;transform-origin:center"></circle><circle cx="20" cy="16" r="5" fill="#1A1F26" data-reveal="pop" data-delay="300"></circle><circle cx="72" cy="14" r="5" fill="#1A1F26" data-reveal="pop" data-delay="450"></circle><circle cx="46" cy="34" r="7" fill="#D08A4E" stroke="none"></circle><circle cx="14" cy="50" r="4" fill="#1A1F26" data-reveal="pop" data-delay="600"></circle><circle cx="80" cy="52" r="4" fill="#1A1F26" data-reveal="pop" data-delay="750"></circle><circle cx="46" cy="60" r="4" fill="#1A1F26" data-reveal="pop" data-delay="900"></circle></svg>
+          <span style="position:relative;font-size:15px;font-weight:700;color:#E7B386">۴</span>
+          <h3 style="font-family:'Noto Kufi Arabic',Vazirmatn,sans-serif;position:relative;margin:0;font-size:26px;font-weight:800;color:#EDEFF2">ایران سهامدار</h3>
+          <p style="position:relative;margin:0;font-size:15px;line-height:2;color:#C3C9D2;text-wrap:pretty">معرفی پروژه‌ها و ارتباط با زیرساخت سرمایه‌گذاری</p>
+          <span style="position:relative;margin-top:auto;font-size:15px;font-weight:700;color:#E7B386">ورود به مسیر ‹</span>
+        </a>
+      </div>
+    </section>
+
+    <!-- 5 · STATS BENTO -->
+    <section aria-labelledby="trust-title" style="max-width:1280px;margin:0 auto;padding:72px 24px 96px">
+      <div data-reveal="" style="margin-bottom:36px">
+        <p style="margin:0 0 10px;font-size:14px;font-weight:700;color:#E7B386">تخصص و سابقه</p>
+        <h2 id="trust-title" style="font-family:'Noto Kufi Arabic',Vazirmatn,sans-serif;margin:0;font-size:clamp(20px,2.4vw,30px);line-height:1.5;font-weight:800;color:#EDEFF2;white-space:nowrap">گروهی تخصصی در آموزش، پژوهش و مشاوره</h2>
+      </div>
+      <div data-stagger="80" style="display:grid;grid-template-columns:{{ L.statCols }};gap:16px">
+        <div data-reveal="" style="position:relative;overflow:hidden;grid-column:{{ L.sA }};grid-row:{{ L.sAr }};min-height:260px;padding:32px;border-radius:20px;background:linear-gradient(160deg,#1E1712,#130F0B);color:#EDEFF2;display:flex;flex-direction:column;justify-content:space-between;gap:24px">
+          <div aria-hidden="true" style="position:absolute;inset:0;background-image:radial-gradient(rgba(231,179,134,0.2) 1px,transparent 1.2px);background-size:20px 20px;mask-image:radial-gradient(ellipse at 20% 100%,#000,transparent 70%);-webkit-mask-image:radial-gradient(ellipse at 20% 100%,#000,transparent 70%)"></div>
+          <span style="position:relative;font-size:14px;font-weight:700;color:#E7B386">نیروی متخصص</span>
+          <div style="position:relative">
+            <span data-ticker="50" data-prefix="+" style="display:block;font-size:clamp(72px,9vw,120px);font-weight:900;line-height:1;color:#EDEFF2">+۵۰</span>
+            <span style="display:block;margin-top:12px;font-size:22px;font-weight:800">کارشناس</span>
+            <span style="display:block;margin-top:8px;font-size:14px;line-height:1.9;color:#C3C9D2">در حوزه‌های مهندسی، اقتصاد، مدیریت، حقوق، بیمه، مالیات و فناوری اطلاعات</span>
+          </div>
+        </div>
+        <div data-reveal="" style="grid-column:{{ L.sB }};padding:28px;border-radius:16px;background:#15191F;border:1px solid #2A313B;display:flex;flex-direction:column;gap:6px">
+          <span data-ticker="3" style="font-size:56px;font-weight:900;line-height:1.1;color:#E7B386">۳</span>
+          <span style="font-size:18px;font-weight:800;color:#EDEFF2">حوزه اصلی فعالیت</span>
+          <span style="font-size:14px;color:#C3C9D2">آموزش، پژوهش و مشاوره</span>
+        </div>
+        <div data-reveal="" style="grid-column:{{ L.sE }};grid-row:{{ L.sEr }};padding:28px;border-radius:16px;background:#1A1F26;border:1px solid #2A313B;display:flex;flex-direction:column;gap:16px">
+          <h3 style="font-family:'Noto Kufi Arabic',Vazirmatn,sans-serif;margin:0;font-size:18px;font-weight:800;color:#EDEFF2">مجوزها و عضویت‌ها</h3>
+          <ul style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column">
+            <sc-for list="{{ credentials }}" as="c" hint-placeholder-count="5">
+              <li style="display:flex;gap:12px;padding:12px 0;border-bottom:1px solid #232A33;font-size:14.5px;line-height:1.9;color:#EDEFF2">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#D08A4E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink:0;margin-top:5px"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"></path><path d="M9 12l2 2 4-4"></path></svg>
+                <span style="flex:1;min-width:0">{{ c }}</span>
+              </li>
+            </sc-for>
+          </ul>
+          <p style="margin:auto 0 0;font-size:13px;line-height:1.9;color:#C3C9D2">شماره‌ها و جزئیات مدارک پس از دریافت و تأیید نسخه رسمی منتشر می‌شوند.</p>
+        </div>
+        <div data-reveal="" style="grid-column:{{ L.sC }};padding:28px;border-radius:16px;background:#15191F;border:1px solid #2A313B;display:flex;flex-direction:column;gap:6px">
+          <span style="position:relative;display:inline-block;align-self:flex-start;font-size:56px;font-weight:900;line-height:1.1;color:#EDEFF2">۱۳۸۸<svg viewBox="0 0 100 12" preserveAspectRatio="none" aria-hidden="true" data-reveal="wipe" data-delay="300" data-dur="900" style="position:absolute;right:-4%;bottom:-2px;width:108%;height:14px;overflow:hidden"><g data-anim="wave"><path d="M0 6 Q6.25 1.5 12.5 6 Q18.75 10.5 25 6 Q31.25 1.5 37.5 6 Q43.75 10.5 50 6 Q56.25 1.5 62.5 6 Q68.75 10.5 75 6 Q81.25 1.5 87.5 6 Q93.75 10.5 100 6 Q106.25 1.5 112.5 6 Q118.75 10.5 125 6" fill="none" stroke="#D08A4E" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path></g></svg></span>
+          <span style="font-size:18px;font-weight:800;color:#EDEFF2;margin-top:8px">آغاز فعالیت</span>
+          <span style="font-size:14px;color:#C3C9D2">سابقه فعالیت حرفه‌ای از سال ۱۳۸۸</span>
+        </div>
+        <div data-reveal="" style="grid-column:{{ L.sD }};padding:28px;border-radius:16px;background:#1A1F26;border:1px solid #2A313B;display:flex;flex-direction:column;gap:16px">
+          <h3 style="font-family:'Noto Kufi Arabic',Vazirmatn,sans-serif;margin:0;font-size:18px;font-weight:800;color:#EDEFF2">حوزه‌های تخصص</h3>
+          <div style="display:flex;flex-wrap:wrap;gap:8px">
+            <sc-for list="{{ expertise }}" as="e" hint-placeholder-count="7">
+              <span style="height:38px;padding:0 14px;display:flex;align-items:center;border:1px solid #3A4250;border-radius:4px;font-size:14.5px;font-weight:600;color:#EDEFF2;background:#1A1F26">{{ e }}</span>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6 · SERVICES -->
+    <section aria-labelledby="services-title" style="position:relative;background:#F4F1EC;border-top:1px solid #DDD6CB;border-bottom:1px solid #DDD6CB;overflow:hidden">
+      <div aria-hidden="true" style="position:absolute;inset:0;background-image:radial-gradient(#DDD6CB 1px,transparent 1.2px);background-size:24px 24px;mask-image:radial-gradient(ellipse 50% 60% at 90% 0%,#000,transparent 70%);-webkit-mask-image:radial-gradient(ellipse 50% 60% at 90% 0%,#000,transparent 70%)"></div>
+      <div style="position:relative;max-width:1280px;margin:0 auto;padding:96px 24px">
+        <div data-reveal="" style="display:flex;justify-content:space-between;align-items:end;flex-wrap:wrap;gap:16px;margin-bottom:36px">
+          <div>
+            <p style="margin:0 0 10px;font-size:14px;font-weight:700;color:#9A5A26">خدمات مشاوره</p>
+            <h2 id="services-title" style="font-family:'Noto Kufi Arabic',Vazirmatn,sans-serif;margin:0;font-size:clamp(28px,3.4vw,42px);font-weight:800;color:#1A1F26">خدمات تخصصی</h2>
+          </div>
+          <a href="Services.dc.html" style="font-size:15px;font-weight:700;color:#9A5A26;text-decoration:none">همه خدمات ‹</a>
+        </div>
+        <div data-stagger="70" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:16px">
+          <sc-for list="{{ services }}" as="s" hint-placeholder-count="6">
+            <a href="Services.dc.html" data-reveal="" data-spotlight="" style="position:relative;overflow:hidden;background:#FAF8F4;border:1px solid #DDD6CB;border-radius:10px;padding:28px;display:flex;flex-direction:column;gap:12px;text-decoration:none;min-height:200px;transition:transform 200ms cubic-bezier(0.22,1,0.36,1),border-color 200ms,box-shadow 200ms" style-hover="transform:translateY(-3px);border-color:#9A5A26;box-shadow:0 20px 44px -28px rgba(154,90,38,0.5)">
+              <span data-spot="" aria-hidden="true" style="position:absolute;inset:0;pointer-events:none;opacity:0;background:radial-gradient(320px circle at var(--mx,50%) var(--my,50%),rgba(154,90,38,0.08),transparent 60%)"></span>
+              <span aria-hidden="true" style="position:relative;width:48px;height:48px;border-radius:10px;background:#EFE9E0;border:1px solid #DDD6CB;display:flex;align-items:center;justify-content:center">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#9A5A26" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="{{ s.icon }}"></path></svg>
+              </span>
+              <h3 style="font-family:'Noto Kufi Arabic',Vazirmatn,sans-serif;position:relative;margin:4px 0 0;font-size:19px;font-weight:800;color:#1A1F26">{{ s.title }}</h3>
+              <p style="position:relative;margin:0;font-size:14.5px;line-height:1.95;color:#4A5260;text-wrap:pretty">{{ s.desc }}</p>
+            </a>
+          </sc-for>
+        </div>
+      </div>
+    </section>
+
+    <!-- 7 · CATALOG PREVIEWS -->
+    <section aria-labelledby="feas-title" style="max-width:1280px;margin:0 auto;padding:96px 24px 72px">
+      <div data-reveal="" style="display:flex;justify-content:space-between;align-items:end;flex-wrap:wrap;gap:16px;margin-bottom:24px">
+        <div>
+          <p style="margin:0 0 10px;font-size:14px;font-weight:700;color:#E7B386">امکان‌سنجی</p>
+          <h2 id="feas-title" style="font-family:'Noto Kufi Arabic',Vazirmatn,sans-serif;margin:0;font-size:clamp(26px,3vw,36px);font-weight:800;color:#EDEFF2">طرح‌های در حال مطالعه</h2>
+        </div>
+        <span style="background:#1E1712;color:#E7B386;border:1px dashed #5A3E27;font-size:13px;font-weight:700;padding:6px 10px;border-radius:4px;white-space:nowrap">نمونه نمایشی</span>
+      </div>
+      <div role="table" aria-label="نمونه طرح‌ها" data-stagger="80" style="border-top:2px solid #0B0E12">
+        <sc-for list="{{ featuredProjects }}" as="p" hint-placeholder-count="3">
+          <div role="row" data-reveal="" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,160px),1fr));gap:12px 24px;align-items:center;padding:22px 12px;border-bottom:1px solid #2A313B;border-radius:6px;transition:background 200ms" style-hover="background:#1A1F26">
+            <div role="cell" style="grid-column:span 2;min-width:0"><span style="display:block;font-size:13px;font-weight:700;color:#E7B386;margin-bottom:4px">{{ p.category }}</span><span style="font-size:17px;font-weight:700;color:#EDEFF2">{{ p.title }}</span></div>
+            <div role="cell" style="font-size:14px;color:#C3C9D2"><span style="color:#9AA3AF">موقعیت: </span>{{ p.location }}</div>
+            <div role="cell" style="font-size:14px;color:#C3C9D2"><span style="color:#9AA3AF">مرحله: </span>{{ p.stage }}</div>
+            <div role="cell" style="font-size:14px;color:#C3C9D2"><span style="color:#9AA3AF">خدمت: </span>{{ p.service }}</div>
+            <div role="cell"><a href="Feasibility.dc.html#request" style="font-size:14px;font-weight:700;color:#E7B386;text-decoration:none">درخواست مشابه ‹</a></div>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+
+    <section aria-labelledby="courses-title" style="max-width:1280px;margin:0 auto;padding:0 24px 88px">
+      <div data-reveal="" style="display:flex;justify-content:space-between;align-items:end;flex-wrap:wrap;gap:16px;margin-bottom:28px">
+        <div>
+          <p style="margin:0 0 10px;font-size:14px;font-weight:700;color:#E7B386">آموزش</p>
+          <h2 id="courses-title" style="font-family:'Noto Kufi Arabic',Vazirmatn,sans-serif;margin:0;font-size:clamp(26px,3vw,36px);font-weight:800;color:#EDEFF2">دوره‌های آموزشی</h2>
+        </div>
+        <a href="Training.dc.html" style="font-size:15px;font-weight:700;color:#E7B386;text-decoration:none">همه دوره‌ها ‹</a>
+      </div>
+      <div data-stagger="80" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:20px">
+        <sc-for list="{{ courses }}" as="c" hint-placeholder-count="4">
+          <div data-reveal=""><dc-import name="CourseCard" course="{{ c }}" hint-size="100%,400px"></dc-import></div>
+        </sc-for>
+      </div>
+    </section>
+
+    <section aria-label="پژوهش و دانشنامه" style="background:#15191F;border-top:1px solid #2A313B;border-bottom:1px solid #2A313B">
+      <div style="max-width:1280px;margin:0 auto;padding:88px 24px;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,460px),1fr));gap:48px">
+        <div>
+          <div data-reveal="" style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:20px">
+            <h2 style="font-family:'Noto Kufi Arabic',Vazirmatn,sans-serif;margin:0;font-size:26px;font-weight:800;color:#EDEFF2">پژوهش‌های منتخب</h2>
+            <a href="Research.dc.html" style="font-size:14px;font-weight:700;color:#E7B386;text-decoration:none">همه ‹</a>
+          </div>
+          <div data-stagger="80" style="display:flex;flex-direction:column;gap:12px">
+            <sc-for list="{{ research }}" as="r" hint-placeholder-count="3">
+              <div data-reveal=""><dc-import name="ContentCard" item="{{ r }}" cta="مشاهده پژوهش" href="Research.dc.html" hint-size="100%,190px"></dc-import></div>
+            </sc-for>
+          </div>
+        </div>
+        <div>
+          <div data-reveal="" style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:20px">
+            <h2 style="font-family:'Noto Kufi Arabic',Vazirmatn,sans-serif;margin:0;font-size:26px;font-weight:800;color:#EDEFF2">مطالب دانشنامه</h2>
+            <a href="Knowledge.dc.html" style="font-size:14px;font-weight:700;color:#E7B386;text-decoration:none">همه ‹</a>
+          </div>
+          <div data-stagger="80" style="display:flex;flex-direction:column;gap:12px">
+            <sc-for list="{{ knowledge }}" as="k" hint-placeholder-count="3">
+              <div data-reveal=""><dc-import name="ContentCard" item="{{ k }}" cta="مطالعه مدخل" href="Knowledge.dc.html" hint-size="100%,190px"></dc-import></div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section aria-labelledby="inv-title" style="max-width:1280px;margin:0 auto;padding:88px 24px 96px">
+      <div data-reveal="" style="display:flex;justify-content:space-between;align-items:end;flex-wrap:wrap;gap:16px;margin-bottom:20px">
+        <div>
+          <p style="margin:0 0 10px;font-size:14px;font-weight:700;color:#E7B386">فرصت‌های سرمایه‌گذاری</p>
+          <h2 id="inv-title" style="font-family:'Noto Kufi Arabic',Vazirmatn,sans-serif;margin:0;font-size:clamp(26px,3vw,36px);font-weight:800;color:#EDEFF2">پیش‌نمایش پروژه‌ها</h2>
+        </div>
+        <a href="Investment.dc.html" style="font-size:15px;font-weight:700;color:#E7B386;text-decoration:none">مشاهده همه ‹</a>
+      </div>
+      <div role="note" style="padding:14px 16px;background:#1E1712;border:1px solid #5A3E27;border-radius:6px;font-size:14px;line-height:1.9;color:#E7B386;margin-bottom:24px">همه پروژه‌های این بخش نمونه نمایشی هستند و فرصت واقعی یا باز سرمایه‌گذاری محسوب نمی‌شوند.</div>
+      <div style="display:flex;flex-wrap:wrap;gap:16px 24px;align-items:center;margin-bottom:24px">
+        <div role="group" aria-label="فیلتر حوزه" ref="{{ chipsRef }}" style="position:relative;display:flex;flex-wrap:wrap;gap:8px">
+          <span aria-hidden="true" style="position:absolute;right:0;top:0;height:40px;width:{{ ind.w }}px;border-radius:6px;background:#D08A4E;transform:translate({{ ind.x }}px,{{ ind.y }}px);opacity:{{ ind.o }};transition:transform 300ms cubic-bezier(0.65,0,0.35,1),width 300ms cubic-bezier(0.65,0,0.35,1)"></span>
+          <sc-for list="{{ sectorChips }}" as="c" hint-placeholder-count="6">
+            <button type="button" aria-pressed="{{ c.on }}" onClick="{{ c.pick }}" style="position:relative;height:40px;padding:0 14px;border-radius:6px;border:1px solid {{ c.border }};background:transparent;color:{{ c.fg }};font:600 14px Vazirmatn,sans-serif;cursor:pointer;transition:color 250ms,border-color 250ms">{{ c.label }}</button>
+          </sc-for>
+        </div>
+        <label style="display:flex;align-items:center;gap:8px;font-size:14px;color:#C3C9D2">مرحله
+          <select value="{{ stage }}" onChange="{{ onStage }}" style="height:40px;border:1px solid #3A4250;border-radius:6px;padding:0 10px;font:400 14px Vazirmatn,sans-serif;background:#1A1F26;color:#EDEFF2">
+            <sc-for list="{{ stages }}" as="s" hint-placeholder-count="5"><option value="{{ s }}">{{ s }}</option></sc-for>
+          </select>
+        </label>
+      </div>
+      <sc-if value="{{ loading }}">
+        <div aria-busy="true" aria-label="در حال بارگذاری" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:20px">
+          <sc-for list="{{ skeletons }}" as="k" hint-placeholder-count="3">
+            <div style="position:relative;overflow:hidden;height:440px;border-radius:8px;background:#1A1F26;border:1px solid #2A313B">
+              <span data-anim="shimmer" style="position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(208,138,78,0.10),transparent)"></span>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+      <sc-if value="{{ showEmpty }}">
+        <div role="status" style="padding:56px 24px;text-align:center;border:1px dashed #3A4250;border-radius:10px;background:#15191F">
+          <svg width="56" height="56" viewBox="0 0 56 56" fill="none" stroke="#4A5568" stroke-width="1.5" aria-hidden="true"><circle cx="24" cy="24" r="14"></circle><path d="M34 34l10 10M18 24h12"></path></svg>
+          <p style="margin:12px 0 8px;font-size:18px;font-weight:700;color:#EDEFF2">پروژه‌ای با این فیلترها وجود ندارد</p>
+          <p style="margin:0 0 16px;font-size:14px;color:#C3C9D2">فیلترها را تغییر دهید یا پروژه خود را برای امکان‌سنجی ثبت کنید.</p>
+          <button type="button" onClick="{{ resetFilters }}" style="height:42px;padding:0 18px;border:1px solid #D08A4E;background:#1A1F26;color:#E7B386;border-radius:6px;font:700 14px Vazirmatn,sans-serif;cursor:pointer">حذف فیلترها</button>
+        </div>
+      </sc-if>
+      <sc-if value="{{ showGrid }}" hint-placeholder-val="{{ true }}">
+        <div data-stagger="80" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:20px">
+          <sc-for list="{{ filtered }}" as="p" hint-placeholder-count="3">
+            <div data-reveal=""><dc-import name="ProjectCard" project="{{ p }}" hint-size="100%,460px"></dc-import></div>
+          </sc-for>
+        </div>
+      </sc-if>
+    </section>
+
+    <!-- 8 · PROCESS (dark, scroll-linked) -->
+    <section data-rail="auto" aria-labelledby="process-title" style="position:relative;overflow:hidden;background:#0B0E12;color:#EDEFF2">
+      <div aria-hidden="true" style="position:absolute;inset:0;pointer-events:none">
+        <div style="position:absolute;inset:0;background-image:radial-gradient(rgba(231,179,134,0.14) 1px,transparent 1.2px);background-size:26px 26px;mask-image:radial-gradient(ellipse 70% 80% at 50% 0%,#000,transparent 75%);-webkit-mask-image:radial-gradient(ellipse 70% 80% at 50% 0%,#000,transparent 75%)"></div>
+        <div style="position:absolute;left:-10%;right:-10%;bottom:-50%;height:80%;background:radial-gradient(50% 50% at 50% 50%,rgba(208,138,78,0.45),transparent 70%);filter:blur(30px)"></div>
+      </div>
+      <div style="position:relative;max-width:1280px;margin:0 auto;padding:104px 24px">
+        <div data-reveal="">
+          <p style="margin:0 0 10px;font-size:14px;font-weight:700;color:#E7B386">فرایند انجام کار</p>
+          <h2 id="process-title" style="font-family:'Noto Kufi Arabic',Vazirmatn,sans-serif;margin:0 0 56px;font-size:clamp(28px,3.4vw,42px);font-weight:800;color:#EDEFF2">از ثبت درخواست تا تحویل</h2>
+        </div>
+        <sc-if value="{{ wide }}" hint-placeholder-val="{{ true }}">
+          <ol style="position:relative;list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:24px">
+            <div aria-hidden="true" style="position:absolute;top:23px;right:24px;left:calc(20% - 43.2px);height:2px;border-radius:2px;background:rgba(231,179,134,0.18)">
+              <div data-rail-fill="" style="position:absolute;inset:0;border-radius:2px;background:linear-gradient(270deg,#D08A4E,#E7B386);box-shadow:0 0 14px rgba(208,138,78,0.7);transform:scaleX(0);transform-origin:right"></div>
+            </div>
+            <sc-for list="{{ process }}" as="p" hint-placeholder-count="5">
+              <li data-step="" style="position:relative;display:flex;flex-direction:column;gap:12px">
+                <span data-dot="" style="width:48px;height:48px;border-radius:50%;border:2px solid #E7B386;background:#0B0E12;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:900;color:#EDEFF2">{{ p.n }}</span>
+                <h3 style="font-family:'Noto Kufi Arabic',Vazirmatn,sans-serif;margin:8px 0 0;font-size:19px;font-weight:800;color:#EDEFF2">{{ p.title }}</h3>
+                <p style="margin:0;font-size:14.5px;line-height:1.95;color:#C3C9D2">{{ p.desc }}</p>
+              </li>
+            </sc-for>
+          </ol>
+        </sc-if>
+        <sc-if value="{{ narrow }}">
+          <ol style="position:relative;list-style:none;margin:0;padding:0 64px 0 0;display:flex;flex-direction:column;gap:32px">
+            <div aria-hidden="true" style="position:absolute;right:23px;top:24px;bottom:24px;width:2px;border-radius:2px;background:rgba(231,179,134,0.18)">
+              <div data-rail-fill="" style="position:absolute;inset:0;border-radius:2px;background:linear-gradient(180deg,#D08A4E,#E7B386);transform:scaleY(0);transform-origin:top"></div>
+            </div>
+            <sc-for list="{{ process }}" as="p" hint-placeholder-count="5">
+              <li data-step="" style="position:relative;display:flex;flex-direction:column;gap:6px;min-height:48px">
+                <span data-dot="" style="position:absolute;right:-64px;top:0;width:48px;height:48px;border-radius:50%;border:2px solid #E7B386;background:#0B0E12;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:900;color:#EDEFF2">{{ p.n }}</span>
+                <h3 style="font-family:'Noto Kufi Arabic',Vazirmatn,sans-serif;margin:10px 0 0;font-size:18px;font-weight:800;color:#EDEFF2">{{ p.title }}</h3>
+                <p style="margin:0;font-size:14.5px;line-height:1.95;color:#C3C9D2">{{ p.desc }}</p>
+              </li>
+            </sc-for>
+          </ol>
+        </sc-if>
+        <a href="Feasibility.dc.html#request" data-reveal="" style="display:inline-flex;white-space:nowrap;align-items:center;gap:10px;margin-top:56px;height:54px;padding:0 26px;background:#D08A4E;color:#111418;border-radius:6px;font-weight:800;text-decoration:none;transition:transform 150ms,box-shadow 150ms" style-hover="transform:translateY(-2px);box-shadow:0 0 0 4px rgba(231,179,134,0.3);color:#EDEFF2">شروع با ثبت درخواست امکان‌سنجی <span aria-hidden="true">‹</span></a>
+      </div>
+    </section>
+
+    <!-- 9 · FUTURE (not available) -->
+    <section aria-labelledby="future-title" style="max-width:1280px;margin:0 auto;padding:96px 24px 72px">
+      <div data-reveal="" style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-bottom:12px">
+        <h2 id="future-title" style="font-family:'Noto Kufi Arabic',Vazirmatn,sans-serif;margin:0;font-size:clamp(24px,2.6vw,32px);font-weight:800;color:#EDEFF2">قابلیت‌های توسعه آینده</h2>
+        <span style="font-size:12px;font-weight:700;color:#C3C9D2;border:1px solid #3A4250;padding:3px 8px;border-radius:4px">هنوز در دسترس نیست</span>
+      </div>
+      <p data-reveal="" style="margin:0 0 28px;font-size:15px;line-height:2;color:#C3C9D2;max-width:720px">این قابلیت‌ها در نقشه راه توسعه پلتفرم قرار دارند و در نسخه فعلی ارائه نمی‌شوند.</p>
+      <ul data-stagger="70" style="list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:12px">
+        <sc-for list="{{ future }}" as="f" hint-placeholder-count="5">
+          <li data-reveal="" aria-disabled="true" style="position:relative;overflow:hidden;padding:20px;border:1px dashed #3A4250;border-radius:10px;display:flex;flex-direction:column;gap:10px;background:#1A1F26">
+            <span data-anim="shimmerSlow" aria-hidden="true" style="position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(208,138,78,0.08),transparent);pointer-events:none"></span>
+            <div style="position:relative;display:flex;justify-content:space-between;align-items:center">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#9AA3AF" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"></rect><path d="M8 11V8a4 4 0 018 0v3"></path></svg>
+              <span style="font-size:11.5px;font-weight:700;color:#EDEFF2;background:#1E1712;padding:2px 8px;border-radius:999px">به‌زودی</span>
+            </div>
+            <h3 style="font-family:'Noto Kufi Arabic',Vazirmatn,sans-serif;position:relative;margin:0;font-size:16px;font-weight:700;color:#EDEFF2">{{ f.title }}</h3>
+            <p style="position:relative;margin:0;font-size:13px;line-height:1.9;color:#C3C9D2">{{ f.desc }}</p>
+          </li>
+        </sc-for>
+      </ul>
+    </section>
+
+    <!-- 10 · FINAL CTA -->
+    <section aria-labelledby="cta-title" style="padding:0 24px 104px">
+      <div data-reveal="" style="position:relative;overflow:hidden;max-width:1280px;margin:0 auto;border-radius:20px;background:#15191F;border:1px solid #2A313B;padding:clamp(48px,8vw,112px) clamp(24px,5vw,72px);text-align:center">
+        <svg data-paths="#D08A4E" aria-hidden="true" style="position:absolute;inset:0;width:100%;height:100%;transform:scaleX(-1);pointer-events:none"></svg>
+        <div aria-hidden="true" style="position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse 48% 62% at 50% 50%,rgba(21,25,31,0.94),rgba(21,25,31,0))"></div>
+        <div style="position:relative;display:flex;flex-direction:column;align-items:center;gap:22px">
+          <p style="margin:0;display:inline-flex;align-items:center;gap:8px;height:32px;padding:0 14px;border-radius:999px;background:#1A1F26;border:1px solid #3A4250;font-size:14px;font-weight:700;color:#E7B386;white-space:nowrap"><span aria-hidden="true" style="width:6px;height:6px;border-radius:50%;background:#D08A4E"></span>گفت‌وگوی اولیه رایگان است</p>
+          <h2 id="cta-title" style="font-family:'Noto Kufi Arabic',Vazirmatn,sans-serif;margin:0;max-width:760px;font-size:clamp(28px,3.6vw,46px);line-height:1.45;font-weight:800;color:#EDEFF2;text-wrap:balance">طرح یا پرسشی دارید؟ با کارشناسان ما در ارتباط باشید.</h2>
+          <div style="display:flex;flex-wrap:wrap;gap:12px;justify-content:center;margin-top:8px">
+            <a href="Contact.dc.html" style="position:relative;overflow:hidden;white-space:nowrap;height:54px;padding:0 28px;display:flex;align-items:center;background:#D08A4E;color:#111418;border-radius:6px;font-size:16px;font-weight:700;text-decoration:none;box-shadow:0 12px 30px -12px rgba(208,138,78,0.8);transition:background 150ms,transform 150ms" style-hover="background:#E09A5C;color:#111418;transform:translateY(-2px)">
+              <span data-anim="shine" aria-hidden="true" style="position:absolute;top:0;bottom:0;left:0;width:40%;background:linear-gradient(100deg,transparent,rgba(255,255,255,0.35),transparent);transform:translateX(140%)"></span>
+              <span style="position:relative">درخواست مشاوره</span>
+            </a>
+            <a href="Feasibility.dc.html#request" style="white-space:nowrap;height:54px;padding:0 24px;display:flex;align-items:center;background:#1A1F26;border:1px solid #3A4250;color:#EDEFF2;border-radius:6px;font-size:16px;font-weight:600;text-decoration:none;transition:border-color 150ms,transform 150ms" style-hover="border-color:#D08A4E;color:#E7B386;transform:translateY(-2px)">ثبت پروژه برای امکان‌سنجی</a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <dc-import name="SiteFooter" hint-size="100%,640px"></dc-import>
+
+  <sc-if value="{{ showSwitcher }}" hint-placeholder-val="{{ true }}">
+    <div role="group" aria-label="انتخاب نسخه هیرو برای بازبینی" style="position:fixed;left:16px;bottom:16px;z-index:70;display:flex;align-items:center;gap:4px;padding:4px;padding-inline-start:12px;border-radius:999px;background:rgba(0,0,0,0.92);backdrop-filter:blur(10px);box-shadow:0 12px 32px -12px rgba(0,0,0,0.6);font-size:13px;color:#C3C9D2;white-space:nowrap">
+      <span style="margin-inline-end:6px">هیرو</span>
+      <button type="button" aria-pressed="{{ isA }}" onClick="{{ pickA }}" style="height:34px;padding:0 14px;border:none;border-radius:999px;background:{{ swA }};color:{{ swAf }};font:700 13px Vazirmatn,sans-serif;cursor:pointer;white-space:nowrap">i · سونار</button>
+      <button type="button" aria-pressed="{{ isB }}" onClick="{{ pickB }}" style="height:34px;padding:0 14px;border:none;border-radius:999px;background:{{ swB }};color:{{ swBf }};font:700 13px Vazirmatn,sans-serif;cursor:pointer;white-space:nowrap">ii · افق نور</button>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;hero&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;A&quot;,&quot;B&quot;],&quot;default&quot;:&quot;B&quot;,&quot;tsType&quot;:&quot;'A'|'B'&quot;,&quot;section&quot;:&quot;Review&quot;},&quot;textLoop&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Review&quot;},&quot;showSwitcher&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Review&quot;}}">
+class Component extends DCLogic {
+  state = { hero: null, w: typeof window !== 'undefined' ? window.innerWidth : 1280, sector: 'all', stage: 'همه مراحل', loading: false, ind: { x: 0, y: 0, w: 0, o: 0 } };
+  chipsRef = React.createRef();
+  componentDidMount() {
+    try { const q = new URLSearchParams(location.search).get('hero'); if (q === 'A' || q === 'B') this.setState({ hero: q }); } catch (e) {}
+    this.onResize = () => this.setState({ w: window.innerWidth }, () => this.measure());
+    window.addEventListener('resize', this.onResize);
+    if (!window.RoshdData) this.poll = setInterval(() => { if (window.RoshdData) { clearInterval(this.poll); this.forceUpdate(); } }, 60);
+    setTimeout(() => this.measure(), 300);
+  }
+  componentDidUpdate() { this.measure(); }
+  componentWillUnmount() { clearInterval(this.poll); clearTimeout(this.t); window.removeEventListener('resize', this.onResize); }
+  measure() {
+    const box = this.chipsRef.current; if (!box) return;
+    const b = box.querySelector('button[aria-pressed="true"]'); if (!b) return;
+    const bw = box.offsetWidth;
+    // indicator is anchored at right:0 (RTL); translate is measured from the right edge
+    const x = -(bw - (b.offsetLeft + b.offsetWidth)), y = b.offsetTop, w = b.offsetWidth;
+    const c = this.state.ind;
+    if (c.x !== x || c.y !== y || c.w !== w || c.o !== 1) this.setState({ ind: { x, y, w, o: 1 } });
+  }
+  load(patch) { clearTimeout(this.t); this.setState({ ...patch, loading: true }); this.t = setTimeout(() => this.setState({ loading: false }), 500); }
+  renderVals() {
+    const D = window.RoshdData || { pathSteps: [], stats: [], expertise: [], services: [], projects: [], sectors: [], courses: [], research: [], knowledge: [], process: [], future: [], experience: [], credentials: [] };
+    const hero = this.state.hero || this.props.hero || 'A';
+    const dark = hero === 'B';
+    const w = this.state.w, wide = w >= 1024, mid = w >= 700;
+    const fa = n => String(n).replace(/\d/g, d => '۰۱۲۳۴۵۶۷۸۹'[d]);
+    const h = dark ? {
+      key: 'B', dark: true, overlay: 'dark', bg: 'linear-gradient(180deg,#0B0E12 0%,#111418 60%,#15191F 100%)', edge: '#2A313B',
+      dot: '#3A4250', dotAlpha: '0.35', fade: 'radial-gradient(ellipse 60% 70% at 85% 40%,rgba(11,14,18,0.9),rgba(11,14,18,0) 70%)',
+      pillBg: 'rgba(208,138,78,0.08)', pillBorder: '#5A3E27', eyebrow: '#E7B386', ink: '#EDEFF2', lead: '#9AA3AF',
+      loopGrad: 'linear-gradient(90deg,#F0CBA6,#E7B386 50%,#D08A4E)', ghostBg: 'rgba(255,255,255,0.02)', ghostBorder: '#3A4250', ghostFg: '#EDEFF2',
+      rule: '#2A313B', plate: 'rgba(21,25,31,0.78)', plateBorder: '#2A313B', plateShadow: 'inset 0 1px 0 rgba(255,255,255,0.04),0 40px 80px -40px rgba(0,0,0,0.8)', guide: '#3A4250', spiralEnd: '#E7B386',
+    } : {
+      key: 'A', dark: false, light: true, overlay: 'dark', bg: '#111418', edge: '#2A313B',
+      dot: '#5A6472', dotAlpha: '0.32', fade: 'radial-gradient(ellipse 55% 70% at 85% 45%,rgba(17,20,24,0.95),rgba(17,20,24,0) 70%)',
+      pillBg: 'rgba(208,138,78,0.08)', pillBorder: '#5A3E27', eyebrow: '#E7B386', ink: '#EDEFF2', lead: '#9AA3AF',
+      loopGrad: 'linear-gradient(90deg,#F0CBA6,#E7B386 50%,#D08A4E)', ghostBg: 'rgba(255,255,255,0.02)', ghostBorder: '#3A4250', ghostFg: '#EDEFF2',
+      rule: '#2A313B', plate: 'rgba(21,25,31,0.78)', plateBorder: '#2A313B', plateShadow: 'inset 0 1px 0 rgba(255,255,255,0.04),0 40px 80px -40px rgba(0,0,0,0.8)', guide: '#3A4250', spiralEnd: '#E7B386',
+    };
+    const P = [[46.51, 59.27, 'l'], [54.21, 78.43, 'r'], [36.97, 89.2, 'b'], [18.72, 74.79, 'b'], [15.41, 48.87, 'r'], [27.75, 24.14, 'dl'], [52.19, 11.23, 'b'], [83.75, 17.81, 'b2']];
+    const A = 'auto';
+    const SIDE = { b2: { cl: '50%', cr: A, ct: '32px', cb: A, tf: 'translateX(-50%)' }, dl: { cl: '16px', cr: A, ct: '6px', cb: A, tf: 'none' }, l: { cl: A, cr: '34px', ct: '50%', cb: A, tf: 'translateY(-50%)' }, r: { cl: '14px', cr: A, ct: '50%', cb: A, tf: 'translateY(-50%)' }, b: { cl: '50%', cr: A, ct: '16px', cb: A, tf: 'translateX(-50%)' }, a: { cl: '50%', cr: A, ct: A, cb: '16px', tf: 'translateX(-50%)' } };
+    const spiral = D.pathSteps.map((label, i) => {
+      const em = i === 3 || i === 7, p = P[i] || [0, 0, 'b'];
+      return {
+        label, no: fa(String(i + 1)) + '.', em, x: p[0], y: p[1], ...SIDE[p[2]], delay: 380 + i * 90,
+        size: em ? 18 : 12, offset: em ? -3 : 0, weight: em ? 800 : 600,
+        dotBg: em ? '#D08A4E' : '#15191F', dotBorder: em ? '#1E1712' : '#8FA0B5',
+        glow: em ? '0 0 0 2px #D08A4E,0 0 0 10px rgba(208,138,78,0.14),0 0 22px rgba(208,138,78,0.45)' : 'none',
+        chipBg: em ? '#1E1712' : '#1A1F26',
+        chipBorder: em ? '#5A3E27' : '#2A313B',
+        chipFg: em ? '#E7B386' : '#C3C9D2',
+      };
+    });
+    const L = wide
+      ? { bentoCols: 'repeat(4,minmax(0,1fr))', b1: 'span 2', b2: 'span 2', b2r: 'span 2', bigH: '520px', statCols: 'repeat(3,minmax(0,1fr))', sA: '1 / 2', sAr: '1 / 3', sB: '2 / 3', sC: '2 / 3', sD: '1 / 3', sE: '3 / 4', sEr: '1 / 4' }
+      : mid
+        ? { bentoCols: 'repeat(2,minmax(0,1fr))', b1: 'span 2', b2: 'span 2', b2r: 'auto', bigH: '360px', statCols: 'repeat(2,minmax(0,1fr))', sA: 'span 2', sAr: 'auto', sB: 'auto', sC: 'auto', sD: 'span 2', sE: 'span 2', sEr: 'auto' }
+        : { bentoCols: 'minmax(0,1fr)', b1: 'auto', b2: 'auto', b2r: 'auto', bigH: '340px', statCols: 'minmax(0,1fr)', sA: 'auto', sAr: 'auto', sB: 'auto', sC: 'auto', sD: 'auto', sE: 'auto', sEr: 'auto' };
+    const icons = ['M3 17l6-6 4 4 8-8M15 7h6v6', 'M3 10l9-6 9 6M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 20h18', 'M4 20V10M10 20V4M16 20v-7M22 20H2', 'M10.5 4a6.5 6.5 0 110 13 6.5 6.5 0 010-13zM15.5 15.5L21 21M8 10.5l2 2 3.5-3.5', 'M3 21V10l6 4v-4l6 4V5h6v16zM3 21h18', 'M4 6h9M4 12h16M4 18h7M17 5l2 2-2 2'];
+    const { sector, stage, loading } = this.state;
+    const filtered = D.projects.filter(p => (sector === 'all' || p.sector === sector) && (stage === 'همه مراحل' || p.stage === stage));
+    const loopOn = this.props.textLoop !== false;
+    return {
+      h, wide, narrow: !wide, L, spiral, loopOn, loopOff: !loopOn,
+      experience: D.experience, expertise: D.expertise, credentials: D.credentials,
+      services: D.services.map((s, i) => ({ ...s, icon: icons[i] })),
+      featuredProjects: D.projects.slice(0, 3), courses: D.courses.slice(0, 4),
+      research: D.research.slice(0, 3), knowledge: D.knowledge.slice(0, 3),
+      chipsRef: this.chipsRef, ind: this.state.ind,
+      sectorChips: D.sectors.map(s => { const on = s.key === sector; return { ...s, on, fg: on ? '#111418' : '#C3C9D2', border: on ? 'transparent' : '#3A4250', pick: () => this.load({ sector: s.key }) }; }),
+      stages: ['همه مراحل', ...Array.from(new Set(D.projects.map(p => p.stage)))], stage, onStage: e => this.load({ stage: e.target.value }),
+      loading, skeletons: [1, 2, 3], filtered: filtered.slice(0, 6),
+      showEmpty: !loading && filtered.length === 0, showGrid: !loading && filtered.length > 0,
+      resetFilters: () => this.load({ sector: 'all', stage: 'همه مراحل' }),
+      process: D.process, future: D.future,
+      showSwitcher: this.props.showSwitcher !== false,
+      isA: !dark, isB: dark, pickA: () => this.setState({ hero: 'A' }), pickB: () => this.setState({ hero: 'B' }),
+      swA: dark ? 'transparent' : '#D08A4E', swAf: dark ? '#C3C9D2' : '#111418', swB: dark ? '#D08A4E' : 'transparent', swBf: dark ? '#111418' : '#C3C9D2',
+    };
+  }
+}
+</script>
+</body>
+</html>

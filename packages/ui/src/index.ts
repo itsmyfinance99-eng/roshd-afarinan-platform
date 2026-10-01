@@ -9,3 +9,4 @@ export * from './components/accordion';
 export * from './components/field';
 export * from './components/jalali-date-input';
 export * from './jalali';
+export * from './components/reveal-words';

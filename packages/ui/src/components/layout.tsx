@@ -8,12 +8,22 @@ export function Container({ className, ...props }: HTMLAttributes<HTMLDivElement
   );
 }
 
-type Tone = 'default' | 'muted' | 'dark';
+/*
+ * default  page graphite (#111418)
+ * raised   one step lighter band (#15191F) with lines — e.g. research + knowledge
+ * deep     darkest band (#0B0E12) — process, footer-like panels
+ * paper    light reading/form region (data-surface="paper")
+ * `muted` and `dark` are kept as aliases of raised/deep.
+ */
+type Tone = 'default' | 'raised' | 'deep' | 'paper' | 'muted' | 'dark';
 
 const tones: Record<Tone, string> = {
-  default: 'bg-white',
-  muted: 'border-y border-line bg-surface',
-  dark: 'bg-brand-900 text-white',
+  default: '',
+  raised: 'border-y border-line bg-brand-800',
+  muted: 'border-y border-line bg-brand-800',
+  deep: 'bg-brand-950',
+  dark: 'bg-brand-950',
+  paper: 'border-y border-paper-line',
 };
 
 export function Section({
@@ -23,46 +33,47 @@ export function Section({
   ...props
 }: HTMLAttributes<HTMLElement> & { tone?: Tone }) {
   return (
-    <section className={cn(tones[tone], className)} {...props}>
+    <section
+      data-surface={tone === 'paper' ? 'paper' : undefined}
+      className={cn('relative', tones[tone], className)}
+      {...props}
+    >
       {children}
     </section>
   );
 }
 
-/** Eyebrow + title (+ optional action link) block used at the top of sections. */
+/** Eyebrow + display title (+ optional action link) used at the top of sections. */
 export function SectionHeader({
   id,
   eyebrow,
   title,
   action,
-  tone = 'default',
+  size = 'lg',
   className,
 }: {
   id?: string;
   eyebrow?: ReactNode;
   title: ReactNode;
   action?: ReactNode;
+  /** lg: clamp(28px,3.4vw,42px) section titles; md: clamp(26px,3vw,36px) catalog titles. */
+  size?: 'lg' | 'md';
+  /** @deprecated v1 prop, ignored: colours follow the surface. */
   tone?: 'default' | 'dark';
   className?: string;
 }) {
   return (
-    <div className={cn('mb-7 flex flex-wrap items-end justify-between gap-4', className)}>
+    <div
+      data-reveal=""
+      className={cn('mb-9 flex flex-wrap items-end justify-between gap-4', className)}
+    >
       <div>
-        {eyebrow ? (
-          <p
-            className={cn(
-              'mb-2.5 text-sm font-bold',
-              tone === 'dark' ? 'text-accent-soft' : 'text-primary',
-            )}
-          >
-            {eyebrow}
-          </p>
-        ) : null}
+        {eyebrow ? <p className="mb-2.5 text-sm font-bold text-accent">{eyebrow}</p> : null}
         <h2
           id={id}
           className={cn(
-            'text-[clamp(26px,3vw,36px)] leading-normal font-extrabold',
-            tone === 'dark' ? 'text-white' : 'text-brand-900',
+            'font-display leading-[1.4] font-extrabold text-balance text-ink',
+            size === 'lg' ? 'text-[clamp(28px,3.4vw,42px)]' : 'text-[clamp(26px,3vw,36px)]',
           )}
         >
           {title}
@@ -70,5 +81,13 @@ export function SectionHeader({
       </div>
       {action}
     </div>
+  );
+}
+
+/** "همه ‹" style link used beside section titles (`sm` for the compact column headers). */
+export function sectionLinkClasses(size: 'md' | 'sm' = 'md') {
+  return cn(
+    'inline-block py-1 font-bold text-accent no-underline hover:text-ink',
+    size === 'md' ? 'text-[15px]' : 'text-sm',
   );
 }

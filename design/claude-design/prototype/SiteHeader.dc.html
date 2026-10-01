@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<header style="position:relative;font-family:Vazirmatn,Tahoma,sans-serif;direction:rtl;transform:{{ shift }};transition:transform 300ms cubic-bezier(0.65,0,0.35,1)">
+  <div aria-hidden="true" style="position:absolute;inset:0;background:rgba(17,20,24,0.85);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid #2A313B;box-shadow:0 8px 24px -18px rgba(0,0,0,0.35);opacity:{{ bgOpacity }};transition:opacity 300ms cubic-bezier(0.65,0,0.35,1)"></div>
+  <sc-if value="{{ showTopRow }}" hint-placeholder-val="{{ true }}">
+    <div style="position:relative;max-width:1280px;margin:0 auto;padding:0 24px;height:44px;display:flex;align-items:center;justify-content:space-between;gap:16px">
+      <sc-if value="{{ desktop }}" hint-placeholder-val="{{ true }}">
+        <nav aria-label="پیوندهای فرعی" style="display:flex;gap:20px;font-size:13px">
+          <sc-for list="{{ utilNav }}" as="u" hint-placeholder-count="5">
+            <a href="{{ u.href }}" style="color:{{ t.sub }};text-decoration:none;transition:color 150ms" style-hover="color:#E7B386">{{ u.label }}</a>
+          </sc-for>
+        </nav>
+      </sc-if>
+      <sc-if value="{{ pillOpen }}" hint-placeholder-val="{{ true }}">
+        <div role="note" style="display:flex;align-items:center;gap:8px;height:30px;padding:0 6px 0 4px;padding-inline-start:12px;border-radius:999px;background:{{ t.pillBg }};border:1px solid {{ t.pillBorder }};font-size:12.5px;color:{{ t.fg }};margin-inline-start:auto;white-space:nowrap;max-width:100%;overflow:hidden">
+          <span aria-hidden="true" style="width:6px;height:6px;border-radius:50%;background:#D08A4E;box-shadow:0 0 0 3px rgba(208,138,78,0.2)"></span>
+          <span>نسخه نمونه اولیه · داده‌ها نمایشی هستند</span>
+          <button type="button" onClick="{{ closePill }}" aria-label="بستن اعلان" style="width:24px;height:24px;border:none;border-radius:50%;background:transparent;color:{{ t.sub }};cursor:pointer;font-size:15px;line-height:1;display:flex;align-items:center;justify-content:center" style-hover="background:rgba(208,138,78,0.12)">×</button>
+        </div>
+      </sc-if>
+    </div>
+  </sc-if>
+  <div style="position:relative;max-width:1280px;margin:0 auto;padding:0 24px;height:72px;display:flex;align-items:center;gap:24px">
+    <a href="Home.dc.html" aria-label="رشدآفرینان صنعت و معدن — صفحه اصلی" style="display:flex;align-items:center;gap:10px;text-decoration:none;flex-shrink:0">
+      <span style="width:44px;height:44px;border-radius:10px;background:{{ t.logoBg }};display:flex;align-items:center;justify-content:center;transition:background 300ms"><img src="assets/logo.png" alt="نشان رشدآفرینان صنعت و معدن" style="width:32px;height:34px;object-fit:contain"></span>
+      <span style="display:flex;flex-direction:column;line-height:1.3">
+        <span style="font-weight:900;font-size:17px;color:{{ t.brand }}">رشدآفرینان</span>
+        <span style="font-weight:500;font-size:12px;color:{{ t.sub }}">صنعت و معدن</span>
+      </span>
+    </a>
+    <sc-if value="{{ desktop }}" hint-placeholder-val="{{ true }}">
+      <nav aria-label="ناوبری اصلی" style="display:flex;align-items:center;gap:2px;flex:1">
+        <sc-for list="{{ mainNav }}" as="n" hint-placeholder-count="6">
+          <a href="{{ n.href }}" aria-current="{{ n.current }}" onMouseEnter="{{ n.enter }}" onMouseLeave="{{ leave }}" onFocus="{{ n.enter }}" onBlur="{{ leave }}" style="position:relative;white-space:nowrap;padding:12px 11px;font-size:15px;font-weight:{{ n.weight }};color:{{ n.color }};text-decoration:none;transition:color 150ms">
+            {{ n.label }}
+            <span aria-hidden="true" style="position:absolute;right:12px;left:12px;bottom:4px;height:2px;border-radius:2px;background:{{ t.line }};transform:{{ n.lineT }};transform-origin:right;transition:transform 200ms cubic-bezier(0.22,1,0.36,1)"></span>
+          </a>
+        </sc-for>
+      </nav>
+    </sc-if>
+    <div style="display:flex;align-items:center;gap:8px;margin-inline-start:auto">
+      <button type="button" onClick="{{ openSearch }}" aria-label="جستجو" style="width:44px;height:44px;border:1px solid {{ t.ctl }};background:transparent;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:{{ t.fg }};transition:border-color 150ms" style-hover="border-color:#D08A4E">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-4-4"></path></svg>
+      </button>
+      <sc-if value="{{ desktop }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex;gap:8px">
+          <button type="button" onClick="{{ openAuth }}" style="white-space:nowrap;height:44px;padding:0 16px;border:1px solid {{ t.ctl }};background:transparent;border-radius:6px;font:500 14px Vazirmatn,sans-serif;color:{{ t.fg }};cursor:pointer;transition:border-color 150ms" style-hover="border-color:#D08A4E">ورود / ثبت‌نام</button>
+          <a href="Feasibility.dc.html#request" style="position:relative;overflow:hidden;white-space:nowrap;height:44px;padding:0 18px;display:flex;align-items:center;background:#D08A4E;color:#111418;border-radius:6px;font-size:14px;font-weight:700;text-decoration:none;box-shadow:0 6px 18px -8px rgba(208,138,78,0.7);transition:background 150ms,transform 150ms" style-hover="background:#E09A5C;color:#111418;transform:translateY(-1px)">
+            <span data-anim="shine" aria-hidden="true" style="position:absolute;top:0;bottom:0;left:0;width:45%;background:linear-gradient(100deg,transparent,rgba(255,255,255,0.38),transparent);transform:translateX(140%)"></span>
+            <span style="position:relative">درخواست امکان‌سنجی</span>
+          </a>
+        </div>
+      </sc-if>
+      <sc-if value="{{ mobile }}">
+        <button type="button" onClick="{{ openMenu }}" aria-label="باز کردن منو" aria-expanded="{{ menuOpen }}" style="width:44px;height:44px;border:1px solid {{ t.ctl }};background:transparent;border-radius:6px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px">
+          <span style="width:18px;height:2px;background:{{ t.fg }};display:block"></span>
+          <span style="width:18px;height:2px;background:{{ t.fg }};display:block"></span>
+          <span style="width:12px;height:2px;background:{{ t.fg }};display:block;margin-inline-end:6px"></span>
+        </button>
+      </sc-if>
+    </div>
+  </div>
+</header>
+
+<sc-if value="{{ menuOpen }}">
+  <div style="position:fixed;inset:0;z-index:100;font-family:Vazirmatn,Tahoma,sans-serif;direction:rtl">
+    <div onClick="{{ closeMenu }}" style="position:absolute;inset:0;background:rgba(5,7,9,0.5);backdrop-filter:blur(4px)"></div>
+    <div role="dialog" aria-modal="true" aria-label="منوی اصلی" style="position:absolute;top:0;right:0;bottom:0;width:min(360px,88vw);background:#1A1F26;display:flex;flex-direction:column;overflow:auto;box-shadow:-24px 0 48px -24px rgba(0,0,0,0.4)">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid #2A313B">
+        <span style="font-weight:800;color:#EDEFF2">منو</span>
+        <button type="button" onClick="{{ closeMenu }}" aria-label="بستن منو" style="width:44px;height:44px;border:1px solid #2A313B;background:#1A1F26;border-radius:6px;font-size:20px;cursor:pointer;color:#EDEFF2">×</button>
+      </div>
+      <nav aria-label="ناوبری موبایل" style="display:flex;flex-direction:column;padding:8px 12px" data-stagger="40">
+        <sc-for list="{{ allNav }}" as="n" hint-placeholder-count="11">
+          <a href="{{ n.href }}" data-reveal="" data-dur="350" style="padding:14px 10px;font-size:16px;color:{{ n.color }};text-decoration:none;border-bottom:1px solid #232A33;font-weight:{{ n.weight }}">{{ n.label }}</a>
+        </sc-for>
+      </nav>
+      <div style="padding:20px;display:flex;flex-direction:column;gap:10px;margin-top:auto">
+        <a href="Feasibility.dc.html#request" style="height:48px;display:flex;align-items:center;justify-content:center;background:#D08A4E;color:#111418;border-radius:6px;font-weight:700;text-decoration:none">درخواست امکان‌سنجی</a>
+        <button type="button" onClick="{{ openAuthFromMenu }}" style="height:48px;border:1px solid #3A4250;background:#1A1F26;border-radius:6px;font:500 15px Vazirmatn,sans-serif;color:#EDEFF2;cursor:pointer">ورود / ثبت‌نام</button>
+      </div>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ searchOpen }}">
+  <div style="position:fixed;inset:0;z-index:110;font-family:Vazirmatn,Tahoma,sans-serif;direction:rtl">
+    <div onClick="{{ closeSearch }}" style="position:absolute;inset:0;background:rgba(5,7,9,0.55);backdrop-filter:blur(4px)"></div>
+    <div role="dialog" aria-modal="true" aria-label="جستجو در سایت" data-reveal="" data-dur="300" style="position:relative;max-width:720px;margin:64px auto 0;background:#1A1F26;border-radius:10px;overflow:hidden;width:calc(100% - 32px);box-shadow:0 30px 80px -30px rgba(0,0,0,0.6)">
+      <div style="display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid #2A313B">
+        <label for="site-search" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">عبارت جستجو</label>
+        <input id="site-search" ref="{{ searchRef }}" value="{{ query }}" onChange="{{ onQuery }}" placeholder="جستجو در دوره‌ها، پروژه‌ها، مقالات و دانشنامه…" style="flex:1;height:48px;border:none;outline:none;font:400 17px Vazirmatn,sans-serif;color:#EDEFF2;background:transparent">
+        <button type="button" onClick="{{ closeSearch }}" style="height:36px;padding:0 12px;border:1px solid #2A313B;background:#1A1F26;border-radius:6px;font:500 13px Vazirmatn,sans-serif;color:#C3C9D2;cursor:pointer">بستن (Esc)</button>
+      </div>
+      <div style="max-height:60vh;overflow:auto;padding:12px 8px 16px">
+        <sc-if value="{{ showHint }}">
+          <p style="margin:12px;color:#9AA3AF;font-size:14px">پیشنهاد: امکان‌سنجی، تأمین مالی، معدنی، طرح توجیهی</p>
+        </sc-if>
+        <sc-if value="{{ showEmpty }}">
+          <div style="padding:32px 16px;text-align:center">
+            <p style="margin:0 0 6px;font-weight:700;color:#EDEFF2">نتیجه‌ای یافت نشد</p>
+            <p style="margin:0;color:#9AA3AF;font-size:14px">عبارت دیگری را امتحان کنید یا از منوی اصلی استفاده کنید.</p>
+          </div>
+        </sc-if>
+        <sc-for list="{{ results }}" as="r" hint-placeholder-count="0">
+          <a href="{{ r.href }}" style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px;border-radius:6px;text-decoration:none;color:#EDEFF2" style-hover="background:#232A33">
+            <span style="font-size:15px">{{ r.title }}</span>
+            <span style="font-size:12px;color:#C3C9D2;background:#232A33;padding:3px 8px;border-radius:4px;flex-shrink:0">{{ r.type }}</span>
+          </a>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ authOpen }}">
+  <div style="position:fixed;inset:0;z-index:120;font-family:Vazirmatn,Tahoma,sans-serif;direction:rtl;display:flex;align-items:center;justify-content:center;padding:16px">
+    <div onClick="{{ closeAuth }}" style="position:absolute;inset:0;background:rgba(5,7,9,0.55);backdrop-filter:blur(4px)"></div>
+    <div role="dialog" aria-modal="true" aria-labelledby="auth-title" data-reveal="" data-dur="300" style="position:relative;width:100%;max-width:440px;background:#1A1F26;border-radius:10px;padding:28px;box-shadow:0 30px 80px -30px rgba(0,0,0,0.6)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+        <h2 id="auth-title" style="font-family:'Noto Kufi Arabic',Vazirmatn,sans-serif;margin:0;font-size:20px;color:#EDEFF2">{{ authTitle }}</h2>
+        <button type="button" onClick="{{ closeAuth }}" aria-label="بستن" style="width:40px;height:40px;border:1px solid #2A313B;background:#1A1F26;border-radius:6px;font-size:20px;cursor:pointer;color:#EDEFF2">×</button>
+      </div>
+      <div role="tablist" aria-label="نوع ورود" style="display:grid;grid-template-columns:1fr 1fr;background:#15191F;border-radius:6px;padding:4px;margin-bottom:20px">
+        <button type="button" role="tab" aria-selected="{{ isLogin }}" onClick="{{ tabLogin }}" style="height:40px;border:none;border-radius:4px;cursor:pointer;font:600 14px Vazirmatn,sans-serif;background:{{ loginTabBg }};color:#EDEFF2">ورود</button>
+        <button type="button" role="tab" aria-selected="{{ isRegister }}" onClick="{{ tabRegister }}" style="height:40px;border:none;border-radius:4px;cursor:pointer;font:600 14px Vazirmatn,sans-serif;background:{{ regTabBg }};color:#EDEFF2">ثبت‌نام</button>
+      </div>
+      <sc-if value="{{ authDone }}">
+        <div role="status" style="padding:16px;border-radius:6px;background:#12241A;color:#7BD8A0;font-size:14px;margin-bottom:16px">درخواست نمونه ثبت شد. (در این نسخه اتصال واقعی وجود ندارد.)</div>
+      </sc-if>
+      <form onSubmit="{{ submitAuth }}" novalidate="" style="display:flex;flex-direction:column;gap:14px">
+        <sc-if value="{{ isRegister }}">
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <label for="auth-name" style="font-size:14px;font-weight:600;color:#EDEFF2">نام و نام خانوادگی</label>
+            <input id="auth-name" value="{{ authName }}" onChange="{{ onAuthName }}" style="height:46px;border:1px solid {{ nameBorder }};border-radius:6px;padding:0 12px;font:400 15px Vazirmatn,sans-serif;outline:none;transition:border-color 200ms,box-shadow 200ms" style-focus="border-color:#D08A4E;box-shadow:0 0 0 4px rgba(208,138,78,0.15)">
+            <sc-if value="{{ nameErr }}"><span role="alert" style="font-size:13px;color:#F97066">{{ nameErr }}</span></sc-if>
+          </div>
+        </sc-if>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <label for="auth-phone" style="font-size:14px;font-weight:600;color:#EDEFF2">شماره موبایل</label>
+          <input id="auth-phone" inputmode="numeric" dir="ltr" value="{{ authPhone }}" onChange="{{ onAuthPhone }}" placeholder="09xxxxxxxxx" style="height:46px;border:1px solid {{ phoneBorder }};border-radius:6px;padding:0 12px;font:400 15px Vazirmatn,sans-serif;text-align:right;outline:none;transition:border-color 200ms,box-shadow 200ms" style-focus="border-color:#D08A4E;box-shadow:0 0 0 4px rgba(208,138,78,0.15)">
+          <sc-if value="{{ phoneErr }}"><span role="alert" style="font-size:13px;color:#F97066">{{ phoneErr }}</span></sc-if>
+        </div>
+        <button type="submit" style="height:48px;border:none;border-radius:6px;background:#D08A4E;color:#111418;font:700 15px Vazirmatn,sans-serif;cursor:pointer;margin-top:6px" style-hover="background:#E09A5C">{{ authCta }}</button>
+        <p style="margin:0;font-size:12px;color:#9AA3AF;text-align:center">نسخه نمایشی — کد تأیید ارسال نمی‌شود.</p>
+      </form>
+    </div>
+  </div>
+</sc-if>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;active&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;home&quot;,&quot;training&quot;,&quot;feasibility&quot;,&quot;research&quot;,&quot;services&quot;,&quot;investment&quot;,&quot;sahamdar&quot;,&quot;knowledge&quot;,&quot;articles&quot;,&quot;about&quot;,&quot;contact&quot;],&quot;default&quot;:&quot;home&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;overlay&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;none&quot;,&quot;tsType&quot;:&quot;'none'|'light'|'dark'&quot;}}">
+class Component extends DCLogic {
+  state = { w: typeof window !== 'undefined' ? window.innerWidth : 1280, scrolled: false, pill: true, hover: null, menuOpen: false, searchOpen: false, authOpen: false, tab: 'login', query: '', name: '', phone: '', errors: {}, done: false };
+  searchRef = React.createRef();
+  componentDidMount() {
+    try { if (sessionStorage.getItem('ra-pill-closed')) this.setState({ pill: false }); } catch (e) {}
+    this.onResize = () => this.setState({ w: window.innerWidth });
+    this.onScroll = () => { const s = window.scrollY > 24; if (s !== this.state.scrolled) this.setState({ scrolled: s }); };
+    this.onKey = (e) => { if (e.key === 'Escape') this.setState({ menuOpen: false, searchOpen: false, authOpen: false }); };
+    window.addEventListener('resize', this.onResize);
+    window.addEventListener('scroll', this.onScroll, { passive: true });
+    document.addEventListener('keydown', this.onKey);
+    this.onScroll();
+    if (!window.RoshdData) this.poll = setInterval(() => { if (window.RoshdData) { clearInterval(this.poll); this.forceUpdate(); } }, 60);
+  }
+  componentWillUnmount() { window.removeEventListener('resize', this.onResize); window.removeEventListener('scroll', this.onScroll); document.removeEventListener('keydown', this.onKey); clearInterval(this.poll); }
+  componentDidUpdate(_, prev) { if (this.state.searchOpen && !prev.searchOpen) setTimeout(() => this.searchRef.current && this.searchRef.current.focus(), 30); }
+  submitAuth = (e) => {
+    e.preventDefault();
+    const errors = {};
+    if (this.state.tab === 'register' && this.state.name.trim().length < 3) errors.name = 'نام را کامل وارد کنید.';
+    const p = this.state.phone.replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d));
+    if (!/^09\d{9}$/.test(p)) errors.phone = 'شماره موبایل باید ۱۱ رقم و با ۰۹ شروع شود.';
+    this.setState({ errors, done: Object.keys(errors).length === 0 });
+  };
+  renderVals() {
+    const D = window.RoshdData || { nav: [], projects: [], courses: [], articles: [], knowledge: [], research: [] };
+    const active = this.props.active || 'home';
+    const overlay = this.props.overlay || 'none';
+    const s = this.state, er = s.errors;
+    const desktop = s.w >= 1240;
+    const solid = overlay === 'none' || s.scrolled;
+    const dark = overlay === 'dark' && !solid;
+    const t = dark
+      ? { fg: '#EDEFF2', sub: '#9AA3AF', brand: '#EDEFF2', line: '#D08A4E', ctl: '#3A4250', logoBg: 'transparent', pillBg: '#1E1712', pillBorder: '#5A3E27', navFg: '#C3C9D2', navActive: '#E7B386' }
+      : { fg: '#EDEFF2', sub: '#9AA3AF', brand: '#EDEFF2', line: '#D08A4E', ctl: '#3A4250', logoBg: 'transparent', pillBg: '#1E1712', pillBorder: '#5A3E27', navFg: '#C3C9D2', navActive: '#E7B386' };
+    const showTopRow = desktop || s.pill;
+    const mainKeys = ['training', 'feasibility', 'research', 'services', 'investment', 'sahamdar'];
+    const utilKeys = ['home', 'knowledge', 'articles', 'about', 'contact'];
+    const q = s.query.trim();
+    let results = [];
+    if (q) {
+      const add = (list, type, href) => list.forEach(x => { if (x.title.includes(q) || (x.category || '').includes(q)) results.push({ title: x.title, type, href }); });
+      add(D.courses, 'دوره', 'Training.dc.html'); add(D.projects, 'پروژه نمونه', 'Investment.dc.html'); add(D.research, 'پژوهش', 'Research.dc.html'); add(D.knowledge, 'دانشنامه', 'Knowledge.dc.html'); add(D.articles, 'مقاله', 'Articles.dc.html');
+      results = results.slice(0, 12);
+    }
+    return {
+      t, desktop, mobile: !desktop, showTopRow, pillOpen: s.pill,
+      shift: s.scrolled && showTopRow ? 'translateY(-44px)' : 'translateY(0)',
+      bgOpacity: solid ? 1 : 0,
+      closePill: () => { try { sessionStorage.setItem('ra-pill-closed', '1'); } catch (e) {} this.setState({ pill: false }); },
+      menuOpen: s.menuOpen, searchOpen: s.searchOpen, authOpen: s.authOpen,
+      utilNav: D.nav.filter(n => utilKeys.includes(n.key)),
+      leave: () => this.setState({ hover: null }),
+      mainNav: D.nav.filter(n => mainKeys.includes(n.key)).map(n => {
+        const on = n.key === active;
+        return { ...n, current: on ? 'page' : undefined, weight: on ? 700 : 500, color: on ? t.navActive : t.navFg, lineT: on || s.hover === n.key ? 'scaleX(1)' : 'scaleX(0)', enter: () => this.setState({ hover: n.key }) };
+      }),
+      allNav: D.nav.map(n => ({ ...n, weight: n.key === active ? 700 : 400, color: n.key === active ? '#E7B386' : '#EDEFF2' })),
+      openMenu: () => this.setState({ menuOpen: true }), closeMenu: () => this.setState({ menuOpen: false }),
+      openSearch: () => this.setState({ searchOpen: true }), closeSearch: () => this.setState({ searchOpen: false }),
+      openAuth: () => this.setState({ authOpen: true, done: false, errors: {} }), closeAuth: () => this.setState({ authOpen: false }),
+      openAuthFromMenu: () => this.setState({ menuOpen: false, authOpen: true, done: false, errors: {} }),
+      searchRef: this.searchRef, query: s.query, onQuery: e => this.setState({ query: e.target.value }),
+      results, showHint: !q, showEmpty: !!q && results.length === 0,
+      isLogin: s.tab === 'login', isRegister: s.tab === 'register',
+      authTitle: s.tab === 'login' ? 'ورود به حساب' : 'ایجاد حساب کاربری', authCta: s.tab === 'login' ? 'دریافت کد ورود' : 'ثبت‌نام',
+      loginTabBg: s.tab === 'login' ? '#1A1F26' : 'transparent', regTabBg: s.tab === 'register' ? '#1A1F26' : 'transparent',
+      tabLogin: () => this.setState({ tab: 'login', errors: {}, done: false }), tabRegister: () => this.setState({ tab: 'register', errors: {}, done: false }),
+      authName: s.name, authPhone: s.phone, onAuthName: e => this.setState({ name: e.target.value }), onAuthPhone: e => this.setState({ phone: e.target.value }),
+      nameErr: er.name || '', phoneErr: er.phone || '', nameBorder: er.name ? '#F97066' : '#3A4250', phoneBorder: er.phone ? '#F97066' : '#3A4250',
+      submitAuth: this.submitAuth, authDone: s.done,
+    };
+  }
+}
+</script>
+</body>
+</html>

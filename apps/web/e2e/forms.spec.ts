@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 test.describe('service request forms (API mocked)', () => {
-  test('feasibility form validates, submits with CSRF header and shows the tracking code', async ({
+  test('feasibility wizard validates each step, submits with CSRF header and shows the tracking code', async ({
     page,
   }) => {
     let sent: { body: Record<string, unknown>; headers: Record<string, string> } | undefined;
@@ -21,18 +21,31 @@ test.describe('service request forms (API mocked)', () => {
     });
 
     await page.goto('/feasibility/request');
-    await page.getByRole('button', { name: 'ثبت درخواست امکان‌سنجی' }).click();
-    await expect(page.getByText('لطفاً موارد مشخص‌شده را تکمیل کنید.')).toBeVisible();
-    await expect(page.getByLabel(/حوزه طرح/)).toHaveAttribute('aria-invalid', 'true');
-    expect(sent).toBeUndefined();
+    const next = page.getByRole('button', { name: 'مرحله بعد' });
 
+    // Step 1: contact details are validated before moving on.
+    await next.click();
+    await expect(page.getByLabel(/نام و نام خانوادگی/)).toHaveAttribute('aria-invalid', 'true');
     await page.getByLabel(/نام و نام خانوادگی/).fill('علی رضایی');
     await page.getByLabel(/شماره موبایل/).fill('۰۹۱۲۱۲۳۴۵۶۷');
+    await next.click();
+
+    // Step 2: sector and stage are required.
+    await expect(page.getByRole('heading', { name: 'مشخصات طرح' })).toBeVisible();
+    await next.click();
+    await expect(page.getByLabel(/حوزه طرح/)).toHaveAttribute('aria-invalid', 'true');
+    expect(sent).toBeUndefined();
     await page.getByLabel(/حوزه طرح/).selectOption('معدنی');
     await page.getByLabel(/مرحله فعلی/).selectOption('ایده اولیه');
+    await next.click();
+
+    // Step 3: description, a review of the answers, then submit.
+    await page.getByRole('button', { name: 'ثبت درخواست امکان‌سنجی' }).click();
+    await expect(page.getByText('لطفاً موارد مشخص‌شده را تکمیل کنید.')).toBeVisible();
     await page
       .getByLabel(/شرح کوتاه طرح/)
       .fill('طرح فرآوری سنگ آهن با ظرفیت اولیه کوچک در استان یزد');
+    await expect(page.getByText('علی رضایی')).toBeVisible();
     await page.getByRole('button', { name: 'ثبت درخواست امکان‌سنجی' }).click();
 
     await expect(page.getByTestId('tracking-code')).toHaveText('RA-۷K۳M۹QPD');
