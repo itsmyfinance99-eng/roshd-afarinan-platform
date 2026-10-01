@@ -2,14 +2,18 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { site } from '@/content/site';
 
-export function Logo({ variant = 'light' }: { variant?: 'light' | 'dark' }) {
-  if (variant === 'dark') {
+/**
+ * Brand lockup (design SiteHeader/SiteFooter): 44px tile with the mark, then the wordmark.
+ * `header` stacks «رشدآفرینان» over «صنعت و معدن»; `footer` shows the full name on one line.
+ */
+export function Logo({ variant = 'header' }: { variant?: 'header' | 'footer' }) {
+  if (variant === 'footer') {
     return (
       <Link href="/" className="flex items-center gap-2.5 no-underline">
-        <span className="flex h-[46px] w-11 items-center justify-center rounded-control bg-white">
+        <span className="flex size-11 items-center justify-center rounded-panel bg-brand-700">
           <Image src="/brand/logo.png" alt={`نشان ${site.name}`} width={32} height={34} />
         </span>
-        <span className="text-[17px] font-extrabold text-white">{site.name}</span>
+        <span className="text-[17px] font-extrabold text-ink">{site.name}</span>
       </Link>
     );
   }
@@ -19,10 +23,12 @@ export function Logo({ variant = 'light' }: { variant?: 'light' | 'dark' }) {
       aria-label={`${site.name} — صفحه اصلی`}
       className="flex shrink-0 items-center gap-2.5 no-underline"
     >
-      <Image src="/brand/logo.png" alt="" width={38} height={40} priority />
-      <span className="flex flex-col leading-tight">
-        <span className="text-[17px] font-extrabold text-brand-900">{site.shortName}</span>
-        <span className="text-xs font-medium text-ink-4">{site.tagline}</span>
+      <span className="flex size-11 items-center justify-center rounded-panel">
+        <Image src="/brand/logo.png" alt="" width={32} height={34} priority />
+      </span>
+      <span className="flex flex-col leading-[1.3]">
+        <span className="text-[17px] font-black text-ink">{site.shortName}</span>
+        <span className="text-xs font-medium text-ink-5">{site.tagline}</span>
       </span>
     </Link>
   );

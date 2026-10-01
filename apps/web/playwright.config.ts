@@ -21,6 +21,9 @@ export default defineConfig({
   use: {
     baseURL: `http://127.0.0.1:${PORT}`,
     locale: 'fa-IR',
+    // Suites check the static end state of the motion layer (what reduced-motion visitors get);
+    // e2e/motion.spec.ts opts back in to test the animations themselves.
+    reducedMotion: 'reduce',
     trace: 'retain-on-failure',
     channel: process.env.PLAYWRIGHT_CHANNEL || undefined,
   },

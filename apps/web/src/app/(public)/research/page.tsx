@@ -1,7 +1,12 @@
 import { buttonClasses, Container, Notice, toPersianDigits } from '@roshd/ui';
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { CategoryLinks, ContentGrid, PageLinks } from '@/components/content/listing';
+import {
+  CategoryLinks,
+  ContentGrid,
+  ListingTransition,
+  PageLinks,
+} from '@/components/content/listing';
 import { PageIntro } from '@/components/layout/page-shell';
 import { pastWorkSectors } from '@/content/site';
 import { listResearch, listResearchCategories } from '@/lib/research-api';
@@ -36,69 +41,79 @@ export default async function ResearchPage({ searchParams }: { searchParams: Sea
         title="مطالعات اقتصادی، صنعتی، مالی و توسعه‌ای"
         lead="پژوهش‌های کاربردی برای سازمان‌ها، طرح‌ها و سیاست‌گذاری."
       />
-      <Container className="pt-12 pb-20">
-        {categories.ok && categories.data.length > 0 ? (
-          <CategoryLinks base="/research" categories={categories.data} active={category} />
-        ) : null}
-        {items.some((p) => p.isDemo) ? (
-          <Notice className="mb-7">
-            عناوین برچسب‌خورده «نمونه نمایشی» هستند و پس از انتشار گزارش‌های تأییدشده جایگزین
-            می‌شوند.
-          </Notice>
-        ) : null}
-        <ContentGrid
-          items={items.map((p) => ({
-            id: p.id,
-            slug: p.slug,
-            title: p.title,
-            excerpt: p.summary,
-            publishedAt: p.publishedAt,
-            isDemo: p.isDemo,
-            category: p.category,
-            note: p.year ? `سال ${toPersianDigits(p.year)}` : undefined,
-          }))}
-          base="/research"
-          cta="مشاهده پژوهش"
-          unavailable={!projects.ok}
-          empty={
-            category
-              ? undefined
-              : {
-                  title: 'هنوز پژوهشی منتشر نشده است',
-                  description: 'گزارش‌های تأییدشده به‌زودی در این بخش منتشر می‌شوند.',
-                }
-          }
-        />
-        {projects.ok ? (
-          <PageLinks
+      <ListingTransition>
+        <Container className="pt-12 pb-20">
+          {categories.ok && categories.data.length > 0 ? (
+            <CategoryLinks base="/research" categories={categories.data} active={category} />
+          ) : null}
+          {items.some((p) => p.isDemo) ? (
+            <Notice className="mb-7">
+              عناوین برچسب‌خورده «نمونه نمایشی» هستند و پس از انتشار گزارش‌های تأییدشده جایگزین
+              می‌شوند.
+            </Notice>
+          ) : null}
+          <ContentGrid
+            items={items.map((p) => ({
+              id: p.id,
+              slug: p.slug,
+              title: p.title,
+              excerpt: p.summary,
+              publishedAt: p.publishedAt,
+              isDemo: p.isDemo,
+              category: p.category,
+              note: p.year ? `سال ${toPersianDigits(p.year)}` : undefined,
+            }))}
             base="/research"
-            page={page}
-            pageSize={PAGE_SIZE}
-            total={projects.meta?.total ?? items.length}
-            query={category ? { category } : {}}
+            cta="مشاهده پژوهش"
+            unavailable={!projects.ok}
+            resetHref={category ? '/research' : undefined}
+            empty={
+              category
+                ? undefined
+                : {
+                    title: 'هنوز پژوهشی منتشر نشده است',
+                    description: 'گزارش‌های تأییدشده به‌زودی در این بخش منتشر می‌شوند.',
+                  }
+            }
           />
-        ) : null}
+          {projects.ok ? (
+            <PageLinks
+              base="/research"
+              page={page}
+              pageSize={PAGE_SIZE}
+              total={projects.meta?.total ?? items.length}
+              query={category ? { category } : {}}
+            />
+          ) : null}
 
-        <section aria-labelledby="fields-title" className="mt-14">
-          <h2 id="fields-title" className="mb-4 text-xl font-extrabold text-brand-900">
-            حوزه‌های سوابق مطالعاتی
-          </h2>
-          <ul className="flex flex-wrap gap-2">
-            {pastWorkSectors.map((sector) => (
-              <li key={sector} className="rounded-chip bg-surface px-3.5 py-2 text-sm text-ink-2">
-                {sector}
-              </li>
-            ))}
-          </ul>
-        </section>
+          <section aria-labelledby="fields-title" data-reveal="" className="mt-14">
+            <h2 id="fields-title" className="mb-4 font-display text-xl font-extrabold text-ink">
+              حوزه‌های سوابق مطالعاتی
+            </h2>
+            <ul className="flex flex-wrap gap-2">
+              {pastWorkSectors.map((sector) => (
+                <li
+                  key={sector}
+                  className="flex h-10 items-center gap-2 rounded-full border border-line bg-brand-700 px-4 text-sm font-semibold text-ink"
+                >
+                  <span aria-hidden="true" className="size-1.5 rounded-full bg-primary" />
+                  {sector}
+                </li>
+              ))}
+            </ul>
+          </section>
 
-        <div className="mt-12 flex flex-wrap items-center justify-between gap-4 rounded-card border border-line-2 bg-surface p-7">
-          <p className="text-[17px] font-bold text-brand-900">نیاز به مطالعه اختصاصی دارید؟</p>
-          <Link href="/research/request" className={buttonClasses('primary', 'md', 'h-12')}>
-            ثبت سفارش پژوهش
-          </Link>
-        </div>
-      </Container>
+          <div
+            data-reveal=""
+            className="mt-12 flex flex-wrap items-center justify-between gap-4 rounded-card border border-line bg-brand-800 p-7"
+          >
+            <p className="text-[17px] font-bold text-ink">نیاز به مطالعه اختصاصی دارید؟</p>
+            <Link href="/research/request" className={buttonClasses('primary', 'xl')}>
+              ثبت سفارش پژوهش
+            </Link>
+          </div>
+        </Container>
+      </ListingTransition>
     </>
   );
 }

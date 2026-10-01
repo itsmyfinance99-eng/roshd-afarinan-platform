@@ -93,7 +93,7 @@ export default function NotificationsPage() {
                       onClick={() => void open(item)}
                       className={cn(
                         'flex w-full cursor-pointer flex-col gap-1 rounded-card border p-4 text-start',
-                        item.readAt ? 'border-line bg-white' : 'border-primary/40 bg-primary-soft',
+                        item.readAt ? 'border-line bg-white' : 'border-copper-deep/40 bg-paper-3',
                       )}
                     >
                       <span className="flex items-center gap-2 text-[15px] font-bold text-ink">

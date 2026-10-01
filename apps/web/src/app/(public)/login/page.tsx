@@ -8,7 +8,11 @@ export const metadata: Metadata = pageMetadata({ title: 'ورود', path: '/logi
 
 export default function LoginPage() {
   return (
-    <AuthCard title="ورود به حساب" lead="برای پیگیری درخواست‌ها و دسترسی به داشبورد وارد شوید.">
+    <AuthCard
+      tab="login"
+      title="ورود به حساب"
+      lead="برای پیگیری درخواست‌ها و دسترسی به داشبورد وارد شوید."
+    >
       <Suspense>
         <LoginForm />
       </Suspense>

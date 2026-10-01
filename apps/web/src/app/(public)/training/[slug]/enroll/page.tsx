@@ -1,6 +1,6 @@
-import { Container } from '@roshd/ui';
 import type { Metadata } from 'next';
 import { loadCourse } from '@/components/courses/course-pages';
+import { RequestCard } from '@/components/content/detail-layout';
 import { ServiceRequestForm } from '@/components/forms/service-request-form';
 import { PageIntro } from '@/components/layout/page-shell';
 
@@ -27,11 +27,9 @@ export default async function EnrollPage({ params }: { params: Params }) {
         title={`درخواست ثبت‌نام در «${course.title}»`}
         lead="مشخصات تماس خود را وارد کنید؛ کارشناسان آموزش برای هماهنگی ثبت‌نام با شما تماس می‌گیرند."
       />
-      <Container className="max-w-3xl py-16">
-        <div className="rounded-panel border border-line-2 p-[clamp(20px,3vw,32px)]">
-          <ServiceRequestForm type="TRAINING" reference={course.slug} />
-        </div>
-      </Container>
+      <RequestCard>
+        <ServiceRequestForm type="TRAINING" reference={course.slug} />
+      </RequestCard>
     </>
   );
 }

@@ -54,6 +54,9 @@ export const UTILITY_NAV_KEYS = ['home', 'knowledge', 'articles', 'about', 'cont
 export const hero = {
   eyebrow: site.name,
   title: 'از ایده تا امکان‌سنجی، پژوهش و مسیر سرمایه‌گذاری',
+  /** Visual headline: «از ایده تا» + a looping word (the full title stays for screen readers). */
+  titleLead: 'از ایده تا',
+  loopWords: ['امکان‌سنجی', 'پژوهش', 'تأمین مالی', 'سرمایه‌گذاری'],
   lead: site.description,
   primaryCta: { label: 'درخواست امکان‌سنجی', href: '/feasibility/request' },
   secondaryCta: { label: 'مشاهده فرصت‌های سرمایه‌گذاری', href: '/investment' },
@@ -109,6 +112,16 @@ export const stats: Stat[] = [
   { value: '۳', label: 'حوزه اصلی فعالیت', detail: 'آموزش، پژوهش و مشاوره' },
   { value: '۱۳۸۸', label: 'آغاز فعالیت', detail: 'سابقه فعالیت حرفه‌ای از سال ۱۳۸۸' },
 ];
+
+/** Copy of the home "تخصص و سابقه" bento (design v2). */
+export const trust = {
+  eyebrow: 'تخصص و سابقه',
+  title: 'گروهی تخصصی در آموزش، پژوهش و مشاوره',
+  expertsKicker: 'نیروی متخصص',
+  credentialsTitle: 'مجوزها و عضویت‌ها',
+  credentialsNote: 'شماره‌ها و جزئیات مدارک پس از دریافت و تأیید نسخه رسمی منتشر می‌شوند.',
+  expertiseTitle: 'حوزه‌های تخصص',
+};
 
 export const expertise = ['مهندسی', 'اقتصاد', 'مدیریت', 'حقوق', 'بیمه', 'مالیات', 'فناوری اطلاعات'];
 

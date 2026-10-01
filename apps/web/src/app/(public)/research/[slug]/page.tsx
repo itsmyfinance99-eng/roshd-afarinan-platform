@@ -1,7 +1,16 @@
-import { buttonClasses, Container, DemoBadge, formatDateFa, toPersianDigits } from '@roshd/ui';
+import {
+  buttonClasses,
+  DemoBadge,
+  formatDateFa,
+  sectionLinkClasses,
+  Shine,
+  toPersianDigits,
+} from '@roshd/ui';
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { DetailLayout, FactList } from '@/components/content/detail-layout';
 import { MarkdownBody } from '@/components/content/markdown';
+import { ReadingProgress } from '@/components/motion/reading-progress';
 import { PageIntro } from '@/components/layout/page-shell';
 import { site } from '@/content/site';
 import { siteUrl } from '@/lib/env';
@@ -55,9 +64,15 @@ export default async function ResearchProjectPage({ params }: { params: Params }
     publisher: { '@type': 'Organization', name: site.name, logo: `${siteUrl}/brand/logo.png` },
   };
 
+  const facts: [string, string][] = [];
+  if (project.category) facts.push(['حوزه', project.category.name]);
+  if (project.year) facts.push(['سال', toPersianDigits(project.year)]);
+  if (project.publishedAt) facts.push(['انتشار', formatDateFa(project.publishedAt)]);
+
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={jsonLdScript(jsonLd)} />
+      <ReadingProgress />
       <PageIntro
         path={path}
         crumb={project.title}
@@ -66,29 +81,31 @@ export default async function ResearchProjectPage({ params }: { params: Params }
         title={project.title}
         lead={project.summary}
       />
-      <Container className="py-12">
-        <div className="mb-8 flex flex-wrap items-center gap-3 text-sm text-ink-5">
-          {project.isDemo ? <DemoBadge /> : null}
-          {project.year ? <span>سال {toPersianDigits(project.year)}</span> : null}
-          {project.publishedAt ? (
-            <time dateTime={project.publishedAt}>انتشار: {formatDateFa(project.publishedAt)}</time>
-          ) : null}
+      <DetailLayout
+        asideLabel="مشخصات پژوهش"
+        aside={
+          <>
+            <FactList facts={facts} />
+            <p className="text-[15px] leading-[1.9] text-ink">
+              به مطالعه‌ای مشابه برای سازمان یا طرح خود نیاز دارید؟
+            </p>
+            <Link href="/research/request" className={buttonClasses('cta', 'xl')}>
+              <Shine />
+              <span className="relative">ثبت سفارش پژوهش</span>
+            </Link>
+          </>
+        }
+      >
+        {project.isDemo ? <DemoBadge className="self-start" /> : null}
+        <div data-reveal="">
+          <MarkdownBody source={project.body} />
         </div>
-        <MarkdownBody source={project.body} />
-        <div className="mt-12 flex flex-wrap items-center justify-between gap-4 rounded-card border border-line-2 bg-surface p-7">
-          <p className="text-[17px] font-bold text-brand-900">
-            به مطالعه‌ای مشابه برای سازمان یا طرح خود نیاز دارید؟
-          </p>
-          <Link href="/research/request" className={buttonClasses('primary', 'md', 'h-12')}>
-            ثبت سفارش پژوهش
-          </Link>
-        </div>
-        <p className="mt-10">
-          <Link href="/research" className="font-bold no-underline">
+        <p>
+          <Link href="/research" className={sectionLinkClasses()}>
             بازگشت به پژوهش‌ها ‹
           </Link>
         </p>
-      </Container>
+      </DetailLayout>
     </>
   );
 }

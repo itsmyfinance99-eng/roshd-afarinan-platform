@@ -22,12 +22,16 @@ export default function ContactPage() {
         lead="پیام خود را ثبت کنید؛ کارشناسان برای هماهنگی با شما تماس می‌گیرند."
       />
       <Container className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,380px),1fr))] items-start gap-10 pt-16 pb-20">
-        <div className="rounded-panel border border-line-2 p-[clamp(20px,3vw,32px)]">
-          <h2 className="mb-5 text-[22px] font-extrabold text-brand-900">فرم تماس</h2>
+        <div
+          data-reveal=""
+          className="rounded-tile border border-line bg-brand-700 p-[clamp(20px,3vw,36px)] shadow-form"
+        >
+          <h2 className="mb-1.5 font-display text-[22px] font-extrabold text-ink">فرم تماس</h2>
+          <p className="mb-6 text-sm text-ink-3">فیلدهای ستاره‌دار الزامی است.</p>
           <ServiceRequestForm type="CONTACT" />
         </div>
-        <div className="flex flex-col gap-5">
-          <dl className="grid grid-cols-[auto_1fr] gap-x-5 gap-y-3.5 rounded-card bg-surface p-6 text-[15px]">
+        <div data-reveal="" data-delay="100" className="flex flex-col gap-5">
+          <dl className="grid grid-cols-[auto_1fr] gap-x-5 gap-y-3.5 rounded-card border border-line bg-brand-800 p-6 text-[15px] text-ink">
             <dt className="text-ink-5">نشانی</dt>
             <dd>
               <address className="not-italic">{contact.address}</address>
@@ -63,7 +67,7 @@ export default function ContactPage() {
               </div>
             ))}
           </dl>
-          <p className="text-sm text-ink-4">
+          <p className="text-sm text-ink-3">
             درخواست قبلی ثبت کرده‌اید؟{' '}
             <Link href="/track" className="font-bold">
               پیگیری درخواست

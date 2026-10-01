@@ -21,7 +21,7 @@ import type { ApiState } from '@/lib/use-api';
 import type { ServiceRequestItem } from './types';
 
 const STATUS_TONE: Record<ServiceRequestStatus, string> = {
-  NEW: 'bg-primary-soft text-primary',
+  NEW: 'bg-paper-3 text-copper-deep',
   IN_REVIEW: 'bg-notice-bg text-notice-fg',
   RESPONDED: 'bg-success-bg text-success-fg',
   CLOSED: 'bg-surface-2 text-ink-4',

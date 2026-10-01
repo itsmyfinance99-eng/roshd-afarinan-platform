@@ -1,6 +1,7 @@
 'use client';
 
 import '@fontsource-variable/vazirmatn';
+import '@fontsource-variable/noto-kufi-arabic';
 import './globals.css';
 import ErrorPage from './error';
 

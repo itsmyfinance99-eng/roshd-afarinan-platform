@@ -32,7 +32,11 @@ test.describe('training catalog', () => {
       .click();
     await expect(page).toHaveURL(/category=feasibility/);
     await expect(page).toHaveURL(/free=true/);
-    await expect(page.getByText('دوره‌ای با این فیلترها یافت نشد')).toBeVisible();
+    await expect(page.getByText('دوره‌ای در این دسته وجود ندارد')).toBeVisible();
+    await expect(page.getByRole('link', { name: 'نمایش همه دوره‌ها' })).toHaveAttribute(
+      'href',
+      '/training',
+    );
   });
 
   test('course page shows facts, Course JSON-LD and an enrollment request', async ({ page }) => {
@@ -71,7 +75,7 @@ test.describe('training catalog', () => {
         body: JSON.stringify({ data: { trackingCode: 'RA-7K3M9QPD' }, meta: { requestId: 't' } }),
       });
     });
-    await page.getByRole('link', { name: 'درخواست ثبت‌نام' }).click();
+    await page.getByRole('link', { name: 'اعلام علاقه‌مندی به دوره' }).click();
     await expect(page).toHaveURL(/\/training\/feasibility-basics\/enroll$/);
     await page.getByLabel(/نام و نام خانوادگی/).fill('سارا محمدی');
     await page.getByLabel(/شماره موبایل/).fill('09121234567');
