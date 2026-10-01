@@ -24,10 +24,10 @@
   ];
 
   const journeys = [
-    { key: 'training', n: '۰۱', title: 'آموزش', desc: 'آموزش تخصصی سرمایه‌گذاری، اقتصاد، امکان‌سنجی و تأمین مالی', href: 'Training.dc.html', img: 'تصویر کلاس / کارگاه آموزشی' },
-    { key: 'feasibility', n: '۰۲', title: 'امکان‌سنجی', desc: 'از ایده اولیه تا مطالعات امکان‌سنجی و طرح توجیهی', href: 'Feasibility.dc.html', img: 'تصویر سایت صنعتی / نقشه طرح' },
-    { key: 'research', n: '۰۳', title: 'پژوهش', desc: 'مطالعات اقتصادی، صنعتی، مالی و توسعه‌ای', href: 'Research.dc.html', img: 'تصویر گزارش پژوهشی / داده' },
-    { key: 'sahamdar', n: '۰۴', title: 'ایران سهامدار', desc: 'معرفی پروژه‌ها و ارتباط با زیرساخت سرمایه‌گذاری', href: 'Iran Sahamdar.dc.html', img: 'تصویر پروژه معدنی / کارخانه' },
+    { key: 'training', n: '۱', title: 'آموزش', desc: 'آموزش تخصصی سرمایه‌گذاری، اقتصاد، امکان‌سنجی و تأمین مالی', href: 'Training.dc.html', img: 'تصویر کلاس / کارگاه آموزشی' },
+    { key: 'feasibility', n: '۲', title: 'امکان‌سنجی', desc: 'از ایده اولیه تا مطالعات امکان‌سنجی و طرح توجیهی', href: 'Feasibility.dc.html', img: 'تصویر سایت صنعتی / نقشه طرح' },
+    { key: 'research', n: '۳', title: 'پژوهش', desc: 'مطالعات اقتصادی، صنعتی، مالی و توسعه‌ای', href: 'Research.dc.html', img: 'تصویر گزارش پژوهشی / داده' },
+    { key: 'sahamdar', n: '۴', title: 'ایران سهامدار', desc: 'معرفی پروژه‌ها و ارتباط با زیرساخت سرمایه‌گذاری', href: 'Iran Sahamdar.dc.html', img: 'تصویر پروژه معدنی / کارخانه' },
   ];
 
   const pathSteps = ['آموزش', 'دانش', 'پژوهش', 'امکان‌سنجی', 'پروژه', 'تأمین مالی', 'سرمایه‌گذاری', 'ایران سهامدار'];
@@ -124,5 +124,24 @@
     { q: 'ارتباط با ایران سهامدار چگونه است؟', a: 'جزئیات اتصال در مراحل بعدی توسعه مشخص می‌شود و در این نمونه شبیه‌سازی نشده است.' },
   ];
 
-  window.RoshdData = { nav, journeys, pathSteps, stats, expertise, services, projects, sectors, courses, research, knowledge, articles, process, future, faq };
+  // Résumé sectors only — no client names or outcomes.
+  const experience = ['کاشی', 'فولاد', 'بتن', 'سنگ مصنوعی', 'پرورش میگو', 'حمل‌ونقل ریلی', 'معدن', 'مجتمع‌های تفریحی و اقامتی', 'هتل', 'گلخانه', 'تجهیزات آزمایشگاهی', 'واحدهای صنعتی'];
+
+  // Text only; numbers and documents published after official confirmation.
+  const credentials = [
+    'مجوز واحد فنی-مهندسی از اداره کل صنعت، معدن و تجارت استان یزد',
+    'عضویت در انجمن خدمات فنی و مهندسی استان یزد',
+    'مجوز فعالیت از سازمان فنی و حرفه‌ای',
+    'عضویت در کانون مشاوران اعتباری و سرمایه‌گذاری بانکی',
+    'عضویت در انجمن IT استان یزد',
+  ];
+
+  // Demo course-detail scaffolding (same for every demo course).
+  const courseDetail = {
+    about: 'این توضیح نمونه است و برای بررسی ساختار صفحه جزئیات دوره قرار گرفته است. شرح واقعی، سرفصل‌ها و زمان برگزاری پس از تأیید برنامه آموزشی جایگزین می‌شود.',
+    outline: ['مفاهیم پایه و اصطلاحات', 'مراحل و روش‌های اصلی', 'بررسی یک طرح نمونه', 'تمرین کارگاهی', 'جمع‌بندی و پرسش و پاسخ'],
+    audience: ['کارآفرینان صنعتی و معدنی', 'مدیران و کارشناسان طرح', 'سرمایه‌گذاران'],
+  };
+
+  window.RoshdData = { nav, journeys, pathSteps, stats, expertise, services, projects, sectors, courses, research, knowledge, articles, process, future, faq, experience, credentials, courseDetail };
 })();

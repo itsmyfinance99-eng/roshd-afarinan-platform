@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<article data-spotlight="" style="position:relative;background:#1A1F26;border:1px solid #2A313B;border-radius:8px;overflow:hidden;display:flex;flex-direction:column;height:100%;font-family:Vazirmatn,Tahoma,sans-serif;direction:rtl;transition:transform 200ms cubic-bezier(0.22,1,0.36,1),border-color 200ms,box-shadow 200ms" style-hover="transform:translateY(-3px);border-color:#D08A4E;box-shadow:0 18px 40px -24px rgba(208,138,78,0.45)">
+  <span data-spot="" aria-hidden="true" style="position:absolute;inset:0;z-index:1;pointer-events:none;opacity:0;background:radial-gradient(320px circle at var(--mx,50%) var(--my,50%),rgba(208,138,78,0.08),transparent 60%)"></span>
+  <div style="position:relative;aspect-ratio:16/9;overflow:hidden;background:#15191F">
+    <div data-zoom="" role="img" aria-label="جای تصویر پروژه" style="position:absolute;inset:0;background-image:radial-gradient(#2A313B 1px,transparent 1.2px),linear-gradient(160deg,#1A1F26,#15191F);background-size:18px 18px,100% 100%;display:flex;align-items:center;justify-content:center">
+      <svg width="72" height="56" viewBox="0 0 72 56" fill="none" stroke="#4A5568" stroke-width="1.5" aria-hidden="true"><path d="M4 52V26l14 8V26l14 8V14h12v38z"></path><path d="M50 52V30h18v22M4 52h64M56 36h6M56 42h6"></path></svg>
+    </div>
+    <span style="position:absolute;top:12px;right:12px;z-index:2;background:#1E1712;color:#E7B386;border:1px dashed #5A3E27;font-size:12px;font-weight:700;padding:3px 8px;border-radius:4px;white-space:nowrap">نمونه نمایشی</span>
+  </div>
+  <div style="position:relative;z-index:2;padding:20px;display:flex;flex-direction:column;gap:14px;flex:1">
+    <span style="font-size:13px;font-weight:700;color:#E7B386">{{ project.category }}</span>
+    <h3 style="font-family:'Noto Kufi Arabic',Vazirmatn,sans-serif;margin:0;font-size:17px;line-height:1.7;color:#EDEFF2;text-wrap:pretty">{{ project.title }}</h3>
+    <dl style="margin:0;display:grid;grid-template-columns:auto 1fr;gap:8px 14px;font-size:14px">
+      <dt style="color:#9AA3AF;white-space:nowrap">موقعیت</dt><dd style="margin:0;color:#EDEFF2">{{ project.location }}</dd>
+      <dt style="color:#9AA3AF;white-space:nowrap">مرحله</dt><dd style="margin:0;color:#EDEFF2">{{ project.stage }}</dd>
+      <dt style="color:#9AA3AF;white-space:nowrap">خدمت مورد نیاز</dt><dd style="margin:0;color:#EDEFF2">{{ project.service }}</dd>
+    </dl>
+    <a href="Feasibility.dc.html#request" style="margin-top:auto;height:44px;display:flex;align-items:center;justify-content:center;border:1px solid #D08A4E;color:#E7B386;border-radius:6px;font-size:14px;font-weight:700;text-decoration:none;transition:background 150ms,color 150ms" style-hover="background:#D08A4E;color:#111418">درخواست بررسی</a>
+  </div>
+</article>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:&quot;340px&quot;,&quot;height&quot;:&quot;480px&quot;},&quot;project&quot;:{&quot;editor&quot;:null,&quot;default&quot;:{&quot;title&quot;:&quot;طرح نمونه&quot;,&quot;category&quot;:&quot;معدنی&quot;,&quot;location&quot;:&quot;کرمان&quot;,&quot;stage&quot;:&quot;ایده اولیه&quot;,&quot;service&quot;:&quot;امکان‌سنجی&quot;},&quot;tsType&quot;:&quot;Project&quot;}}"></script>
+</body>
+</html>
