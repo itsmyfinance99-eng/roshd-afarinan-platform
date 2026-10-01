@@ -29,6 +29,26 @@ test.describe('motion layer', () => {
     await expect(tile).toHaveCSS('opacity', '1');
   });
 
+  test('the pulse rings on the emphasised journey nodes stay centred on their dots', async ({
+    page,
+  }) => {
+    test.skip((page.viewportSize()?.width ?? 0) < 1024, 'spiral figure is desktop only');
+    await page.addInitScript(() => sessionStorage.setItem('ra-intro-seen', '1'));
+    await page.goto('/');
+    const rings = page.locator('[data-anim="pulse"]');
+    await expect(rings).toHaveCount(2);
+    for (const ring of await rings.all()) {
+      const centres = await ring.evaluate((el) => {
+        const centre = (r: DOMRect) => [r.left + r.width / 2, r.top + r.height / 2];
+        const dot = el.nextElementSibling as HTMLElement;
+        return [centre(el.getBoundingClientRect()), centre(dot.getBoundingClientRect())];
+      });
+      const [[rx, ry], [dx, dy]] = centres as [[number, number], [number, number]];
+      expect(Math.abs(rx - dx)).toBeLessThan(1.5);
+      expect(Math.abs(ry - dy)).toBeLessThan(1.5);
+    }
+  });
+
   test('reduced motion shows the static end state and no intro', async ({ browser }) => {
     const context = await browser.newContext({ reducedMotion: 'reduce' });
     const page = await context.newPage();

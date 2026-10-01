@@ -171,19 +171,25 @@ export function Intro({ logoSrc }: { logoSrc: string }) {
       logoBox.style.transform = 'scale(1)';
     });
 
-    const finish = () => {
+    /** Stops the animation and releases the page; does not mark the intro as seen. */
+    const stop = () => {
       if (done) return;
       done = true;
+      cancelAnimationFrame(raf);
+      document.removeEventListener('keydown', onKey);
+      html.style.overflow = previousOverflow;
+    };
+    /** The intro ended or was skipped: remember it for the session and fade the overlay out. */
+    const finish = () => {
+      if (done) return;
+      stop();
       try {
         sessionStorage.setItem(INTRO_SEEN_KEY, '1');
       } catch {
         // Storage blocked: the intro may show again next time, which is harmless.
       }
-      cancelAnimationFrame(raf);
-      document.removeEventListener('keydown', onKey);
       wrap.style.transition = `opacity 300ms ${STATE}`;
       wrap.style.opacity = '0';
-      html.style.overflow = previousOverflow;
       window.setTimeout(() => wrap.remove(), 320);
     };
     const onKey = (event: KeyboardEvent) => {
@@ -262,8 +268,9 @@ export function Intro({ logoSrc }: { logoSrc: string }) {
     };
     raf = requestAnimationFrame(frame);
 
+    // Unmount (e.g. leaving the page, or Strict Mode's dev re-mount) is not "seen".
     return () => {
-      finish();
+      stop();
       wrap.remove();
     };
   }, [logoSrc]);

@@ -180,7 +180,11 @@ function SpiralFigure() {
                   <span
                     data-anim="pulse"
                     aria-hidden="true"
-                    className="absolute top-0 left-0 size-[38px] -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-primary"
+                    className="absolute top-0 left-0 size-[38px] rounded-full border-2 border-primary"
+                    // Centred with `transform` (not Tailwind's `translate` property): the pulse
+                    // keyframes animate `transform: translate(-50%,-50%) scale()`, and both
+                    // properties would otherwise stack and push the ring off the node.
+                    style={{ transform: 'translate(-50%, -50%)' }}
                   />
                 ) : null}
                 <span
