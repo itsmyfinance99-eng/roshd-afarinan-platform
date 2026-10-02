@@ -276,6 +276,9 @@ importers:
         specifier: ^10.6.0
         version: 10.6.0
     devDependencies:
+      '@playwright/test':
+        specifier: ^1.63.0
+        version: 1.63.0
       '@roshd/eslint-config':
         specifier: workspace:*
         version: link:../eslint-config
@@ -285,6 +288,9 @@ importers:
       '@types/node':
         specifier: ^24.13.6
         version: 24.13.6
+      esbuild:
+        specifier: ^0.28.2
+        version: 0.28.2
       eslint:
         specifier: ^9.39.5
         version: 9.39.5(jiti@2.7.0)(supports-color@8.1.1)

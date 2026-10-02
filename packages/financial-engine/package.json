@@ -19,12 +19,15 @@
     "dev": "tsc -p tsconfig.build.json --watch --preserveWatchOutput",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:e2e": "playwright test"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@roshd/eslint-config": "workspace:*",
     "@roshd/tsconfig": "workspace:*",
     "@types/node": "^24.13.6",
+    "esbuild": "^0.28.2",
     "eslint": "^9.39.5",
     "typescript": "~5.9.3",
     "vitest": "^4.1.11"
