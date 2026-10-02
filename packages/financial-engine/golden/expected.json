@@ -1,0 +1,221 @@
+{
+  "npv-textbook": {
+    "value": "3.756574004508"
+  },
+  "npv-project": {
+    "value": "-902075518702.883247987302"
+  },
+  "npv-rate-path": {
+    "value": "-178529002.344559296658"
+  },
+  "irr-project": {
+    "value": "0.144165874514"
+  },
+  "irr-uneven": {
+    "value": "0.188608585498"
+  },
+  "mirr-project": {
+    "value": "0.165759858080"
+  },
+  "payback-project": {
+    "value.period": "5.000000000000",
+    "value.endMonth": "72.000000000000",
+    "value.months": "67.100346020761"
+  },
+  "dynamic-payback-project": {
+    "value.period": "7.000000000000",
+    "value.endMonth": "96.000000000000",
+    "value.months": "89.184048451420"
+  },
+  "npvr-project": {
+    "value.npv": "-1184608048584.679207017943",
+    "value.presentValueOfInvestment": "8034982322260.817408239550",
+    "value.ratio": "-0.147431319830",
+    "value.profitabilityIndex": "0.852568680170"
+  },
+  "bcr": {
+    "value.ratio": "0.924695341891",
+    "value.presentValueOfBenefits": "10528653425.655976676385",
+    "value.presentValueOfCosts": "11386078147.776967930029"
+  },
+  "break-even": {
+    "value.variableMargin": "2550000000000.000000000000",
+    "value.variableMarginRatio": "0.397196261682",
+    "value.includingFinance.breakEvenSalesValue": "3625411764705.882352941176",
+    "value.includingFinance.breakEvenRatio": "0.564705882353",
+    "value.includingFinance.fixedCostCoverageRatio": "1.770833333333",
+    "value.includingFinance.products[*].salesVolume": ["10447.058823529412", "25976.470588235294"],
+    "value.includingFinance.products[*].salesValue": [
+      "2716235294117.647058823529",
+      "909176470588.235294117647"
+    ],
+    "value.excludingFinance.breakEvenSalesValue": "2844941176470.588235294118",
+    "value.excludingFinance.breakEvenRatio": "0.443137254902",
+    "value.excludingFinance.fixedCostCoverageRatio": "2.256637168142",
+    "value.excludingFinance.products[*].salesVolume": ["8198.039215686275", "20384.313725490196"],
+    "value.excludingFinance.products[*].salesValue": [
+      "2131490196078.431372549020",
+      "713450980392.156862745098"
+    ]
+  },
+  "product-break-even": {
+    "value.averageUnitPrice": "260000000.000000000000",
+    "value.variableMarginRatio": "0.386694386694",
+    "value.fixedCostCoverageRatio": "2.137931034483",
+    "value.constantPrice.breakEvenSalesValue": "2249838709677.419354838710",
+    "value.constantPrice.breakEvenSalesVolume": "8653.225806451613",
+    "value.constantPrice.breakEvenRatio": "0.467741935484",
+    "value.constantVolume.breakEvenSalesPrice": "206486486.486486486486",
+    "value.constantVolume.breakEvenRatio": "0.794178794179"
+  },
+  "dscr": {
+    "value.periods[ratio].ratio": ["1.332792207792", "1.627843494086", "0.963768115942"],
+    "value.minimum.period": "3.000000000000",
+    "value.minimum.ratio": "0.963768115942"
+  },
+  "llcr": {
+    "value[0]": "1.154838853094",
+    "value[1]": "1.035041700296",
+    "value[2]": "0.554166666667"
+  },
+  "wacc": {
+    "value": "0.223825301205"
+  },
+  "depreciation-linear-scrap": {
+    "value.years[*].depreciation": [
+      "225000000000.000000000000",
+      "450000000000.000000000000",
+      "450000000000.000000000000",
+      "450000000000.000000000000",
+      "450000000000.000000000000",
+      "450000000000.000000000000"
+    ]
+  },
+  "depreciation-declining": {
+    "value.years[*].depreciation": [
+      "411750000000.000000000000",
+      "425475000000.000000000000",
+      "297832500000.000000000000",
+      "208482750000.000000000000",
+      "175537666666.666666666667",
+      "175537666666.666666666667",
+      "43884416666.666666666667"
+    ]
+  },
+  "depreciation-syd": {
+    "value.years[*].depreciation": [
+      "148622222222.222222222222",
+      "333244444444.444444444444",
+      "246311111111.111111111111",
+      "159377777777.777777777778",
+      "72444444444.444444444444"
+    ]
+  },
+  "escalation": {
+    "value[*]": [
+      "1.410900000000",
+      "1.904715000000",
+      "2.533270950000",
+      "3.318584944500",
+      "4.247788728960"
+    ]
+  },
+  "exchange-rates": {
+    "value[*]": [
+      "615000.000000000000",
+      "806067.961165048544",
+      "1038058.252427184466",
+      "1316561.686005209567",
+      "1652155.841261439456"
+    ]
+  },
+  "loan-annuity": {
+    "value.totalDisbursed": "2800000000000.000000000000",
+    "value.totalInterestPaid": "1395325158798.861726495465",
+    "value.totalCapitalisedInterest": "654588168760.009531250000",
+    "value.totalFees": "39044444444.444444444444",
+    "value.finalBalance": "0.000000000000",
+    "value.events[kind=REPAYMENT].amount": [
+      "217035918155.405421869414",
+      "227887714063.175692962884",
+      "239282099766.334477611029",
+      "251246204754.651201491580",
+      "263808514992.383761566159",
+      "276998940742.002949644467",
+      "290848887779.103097126690",
+      "305391332168.058251983025",
+      "320660898776.461164582176",
+      "336693943715.284222811285",
+      "353528640901.048433951849",
+      "371205072946.100855649442"
+    ],
+    "value.events[kind=INTEREST_PAID].amount": [
+      "172729408438.000476562500",
+      "172729408438.000476562500",
+      "161877612530.230205469029",
+      "150483226827.071420820885",
+      "138519121838.754696940334",
+      "125956811601.022136865755",
+      "112766385851.402948787447",
+      "98916438814.302801305223",
+      "84373994425.347646448889",
+      "69104427816.944733849738",
+      "53071382878.121675620629",
+      "36236685692.357464480065",
+      "18560253647.305042782472"
+    ],
+    "value.firstRepaymentDay": "810.000000000000",
+    "value.debtAtRepaymentStart": "3454588168760.009531250000"
+  },
+  "loan-constant-principal": {
+    "value.totalDisbursed": "1500000000000.000000000000",
+    "value.totalInterestPaid": "1262358006250.488281250000",
+    "value.totalCapitalisedInterest": "192102913476.562500000000",
+    "value.totalFees": "63237431292.480468750000",
+    "value.finalBalance": "0.000000000000",
+    "value.events[kind=REPAYMENT].amount": [
+      "211512864184.570312500000",
+      "211512864184.570312500000",
+      "211512864184.570312500000",
+      "211512864184.570312500000",
+      "211512864184.570312500000",
+      "211512864184.570312500000",
+      "211512864184.570312500000",
+      "211512864184.570312500000"
+    ],
+    "value.events[kind=INTEREST_PAID].amount": [
+      "36656250000.000000000000",
+      "63441067708.333333333333",
+      "92005595768.229166666667",
+      "194591835049.804687500000",
+      "194591835049.804687500000",
+      "170267855668.579101562500",
+      "145943876287.353515625000",
+      "121619896906.127929687500",
+      "97295917524.902343750000",
+      "72971938143.676757812500",
+      "48647958762.451171875000",
+      "24323979381.225585937500"
+    ],
+    "value.firstRepaymentDay": "900.000000000000",
+    "value.debtAtRepaymentStart": "1692102913476.562500000000"
+  },
+  "loan-profile": {
+    "value.totalDisbursed": "800000000000.000000000000",
+    "value.totalInterestPaid": "392833333333.333333333333",
+    "value.totalCapitalisedInterest": "0.000000000000",
+    "value.totalFees": "0.000000000000",
+    "value.finalBalance": "0.000000000000",
+    "value.events[kind=REPAYMENT].amount": [
+      "250000000000.000000000000",
+      "300000000000.000000000000",
+      "250000000000.000000000000"
+    ],
+    "value.events[kind=INTEREST_PAID].amount": [
+      "44444444444.444444444444",
+      "156666666666.666666666667",
+      "130722222222.222222222222",
+      "61000000000.000000000000"
+    ]
+  }
+}

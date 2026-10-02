@@ -1,24 +1,24 @@
-# Handoff note — 2026-10-02 (updated after v0.3.0)
+# Handoff note — 2026-10-02 (updated after the EPIC-33 engine stories)
 
 A snapshot for whoever (person or agent) picks the project up next. Engineering rules live in [CLAUDE.md](../CLAUDE.md); this note only records state, context and gotchas that the code and git history do not show.
 
 ## Where things stand
 
-| Item      | State                                                                                                                                                                                                       |
-| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `main`    | Release **v0.3.0** (UI v2 "Copper & Graphite", 2026-10-02). Tags `v0.1.0`, `v0.2.0`, `v0.3.0`, each with a GitHub Release.                                                                                  |
-| `develop` | v0.3.0 + roadmap docs (#224) + the first engine stories (#324): `packages/financial-engine` with the decimal strategy and NPV/time value.                                                                   |
-| Open PR   | `feature/ST-33.03-irr-mirr` → `develop`: IRR (grid scan + bisection, reports no/multiple roots) and COMFAR MIRR (rates default to IRR). Merge when CI is green.                                             |
-| Roadmap   | **Owner decision (2026-10-02): financial engine (Phase 4) → feasibility platform (Phase 3) → LMS (Phase 2).** Release v0.4.0 after the first two, v0.5.0 after the LMS.                                     |
-| Backlog   | Synced to GitHub (`pnpm backlog:sync`). Engine/feasibility: EPIC-33, 34, 37, 35, 36 in sprints S13–S23; LMS: EPIC-28…32 in S24–S28. Done so far: ST-33.01 (#266), ST-33.02 (#267); ST-33.03 in the open PR. |
-| Releases  | `develop` → `main` with a merge commit, a SemVer tag and a GitHub Release from the CHANGELOG section (ADR-0007). Each release needs the owner's explicit approval.                                          |
+| Item      | State                                                                                                                                                                                           |
+| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `main`    | Release **v0.3.0** (UI v2 "Copper & Graphite", 2026-10-02). Tags `v0.1.0`, `v0.2.0`, `v0.3.0`, each with a GitHub Release.                                                                      |
+| `develop` | v0.3.0 + roadmap docs (#224) + engine stories ST-33.01–33.03 (#324, #325): `packages/financial-engine` with the decimal strategy, NPV/time value, IRR and MIRR.                                 |
+| Open PRs  | A stack, merged in order (each retargets to `develop` when its base merges): #326 ST-33.04 indicators → #327 ST-33.06 depreciation/indexation/FX → #328 ST-33.05 loans → ST-33.07 golden tests. |
+| Roadmap   | **Owner decision (2026-10-02): financial engine (Phase 4) → feasibility platform (Phase 3) → LMS (Phase 2).** Release v0.4.0 after the first two, v0.5.0 after the LMS.                         |
+| Backlog   | Synced to GitHub (`pnpm backlog:sync`). Engine/feasibility: EPIC-33, 34, 37, 35, 36 in sprints S13–S23; LMS: EPIC-28…32 in S24–S28. EPIC-33 (engine core) is complete once the stack is merged. |
+| Releases  | `develop` → `main` with a merge commit, a SemVer tag and a GitHub Release from the CHANGELOG section (ADR-0007). Each release needs the owner's explicit approval.                              |
 
 ## What to do next
 
-1. Merge the ST-33.03 PR when CI is green, then run `pnpm backlog:sync` **from `develop`** (PRs into `develop` do not close issues; the sync closes stories marked `status: done`). The sync takes over ten minutes; run it in the background.
-2. Continue Sprint 13: **ST-33.04** (payback, NPVR, break-even, DSCR/LLCR, WACC — definitions already extracted in [comfar-model-spec.md](product/comfar-model-spec.md) §5.1) and **ST-33.06** (depreciation: the four COMFAR methods with a partial first year, manual XI.H; document any rule we choose for partial years and sum-of-years-digits in the spec). Then Sprint 14 (loan schedules ST-33.05, golden tests ST-33.07, assumptions ST-34.01, investment ST-34.02).
-3. Engine conventions so far: decimal strings everywhere (`toDecimal` refuses JS numbers), `EngineInputError` with a stable `code` for invalid input, results carry `warnings` and `defaultsUsed`, reference values in tests are computed independently (Python `decimal`), never with the engine itself.
-4. Still owed by the owner (none blocks the engine): a reference study done in COMFAR for the acceptance test ST-36.01; questionnaire templates per sector (feasibility officer + admin); official content (OQ-17), privacy/terms (OQ-21), courses and prices (OQ-22), refunds (OQ-23), payment gateway (OQ-09), SMS/email provider and OTP (OQ-08, OQ-20), domain (OQ-19).
+1. Merge the stacked PRs in order when CI is green (the auto-mode classifier blocks agents from merging; the owner merges). Then run `pnpm backlog:sync` **from `develop`** (PRs into `develop` do not close issues; the sync closes stories marked `status: done`). The sync takes over ten minutes; run it in the background.
+2. Continue Sprint 14 with **ST-34.01** (per-project assumptions with unit, period, source and as-of date; API + database, no economic defaults) and **ST-34.02** (investment and financing schedules on top of the engine: depreciation start dates, asset grouping, loans per project).
+3. Engine conventions: decimal strings everywhere (`toDecimal` refuses JS numbers), `EngineInputError` with a stable `code` for invalid input, results carry `warnings` and `defaultsUsed`, every code has a Persian message in `src/messages.ts` (a test enforces it), non-calculable values are absent with a warning (never 0), dates in loans are 30/360 day indices, reference values in tests are computed independently (Python `decimal`/`fractions`), never with the engine itself. Rules chosen where the COMFAR manual is silent or inconsistent are in comfar-model-spec §2.1, §4.4.1, §4.8.1, §5.1 and tracked as OQ-39.
+4. Still owed by the owner (none blocks the engine): a reference study done in COMFAR for the acceptance test ST-36.01 (it also settles OQ-39); questionnaire templates per sector (feasibility officer + admin); official content (OQ-17), privacy/terms (OQ-21), courses and prices (OQ-22), refunds (OQ-23), payment gateway (OQ-09), SMS/email provider and OTP (OQ-08, OQ-20), domain (OQ-19).
 
 ## Financial engine and feasibility (owner decisions, 2026-10-02)
 
