@@ -268,8 +268,7 @@ export function HomeHero() {
         B ? 'bg-linear-180 from-brand-950 via-brand-900 via-60% to-brand-800' : 'bg-brand-900',
       )}
     >
-      <Backdrop />
-      <div className="relative mx-auto grid max-w-(--container-page) grid-cols-[repeat(auto-fit,minmax(min(100%,480px),1fr))] items-center gap-12 px-6 pt-[calc(116px+clamp(28px,5vw,72px))] pb-[clamp(56px,7vw,96px)]">
+      <div className="relative z-[1] mx-auto grid max-w-(--container-page) grid-cols-[repeat(auto-fit,minmax(min(100%,480px),1fr))] items-center gap-12 px-6 pt-[calc(116px+clamp(28px,5vw,72px))] pb-[clamp(56px,7vw,96px)]">
         <div>
           <p
             data-reveal=""
@@ -320,6 +319,9 @@ export function HomeHero() {
         <SpiralFigure />
         <SpiralList />
       </div>
+      {/* After the content so it is parsed once the section has its final height: a slow first
+          paint of a half-streamed hero would otherwise resize the %-sized glows (layout shift). */}
+      <Backdrop />
     </section>
   );
 }
