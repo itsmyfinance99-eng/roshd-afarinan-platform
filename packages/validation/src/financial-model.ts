@@ -35,17 +35,18 @@ const M = FINANCIAL_MODEL_MESSAGES;
 
 /**
  * Decimal number as a string. Persian digits and the Persian decimal point «٫» are accepted; a
- * comma or «٬» only as a thousands separator between groups of three digits (so «0,18» is refused
- * instead of silently becoming 18). Nothing else is removed or guessed.
+ * comma or «٬» only as a thousands separator between groups of three digits after a first group
+ * that does not start with 0 (so «0,18» and «0,125» are refused instead of silently becoming 18 or
+ * 125). Spaces are not separators. Nothing else is removed or guessed.
  */
 export const decimalStringSchema = z
-  .string({ error: MESSAGES.required })
+  .string({ error: M.invalidDecimal })
   .transform((v) => toLatinDigits(v).trim().replace(/٫/g, '.'))
   .pipe(
     z
       .string()
       .max(40, { error: M.invalidDecimal })
-      .regex(/^[+-]?(\d{1,3}([,٬]\d{3})+(\.\d+)?|\d+(\.\d*)?|\.\d+)$/, {
+      .regex(/^[+-]?([1-9]\d{0,2}([,٬]\d{3})+(\.\d+)?|\d+(\.\d*)?|\.\d+)$/, {
         error: M.invalidDecimal,
       }),
   )
@@ -91,20 +92,26 @@ export const horizonSchema = z
     {
       /** First day of construction (Gregorian date from the date input). */
       startDate: isoDaySchema,
-      construction: z.object({
-        periods: z
-          .int({ error: M.wholeNumber })
-          .min(0, { error: M.tooSmall(0) })
-          .max(600, { error: M.tooLarge(600) }),
-        periodMonths: periodMonthsSchema,
-      }),
-      production: z.object({
-        periods: z
-          .int({ error: M.wholeNumber })
-          .min(1, { error: 'دوره بهره‌برداری حداقل یک دوره است.' })
-          .max(600, { error: M.tooLarge(600) }),
-        periodMonths: periodMonthsSchema,
-      }),
+      construction: z.object(
+        {
+          periods: z
+            .int({ error: M.wholeNumber })
+            .min(0, { error: M.tooSmall(0) })
+            .max(600, { error: M.tooLarge(600) }),
+          periodMonths: periodMonthsSchema,
+        },
+        { error: MESSAGES.required },
+      ),
+      production: z.object(
+        {
+          periods: z
+            .int({ error: M.wholeNumber })
+            .min(1, { error: 'دوره بهره‌برداری حداقل یک دوره است.' })
+            .max(600, { error: M.tooLarge(600) }),
+          periodMonths: periodMonthsSchema,
+        },
+        { error: MESSAGES.required },
+      ),
     },
     { error: MESSAGES.required },
   )
@@ -178,24 +185,27 @@ const assumptionKeySchema = z
 const MAX_PATH = 600;
 
 export const assumptionSchema = z
-  .object({
-    key: assumptionKeySchema,
-    label: text(1, 120),
-    /** e.g. «درصد در سال», «ریال برای هر دلار». */
-    unit: text(1, 40),
-    /** One value for the whole horizon. */
-    value: decimalStringSchema.optional(),
-    /** One value per project period. */
-    path: z
-      .array(decimalStringSchema)
-      .min(1, { error: M.tooFew(1) })
-      .max(MAX_PATH, { error: M.tooMany(MAX_PATH) })
-      .optional(),
-    /** Free text, e.g. «بانک مرکزی، گزارش تورم». */
-    source: optionalText(300).optional(),
-    /** Free text, e.g. «۱۴۰۵/۰۶/۳۱». */
-    asOf: optionalText(60).optional(),
-  })
+  .object(
+    {
+      key: assumptionKeySchema,
+      label: text(1, 120),
+      /** e.g. «درصد در سال», «ریال برای هر دلار». */
+      unit: text(1, 40),
+      /** One value for the whole horizon. */
+      value: decimalStringSchema.optional(),
+      /** One value per project period. */
+      path: z
+        .array(decimalStringSchema, { error: M.invalidDecimal })
+        .min(1, { error: M.tooFew(1) })
+        .max(MAX_PATH, { error: M.tooMany(MAX_PATH) })
+        .optional(),
+      /** Free text, e.g. «بانک مرکزی، گزارش تورم». */
+      source: optionalText(300).optional(),
+      /** Free text, e.g. «۱۴۰۵/۰۶/۳۱». */
+      asOf: optionalText(60).optional(),
+    },
+    { error: MESSAGES.required },
+  )
   .refine((a) => a.value === undefined || a.path === undefined, {
     error: FINANCIAL_MODEL_MESSAGES.valueOrPath,
     path: ['path'],
@@ -219,15 +229,18 @@ function uniqueKeys(assumptions: { key: string }[], ctx: z.RefinementCtx, base: 
 const MAX_ASSUMPTIONS = 300;
 
 export const projectAssumptionsSchema = z
-  .object({
-    horizon: horizonSchema,
-    currencies: currenciesSchema,
-    /** COMFAR special feature: calculate with inflation (current prices). */
-    inflationEnabled: z.boolean({ error: M.chooseYesNo }),
-    assumptions: z
-      .array(assumptionSchema, { error: MESSAGES.required })
-      .max(MAX_ASSUMPTIONS, { error: M.tooMany(MAX_ASSUMPTIONS) }),
-  })
+  .object(
+    {
+      horizon: horizonSchema,
+      currencies: currenciesSchema,
+      /** COMFAR special feature: calculate with inflation (current prices). */
+      inflationEnabled: z.boolean({ error: M.chooseYesNo }),
+      assumptions: z
+        .array(assumptionSchema, { error: MESSAGES.required })
+        .max(MAX_ASSUMPTIONS, { error: M.tooMany(MAX_ASSUMPTIONS) }),
+    },
+    { error: MESSAGES.required },
+  )
   .superRefine((input, ctx) => {
     uniqueKeys(input.assumptions, ctx, 'assumptions');
     const periods = horizonPeriods(input.horizon);
@@ -326,14 +339,17 @@ function copyAssumption(a: Assumption): Assumption {
 // Personal assumption templates
 
 export const assumptionTemplateSchema = z
-  .object({
-    name: text(1, 120),
-    description: optionalText(500).optional(),
-    assumptions: z
-      .array(assumptionSchema, { error: MESSAGES.required })
-      .min(1, { error: 'الگو باید حداقل یک فرض داشته باشد.' })
-      .max(MAX_ASSUMPTIONS, { error: M.tooMany(MAX_ASSUMPTIONS) }),
-  })
+  .object(
+    {
+      name: text(1, 120),
+      description: optionalText(500).optional(),
+      assumptions: z
+        .array(assumptionSchema, { error: MESSAGES.required })
+        .min(1, { error: 'الگو باید حداقل یک فرض داشته باشد.' })
+        .max(MAX_ASSUMPTIONS, { error: M.tooMany(MAX_ASSUMPTIONS) }),
+    },
+    { error: MESSAGES.required },
+  )
   .superRefine((t, ctx) => {
     uniqueKeys(t.assumptions, ctx, 'assumptions');
     // A template exists to carry values: an empty entry would blank a filled one when copied.

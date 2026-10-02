@@ -54,7 +54,18 @@ describe('decimalStringSchema', () => {
     expect(decimalStringSchema.parse('1,250,000.5')).toBe('1250000.5');
     expect(decimalStringSchema.parse('-12,500')).toBe('-12500');
     // These used to lose the comma silently: 0,18 became 18.
-    for (const bad of ['0,18', '۰,۱۸', '1,2,3', '12,50', '1 5', '1234,567']) {
+    for (const bad of [
+      '0,18',
+      '۰,۱۸',
+      '0,125',
+      '۰,۱۲۵',
+      '-0,035',
+      '0٬185',
+      '1,2,3',
+      '12,50',
+      '1 5',
+      '1234,567',
+    ]) {
       expect(decimalStringSchema.safeParse(bad).success, bad).toBe(false);
     }
   });
@@ -235,6 +246,22 @@ describe('assumption templates', () => {
       assumptions: [{ key: 'discountRate', label: 'نرخ تنزیل', unit: '%' }],
     });
     expect(messagesOf(result)).toContain(FINANCIAL_MODEL_MESSAGES.templateValueRequired);
+  });
+
+  it('answers malformed shapes in Persian too', () => {
+    const inputs: unknown[] = [
+      null,
+      { ...base, horizon: { startDate: '2026-03-21' } },
+      { ...base, assumptions: ['x'] },
+      { ...base, assumptions: [{ key: 'discountRate', label: 'ن', unit: '%', path: 'x' }] },
+      { ...base, assumptions: [{ key: 'discountRate', label: 'ن', unit: '%', value: 0.18 }] },
+    ];
+    for (const input of inputs) {
+      const messages = messagesOf(projectAssumptionsSchema.safeParse(input));
+      expect(messages.length, JSON.stringify(input)).toBeGreaterThan(0);
+      for (const message of messages) expect(message, message).toMatch(/[؀-ۿ]/);
+    }
+    expect(messagesOf(assumptionTemplateSchema.safeParse(null))[0]).toMatch(/[؀-ۿ]/);
   });
 
   it('answers limits and types in Persian', () => {
