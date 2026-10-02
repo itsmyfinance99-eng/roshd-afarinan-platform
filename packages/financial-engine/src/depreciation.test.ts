@@ -227,7 +227,9 @@ describe('depreciationSchedule (COMFAR XI.H)', () => {
           expect(residue.lt('1e-20'), `${label}: ${residue.toFixed()}`).toBe(true);
           expect(value.years.at(-1)?.bookValue, label).toBe('6172839.4625');
           for (const y of value.years) expect(toDecimal(y.depreciation).gte(0), label).toBe(true);
-          // The schedule spans exactly the life: the first year plus whole years for the rest.
+          // The schedule spans exactly the life for these parameters: the first year plus whole
+          // years for the rest. (Linear to zero, and declining balance with other rates, may end
+          // earlier when the book value reaches salvage.)
           const rest = lifeMonths - firstYearMonths;
           const years = rest <= 0 ? 1 : 1 + (rest - (rest % 12)) / 12 + (rest % 12 === 0 ? 0 : 1);
           if (method !== 'LINEAR_TO_ZERO') expect(value.years, label).toHaveLength(years);

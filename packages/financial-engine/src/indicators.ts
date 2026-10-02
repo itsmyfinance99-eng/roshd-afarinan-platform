@@ -73,7 +73,9 @@ export interface PaybackOptions {
 function paybackOf(
   amounts: Decimal[],
   periodMonths: number[],
+  salvage: Decimal = ZERO,
 ): CalculationResult<PaybackValue | undefined> {
+  const lastPeriod = amounts.length - 1;
   let cumulative = ZERO;
   let start = 0;
   let invested = false;
@@ -82,17 +84,25 @@ function paybackOf(
   amounts.forEach((amount, i) => {
     const months = periodMonths[i] ?? 0;
     const previous = cumulative;
-    cumulative = cumulative.plus(amount);
+    const operating = cumulative.plus(amount);
+    // The salvage value arrives on the last day of the horizon, so it never shifts the
+    // interpolated point inside the period: it can only complete the payback at the period end.
+    cumulative = i === lastPeriod ? operating.plus(salvage) : operating;
     if (found === undefined) {
       if (cumulative.lt(0)) invested = true;
       else if (invested && cumulative.gt(0)) {
-        // previous ≤ 0 < cumulative, so amount > 0 and the fraction lies in [0, 1).
-        const fraction = previous.neg().div(amount);
-        found = {
-          period: i,
-          endMonth: start + months,
-          months: toDecimalString(fraction.times(months).plus(start)),
-        };
+        const end = start + months;
+        if (operating.gt(0)) {
+          // previous ≤ 0 < operating, so amount > 0 and the fraction lies in [0, 1).
+          const fraction = previous.neg().div(amount);
+          found = {
+            period: i,
+            endMonth: end,
+            months: toDecimalString(fraction.times(months).plus(start)),
+          };
+        } else {
+          found = { period: i, endMonth: end, months: String(end) };
+        }
       }
     } else if (!cumulative.gt(0) && warnings.length === 0) {
       warnings.push({ code: 'payback.notSustained', params: { period: String(i + 1) } });
@@ -104,11 +114,6 @@ function paybackOf(
   return result(found, warnings);
 }
 
-function withSalvage(amounts: Decimal[], salvage: Decimal): Decimal[] {
-  const last = amounts.length - 1;
-  return amounts.map((a, i) => (i === last ? a.plus(salvage) : a));
-}
-
 /** Normal payback period: the first period in which the cumulative net cash flow turns positive. */
 export function paybackPeriod(
   series: TimedSeries,
@@ -116,11 +121,11 @@ export function paybackPeriod(
 ): CalculationResult<PaybackValue | undefined> {
   assertTimedSeries(series);
   const salvage = options.salvageValue === undefined ? ZERO : toDecimal(options.salvageValue);
-  const amounts = withSalvage(
+  return paybackOf(
     series.amounts.map((a) => toDecimal(a)),
+    series.periodMonths,
     salvage,
   );
-  return paybackOf(amounts, series.periodMonths);
 }
 
 export interface DynamicPaybackOptions extends PaybackOptions {
@@ -143,11 +148,9 @@ export function discountedPaybackPeriod(
     reference: 'START_OF_FIRST_PERIOD',
   });
   const salvage = options.salvageValue === undefined ? ZERO : toDecimal(options.salvageValue);
-  const discounted = withSalvage(
-    series.amounts.map((a) => toDecimal(a)),
-    salvage,
-  ).map((a, i) => a.div(factors[i] ?? ONE));
-  return paybackOf(discounted, series.periodMonths);
+  const discounted = series.amounts.map((a, i) => toDecimal(a).div(factors[i] ?? ONE));
+  const last = factors[factors.length - 1] ?? ONE;
+  return paybackOf(discounted, series.periodMonths, salvage.div(last));
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -217,13 +220,17 @@ export function benefitCostRatio(
   series: BenefitCostSeries,
   options: Omit<DiscountingOptions, 'salvageValue'>,
 ): CalculationResult<BenefitCostValue | undefined> {
-  assertTimedSeries({ periodMonths: series.periodMonths, amounts: series.benefits });
+  sameLength(series.benefits, series.periodMonths.length, 'benefits');
   sameLength(series.costs, series.periodMonths.length, 'costs');
+  assertTimedSeries({ periodMonths: series.periodMonths, amounts: series.benefits });
   const factors = periodDiscountFactors(series.periodMonths, options);
-  const presentValue = (amounts: DecimalString[]) =>
-    amounts.reduce((sum, a, i) => sum.plus(toDecimal(a).div(factors[i] ?? ONE)), ZERO);
-  const benefits = presentValue(series.benefits);
-  const costs = presentValue(series.costs);
+  const presentValue = (amounts: DecimalString[], field: string) =>
+    amounts.reduce(
+      (sum, a, i) => sum.plus(nonNegative(a, `${field}[${i}]`).div(factors[i] ?? ONE)),
+      ZERO,
+    );
+  const benefits = presentValue(series.benefits, 'benefits');
+  const costs = presentValue(series.costs, 'costs');
   const defaultsUsed: DefaultUsed[] =
     options.reference === undefined
       ? [{ key: 'discounting.referenceDate', value: DEFAULT_DISCOUNT_REFERENCE }]
@@ -375,7 +382,7 @@ export interface ProductBreakEvenValue {
   /** Constant (planned) volume: the price at which the product breaks even. */
   constantVolume: {
     breakEvenSalesPrice?: DecimalString;
-    breakEvenSalesValue: DecimalString;
+    breakEvenSalesValue?: DecimalString;
     /** Break-even price over average unit price. */
     breakEvenRatio?: DecimalString;
   };
@@ -400,7 +407,7 @@ export function productBreakEven(
   const value: ProductBreakEvenValue = {
     variableMargin: toDecimalString(margin),
     constantPrice: {},
-    constantVolume: { breakEvenSalesValue: toDecimalString(fixed.plus(variable)) },
+    constantVolume: {},
   };
   if (price !== undefined) value.averageUnitPrice = toDecimalString(price);
   if (marginRatio !== undefined) value.variableMarginRatio = toDecimalString(marginRatio);
@@ -419,6 +426,7 @@ export function productBreakEven(
   if (price !== undefined) {
     const bePrice = fixed.plus(variable).div(volume);
     value.constantVolume.breakEvenSalesPrice = toDecimalString(bePrice);
+    value.constantVolume.breakEvenSalesValue = toDecimalString(fixed.plus(variable));
     if (price.gt(0)) value.constantVolume.breakEvenRatio = toDecimalString(bePrice.div(price));
   }
   return result(value, warnings);
@@ -499,6 +507,7 @@ export interface LoanLifeInput {
 export function loanLifeCoverage(
   input: LoanLifeInput,
 ): CalculationResult<(DecimalString | undefined)[]> {
+  sameLength(input.cashAvailable, input.periodMonths.length, 'cashAvailable');
   assertTimedSeries({ periodMonths: input.periodMonths, amounts: input.cashAvailable });
   sameLength(input.openingDebt, input.periodMonths.length, 'openingDebt');
   const debt = input.openingDebt.map((d, i) => nonNegative(d, `openingDebt[${i}]`));
