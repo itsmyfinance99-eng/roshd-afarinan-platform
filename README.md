@@ -6,6 +6,7 @@ Roshd Afarinan Sanat va Madan platform, a modular, API-first platform that links
 |                         |                                                                                   |
 | ----------------------- | --------------------------------------------------------------------------------- |
 | Architecture            | [docs/architecture/system-overview.md](docs/architecture/system-overview.md)      |
+| Plan (phase 2)          | [docs/product/phase-2-plan.md](docs/product/phase-2-plan.md)                      |
 | Plan (phase 0/1)        | [docs/product/implementation-plan.md](docs/product/implementation-plan.md)        |
 | Backlog (EPIC → STORY)  | [docs/backlog/backlog.yaml](docs/backlog/backlog.yaml) → GitHub Issues/Milestones |
 | Decisions               | [docs/decisions](docs/decisions)                                                  |

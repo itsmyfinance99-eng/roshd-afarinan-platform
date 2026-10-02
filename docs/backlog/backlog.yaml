@@ -59,9 +59,35 @@ milestones:
     title: 'Sprint 12 — Phase 1 Follow-ups'
     due: '2026-12-25'
     description: 'موارد کم‌اولویت باقی‌مانده از فاز ۱: مجوزهای بی‌استفاده، نگهداشت داده و تجربه کاربری تاریخ'
+  - key: S13
+    title: 'Sprint 13 — LMS Foundation'
+    due: '2027-01-01'
+    description: 'ADR-0008، مدل داده LMS، API سرفصل، سرویس ثبت‌نام و fulfillment سفارش (فاز ۲)'
+    phase: 2
+  - key: S14
+    title: 'Sprint 14 — Learner Experience'
+    due: '2027-01-08'
+    description: 'ویرایشگر سرفصل، سرفصل عمومی، تحویل امن ویدئو، دوره‌های من و ثبت پیشرفت (فاز ۲)'
+    phase: 2
+  - key: S15
+    title: 'Sprint 15 — Commerce Operations'
+    due: '2027-01-15'
+    description: 'تطبیق پرداخت، رسید، گزارش فروش و مدیریت ثبت‌نام‌ها (فاز ۲)'
+    phase: 2
+  - key: S16
+    title: 'Sprint 16 — Notifications & Engagement'
+    due: '2027-01-22'
+    description: 'صف و ایمیل اعلان، قالب‌های تراکنشی، نظر دوره و analytics (فاز ۲)'
+    phase: 2
+  - key: S17
+    title: 'Sprint 17 — Phase 2 QA & Release v0.4.0'
+    due: '2027-01-29'
+    description: 'آزمون امنیتی و end-to-end و انتشار فاز ۲'
+    phase: 2
   - key: P2
     title: 'Phase 2 — LMS & Commerce'
-    description: 'LMS پایه، سفارش و پرداخت واقعی'
+    description: 'استوری‌های فاز ۲ که منتظر تصمیم کسب‌وکار هستند (needs:decision)؛ پس از پاسخ سؤال باز در Sprint بعدی قرار می‌گیرند'
+    phase: 2
   - key: P3
     title: 'Phase 3 — Feasibility Platform'
     description: 'پلتفرم امکان‌سنجی'
@@ -104,7 +130,8 @@ labels:
   - { name: 'area:qa', color: 'c2e0c6', description: 'Testing / QA' }
   - { name: 'phase:0', color: 'ededed', description: 'Phase 0 — Foundation' }
   - { name: 'phase:1', color: 'ededed', description: 'Phase 1 — MVP' }
-  - { name: 'phase:future', color: 'ededed', description: 'Phase 2+' }
+  - { name: 'phase:2', color: 'ededed', description: 'Phase 2 — LMS & Commerce' }
+  - { name: 'phase:future', color: 'ededed', description: 'Phase 3+' }
   - { name: 'needs:decision', color: 'e99695', description: 'Blocked on a business/legal decision' }
   - { name: 'status:blocked', color: '000000', description: 'Blocked' }
 
@@ -507,6 +534,7 @@ epics:
         acceptance:
           - 'JSON-LD از نوع Course؛ empty state حرفه‌ای در نبود دوره'
       - id: ST-06.03
+        status: superseded
         title: 'LMS پایه: Lesson، Enrollment، Progress، Review'
         sprint: P2
         points: 13
@@ -514,7 +542,7 @@ epics:
         area: [api, web]
         story: 'به‌عنوان دانشجو می‌خواهم در دوره ثبت‌نام کنم و پیشرفتم را ببینم.'
         acceptance:
-          - 'تست‌های دامنه برای enrollment و progress'
+          - 'جایگزین شد با EPIC-28 و EPIC-29 (برنامه فاز ۲)'
 
   - id: EPIC-07
     title: 'Orders & Payments — سفارش و پرداخت'
@@ -550,9 +578,13 @@ epics:
         points: 8
         priority: medium
         area: [api]
+        depends: [ST-30.02]
+        needs: [OQ-09]
         story: 'به‌عنوان شرکت می‌خواهم پرداخت آنلاین واقعی داشته باشم.'
         acceptance:
-          - 'پس از تصمیم OQ-09'
+          - 'پس از تصمیم OQ-09؛ مستندات رسمی PSP مبنا باشد و هیچ endpointی حدس زده نشود'
+          - 'adapter از مجموعه تست قرارداد PaymentGateway (ST-30.02) عبور کند'
+          - 'کلیدها فقط در env و .env.example مستند؛ اجرای production با adapter آزمایشی رد شود (رفتار فعلی)'
 
   - id: EPIC-08
     title: 'User Dashboard — داشبورد کاربر'
@@ -887,13 +919,14 @@ epics:
           - 'sitemap از entityهای منتشرشده؛ Organization و BreadcrumbList JSON-LD'
       - id: ST-20.02
         title: 'Analytics (provider-agnostic، رعایت حریم خصوصی)'
-        sprint: P2
+        sprint: S16
         points: 3
         priority: low
         area: [web]
         story: 'به‌عنوان مالک سایت می‌خواهم رفتار کاربران را بدون نقض حریم خصوصی تحلیل کنم.'
         acceptance:
-          - 'پس از تصمیم درباره provider'
+          - 'port با نام AnalyticsProvider و adapter خالی (no-op) پیش‌فرض؛ هیچ اسکریپت خارجی بدون تصمیم OQ-32 بارگذاری نشود'
+          - 'لایه رضایت کاربر پیش از هر ردیابی؛ صفحات داشبورد و داده شخصی هرگز ارسال نشوند'
 
   - id: EPIC-24
     title: 'Admin Panel — پنل مدیریت'
@@ -1425,3 +1458,386 @@ epics:
           - 'image مهاجرت فقط Prisma، migrationها و seed مراجع را داشته باشد'
           - 'هر دو image با کاربر غیر root اجرا شوند و هیچ secret در لایه‌ها نماند'
           - 'CI هر دو را می‌سازد و مهاجرت روی دیتابیس تازه اجرا و seed مراجع تأیید می‌شود'
+
+  # ───────────────────────────── PHASE 2 — LMS & Commerce ─────────────────────────────
+  # Plan: docs/product/phase-2-plan.md · Architecture: docs/decisions/ADR-0008-lms-and-commerce.md
+  # needs: open questions (docs/product/open-questions.md) that block the story.
+  # depends: stories that must be merged first.
+  - id: EPIC-28
+    title: 'LMS Curriculum — سرفصل و محتوای دوره'
+    phase: 2
+    priority: high
+    goal: 'هر دوره سرفصل (بخش و درس) و محتوای درس داشته باشد که کارکنان مدیریت می‌کنند و فقط افراد مجاز به آن دسترسی دارند.'
+    stories:
+      - id: ST-28.01
+        title: 'ADR-0008 و مدل داده LMS: بخش، درس، ثبت‌نام و پیشرفت'
+        sprint: S13
+        points: 8
+        priority: high
+        area: [api, db, docs]
+        story: 'به‌عنوان معمار می‌خواهم مدل داده و مرز ماژول‌های LMS و تجارت پیش از پیاده‌سازی تثبیت شود تا ماژول‌ها به جدول‌های هم دست نزنند.'
+        acceptance:
+          - 'ADR-0008 از وضعیت Proposed به Accepted برسد'
+          - 'migration برای CourseSection، Lesson (نوع VIDEO/TEXT/FILE، ترتیب، پیش‌نمایش، مدت)، Enrollment (منبع FREE/ORDER/MANUAL، وضعیت، expiresAt خالی‌پذیر) و LessonProgress'
+          - 'یکتایی (userId, courseId) برای Enrollment و (enrollmentId, lessonId) برای LessonProgress'
+          - 'تابع خالص canAccessLesson با unit test برای پیش‌نمایش، ثبت‌نام فعال، لغوشده، منقضی و کارکنان'
+          - 'domain-model.md و system-overview.md به‌روز شوند'
+      - id: ST-28.02
+        title: 'API مدیریت سرفصل: بخش‌ها و درس‌ها'
+        sprint: S13
+        points: 5
+        priority: high
+        area: [api]
+        depends: [ST-28.01]
+        story: 'به‌عنوان کارشناس محتوا می‌خواهم بخش‌ها و درس‌های دوره را بسازم، مرتب کنم و منتشر کنم.'
+        acceptance:
+          - 'CRUD و جابه‌جایی ترتیب بخش و درس با مجوز catalog:manage؛ اعتبارسنجی Zod از @roshd/validation'
+          - 'درس پیش‌نویس در هیچ API عمومی یا دانشجویی دیده نشود'
+          - 'تغییرات در Audit Log ثبت شود'
+          - 'تست e2e شامل تست منفی دسترسی (کاربر عادی و دانشجو 403)'
+      - id: ST-28.03
+        title: 'ویرایشگر سرفصل در پنل مدیریت'
+        sprint: S14
+        points: 8
+        priority: high
+        area: [web, ui]
+        depends: [ST-28.02]
+        story: 'به‌عنوان کارشناس محتوا می‌خواهم سرفصل دوره را در داشبورد ویرایش کنم.'
+        acceptance:
+          - 'افزودن، ویرایش، حذف و مرتب‌سازی بخش و درس با کیبورد (بدون وابستگی به drag)'
+          - 'ویرایش متن درس با همان ویرایشگر Markdown امن CMS'
+          - 'حالت‌های loading، empty، error و success؛ روی سطح paper و قابل استفاده در تبلت'
+          - 'تست Playwright و axe'
+      - id: ST-28.04
+        title: 'نمایش سرفصل در صفحه عمومی دوره و درس‌های پیش‌نمایش'
+        sprint: S14
+        points: 3
+        priority: medium
+        area: [web]
+        depends: [ST-28.02]
+        story: 'به‌عنوان بازدیدکننده می‌خواهم پیش از خرید سرفصل دوره و درس‌های رایگان پیش‌نمایش را ببینم.'
+        acceptance:
+          - 'عنوان بخش‌ها و درس‌ها و مدت هر درس با عدد فارسی؛ نشانه قفل برای درس‌های غیرپیش‌نمایش'
+          - 'درس پیش‌نمایش بدون ورود قابل مشاهده باشد'
+          - 'JSON-LD نوع Course به‌روز شود (syllabusSections)'
+      - id: ST-28.05
+        title: 'تحویل امن ویدئو و فایل درس پشت VideoHostingProvider'
+        sprint: S14
+        points: 8
+        priority: high
+        area: [api, security]
+        depends: [ST-28.01]
+        story: 'به‌عنوان مالک دوره می‌خواهم ویدئوی درس فقط برای دانشجوی مجاز و با لینک کوتاه‌مدت پخش شود.'
+        acceptance:
+          - 'port با نام VideoHostingProvider و adapter اول روی FileStorageProvider (لینک امضاشده و کوتاه‌مدت، پشتیبانی Range)'
+          - 'FilePurpose.LESSON_ASSET با سقف حجم جدا و قابل پیکربندی؛ آپلود فقط با catalog:manage'
+          - 'هر درخواست پخش از canAccessLesson عبور کند؛ تست منفی IDOR برای دوره دیگر و ثبت‌نام لغوشده'
+          - 'انتخاب سرویس VOD واقعی پس از OQ-26 فقط adapter جدید باشد'
+
+  - id: EPIC-29
+    title: 'Enrollment & Learning — ثبت‌نام و تجربه یادگیری'
+    phase: 2
+    priority: high
+    goal: 'کاربر در دوره ثبت‌نام کند، درس‌ها را ببیند، پیشرفتش ثبت شود و کارکنان ثبت‌نام‌ها را مدیریت کنند.'
+    stories:
+      - id: ST-29.01
+        title: 'سرویس ثبت‌نام: دوره رایگان، ثبت‌نام دستی و لغو'
+        sprint: S13
+        points: 8
+        priority: high
+        area: [api]
+        depends: [ST-28.01]
+        story: 'به‌عنوان کاربر می‌خواهم در دوره رایگان با یک کلیک ثبت‌نام کنم، و به‌عنوان کارشناس می‌خواهم ثبت‌نام دستی یا لغو کنم.'
+        acceptance:
+          - 'ثبت‌نام خودکار فقط برای دوره رایگان و منتشرشده؛ تکرار درخواست no-op'
+          - 'ثبت‌نام و لغو دستی با مجوز جدید enrollments:manage و ثبت در Audit Log'
+          - 'LearningService.enrollFromOrder برای fulfillment سفارش، idempotent'
+          - 'تست‌های دامنه و e2e، شامل دوره پولی بدون پرداخت (403) و دوره پیش‌نویس (404)'
+      - id: ST-29.02
+        title: 'دوره‌های من و صفحه پخش دوره'
+        sprint: S14
+        points: 8
+        priority: high
+        area: [web]
+        depends: [ST-29.01, ST-28.05]
+        story: 'به‌عنوان دانشجو می‌خواهم دوره‌هایم را ببینم و درس‌ها را به ترتیب بخوانم یا ببینم.'
+        acceptance:
+          - 'بخش «دوره‌های من» در داشبورد با درصد پیشرفت'
+          - 'صفحه پخش با فهرست درس‌ها، درس بعدی و قبلی و ادامه از آخرین درس'
+          - 'پخش ویدئو با کنترل‌های دسترس‌پذیر؛ زیرنویس در صورت وجود'
+          - 'حالت‌های loading، empty، error و success؛ موبایل، تبلت و دسکتاپ؛ تست Playwright و axe'
+      - id: ST-29.03
+        title: 'ثبت پیشرفت و تکمیل دوره'
+        sprint: S14
+        points: 5
+        priority: high
+        area: [api]
+        depends: [ST-29.01]
+        story: 'به‌عنوان دانشجو می‌خواهم درس‌های تمام‌شده علامت بخورند و پیشرفتم محاسبه شود.'
+        acceptance:
+          - 'علامت‌گذاری درس به‌عنوان تمام‌شده، idempotent؛ فقط برای ثبت‌نام فعال'
+          - 'درصد پیشرفت با تابع خالص و unit test (درس حذف‌شده، دوره بدون درس، همه درس‌ها)'
+          - 'رویداد تکمیل دوره در Audit Log؛ زمان تکمیل در Enrollment'
+      - id: ST-29.04
+        title: 'مدیریت ثبت‌نام‌ها برای کارکنان'
+        sprint: S15
+        points: 5
+        priority: medium
+        area: [api, web]
+        depends: [ST-29.01, ST-29.03]
+        story: 'به‌عنوان کارشناس آموزش می‌خواهم دانشجویان هر دوره و پیشرفتشان را ببینم و خروجی بگیرم.'
+        acceptance:
+          - 'فهرست ثبت‌نام‌ها با فیلتر دوره، وضعیت و منبع؛ صفحه‌بندی'
+          - 'خروجی CSV با UTF-8 BOM و ایمن در برابر formula injection، ثبت در Audit Log'
+          - 'ثبت‌نام و لغو دستی از همین صفحه'
+      - id: ST-29.05
+        title: 'تبدیل درخواست ثبت‌نام آموزشی به ثبت‌نام'
+        sprint: S15
+        points: 3
+        priority: medium
+        area: [api, web]
+        depends: [ST-29.01]
+        story: 'به‌عنوان کارشناس می‌خواهم درخواست ثبت‌نام دوره (ServiceRequest نوع TRAINING) را با یک اقدام به ثبت‌نام تبدیل کنم.'
+        acceptance:
+          - 'اقدام «ثبت‌نام» روی درخواست TRAINING برای کاربر دارای حساب؛ پیام روشن برای درخواست مهمان'
+          - 'وضعیت درخواست و رویداد آن به‌روز شود'
+      - id: ST-29.06
+        title: 'نظر و امتیاز دوره با تأیید کارشناس'
+        sprint: S16
+        points: 8
+        priority: low
+        area: [api, web]
+        depends: [ST-29.01]
+        story: 'به‌عنوان دانشجو می‌خواهم درباره دوره نظر و امتیاز بدهم.'
+        acceptance:
+          - 'فقط دانشجوی ثبت‌نام‌شده؛ یک نظر برای هر دوره و قابل ویرایش'
+          - 'صف تأیید با مجوز جدید reviews:moderate؛ نمایش عمومی پشت پرچم پیکربندی و خاموش تا تصمیم OQ-28'
+          - 'aggregateRating در JSON-LD فقط از نظرهای تأییدشده'
+      - id: ST-29.07
+        title: 'گواهینامه پایان دوره و صفحه استعلام عمومی'
+        sprint: P2
+        points: 8
+        priority: medium
+        area: [api, web]
+        depends: [ST-29.03]
+        needs: [OQ-03]
+        story: 'به‌عنوان دانش‌آموخته می‌خواهم گواهینامه بگیرم که دیگران بتوانند اصالت آن را استعلام کنند.'
+        acceptance:
+          - 'پس از تصمیم OQ-03 درباره شرایط صدور، اعتبار و متن گواهینامه'
+          - 'کد استعلام غیرقابل حدس و صفحه عمومی استعلام بدون نمایش اطلاعات شخصی اضافه'
+      - id: ST-29.08
+        title: 'جلسات، ظرفیت و حضور و غیاب دوره‌های حضوری'
+        sprint: P2
+        points: 8
+        priority: low
+        area: [api, web]
+        depends: [ST-29.01]
+        needs: [OQ-30]
+        story: 'به‌عنوان کارشناس آموزش می‌خواهم جلسات و ظرفیت دوره حضوری را مدیریت کنم.'
+        acceptance:
+          - 'پس از تصمیم OQ-30'
+      - id: ST-29.09
+        title: 'فضای کار مدرس'
+        sprint: P2
+        points: 5
+        priority: low
+        area: [api, web, security]
+        depends: [ST-28.03, ST-29.04]
+        needs: [OQ-33]
+        story: 'به‌عنوان مدرس می‌خواهم دوره‌های خودم و پیشرفت دانشجویانم را ببینم.'
+        acceptance:
+          - 'پس از تصمیم OQ-33؛ دسترسی فقط به دوره‌هایی که Instructor.userId آن‌ها برابر کاربر است، با تست منفی'
+
+  - id: EPIC-30
+    title: 'Commerce — تکمیل خرید و پرداخت'
+    phase: 2
+    priority: high
+    goal: 'خرید دوره بدون از دست رفتن یا تکرار به ثبت‌نام برسد، پرداخت‌های نیمه‌کاره تطبیق شوند و رسید و گزارش فروش وجود داشته باشد.'
+    stories:
+      - id: ST-30.01
+        title: 'Fulfillment سفارش با outbox: پرداخت موفق → ثبت‌نام'
+        sprint: S13
+        points: 8
+        priority: critical
+        area: [api, db]
+        depends: [ST-29.01]
+        story: 'به‌عنوان خریدار می‌خواهم بلافاصله پس از پرداخت موفق در دوره ثبت‌نام شوم، حتی اگر سرور وسط کار راه‌اندازی مجدد شود.'
+        acceptance:
+          - 'جدول OrderFulfillment در همان تراکنش PAID؛ پردازشگر با retry و backoff در زمان‌بند maintenance'
+          - 'handler دوره از LearningService.enrollFromOrder؛ اجرای دوباره هیچ ثبت‌نام تکراری نسازد'
+          - 'تست: خطای handler، retry موفق، callback تکراری، دو پردازشگر هم‌زمان'
+          - 'وضعیت fulfillment در صفحه سفارش کارکنان دیده شود'
+      - id: ST-30.02
+        title: 'مجموعه تست قرارداد PaymentGateway'
+        sprint: S13
+        points: 3
+        priority: high
+        area: [api, qa]
+        story: 'به‌عنوان توسعه‌دهنده می‌خواهم هر adapter درگاه (mock امروز، PSP واقعی فردا) با یک مجموعه تست مشترک سنجیده شود.'
+        acceptance:
+          - 'تست‌های مشترک: مبلغ نامطابق FAILED، verify تکراری امن، timeout در سقف PAYMENT_GATEWAY_TIMEOUT_MS، مرجع تکراری'
+          - 'mock adapter فعلی از این مجموعه عبور کند'
+      - id: ST-30.03
+        title: 'تطبیق پرداخت‌های نیمه‌کاره و انقضای اختیاری سفارش'
+        sprint: S15
+        points: 5
+        priority: high
+        area: [api]
+        depends: [ST-30.01]
+        story: 'به‌عنوان مسئول مالی می‌خواهم پرداختی که callback آن نرسیده دوباره verify شود تا پول کسی بدون ثبت‌نام نماند.'
+        acceptance:
+          - 'job زمان‌بندی‌شده تلاش‌های INITIATED قدیمی‌تر از مقدار پیکربندی را با PaymentGateway.verify تطبیق دهد'
+          - 'انقضای خودکار سفارش پرداخت‌نشده پیاده‌سازی شود ولی به‌طور پیش‌فرض خاموش باشد (OQ-34)'
+          - 'نتیجه هر تطبیق در Audit Log؛ تست برای VERIFIED، FAILED و timeout'
+      - id: ST-30.04
+        title: 'رسید پرداخت قابل چاپ'
+        sprint: S15
+        points: 3
+        priority: medium
+        area: [web]
+        story: 'به‌عنوان خریدار می‌خواهم رسید پرداخت را ببینم و چاپ کنم.'
+        acceptance:
+          - 'رسید با کد سفارش، کد رهگیری، تاریخ جلالی، اقلام و مبلغ با عدد فارسی؛ نسخه چاپی تمیز'
+          - 'عنوان «رسید پرداخت» و نه فاکتور رسمی (OQ-29)'
+          - 'فقط مالک سفارش یا کارکنان دارای orders:read-all؛ تست منفی'
+      - id: ST-30.05
+        title: 'گزارش فروش برای واحد مالی'
+        sprint: S15
+        points: 3
+        priority: medium
+        area: [api, web]
+        story: 'به‌عنوان کارشناس مالی می‌خواهم فروش هر دوره در بازه زمانی را ببینم و خروجی بگیرم.'
+        acceptance:
+          - 'جمع فروش و تعداد بر اساس دوره و بازه تاریخ جلالی؛ مبالغ ریالی صحیح (bigint)'
+          - 'خروجی CSV امن؛ فقط با orders:read-all'
+      - id: ST-30.06
+        title: 'لغو و استرداد پس از پرداخت'
+        sprint: P2
+        points: 5
+        priority: medium
+        area: [api, web]
+        depends: [ST-30.01]
+        needs: [OQ-23]
+        story: 'به‌عنوان مسئول مالی می‌خواهم استرداد را ثبت کنم و دسترسی دوره متناسب با آن لغو شود.'
+        acceptance:
+          - 'پس از تصمیم OQ-23'
+      - id: ST-30.07
+        title: 'کد تخفیف'
+        sprint: P2
+        points: 5
+        priority: low
+        area: [api, web]
+        needs: [OQ-31]
+        story: 'به‌عنوان مسئول فروش می‌خواهم کد تخفیف تعریف کنم.'
+        acceptance:
+          - 'پس از تصمیم OQ-31؛ محاسبه مبلغ با تابع خالص و تست‌های مرزی'
+      - id: ST-30.08
+        title: 'فاکتور رسمی و مالیات'
+        sprint: P2
+        points: 5
+        priority: low
+        area: [api]
+        needs: [OQ-29]
+        story: 'به‌عنوان شرکت می‌خواهم در صورت الزام قانونی فاکتور رسمی صادر کنم.'
+        acceptance:
+          - 'پس از تصمیم OQ-29'
+
+  - id: EPIC-31
+    title: 'Notification Delivery — ارسال واقعی اعلان'
+    phase: 2
+    priority: medium
+    goal: 'اعلان‌های تراکنشی (پرداخت، ثبت‌نام، تکمیل دوره) واقعاً و با امکان retry ارسال شوند.'
+    stories:
+      - id: ST-31.01
+        title: 'صف ارسال (outbox) و گزارش تحویل اعلان'
+        sprint: S16
+        points: 5
+        priority: medium
+        area: [api, db]
+        story: 'به‌عنوان مسئول پشتیبانی می‌خواهم بدانم اعلان کاربر ارسال شده یا شکست خورده.'
+        acceptance:
+          - 'ثبت هر ارسال در جدول با وضعیت، تعداد تلاش و خطا؛ retry با backoff در زمان‌بند'
+          - 'هیچ متن حساس یا توکن در لاگ و جدول ذخیره نشود'
+      - id: ST-31.02
+        title: 'adapter ایمیل SMTP'
+        sprint: S16
+        points: 3
+        priority: medium
+        area: [api]
+        depends: [ST-31.01]
+        story: 'به‌عنوان کاربر می‌خواهم ایمیل تأیید حساب، بازیابی رمز و رسید پرداخت را واقعاً دریافت کنم.'
+        acceptance:
+          - 'adapter مستقل از سرویس‌دهنده با پیکربندی SMTP در env و .env.example؛ timeout در سقف NOTIFICATION_SEND_TIMEOUT_MS'
+          - 'تست با سرور SMTP آزمایشی در CI؛ انتخاب سرویس‌دهنده نهایی همچنان OQ-08'
+      - id: ST-31.03
+        title: 'قالب‌های اعلان تراکنشی و تنظیمات اعلان کاربر'
+        sprint: S16
+        points: 5
+        priority: medium
+        area: [api, web]
+        depends: [ST-31.01, ST-30.01]
+        story: 'به‌عنوان کاربر می‌خواهم پس از پرداخت، ثبت‌نام و تکمیل دوره اعلان بگیرم و اعلان‌های غیرضروری را خاموش کنم.'
+        acceptance:
+          - 'قالب‌های فارسی برای پرداخت موفق، ثبت‌نام و تکمیل دوره؛ متن خارج از منطق کسب‌وکار'
+          - 'تنظیمات کاربر برای اعلان‌های غیرتراکنشی؛ اعلان‌های امنیتی قابل خاموش‌کردن نیستند'
+      - id: ST-31.04
+        title: 'adapter پیامک'
+        sprint: P2
+        points: 3
+        priority: medium
+        area: [api]
+        depends: [ST-31.01]
+        needs: [OQ-08]
+        story: 'به‌عنوان کاربر می‌خواهم اعلان‌های مهم را پیامک دریافت کنم.'
+        acceptance:
+          - 'پس از انتخاب سرویس پیامک در OQ-08؛ API سرویس‌دهنده حدس زده نشود'
+      - id: ST-31.05
+        title: 'ورود با شماره موبایل و رمز یک‌بارمصرف (OTP)'
+        sprint: P2
+        points: 8
+        priority: medium
+        area: [api, web, security]
+        depends: [ST-31.04]
+        needs: [OQ-08, OQ-20]
+        story: 'به‌عنوان کاربر می‌خواهم با شماره موبایل و کد پیامکی وارد شوم (طراحی v2، تصمیم D1).'
+        acceptance:
+          - 'پس از تصمیم OQ-20؛ محدودیت نرخ، انقضای کد، کد هش‌شده و تست منفی brute force'
+
+  - id: EPIC-32
+    title: 'Phase 2 QA & Release — آزمون و انتشار فاز ۲'
+    phase: 2
+    priority: high
+    goal: 'فاز ۲ با آزمون امنیتی، end-to-end و دسترس‌پذیری منتشر شود.'
+    stories:
+      - id: ST-32.01
+        title: 'آزمون امنیتی محتوای پولی و پرداخت'
+        sprint: S17
+        points: 5
+        priority: high
+        area: [security, qa]
+        depends: [ST-28.05, ST-30.01, ST-30.03]
+        story: 'به‌عنوان مالک محصول می‌خواهم مطمئن باشم محتوای پولی بدون پرداخت در دسترس نیست و پرداخت قابل تقلب نیست.'
+        acceptance:
+          - 'تست‌های منفی: IDOR درس و ویدئو، استفاده دوباره از لینک منقضی، ثبت‌نام بدون پرداخت، callback جعلی'
+          - 'گزارش در docs/qa و رفع یافته‌ها پیش از انتشار'
+      - id: ST-32.02
+        title: 'سفر کامل دانشجو در Playwright، دسترس‌پذیری و کارایی پخش'
+        sprint: S17
+        points: 5
+        priority: high
+        area: [qa, web]
+        depends: [ST-29.02, ST-30.04]
+        story: 'به‌عنوان تیم می‌خواهم سفر کامل «ثبت‌نام، خرید، پرداخت، یادگیری، تکمیل» خودکار آزموده شود.'
+        acceptance:
+          - 'سناریو end-to-end با درگاه آزمایشی؛ axe بدون خطای serious و critical'
+          - 'LCP صفحه دوره و صفحه پخش در بودجه requirements'
+      - id: ST-32.03
+        title: 'انتشار v0.4.0'
+        sprint: S17
+        points: 3
+        priority: high
+        area: [docs, infra]
+        depends: [ST-32.01, ST-32.02]
+        story: 'به‌عنوان مالک محصول می‌خواهم فاز ۲ با changelog و یادداشت انتشار منتشر شود.'
+        acceptance:
+          - 'CHANGELOG، HANDOFF و گزارش QA به‌روز؛ PR انتشار develop → main با تأیید مالک؛ tag v0.4.0 و GitHub Release'
