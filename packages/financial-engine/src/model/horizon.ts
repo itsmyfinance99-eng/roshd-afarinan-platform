@@ -111,6 +111,12 @@ export function planHorizon(input: HorizonInput): PlanningHorizon {
     calendar(monthsFromStart - 1).month === input.balanceMonth;
 
   const constructionMonths = input.construction.periods * input.construction.periodMonths;
+  if (constructionMonths >= MAX_HORIZON_MONTHS) {
+    // Construction alone leaves no room for production: the error belongs to construction.
+    throw new EngineInputError('horizon.tooLong', 'construction.periods', {
+      max: String(MAX_HORIZON_MONTHS),
+    });
+  }
   const productionStart = constructionMonths;
   // Production ends on the productionYears-th balance date after it starts.
   let firstBalance = productionStart + 1;

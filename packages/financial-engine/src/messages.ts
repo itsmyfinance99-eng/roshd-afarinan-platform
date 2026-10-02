@@ -57,6 +57,9 @@ export const ENGINE_MESSAGES_FA = {
   'investment.depreciationStart':
     'شروع استهلاک باید اولین روز یکی از دوره‌های بهره‌برداری (راه‌اندازی یا تولید) باشد.',
   'financing.equityClass': 'نوع آورده سهامداران معتبر نیست.',
+  'financing.interestDepreciationStart':
+    'استهلاک سود انباشته باید بعد از آخرین تاریخ انباشت سود شروع شود.',
+  'model.origin': 'منشأ قلم باید داخلی یا خارجی باشد.',
 
   // Warnings: a value that does not exist or cannot be computed
   'irr.noSignChange': 'جریان نقدی تغییر علامت ندارد؛ نرخ بازده داخلی وجود ندارد.',

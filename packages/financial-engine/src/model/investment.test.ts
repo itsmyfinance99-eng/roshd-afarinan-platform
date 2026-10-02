@@ -76,6 +76,11 @@ describe('investmentSchedule', () => {
     expect(value.preProduction).toEqual(at(7, { 1: '600' }));
     expect(value.preProductionByOrigin.foreign).toEqual(zeros(7));
     expect(value.totalInvestment).toEqual(at(7, { 0: '13000', 1: '12600', 3: '5000' }));
+    // The foreign and local content always add up to the total.
+    value.fixedInvestment.forEach((total, j) => {
+      const foreign = Number(value.fixedInvestmentByOrigin.foreign[j]);
+      expect(foreign + Number(value.fixedInvestmentByOrigin.local[j])).toBe(Number(total));
+    });
   });
 
   it('depreciates construction acquisitions jointly from the start, later ones from the next year', () => {
@@ -211,6 +216,11 @@ describe('investmentSchedule', () => {
     fails([{ ...land, amounts: ['1'] }], 'series.lengthMismatch', 'items[0].amounts');
     fails([{ ...land, amounts: at(7, { 2: '-5' }) }], 'amount.negative', 'items[0].amounts[2]');
     fails([land, land], 'model.duplicateKey', 'items[1].key');
+    fails(
+      [{ ...land, origin: 'IMPORTED' as InvestmentItem['origin'] }],
+      'model.origin',
+      'items[0].origin',
+    );
     fails(
       [{ ...land, group: 'GOODWILL' as InvestmentItem['group'] }],
       'investment.group',

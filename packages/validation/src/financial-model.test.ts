@@ -122,7 +122,7 @@ describe('projectAssumptionsSchema', () => {
     });
     expect(tooLong.error?.issues).toEqual([
       expect.objectContaining({
-        path: ['horizon', 'productionYears'],
+        path: ['horizon', 'construction', 'periods'],
         message: 'افق طرح حداکثر ۶۰۰ ماه است.',
       }),
     ]);

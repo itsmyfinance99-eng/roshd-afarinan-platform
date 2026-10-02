@@ -11,7 +11,7 @@ import {
   type AssetDepreciation,
 } from './asset-depreciation';
 import type { PlanningHorizon } from './horizon';
-import { ratesFor, uniqueKeys, type Origin } from './investment';
+import { checkOrigin, ratesFor, uniqueKeys, type Origin } from './investment';
 
 /**
  * Sources of finance (manual VII.R, XI.M, X.C.5; comfar-model-spec §4.8.2): equity contributions
@@ -125,6 +125,7 @@ export function financingSchedule(input: FinancingInput): CalculationResult<Fina
     if (!(EQUITY_CLASSES as readonly string[]).includes(e.class)) {
       throw new EngineInputError('financing.equityClass', `${field}.class`);
     }
+    checkOrigin(e.origin, `${field}.origin`);
     const own = periodAmounts(e.amounts, length, `${field}.amounts`);
     const rates = ratesFor(e.currency, input, length, `${field}.currency`);
     return { e, local: rates === undefined ? own : own.map((a, j) => a.times(rates[j] ?? ZERO)) };
@@ -133,7 +134,23 @@ export function financingSchedule(input: FinancingInput): CalculationResult<Fina
   const periodEndDays = horizon.periods.map((p) => p.endDay);
   const loans = input.loans.map((l, i): FinancingLoanSchedule => {
     const field = `loans[${i}]`;
+    checkOrigin(l.origin, `${field}.origin`);
     const rates = ratesFor(l.currency, input, length, `${field}.currency`);
+    // VII.R: depreciation of capitalised interest starts no earlier than the month after the last
+    // day on which interest is capitalised.
+    const startAt =
+      l.depreciation === undefined ? undefined : horizon.periods[l.depreciation.startPeriod];
+    const capitaliseUntil = l.loan.capitaliseUntilDay;
+    if (
+      startAt !== undefined &&
+      capitaliseUntil !== undefined &&
+      startAt.startMonth * 30 < capitaliseUntil
+    ) {
+      throw new EngineInputError(
+        'financing.interestDepreciationStart',
+        `${field}.depreciation.startPeriod`,
+      );
+    }
     const schedule = withField(`${field}.loan`, () =>
       loanSchedule({
         ...l.loan,
@@ -143,12 +160,15 @@ export function financingSchedule(input: FinancingInput): CalculationResult<Fina
         horizonEndDay: horizon.totalMonths * 30,
       }),
     );
-    for (const w of schedule.warnings) {
+    const own = loanPeriods(schedule.value, periodEndDays);
+    // The schedule and the period sums may both report the same thing (e.g. beyond the horizon).
+    const codes = new Set<string>();
+    for (const w of [...schedule.warnings, ...own.warnings]) {
+      if (codes.has(w.code)) continue;
+      codes.add(w.code);
       warnings.push({ ...w, params: { ...w.params, item: l.key } });
     }
     for (const d of schedule.defaultsUsed) defaultsUsed.push({ ...d, item: l.key });
-    const own = loanPeriods(schedule.value, periodEndDays);
-    for (const w of own.warnings) warnings.push({ ...w, params: { ...w.params, item: l.key } });
     const periods =
       rates === undefined
         ? own.value.map((p): ForeignLoanLocalPeriod => ({
@@ -161,9 +181,11 @@ export function financingSchedule(input: FinancingInput): CalculationResult<Fina
             endingBalance: p.closingBalance,
             exchangeAdjustment: '0',
           }))
-        : foreignLoanToLocal(
-            { openingBalance: '0', periods: own.value },
-            rates.map((v) => toDecimalString(v)),
+        : withField(field, () =>
+            foreignLoanToLocal(
+              { openingBalance: '0', periods: own.value },
+              rates.map((v) => toDecimalString(v)),
+            ),
           ).value;
     const preProduction = periods.map((p, j) => {
       const capitalised = toDecimal(p.capitalisedInterest);

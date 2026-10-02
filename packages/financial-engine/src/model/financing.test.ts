@@ -174,7 +174,86 @@ describe('financingSchedule', () => {
       ],
     });
     expect(result.warnings.map((w) => w.params?.item)).toContain('bank');
-    expect(result.warnings.map((w) => w.code)).toContain('loan.beyondHorizon');
+    // Reported once, although both the schedule and the period sums notice it.
+    expect(result.warnings.filter((w) => w.code === 'loan.beyondHorizon')).toHaveLength(1);
+  });
+
+  it('restates a foreign annuity over many periods to exactly zero', () => {
+    // Half-yearly instalments: the per-period sums are rounded, the balance comes from the schedule.
+    const annuity: FinancingLoan = {
+      key: 'export-credit',
+      currency: 'USD',
+      origin: 'FOREIGN',
+      loan: {
+        type: 'ANNUITY',
+        repaymentMonths: 6,
+        flows: [
+          { day: 150, amount: '1000' },
+          { day: 330, amount: '1000' },
+        ],
+        rates: [{ fromDay: 1, rate: '0.07' }],
+        capitalisedShare: '0',
+        numberOfRepayments: 7,
+        firstRepaymentDay: 540,
+      },
+    };
+    const local = { ...annuity, key: 'same-in-rials', currency: 'IRR', origin: 'LOCAL' as const };
+    const { value } = financingSchedule({
+      ...input,
+      exchangeRates: { USD: Array.from({ length: 7 }, () => '1') },
+      loans: [annuity, local],
+    });
+    const [usd, irr] = value.loans;
+    expect(usd?.periods.at(-1)?.endingBalance).toBe('0');
+    expect(usd?.periods.map((p) => p.repayment)).toEqual(irr?.periods.map((p) => p.repayment));
+    expect(usd?.periods.map((p) => p.endingBalance)).toEqual(
+      irr?.periods.map((p) => p.endingBalance),
+    );
+  });
+
+  it('works without a construction phase', () => {
+    const noConstruction = planHorizon({
+      start: { year: 1406, month: 1 },
+      balanceMonth: 12,
+      construction: { periods: 0, periodMonths: 12 },
+      startup: { periods: 0, periodMonths: 12 },
+      productionYears: 5,
+    });
+    const { loan } = localLoan;
+    const withoutDate = { ...loan, flows: [{ day: 90, amount: '1000' }] };
+    delete withoutDate.firstRepaymentDay;
+    const result = financingSchedule({
+      horizon: noConstruction,
+      localCurrency: 'IRR',
+      exchangeRates: {},
+      equity: [],
+      loans: [{ ...localLoan, loan: withoutDate, depreciation: undefined }],
+    });
+    // One repayment period after the last disbursement.
+    expect(result.value.loans[0]?.firstRepaymentDay).toBe(450);
+    expect(result.value.preProductionInterest).toEqual(zeros(5));
+    expect(result.value.totalSources).toEqual(['1000', '0', '0', '0', '0']);
+  });
+
+  it('starts the depreciation of capitalised interest after the last capitalisation', () => {
+    // Interest is capitalised up to day 720, the end of period 2.
+    const depreciating = (startPeriod: number) => () =>
+      financingSchedule({
+        ...input,
+        loans: [
+          {
+            ...foreignLoan,
+            depreciation: { method: 'LINEAR_TO_ZERO', lifeMonths: 24, startPeriod },
+          },
+        ],
+      });
+    expect(depreciating(2)).toThrowError(
+      expect.objectContaining({
+        code: 'financing.interestDepreciationStart',
+        field: 'loans[0].depreciation.startPeriod',
+      }),
+    );
+    expect(depreciating(3)().value.interestDepreciation).toEqual(at({ 3: '60', 4: '60' }));
   });
 
   it('refuses inputs it cannot place, with the field', () => {
@@ -190,6 +269,11 @@ describe('financingSchedule', () => {
     };
     fails({ exchangeRates: {} }, 'model.exchangeRateMissing', 'equity[1].currency');
     fails({ loans: [localLoan, localLoan] }, 'model.duplicateKey', 'loans[1].key');
+    fails(
+      { loans: [{ ...localLoan, origin: 'OTHER' as 'LOCAL' }] },
+      'model.origin',
+      'loans[0].origin',
+    );
     fails(
       { equity: [{ ...input.equity[0]!, class: 'BONDS' as 'ORDINARY' }] },
       'financing.equityClass',

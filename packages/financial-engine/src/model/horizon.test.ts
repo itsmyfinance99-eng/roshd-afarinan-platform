@@ -142,4 +142,28 @@ describe('planHorizon (COMFAR VII.G)', () => {
       expect((error as EngineInputError).code, JSON.stringify(change)).toBe(code);
     }
   });
+
+  it('reports a horizon that is too long at the field that makes it so', () => {
+    const base: HorizonInput = {
+      start: { year: 2026, month: 1 },
+      balanceMonth: 12,
+      construction: noConstruction,
+      startup: noStartup,
+      productionYears: 5,
+    };
+    const fieldOf = (change: Partial<HorizonInput>) => {
+      try {
+        planHorizon({ ...base, ...change });
+      } catch (e) {
+        return (e as EngineInputError).field;
+      }
+      return undefined;
+    };
+    expect(fieldOf({ construction: { periods: 100, periodMonths: 6 } })).toBe(
+      'construction.periods',
+    );
+    expect(fieldOf({ construction: { periods: 40, periodMonths: 12 }, productionYears: 50 })).toBe(
+      'productionYears',
+    );
+  });
 });

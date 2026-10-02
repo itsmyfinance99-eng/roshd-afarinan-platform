@@ -114,6 +114,13 @@ export function ratesFor(
   });
 }
 
+const ORIGINS: readonly string[] = ['LOCAL', 'FOREIGN'];
+
+/** Rejects an origin other than local or foreign, so the two splits always add up to the total. */
+export function checkOrigin(origin: string, field: string): void {
+  if (!ORIGINS.includes(origin)) throw new EngineInputError('model.origin', field);
+}
+
 /** Rejects a key used twice, so every schedule line can be traced to one input. */
 export function uniqueKeys(keys: string[], field: string): void {
   const seen = new Set<string>();
@@ -140,6 +147,7 @@ export function investmentSchedule(input: InvestmentInput): CalculationResult<In
     if (!(INVESTMENT_GROUPS as readonly string[]).includes(item.group)) {
       throw new EngineInputError('investment.group', `${field}.group`);
     }
+    checkOrigin(item.origin, `${field}.origin`);
     const own = periodAmounts(item.amounts, length, `${field}.amounts`);
     const rates = ratesFor(item.currency, input, length, `${field}.currency`);
     const local = rates === undefined ? own : own.map((a, j) => a.times(rates[j] ?? ZERO));
