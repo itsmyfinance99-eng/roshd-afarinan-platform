@@ -40,19 +40,20 @@ model User {
   createdAt         DateTime   @default(now())
   updatedAt         DateTime   @updatedAt
 
-  roles              UserRole[]               @relation("UserRoles")
-  assignedRoles      UserRole[]               @relation("RoleAssigner")
-  refreshTokens      RefreshToken[]
-  passwordResets     PasswordResetToken[]
-  emailVerifications EmailVerificationToken[]
-  notifications      Notification[]
-  auditLogs          AuditLog[]
-  serviceRequests    ServiceRequest[]         @relation("ServiceRequestOwner")
-  assignedRequests   ServiceRequest[]         @relation("ServiceRequestAssignee")
-  files              FileObject[]
-  tickets            Ticket[]                 @relation("TicketOwner")
-  assignedTickets    Ticket[]                 @relation("TicketAssignee")
-  orders             Order[]
+  roles               UserRole[]               @relation("UserRoles")
+  assignedRoles       UserRole[]               @relation("RoleAssigner")
+  refreshTokens       RefreshToken[]
+  passwordResets      PasswordResetToken[]
+  emailVerifications  EmailVerificationToken[]
+  notifications       Notification[]
+  auditLogs           AuditLog[]
+  serviceRequests     ServiceRequest[]         @relation("ServiceRequestOwner")
+  assignedRequests    ServiceRequest[]         @relation("ServiceRequestAssignee")
+  files               FileObject[]
+  tickets             Ticket[]                 @relation("TicketOwner")
+  assignedTickets     Ticket[]                 @relation("TicketAssignee")
+  orders              Order[]
+  assumptionTemplates AssumptionTemplate[]     @relation("AssumptionTemplateOwner")
 
   @@map("users")
 }
@@ -715,4 +716,25 @@ model TicketMessage {
 
   @@index([ticketId, createdAt])
   @@map("ticket_messages")
+}
+
+// ───────────────────────────── Financial model ─────────────────────────────
+
+/// Personal set of assumptions (ST-34.01). Only its owner sees it; it is copied into a project on the
+/// owner's request and never applied automatically. The platform ships no templates (no economic defaults).
+model AssumptionTemplate {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  ownerId     String   @db.Uuid
+  name        String
+  description String?
+  /// Assumption[] validated by assumptionTemplateSchema (@roshd/validation): key, label, unit, value or
+  /// per-period path, source, as-of date. Amounts are decimal strings.
+  assumptions Json
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  owner User @relation("AssumptionTemplateOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@index([ownerId, updatedAt])
+  @@map("assumption_templates")
 }
