@@ -4,6 +4,10 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+
+- `@roshd/financial-engine` (ST-33.01, ADR-0009 accepted): pure workspace package for the COMFAR-compatible financial engine — `decimal.js` with 34 significant digits, decimal strings at every boundary, half-even rounding for display only, lint rules and tests that keep binary floating point, frameworks and I/O out, `MODEL_VERSION`, and result types that carry warnings and the COMFAR defaults used. The API's `FinancialCalculator` port now re-exports these types.
+
 ## [0.3.0] - 2026-10-02 — UI v2 "Copper & Graphite"
 
 ### Changed

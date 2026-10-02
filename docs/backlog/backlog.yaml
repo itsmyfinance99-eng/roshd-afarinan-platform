@@ -1913,6 +1913,7 @@ epics:
     goal: 'کتابخانه محاسبات مالی دقیق، خالص و نسخه‌دار که در API و مرورگر یکسان اجرا شود.'
     stories:
       - id: ST-33.01
+        status: done
         title: 'ADR-0009 و بسته @roshd/financial-engine با راهبرد دقت اعشاری'
         sprint: S13
         points: 5

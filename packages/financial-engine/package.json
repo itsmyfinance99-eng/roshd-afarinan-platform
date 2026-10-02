@@ -1,0 +1,35 @@
+{
+  "name": "@roshd/financial-engine",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Deterministic, COMFAR-compatible financial and economic calculations (ADR-0009). Pure TypeScript, no I/O.",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsc -p tsconfig.build.json --watch --preserveWatchOutput",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@roshd/eslint-config": "workspace:*",
+    "@roshd/tsconfig": "workspace:*",
+    "@types/node": "^24.13.6",
+    "eslint": "^9.39.5",
+    "typescript": "~5.9.3",
+    "vitest": "^4.1.11"
+  },
+  "dependencies": {
+    "decimal.js": "^10.6.0"
+  }
+}

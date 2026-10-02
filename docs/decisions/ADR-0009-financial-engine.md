@@ -1,6 +1,6 @@
 # ADR-0009: Financial engine and project financial model
 
-- Status: Proposed
+- Status: Accepted (2026-10-02, ST-33.01)
 - Date: 2026-10-02
 
 ## Context
