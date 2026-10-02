@@ -140,9 +140,9 @@ Tick an item only when it is implemented and checked in the browser (desktop and
 
 ### Verification
 
-- [ ] `pnpm verify` green; Playwright e2e + axe (no serious/critical, heading order) green
-- [ ] Contrast spot-checks on dark and paper
-- [ ] Screenshots desktop/mobile compared with the prototype
+- [x] `pnpm verify` green; Playwright e2e + axe (no serious/critical, heading order) green (CI on #220; local Playwright 375 passed)
+- [x] Contrast spot-checks on dark and paper (QA audit 2026-10-01)
+- [x] Screenshots desktop/tablet/mobile compared with the prototype (QA audit 2026-10-01)
 
 ## Update workflow
 
