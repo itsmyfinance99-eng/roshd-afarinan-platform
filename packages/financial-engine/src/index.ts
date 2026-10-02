@@ -41,3 +41,4 @@ export {
   type DiscountingOptions,
   type TimedSeries,
 } from './time-value';
+export { irr, mirr, signChanges, type IrrOptions, type MirrOptions } from './irr';
