@@ -1,4 +1,17 @@
 import type { DecimalString } from './decimal';
+import type {
+  benefitCostRatio,
+  breakEven,
+  debtServiceCoverage,
+  discountedPaybackPeriod,
+  loanLifeCoverage,
+  npvRatio,
+  paybackPeriod,
+  productBreakEven,
+  wacc,
+} from './indicators';
+import type { irr, mirr } from './irr';
+import type { npv } from './time-value';
 
 /** ISO 4217 code, e.g. "IRR", "USD", "EUR". Projects may define any currency (COMFAR VII.I). */
 export type CurrencyCode = string;
@@ -50,43 +63,23 @@ export interface CalculationResult<T> {
 }
 
 /**
- * Indicator contract (port) shared with the API (`apps/api/src/modules/financial-engine`).
- * Implemented by ST-33.02 … ST-33.04; signatures may still grow there.
+ * Calculator contract (port) shared with the API (`apps/api/src/modules/financial-engine`). It is
+ * derived from the implemented functions, so the port cannot drift from the engine.
  */
 export interface FinancialCalculator {
   readonly modelVersion: string;
-  npv(
-    series: CashFlowSeries,
-    discountRatePerPeriod: DecimalString,
-  ): CalculationResult<DecimalString>;
-  /** Undefined when no IRR exists; every root found is reported when there are several. */
-  irr(series: CashFlowSeries): CalculationResult<DecimalString | undefined>;
-  mirr(
-    series: CashFlowSeries,
-    financeRate: DecimalString,
-    reinvestRate: DecimalString,
-  ): CalculationResult<DecimalString | undefined>;
-  paybackPeriod(series: CashFlowSeries): CalculationResult<DecimalString | undefined>;
-  discountedPaybackPeriod(
-    series: CashFlowSeries,
-    discountRatePerPeriod: DecimalString,
-  ): CalculationResult<DecimalString | undefined>;
-  dscr(
-    operatingCashFlow: DecimalString,
-    debtService: DecimalString,
-  ): CalculationResult<DecimalString | undefined>;
-  breakEvenUnits(
-    fixedCosts: DecimalString,
-    pricePerUnit: DecimalString,
-    variableCostPerUnit: DecimalString,
-  ): CalculationResult<DecimalString | undefined>;
-  wacc(input: {
-    equity: DecimalString;
-    debt: DecimalString;
-    costOfEquity: DecimalString;
-    costOfDebt: DecimalString;
-    taxRate: DecimalString;
-  }): CalculationResult<DecimalString>;
+  npv: typeof npv;
+  irr: typeof irr;
+  mirr: typeof mirr;
+  paybackPeriod: typeof paybackPeriod;
+  discountedPaybackPeriod: typeof discountedPaybackPeriod;
+  npvRatio: typeof npvRatio;
+  benefitCostRatio: typeof benefitCostRatio;
+  breakEven: typeof breakEven;
+  productBreakEven: typeof productBreakEven;
+  debtServiceCoverage: typeof debtServiceCoverage;
+  loanLifeCoverage: typeof loanLifeCoverage;
+  wacc: typeof wacc;
 }
 
 export interface SensitivityRequest {

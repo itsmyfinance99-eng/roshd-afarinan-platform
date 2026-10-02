@@ -170,7 +170,7 @@ Default as in COMFAR (owner decision, 2026-10-02): automatic local equity covers
    - Projected balance sheet (current assets by item, fixed assets net of depreciation, accumulated losses; liabilities, debt, equity, reserves, revaluation and exchange adjustments) — must balance (test).
 7. **Evaluation and ratios** – financial ratios (long-term debt to net worth, current ratio, cash flow to debt, debtors to creditors, debt-service coverage) and efficiency ratios; break-even analysis.
 
-### 5.1 Indicator definitions for ST-33.04 (manual X.C.6, read 2026-10-02, not implemented yet)
+### 5.1 Indicator definitions (manual X.C.6–7; implemented in ST-33.04)
 
 - **Normal payback period:** duration until, and date of, the first period in which the cumulative net cash flow becomes positive.
 - **Dynamic payback period:** the same on the cumulative net present value (discounted at the project discount rate).
@@ -184,6 +184,20 @@ Default as in COMFAR (owner decision, 2026-10-02): automatic local equity covers
 - **Debt-service coverage:** `CF_j / DS_j`, where `CF_j` = surplus of the financial-planning cash flow + repayment + interest + other financial costs, and `DS_j` = repayment + interest + other financial costs (long-term loans).
 
 A ratio that cannot be computed is shown as "not calculable" with a reason, **not** as zero (deviation from COMFAR, which prints zero).
+
+**Implementation rules (ST-33.04, `packages/financial-engine/src/indicators.ts`).** Where the manual leaves a detail open, the engine does the following; each point is covered by a unit test.
+
+- **Payback, both kinds:** time is measured in months from the start of the planning horizon. The result gives COMFAR's payback period (the first period whose cumulative amount is positive) and its date (end of that period), plus an interpolated duration: the point inside that period where the cumulative amount crosses zero, assuming the period's amount accrues evenly. The interpolation is our extension (COMFAR books flows at period end); reports label it.
+- The cumulative amount must have been negative before it turns positive; a series that is never negative has no payback (`payback.noInvestment`). A cumulative of exactly zero is not yet recovered. If the cumulative falls to zero or below again later (e.g. a replacement investment), the first payback is kept, as in COMFAR, and a warning names the period.
+- **Dynamic payback** uses the project discount rate (or rate path). The discount reference date scales every present value by the same positive constant, so it cannot move the payback and is not an input.
+- **NPVR:** the caller supplies the cash-flow series of the total capital invested and the investment per period `I_j = FI_j + PPN_j + IWC_j` (positive amounts), over the project periods plus the salvage period. PVI ≤ 0 makes the ratio "not calculable". The ratio does not depend on the reference date; NPV and PVI do, and the result reports the default.
+- **Profitability index** (not a COMFAR output) = PV of the net cash flow before investment / PVI = `1 + NPVR`. **Benefit-cost ratio** (not a COMFAR output) = PV of benefits / PV of costs, discounted like the NPV.
+- **Break-even, all products:** inputs per production period are sales revenue, variable costs, fixed costs excluding interest and interest (all from the schedules, adjusted for finished-goods stock). Both variants (including and excluding costs of finance) are returned. With planned sales per product the mix is held constant, so every product breaks even at the same share of its planned sales (break-even ratio × planned volume and revenue). The product revenues must add up to the period's sales revenue.
+- **Break-even, each product** (COMFAR, with cost allocation): constant-price analysis (break-even value, volume at the average unit price, ratio to planned volume) and constant-volume analysis (break-even price = (fixed + variable costs) / planned volume, ratio to the average price). The caller decides which fixed costs the product must cover (COMFAR: excluding interest).
+- **DSCR** per period as above; periods without debt service have no ratio (not zero), and the result names the period with the lowest ratio.
+- **LLCR** (project-finance practice, not a COMFAR output): for every period with long-term debt outstanding at its start, the present value at that date of the cash available for debt service (`CF_j` above) up to the last period with debt outstanding, divided by the opening debt. The discount rate is entered by the user (usually the loans' interest rate); there is no default.
+- **WACC** (helper for choosing a discount rate, never applied automatically): `Σ w_i × k_i` over equity and debt sources, debt after tax `k × (1 − t)`; tax rate in [0, 1).
+- Ratios are decimal fractions ("0.625" = 62.5 %). Every warning and input-error code has a Persian message in `src/messages.ts`; a test fails when a new code has none.
 
 ## 6. Economic analysis (VIII, XII, X.D) — EPIC-37
 

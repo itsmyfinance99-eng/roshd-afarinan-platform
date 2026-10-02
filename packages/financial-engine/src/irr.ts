@@ -1,6 +1,11 @@
 import { Decimal, ONE, ZERO, toDecimal, toDecimalString, type DecimalString } from './decimal';
 import { EngineInputError } from './errors';
-import { DEFAULT_DISCOUNT_REFERENCE, type DiscountReference, type TimedSeries } from './time-value';
+import {
+  DEFAULT_DISCOUNT_REFERENCE,
+  assertTimedSeries,
+  type DiscountReference,
+  type TimedSeries,
+} from './time-value';
 import type { CalculationResult, CalculationWarning, DefaultUsed } from './types';
 import { MODEL_VERSION } from './version';
 
@@ -30,18 +35,7 @@ interface PreparedSeries {
 }
 
 function prepare(series: TimedSeries, salvageValue?: DecimalString): PreparedSeries {
-  if (series.amounts.length !== series.periodMonths.length) {
-    throw new EngineInputError('series.lengthMismatch', 'amounts', {
-      expected: String(series.periodMonths.length),
-      actual: String(series.amounts.length),
-    });
-  }
-  if (series.amounts.length === 0) throw new EngineInputError('series.empty', 'amounts');
-  series.periodMonths.forEach((m, i) => {
-    if (!Number.isInteger(m) || m <= 0) {
-      throw new EngineInputError('period.lengthNotPositiveInteger', `periodMonths[${i}]`);
-    }
-  });
+  assertTimedSeries(series);
   return {
     months: series.periodMonths,
     amounts: series.amounts.map((a) => toDecimal(a)),
