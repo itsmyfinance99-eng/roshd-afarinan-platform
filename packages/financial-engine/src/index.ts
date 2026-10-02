@@ -101,4 +101,19 @@ export {
   type ForeignLoanPeriod,
   type RelativeInflationInput,
 } from './indexation';
+export {
+  defaultFirstRepaymentDay,
+  loanPeriods,
+  loanSchedule,
+  sumLoanPeriods,
+  type LoanEvent,
+  type LoanEventKind,
+  type LoanFees,
+  type LoanFlow,
+  type LoanInput,
+  type LoanPeriod,
+  type LoanRate,
+  type LoanSchedule,
+  type LoanType,
+} from './loans';
 export { financialCalculator } from './calculator';

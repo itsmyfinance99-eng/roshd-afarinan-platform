@@ -21,6 +21,7 @@ import {
   wacc,
 } from './indicators';
 import { irr, mirr } from './irr';
+import { loanPeriods, loanSchedule, sumLoanPeriods } from './loans';
 import { npv } from './time-value';
 import type { FinancialCalculator } from './types';
 import { MODEL_VERSION } from './version';
@@ -50,4 +51,7 @@ export const financialCalculator: FinancialCalculator = {
   derivedExchangeRates,
   convertCurrency,
   foreignLoanToLocal,
+  loanSchedule,
+  loanPeriods,
+  sumLoanPeriods,
 };

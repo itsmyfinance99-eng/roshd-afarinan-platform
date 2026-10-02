@@ -26,6 +26,26 @@ export const ENGINE_MESSAGES_FA = {
   'index.baseOutOfRange': 'سال پایه شاخص خارج از بازه سال‌های واردشده است.',
   'exchangeRate.notPositive': 'نرخ ارز باید بیشتر از صفر باشد.',
   'loan.negativeBalance': 'بازپرداخت از مانده تسهیلات بیشتر است.',
+  'rate.negative': 'نرخ نمی‌تواند منفی باشد.',
+  'loan.dayInvalid': 'تاریخ باید روزی در افق طرح (حداکثر صد سال) باشد.',
+  'loan.notMonthEnd': 'این تاریخ باید آخرین روز یک ماه باشد.',
+  'loan.repaymentMonths': 'فاصله بازپرداخت باید ماهانه، سه‌ماهه، شش‌ماهه یا سالانه باشد.',
+  'loan.noDisbursement': 'برای تسهیلات هیچ برداشتی وارد نشده است.',
+  'loan.rateMissing': 'نرخ سود تسهیلات از تاریخ اولین برداشت وارد نشده است.',
+  'loan.ratesNotAscending': 'تاریخ‌های شروع نرخ سود باید به ترتیب و بدون تکرار باشند.',
+  'loan.capitaliseUntilRequired':
+    'برای سود انباشته (سرمایه‌ای)، آخرین تاریخ انباشت سود را وارد کنید.',
+  'loan.capitaliseAfterFirstRepayment': 'انباشت سود باید پیش از تاریخ اولین قسط پایان یابد.',
+  'loan.interestDueDayRequired': 'برای تسهیلات با جدول دلخواه، ماه پرداخت سود را وارد کنید.',
+  'loan.horizonEndRequired': 'برای تسهیلات با جدول دلخواه، پایان افق طرح لازم است.',
+  'loan.flowOutsideHorizon': 'این برداشت یا بازپرداخت بعد از پایان افق طرح است.',
+  'loan.numberOfRepayments': 'تعداد اقساط باید عدد صحیح از ۱ تا ۱۲۰۰ باشد.',
+  'loan.firstRepaymentRequired':
+    'تاریخ اولین قسط یا پایان دوره ساخت را وارد کنید تا تاریخ پیش‌فرض COMFAR محاسبه شود.',
+  'loan.flowAfterDisbursementPhase':
+    'برداشت یا بازپرداخت بعد از پایان دوره برداشت مجاز نیست؛ تاریخ اولین قسط را دیرتر کنید.',
+  'loan.capitalisedShare': 'سهم سود انباشته باید از صفر تا ۱۰۰ درصد باشد.',
+  'loan.periodsNotAscending': 'پایان دوره‌ها باید به ترتیب صعودی باشد.',
 
   // Warnings: a value that does not exist or cannot be computed
   'irr.noSignChange': 'جریان نقدی تغییر علامت ندارد؛ نرخ بازده داخلی وجود ندارد.',
@@ -50,6 +70,10 @@ export const ENGINE_MESSAGES_FA = {
   'dscr.noDebtService':
     'در هیچ دوره‌ای خدمت بدهی بلندمدت وجود ندارد؛ نسبت پوشش خدمت بدهی قابل محاسبه نیست.',
   'llcr.noDebt': 'بدهی بلندمدت باقی‌مانده‌ای وجود ندارد؛ نسبت پوشش عمر وام قابل محاسبه نیست.',
+  'loan.beyondHorizon': 'بخشی از بازپرداخت تسهیلات بعد از پایان افق طرح است.',
+  'loan.notRepaid': 'تسهیلات تا پایان افق طرح تسویه نمی‌شود؛ مانده: {balance}.',
+  'loan.interestAfterHorizon':
+    'سود و کارمزد انباشته‌ای ({amount}) بعد از آخرین سررسید پرداخت سود باقی می‌ماند.',
 } as const satisfies Record<string, string>;
 
 export type EngineMessageCode = keyof typeof ENGINE_MESSAGES_FA;
