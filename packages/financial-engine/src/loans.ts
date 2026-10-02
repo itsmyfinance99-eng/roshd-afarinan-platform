@@ -263,6 +263,9 @@ export function loanSchedule(input: LoanInput): CalculationResult<LoanSchedule> 
       first = defaultFirstRepaymentDay(lastFlow, input.constructionEndDay, input.repaymentMonths);
       defaultsUsed.push({ key: 'loan.firstRepaymentDate', value: String(first) });
     }
+    if (input.firstRepaymentDay === undefined && first > MAX_DAY) {
+      throw new EngineInputError('loan.dayInvalid', 'flows');
+    }
     monthEnd(first, 'firstRepaymentDay');
     const until = input.type === 'ANNUITY' ? first - period : first - 1;
     flows.forEach((f, i) => {
@@ -454,7 +457,8 @@ const PERIOD_FIELDS: Record<LoanEventKind, keyof LoanPeriod> = {
 /**
  * Sums a schedule into project periods (flows on the last day of a period belong to it).
  * `periodEndDays` are the last day indices of the periods, ascending. Events after the last period
- * are left out with a warning.
+ * are left out with a warning. Events of one day must stay in the schedule's order (as
+ * `loanSchedule` returns them); events of different days may come in any order.
  */
 export function loanPeriods(
   schedule: Pick<LoanSchedule, 'events'>,
@@ -473,9 +477,13 @@ export function loanPeriods(
     capitalisedInterest: ZERO,
     interest: ZERO,
     fees: ZERO,
+    closing: undefined as Decimal | undefined,
   }));
   const warnings: CalculationWarning[] = [];
   let p = 0;
+  // Stable sort by day only: within a day the schedule's own order is kept, so the last event of a
+  // period carries its closing balance. The balance is taken from the schedule, never re-added
+  // from rounded sums (a residue in the 34th digit would leave a repaid loan "outstanding").
   const events = [...schedule.events].sort((a, b) => a.day - b.day);
   for (const e of events) {
     while (p < periodEndDays.length && e.day > (periodEndDays[p] ?? 0)) p++;
@@ -484,14 +492,14 @@ export function loanPeriods(
       if (warnings.length === 0) warnings.push({ code: 'loan.beyondHorizon' });
       continue;
     }
-    const field = PERIOD_FIELDS[e.kind] as keyof (typeof sums)[number];
+    const field = PERIOD_FIELDS[e.kind] as keyof Omit<(typeof sums)[number], 'closing'>;
     target[field] = target[field].plus(e.amount);
+    target.closing = toDecimal(e.balance);
   }
   let balance = ZERO;
   const value = sums.map((s): LoanPeriod => {
     const opening = balance;
-    // From the flows, not from an event's balance: same-day events may come in any order.
-    balance = balance.plus(s.disbursement).plus(s.capitalisedInterest).minus(s.repayment);
+    balance = s.closing ?? balance;
     return {
       openingBalance: toDecimalString(opening),
       disbursement: toDecimalString(s.disbursement),

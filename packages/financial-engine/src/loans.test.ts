@@ -316,17 +316,19 @@ describe('loanSchedule: profile', () => {
     expect(loanSchedule(withLateRate).warnings).toEqual(expected);
   });
 
-  it('runs due dates from an anchor that is not next to the first flow', () => {
+  it('runs due dates back from an anchor several periods after the first flow', () => {
     const { value } = loanSchedule({
       ...profile,
-      flows: profile.flows
-        .slice(1)
-        .concat([{ day: 200, amount: '1000' }])
-        .sort((a, b) => a.day - b.day)
-        .map((f) => (f.day === 400 ? { day: 400, amount: '-400' } : f)),
+      repaymentMonths: 6,
+      interestDueDay: 1080,
+      flows: [
+        { day: 200, amount: '1000' },
+        { day: 700, amount: '-1000' },
+      ],
     });
+    // Back from 1080 in steps of 180 to the first date after day 200: 360, then 540, 720 …
     expect(value.events.filter((e) => e.kind === 'INTEREST_PAID').map((e) => e.day)).toEqual([
-      360, 720,
+      360, 540, 720,
     ]);
   });
 
@@ -455,10 +457,51 @@ describe('loanPeriods', () => {
     firstRepaymentDay: 720,
   }).value;
 
-  it('does not depend on the order of the events', () => {
+  it('does not depend on the order of the days', () => {
     const ends = [360, 720, 1080, 1440];
-    const reversed = { events: [...schedule.events].reverse() };
-    expect(loanPeriods(reversed, ends).value).toEqual(loanPeriods(schedule, ends).value);
+    // Reverse the days but keep each day's events in schedule order.
+    const days = [...new Set(schedule.events.map((e) => e.day))].reverse();
+    const shuffled = days.flatMap((day) => schedule.events.filter((e) => e.day === day));
+    expect(loanPeriods({ events: shuffled }, ends).value).toEqual(
+      loanPeriods(schedule, ends).value,
+    );
+  });
+
+  it('closes repaid periods at exactly zero with rial-sized amounts', () => {
+    for (const type of ['ANNUITY', 'CONSTANT_PRINCIPAL'] as const) {
+      for (const repaymentMonths of [1, 3, 6, 12] as const) {
+        for (const capitalisedShare of ['0', '0.4', '1']) {
+          const big = loanSchedule({
+            type,
+            repaymentMonths,
+            flows: [
+              { day: 17, amount: '123456789123.12' },
+              { day: 333, amount: '98765432987.1' },
+              { day: 500, amount: '-1000000' },
+            ],
+            rates: [
+              { fromDay: 1, rate: '0.18' },
+              { fromDay: 400, rate: '0.235' },
+              { fromDay: 1200, rate: '0.2' },
+            ],
+            capitalisedShare,
+            capitaliseUntilDay: 600,
+            numberOfRepayments: 7,
+            firstRepaymentDay: 720 + repaymentMonths * 30,
+          }).value;
+          // Ten yearly periods: the longest schedule here (yearly, 7 instalments) ends on day 3240.
+          const ends = Array.from({ length: 10 }, (_, i) => 360 * (i + 1));
+          const periods = loanPeriods(big, ends).value;
+          const label = `${type} ${repaymentMonths} ${capitalisedShare}`;
+          expect(periods.at(-1)?.closingBalance, label).toBe('0');
+          // Every period ends at the schedule's own balance on its last event.
+          for (const [i, end] of ends.entries()) {
+            const last = big.events.filter((e) => e.day <= end).at(-1);
+            expect(periods[i]?.closingBalance, `${label} ${end}`).toBe(last?.balance ?? '0');
+          }
+        }
+      }
+    }
   });
 
   it('warns about events after the last period', () => {
