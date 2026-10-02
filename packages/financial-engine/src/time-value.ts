@@ -90,6 +90,18 @@ export interface DiscountingOptions {
   salvageValue?: DecimalString;
 }
 
+/** Checks a series' shape: at least one period, one amount per period, whole positive months. */
+export function assertTimedSeries(series: TimedSeries): void {
+  if (series.amounts.length !== series.periodMonths.length) {
+    throw new EngineInputError('series.lengthMismatch', 'amounts', {
+      expected: String(series.periodMonths.length),
+      actual: String(series.amounts.length),
+    });
+  }
+  if (series.amounts.length === 0) throw new EngineInputError('series.empty', 'amounts');
+  series.periodMonths.forEach((m, i) => assertMonths(m, `periodMonths[${i}]`));
+}
+
 function ratePerPeriod(annualRate: DecimalString | DecimalString[], periods: number): Decimal[] {
   if (typeof annualRate === 'string') {
     const rate = toDecimal(annualRate);
@@ -163,13 +175,7 @@ export function npv(
   series: TimedSeries,
   options: DiscountingOptions,
 ): CalculationResult<DecimalString> {
-  if (series.amounts.length !== series.periodMonths.length) {
-    throw new EngineInputError('series.lengthMismatch', 'amounts', {
-      expected: String(series.periodMonths.length),
-      actual: String(series.amounts.length),
-    });
-  }
-  if (series.amounts.length === 0) throw new EngineInputError('series.empty', 'amounts');
+  assertTimedSeries(series);
   const factors = periodDiscountFactors(series.periodMonths, options);
   let total = ZERO;
   series.amounts.forEach((amount, i) => {
