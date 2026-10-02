@@ -17,6 +17,7 @@ export const ENGINE_MESSAGES_FA = {
   'series.lengthMismatch': 'تعداد مقادیر ({actual}) با تعداد دوره‌ها ({expected}) برابر نیست.',
   'wacc.noCapital': 'جمع منابع تأمین مالی باید بیشتر از صفر باشد.',
   'depreciation.firstYearMonths': 'تعداد ماه‌های سال اول استهلاک باید عددی صحیح از ۱ تا ۱۲ باشد.',
+  'depreciation.lifeTooLong': 'عمر استهلاک حداکثر {max} ماه است.',
   'depreciation.rateRequired': 'برای روش نزولی، نرخ استهلاک را وارد کنید.',
   'depreciation.rateOutOfRange': 'نرخ استهلاک نزولی باید بیشتر از صفر و حداکثر ۱۰۰ درصد باشد.',
   'index.notPositive': 'شاخص یا ضریب تعدیل باید بیشتر از صفر باشد.',

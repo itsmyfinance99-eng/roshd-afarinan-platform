@@ -12,7 +12,9 @@ const total = (input: DepreciationInput) =>
     .toFixed();
 
 // Reference values: Python `decimal`, written from the manual's formulas (XI.H) independently of
-// this engine's algorithm (e.g. the `M = integral part of …` form for the linear methods).
+// this engine's algorithm (e.g. the `M = integral part of …` form for the linear methods). Where the
+// printed formulas are inconsistent (declining-balance remaining life, the shifted sum-of-years-digits
+// cases) the references apply the rules recorded in comfar-model-spec §4.4.1.
 describe('depreciationSchedule (COMFAR XI.H)', () => {
   it('linear to scrap with a partial first year writes the remainder off in year M + 1', () => {
     const input: DepreciationInput = {
@@ -89,6 +91,19 @@ describe('depreciationSchedule (COMFAR XI.H)', () => {
     expect(value.years.map((y) => y.depreciation)).toEqual(['400', '240', '144', '108', '108']);
     expect(value.switchedToLinearInYear).toBe(3);
     expect(value.years).toHaveLength(5); // the full life of five years
+  });
+
+  it('declining balance writes a life within the first year off in that year', () => {
+    const { value } = depreciationSchedule({
+      method: 'DECLINING_BALANCE',
+      initialBookValue: '1000',
+      lifeMonths: 12,
+      salvageRate: '0',
+      firstYearMonths: 12,
+      decliningRate: '0.4',
+    });
+    expect(value.years).toEqual([{ year: 0, depreciation: '1000', bookValue: '0' }]);
+    expect(value.switchedToLinearInYear).toBeUndefined();
   });
 
   it('declining balance with a partial first year and salvage', () => {
@@ -212,6 +227,11 @@ describe('depreciationSchedule (COMFAR XI.H)', () => {
           expect(residue.lt('1e-20'), `${label}: ${residue.toFixed()}`).toBe(true);
           expect(value.years.at(-1)?.bookValue, label).toBe('6172839.4625');
           for (const y of value.years) expect(toDecimal(y.depreciation).gte(0), label).toBe(true);
+          // The schedule spans exactly the life: the first year plus whole years for the rest.
+          const rest = lifeMonths - firstYearMonths;
+          const years = rest <= 0 ? 1 : 1 + (rest - (rest % 12)) / 12 + (rest % 12 === 0 ? 0 : 1);
+          if (method !== 'LINEAR_TO_ZERO') expect(value.years, label).toHaveLength(years);
+          else expect(value.years.length, label).toBeLessThanOrEqual(years);
         }
       }
     }
@@ -236,22 +256,37 @@ describe('depreciationSchedule (COMFAR XI.H)', () => {
       salvageRate: '0',
       firstYearMonths: 12,
     };
-    const invalid: Partial<DepreciationInput>[] = [
-      { initialBookValue: '-1' },
-      { lifeMonths: 0 },
-      { lifeMonths: 2.5 },
-      { firstYearMonths: 0 },
-      { firstYearMonths: 13 },
-      { salvageRate: '1' },
-      { salvageRate: '-0.1' },
-      { method: 'DECLINING_BALANCE' },
-      { method: 'DECLINING_BALANCE', decliningRate: '0' },
-      { method: 'DECLINING_BALANCE', decliningRate: '1.5' },
+    const invalid: [Partial<DepreciationInput>, string, string][] = [
+      [{ initialBookValue: '-1' }, 'amount.negative', 'initialBookValue'],
+      [{ lifeMonths: 0 }, 'period.lengthNotPositiveInteger', 'lifeMonths'],
+      [{ lifeMonths: 2.5 }, 'period.lengthNotPositiveInteger', 'lifeMonths'],
+      [{ lifeMonths: 1201 }, 'depreciation.lifeTooLong', 'lifeMonths'],
+      [{ firstYearMonths: 0 }, 'depreciation.firstYearMonths', 'firstYearMonths'],
+      [{ firstYearMonths: 13 }, 'depreciation.firstYearMonths', 'firstYearMonths'],
+      [{ salvageRate: '1' }, 'rate.notInUnitInterval', 'salvageRate'],
+      [{ salvageRate: '-0.1' }, 'rate.notInUnitInterval', 'salvageRate'],
+      [{ method: 'DECLINING_BALANCE' }, 'depreciation.rateRequired', 'decliningRate'],
+      [
+        { method: 'DECLINING_BALANCE', decliningRate: '0' },
+        'depreciation.rateOutOfRange',
+        'decliningRate',
+      ],
+      [
+        { method: 'DECLINING_BALANCE', decliningRate: '1.5' },
+        'depreciation.rateOutOfRange',
+        'decliningRate',
+      ],
     ];
-    for (const change of invalid) {
-      expect(() => depreciationSchedule({ ...base, ...change }), JSON.stringify(change)).toThrow(
-        EngineInputError,
-      );
+    for (const [change, code, field] of invalid) {
+      let error: unknown;
+      try {
+        depreciationSchedule({ ...base, ...change });
+      } catch (e) {
+        error = e;
+      }
+      expect(error, JSON.stringify(change)).toBeInstanceOf(EngineInputError);
+      expect((error as EngineInputError).code, JSON.stringify(change)).toBe(code);
+      expect((error as EngineInputError).field, JSON.stringify(change)).toBe(field);
     }
   });
 });

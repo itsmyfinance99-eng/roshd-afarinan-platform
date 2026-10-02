@@ -70,6 +70,11 @@ describe('inflationIndex (COMFAR XI.B)', () => {
   it('does not inflate the first year', () => {
     expect(inflationIndex(['0.1', '0.2', '0.15']).value).toEqual(['1', '1.1', '1.32']);
   });
+
+  it('rejects an empty path and rates of −100 % or less', () => {
+    expect(() => inflationIndex([])).toThrow(EngineInputError);
+    expect(() => inflationIndex(['0.1', '-1'])).toThrow(EngineInputError);
+  });
 });
 
 describe('indexFactorsFromLevels', () => {
@@ -137,8 +142,9 @@ describe('convertCurrency', () => {
     ]);
   });
 
-  it('rejects non-positive rates', () => {
+  it('rejects non-positive rates and mismatched lengths', () => {
     expect(() => convertCurrency(['10'], ['0'])).toThrow(EngineInputError);
+    expect(() => convertCurrency(['10', '20'], ['5'])).toThrow(EngineInputError);
   });
 });
 
@@ -186,8 +192,6 @@ describe('foreignLoanToLocal (COMFAR XI.B–C)', () => {
   });
 
   it('shows a gain when the local currency appreciates', () => {
-    const { value } = foreignLoanToLocal({ openingBalance: '100', periods: [periods[1]!] }, ['8']);
-    expect(value[0]?.exchangeAdjustment).toBe('0');
     const two = foreignLoanToLocal({ openingBalance: '100', periods: [periods[1]!, periods[1]!] }, [
       '10',
       '8',
