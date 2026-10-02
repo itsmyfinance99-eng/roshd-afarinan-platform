@@ -163,6 +163,19 @@ Default as in COMFAR (owner decision, 2026-10-02): automatic local equity covers
    - Projected balance sheet (current assets by item, fixed assets net of depreciation, accumulated losses; liabilities, debt, equity, reserves, revaluation and exchange adjustments) — must balance (test).
 7. **Evaluation and ratios** – financial ratios (long-term debt to net worth, current ratio, cash flow to debt, debtors to creditors, debt-service coverage) and efficiency ratios; break-even analysis.
 
+### 5.1 Indicator definitions for ST-33.04 (manual X.C.6, read 2026-10-02, not implemented yet)
+
+- **Normal payback period:** duration until, and date of, the first period in which the cumulative net cash flow becomes positive.
+- **Dynamic payback period:** the same on the cumulative net present value (discounted at the project discount rate).
+- **NPV ratio (NPVR):** `NPV / PVI`, where `PVI` is the present value of total investment per period `I_j = FI_j + PPN_j + IWC_j` (fixed investment + pre-production expenditures + increment of net working capital), over the project periods plus the salvage period.
+- **Break-even (per production period, total and per product when cost allocation is active):**
+  - variable margin = sales revenue − variable costs; variable margin ratio = margin / revenue;
+  - including costs of finance: break-even sales value = (fixed costs excluding interest + interest) / variable margin ratio;
+  - excluding costs of finance: break-even sales value = fixed costs excluding interest / variable margin ratio;
+  - break-even ratio (% of capacity utilisation) = break-even sales value / sales revenue × 100;
+  - fixed-cost coverage ratio = variable margin / (fixed costs [+ financial costs]).
+- **Debt-service coverage:** `CF_j / DS_j`, where `CF_j` = surplus of the financial-planning cash flow + repayment + interest + other financial costs, and `DS_j` = repayment + interest + other financial costs (long-term loans).
+
 A ratio that cannot be computed is shown as "not calculable" with a reason, **not** as zero (deviation from COMFAR, which prints zero).
 
 ## 6. Economic analysis (VIII, XII, X.D) — EPIC-37
