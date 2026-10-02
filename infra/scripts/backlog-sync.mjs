@@ -8,7 +8,8 @@
  *
  * Issues are matched by the hidden marker `<!-- backlog-id: ID -->` in the body,
  * so titles may be edited on GitHub without creating duplicates.
- * A story with `status: done` in backlog.yaml is closed on GitHub.
+ * A story with `status: done` (or `superseded`) in backlog.yaml is closed on GitHub.
+ * `needs: [OQ-xx]` adds the `needs:decision` label; `depends: [ST-xx]` is listed in the body.
  */
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
@@ -172,7 +173,10 @@ function upsertIssue({ id, title, body, labels, milestone, closed }) {
   return current;
 }
 
-const phaseLabel = (phase) => (phase === 0 || phase === 1 ? `phase:${phase}` : 'phase:future');
+const phaseLabel = (phase) => ([0, 1, 2, 3, 4].includes(phase) ? `phase:${phase}` : 'phase:future');
+/** A milestone may declare `phase`, so a story moved into a later sprint gets that phase's label. */
+const sprintPhase = new Map(backlog.milestones.map((m) => [m.key, m.phase]));
+const isClosed = (story) => story.status === 'done' || story.status === 'superseded';
 const dodLink = 'docs/product/implementation-plan.md (بخش ۶ — Definition of Done)';
 
 // 1) epics first (without the story checklist), so stories can reference them
@@ -199,6 +203,11 @@ for (const epic of backlog.epics) {
       '### User story',
       story.story,
       '',
+      ...(story.depends?.length ? [`**Depends on:** ${story.depends.join('، ')}`] : []),
+      ...(story.needs?.length
+        ? [`**Blocked by decision:** ${story.needs.join('، ')} (docs/product/open-questions.md)`]
+        : []),
+      '',
       '### Acceptance criteria',
       ...story.acceptance.map((a) => `- [${story.status === 'done' ? 'x' : ' '}] ${a}`),
       '',
@@ -208,8 +217,11 @@ for (const epic of backlog.epics) {
     const labels = [
       'type:story',
       `priority:${story.priority}`,
-      phaseLabel(story.sprint?.startsWith('P') ? 'future' : epic.phase),
+      phaseLabel(
+        sprintPhase.get(story.sprint) ?? (story.sprint?.startsWith('P') ? 'future' : epic.phase),
+      ),
       ...(story.area ?? []).map((a) => `area:${a}`),
+      ...(story.needs?.length ? ['needs:decision'] : []),
     ];
     upsertIssue({
       id: story.id,
@@ -217,7 +229,7 @@ for (const epic of backlog.epics) {
       body,
       labels,
       milestone,
-      closed: story.status === 'done',
+      closed: isClosed(story),
     });
   }
 }
@@ -228,7 +240,7 @@ for (const epic of backlog.epics) {
   if (!epicIssue) continue;
   const lines = epic.stories.map((s) => {
     const issue = existingIssues.get(s.id);
-    const done = s.status === 'done' ? 'x' : ' ';
+    const done = isClosed(s) ? 'x' : ' ';
     return `- [${done}] ${issue ? `#${issue.number}` : s.id} ${s.id} — ${s.title} (${s.points} pt, ${s.sprint})`;
   });
   const totalPoints = epic.stories.reduce((sum, s) => sum + s.points, 0);
@@ -246,7 +258,7 @@ for (const epic of backlog.epics) {
       ...lines,
     ].join('\n'),
     labels: ['type:epic', `priority:${epic.priority}`, phaseLabel(epic.phase)],
-    closed: epic.stories.every((s) => s.status === 'done'),
+    closed: epic.stories.every(isClosed),
   });
 
   if (dryRun) continue;

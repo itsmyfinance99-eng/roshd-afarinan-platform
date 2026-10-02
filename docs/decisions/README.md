@@ -9,5 +9,8 @@
 | [0005](ADR-0005-content-strategy.md)             | Content strategy                             | Accepted |
 | [0006](ADR-0006-testing-strategy.md)             | Testing strategy                             | Accepted |
 | [0007](ADR-0007-git-workflow-and-releases.md)    | Git workflow and releases                    | Accepted |
+| [0008](ADR-0008-lms-and-commerce.md)             | LMS and commerce (Phase 2)                   | Proposed |
+| [0009](ADR-0009-financial-engine.md)             | Financial engine and project financial model | Proposed |
+| [0010](ADR-0010-feasibility-platform.md)         | Feasibility platform                         | Proposed |
 
 New ADR: copy [template.md](template.md) and name it `ADR-NNNN-short-title.md`.

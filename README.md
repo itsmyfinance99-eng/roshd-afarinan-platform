@@ -3,16 +3,18 @@
 Roshd Afarinan Sanat va Madan platform, a modular, API-first platform that links
 **training → knowledge → research → feasibility → project → financing → investment → Iran Sahamdar**.
 
-|                         |                                                                                   |
-| ----------------------- | --------------------------------------------------------------------------------- |
-| Architecture            | [docs/architecture/system-overview.md](docs/architecture/system-overview.md)      |
-| Plan (phase 0/1)        | [docs/product/implementation-plan.md](docs/product/implementation-plan.md)        |
-| Backlog (EPIC → STORY)  | [docs/backlog/backlog.yaml](docs/backlog/backlog.yaml) → GitHub Issues/Milestones |
-| Decisions               | [docs/decisions](docs/decisions)                                                  |
-| Open questions          | [docs/product/open-questions.md](docs/product/open-questions.md)                  |
-| Engineering rules       | [CLAUDE.md](CLAUDE.md) · [CONTRIBUTING.md](CONTRIBUTING.md)                       |
-| UI design handoff       | [design/INTEGRATION.md](design/INTEGRATION.md)                                    |
-| Handoff / current state | [docs/HANDOFF.md](docs/HANDOFF.md)                                                |
+|                         |                                                                                          |
+| ----------------------- | ---------------------------------------------------------------------------------------- |
+| Architecture            | [docs/architecture/system-overview.md](docs/architecture/system-overview.md)             |
+| Plan (phases 4 + 3)     | [docs/product/feasibility-financial-plan.md](docs/product/feasibility-financial-plan.md) |
+| Plan (phase 2)          | [docs/product/phase-2-plan.md](docs/product/phase-2-plan.md)                             |
+| Plan (phase 0/1)        | [docs/product/implementation-plan.md](docs/product/implementation-plan.md)               |
+| Backlog (EPIC → STORY)  | [docs/backlog/backlog.yaml](docs/backlog/backlog.yaml) → GitHub Issues/Milestones        |
+| Decisions               | [docs/decisions](docs/decisions)                                                         |
+| Open questions          | [docs/product/open-questions.md](docs/product/open-questions.md)                         |
+| Engineering rules       | [CLAUDE.md](CLAUDE.md) · [CONTRIBUTING.md](CONTRIBUTING.md)                              |
+| UI design handoff       | [design/INTEGRATION.md](design/INTEGRATION.md)                                           |
+| Handoff / current state | [docs/HANDOFF.md](docs/HANDOFF.md)                                                       |
 
 ## Stack
 

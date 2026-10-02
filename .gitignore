@@ -57,3 +57,6 @@ backups/
 # The repository's own CLAUDE.md at the root is tracked and unaffected.
 apps/web/AGENTS.md
 apps/web/CLAUDE.md
+
+# Licensed third-party reference material (e.g. COMFAR III manual) — local only, never committed
+/references/

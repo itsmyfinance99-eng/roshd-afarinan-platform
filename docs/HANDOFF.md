@@ -1,21 +1,33 @@
-# Handoff note — 2026-10-02
+# Handoff note — 2026-10-02 (updated after v0.3.0)
 
 A snapshot for whoever (person or agent) picks the project up next. Engineering rules live in [CLAUDE.md](../CLAUDE.md); this note only records state, context and gotchas that the code and git history do not show.
 
 ## Where things stand
 
-| Item      | State                                                                                                                                                              |
-| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `main`    | Release **v0.3.0** (UI v2 "Copper & Graphite", 2026-10-02). Tags `v0.1.0`, `v0.2.0`, `v0.3.0`, each with a GitHub Release.                                         |
-| `develop` | Same content as `main` right after the release.                                                                                                                    |
-| Backlog   | Every Phase 1 story is closed. The remaining open issues (about 43) are Phase 2+ stories, epics and `needs:decision` questions.                                    |
-| Open PRs  | None.                                                                                                                                                              |
-| Releases  | `develop` → `main` with a merge commit, a SemVer tag and a GitHub Release from the CHANGELOG section (ADR-0007). Each release needs the owner's explicit approval. |
+| Item      | State                                                                                                                                                                                                                                                            |
+| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `main`    | Release **v0.3.0** (UI v2 "Copper & Graphite", 2026-10-02). Tags `v0.1.0`, `v0.2.0`, `v0.3.0`, each with a GitHub Release.                                                                                                                                       |
+| `develop` | v0.3.0 plus the roadmap for the next phases (plans, ADR-0008/0009/0010, COMFAR spec, backlog EPIC-28…37). No product code changed since v0.3.0.                                                                                                                  |
+| Roadmap   | **Owner decision (2026-10-02): financial engine (Phase 4) → feasibility platform (Phase 3) → LMS (Phase 2).** Release v0.4.0 after the first two, v0.5.0 after the LMS.                                                                                          |
+| Backlog   | Phase 1 closed. New epics: EPIC-33 engine core, EPIC-34 project financial model, EPIC-37 economic analysis, EPIC-35 feasibility platform, EPIC-36 QA/release (sprints S13–S23); EPIC-28…32 LMS (S24–S28). `pnpm backlog:sync` creates the issues and milestones. |
+| Releases  | `develop` → `main` with a merge commit, a SemVer tag and a GitHub Release from the CHANGELOG section (ADR-0007). Each release needs the owner's explicit approval.                                                                                               |
 
 ## What to do next
 
-1. **Phase 2 needs a business decision first.** Do not pick a direction alone; ask the owner. Candidates: real payment gateway (OQ-09), SMS/email provider and OTP login (OQ-08, OQ-20, D1 in `design/INTEGRATION.md`), LMS, feasibility workflow, financial engine, Iran Sahamdar adapter (OQ-06), AI, analytics (OQ-24), PWA.
-2. **Content the owner still owes:** official About text and licences (OQ-17), privacy/terms (OQ-21), real courses and prices (OQ-22), refund policy (OQ-23), free first consultation (OQ-25), working hours, an SVG logo (OQ-16), domain (OQ-19). All are in [open-questions.md](product/open-questions.md).
+1. If not done yet: run `pnpm backlog:sync` on `develop` (creates ~98 issues and milestones S13–S28; supersedes ST-06.03, ST-14.02, ST-15.02).
+2. Start **ST-33.01**: package `packages/financial-engine` (`@roshd/financial-engine`, `decimal.js`, no `number` arithmetic), accept ADR-0009, then follow the branch order in [feasibility-financial-plan.md](product/feasibility-financial-plan.md) §7.
+3. Every formula follows [comfar-model-spec.md](product/comfar-model-spec.md). Re-read chapter XII of the manual before EPIC-37 (economic analysis).
+4. Still owed by the owner (none blocks the engine): a reference study done in COMFAR for the acceptance test ST-36.01; official content (OQ-17), privacy/terms (OQ-21), courses and prices (OQ-22), refunds (OQ-23), payment gateway (OQ-09), SMS/email provider and OTP (OQ-08, OQ-20), domain (OQ-19). All are in [open-questions.md](product/open-questions.md).
+
+## Financial engine and feasibility (owner decisions, 2026-10-02)
+
+- **Methodology:** UNIDO feasibility-study structure with the **COMFAR III** model (OQ-35). Engine inputs, calculation rules and output schedules follow COMFAR; see [comfar-model-spec.md](product/comfar-model-spec.md).
+- **Assumptions are per project:** discount rate, inflation, tax, exchange rates, loan terms and every other economic value is entered by the user for each project, with source and as-of date. **No economic defaults.** Users may keep personal assumption templates.
+- **Six COMFAR conventions keep their COMFAR default but stay editable:** MIRR rates (project IRR), discount reference date (end of first year), first loan repayment date (COMFAR rule), residual value timing (year after production), break-even period (reference year), automatic cash-deficit coverage (labelled lines plus an under-financing warning). Every calculation run lists the defaults it used.
+- **Deviations from COMFAR:** non-calculable ratios show "not calculable" instead of 0; automatic deficit lines are never hidden.
+- **Questionnaires and document lists** are authored by the feasibility officer and the admin; the applicant adds project-specific items (OQ-36).
+- **Report approval:** feasibility officer first, then the site admin (OQ-37); new role `feasibility_officer`.
+- **COMFAR manual:** the owner's licensed copy (PDF and a clean Markdown conversion with formulas) is in `references/comfar-iii/`, which is **git-ignored**. Never commit it; quote formulas into our own spec in our own words.
 
 ## Design (v2)
 
