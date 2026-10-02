@@ -18,6 +18,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { DatabaseModule } from './modules/database/database.module';
 import { FilesModule } from './modules/files/files.module';
+import { FinancialModelModule } from './modules/financial-model/financial-model.module';
 import { InvestmentModule } from './modules/investment/investment.module';
 import { IranSahamdarModule } from './modules/iran-sahamdar/iran-sahamdar.module';
 import { LearningModule } from './modules/learning/learning.module';
@@ -108,6 +109,7 @@ import { MonitoringModule } from './modules/monitoring/monitoring.module';
     ResearchModule,
     InvestmentModule,
     TicketsModule,
+    FinancialModelModule,
     DashboardModule,
     OrdersModule,
     SearchModule,

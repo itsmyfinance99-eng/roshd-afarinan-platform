@@ -14,3 +14,4 @@ export * from './audit';
 export * from './orders';
 export * from './search';
 export * from './notifications';
+export * from './financial-model';
