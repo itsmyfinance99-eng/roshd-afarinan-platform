@@ -4,6 +4,11 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+
+- `@roshd/financial-engine` (ST-33.01, ADR-0009 accepted): pure workspace package for the COMFAR-compatible financial engine — `decimal.js` with 34 significant digits, decimal strings at every boundary, half-even rounding for display only, lint rules and tests that keep binary floating point, frameworks and I/O out, `MODEL_VERSION`, and result types that carry warnings and the COMFAR defaults used. The API's `FinancialCalculator` port now re-exports these types.
+- Time value of money in the engine (ST-33.02): NPV with COMFAR conventions (month-based factor on a 360-day year, flows at period end, reference date defaulting to the end of the first year and reported as a COMFAR default, salvage value, uneven periods, discount-rate paths), PV/FV, annual↔period rate conversion and the Fisher real/nominal relation; invalid input raises coded errors instead of being guessed. Tested against independently computed reference values.
+
 ## [0.3.0] - 2026-10-02 — UI v2 "Copper & Graphite"
 
 ### Changed
