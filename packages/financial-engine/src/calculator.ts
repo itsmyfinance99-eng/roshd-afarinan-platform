@@ -22,6 +22,9 @@ import {
 } from './indicators';
 import { irr, mirr } from './irr';
 import { loanPeriods, loanSchedule, sumLoanPeriods } from './loans';
+import { financingSchedule } from './model/financing';
+import { planHorizon } from './model/horizon';
+import { investmentSchedule } from './model/investment';
 import { npv } from './time-value';
 import type { FinancialCalculator } from './types';
 import { MODEL_VERSION } from './version';
@@ -54,4 +57,7 @@ export const financialCalculator: FinancialCalculator = {
   loanSchedule,
   loanPeriods,
   sumLoanPeriods,
+  planHorizon,
+  investmentSchedule,
+  financingSchedule,
 };

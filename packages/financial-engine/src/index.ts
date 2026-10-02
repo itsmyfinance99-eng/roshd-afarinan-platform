@@ -125,4 +125,30 @@ export {
   type PeriodPhase,
   type PlanningHorizon,
 } from './model/horizon';
+export {
+  depreciateAcquisitions,
+  type AssetBookValues,
+  type AssetDepreciation,
+} from './model/asset-depreciation';
+export {
+  INVESTMENT_GROUPS,
+  investmentSchedule,
+  type InvestmentGroup,
+  type InvestmentInput,
+  type InvestmentItem,
+  type InvestmentItemSchedule,
+  type InvestmentSchedule,
+  type Origin,
+  type OriginSplit,
+} from './model/investment';
+export {
+  EQUITY_CLASSES,
+  financingSchedule,
+  type EquityClass,
+  type EquityContribution,
+  type FinancingInput,
+  type FinancingLoan,
+  type FinancingLoanSchedule,
+  type FinancingSchedule,
+} from './model/financing';
 export { financialCalculator } from './calculator';

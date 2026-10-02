@@ -51,6 +51,12 @@ export const ENGINE_MESSAGES_FA = {
     'برداشت یا بازپرداخت بعد از پایان دوره برداشت مجاز نیست؛ تاریخ اولین قسط را دیرتر کنید.',
   'loan.capitalisedShare': 'سهم سود انباشته باید از صفر تا ۱۰۰ درصد باشد.',
   'loan.periodsNotAscending': 'پایان دوره‌ها باید به ترتیب صعودی باشد.',
+  'model.duplicateKey': 'این کلید بیش از یک بار به کار رفته است.',
+  'model.exchangeRateMissing': 'نرخ ارز {currency} برای دوره‌های طرح وارد نشده است.',
+  'investment.group': 'گروه قلم سرمایه‌گذاری معتبر نیست.',
+  'investment.depreciationStart':
+    'شروع استهلاک باید اولین روز یکی از دوره‌های بهره‌برداری (راه‌اندازی یا تولید) باشد.',
+  'financing.equityClass': 'نوع آورده سهامداران معتبر نیست.',
 
   // Warnings: a value that does not exist or cannot be computed
   'irr.noSignChange': 'جریان نقدی تغییر علامت ندارد؛ نرخ بازده داخلی وجود ندارد.',
