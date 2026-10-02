@@ -4,19 +4,18 @@ A snapshot for whoever (person or agent) picks the project up next. Engineering 
 
 ## Where things stand
 
-| Item         | State                                                                                                                                                                             |
-| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `main`       | Release **v0.2.0** (Phase 1, 2026-09-27). Tags `v0.1.0`, `v0.2.0` with GitHub Releases.                                                                                           |
-| `develop`    | 12 commits ahead of `main`: CI action bumps (#217, #218), `.gitignore` for Next agent files (#219) and the **v2 "Copper & Graphite" UI** (#220, merged 2026-10-01). Not released. |
-| Backlog      | Every Phase 1 story is closed. The remaining open issues (about 43) are Phase 2+ stories, epics and `needs:decision` questions.                                                   |
-| Open PRs     | None besides this docs PR.                                                                                                                                                        |
-| Next release | `develop` → `main` (likely **v0.3.0**, CHANGELOG `[Unreleased]` is ready). Merging into `main` and tagging need the owner's explicit approval.                                    |
+| Item      | State                                                                                                                                                              |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `main`    | Release **v0.3.0** (UI v2 "Copper & Graphite", 2026-10-02). Tags `v0.1.0`, `v0.2.0`, `v0.3.0`, each with a GitHub Release.                                         |
+| `develop` | Same content as `main` right after the release.                                                                                                                    |
+| Backlog   | Every Phase 1 story is closed. The remaining open issues (about 43) are Phase 2+ stories, epics and `needs:decision` questions.                                    |
+| Open PRs  | None.                                                                                                                                                              |
+| Releases  | `develop` → `main` with a merge commit, a SemVer tag and a GitHub Release from the CHANGELOG section (ADR-0007). Each release needs the owner's explicit approval. |
 
 ## What to do next
 
-1. **Release the v2 UI** once the owner approves: PR `develop` → `main` (merge commit), tag `v0.3.0`, GitHub Release from the CHANGELOG section. See [ADR-0007](decisions/ADR-0007-git-workflow-and-releases.md).
-2. **Phase 2 needs a business decision first.** Do not pick a direction alone; ask the owner. Candidates: real payment gateway (OQ-09), SMS/email provider and OTP login (OQ-08, OQ-20, D1 in `design/INTEGRATION.md`), LMS, feasibility workflow, financial engine, Iran Sahamdar adapter (OQ-06), AI, analytics (OQ-24), PWA.
-3. **Content the owner still owes:** official About text and licences (OQ-17), privacy/terms (OQ-21), real courses and prices (OQ-22), refund policy (OQ-23), free first consultation (OQ-25), working hours, an SVG logo (OQ-16), domain (OQ-19). All are in [open-questions.md](product/open-questions.md).
+1. **Phase 2 needs a business decision first.** Do not pick a direction alone; ask the owner. Candidates: real payment gateway (OQ-09), SMS/email provider and OTP login (OQ-08, OQ-20, D1 in `design/INTEGRATION.md`), LMS, feasibility workflow, financial engine, Iran Sahamdar adapter (OQ-06), AI, analytics (OQ-24), PWA.
+2. **Content the owner still owes:** official About text and licences (OQ-17), privacy/terms (OQ-21), real courses and prices (OQ-22), refund policy (OQ-23), free first consultation (OQ-25), working hours, an SVG logo (OQ-16), domain (OQ-19). All are in [open-questions.md](product/open-questions.md).
 
 ## Design (v2)
 
