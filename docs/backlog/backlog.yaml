@@ -2035,6 +2035,7 @@ epics:
         sprint: S14
         points: 8
         priority: critical
+        status: done
         area: [api]
         depends: [ST-34.01, ST-33.05, ST-33.06]
         story: 'به‌عنوان کارشناس می‌خواهم هزینه‌های سرمایه‌ای و ساختار تأمین مالی را دوره‌به‌دوره ببینم.'
