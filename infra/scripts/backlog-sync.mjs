@@ -173,7 +173,7 @@ function upsertIssue({ id, title, body, labels, milestone, closed }) {
   return current;
 }
 
-const phaseLabel = (phase) => ([0, 1, 2].includes(phase) ? `phase:${phase}` : 'phase:future');
+const phaseLabel = (phase) => ([0, 1, 2, 3, 4].includes(phase) ? `phase:${phase}` : 'phase:future');
 /** A milestone may declare `phase`, so a story moved into a later sprint gets that phase's label. */
 const sprintPhase = new Map(backlog.milestones.map((m) => [m.key, m.phase]));
 const isClosed = (story) => story.status === 'done' || story.status === 'superseded';

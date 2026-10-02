@@ -60,28 +60,73 @@ milestones:
     due: '2026-12-25'
     description: 'موارد کم‌اولویت باقی‌مانده از فاز ۱: مجوزهای بی‌استفاده، نگهداشت داده و تجربه کاربری تاریخ'
   - key: S13
-    title: 'Sprint 13 — LMS Foundation'
+    title: 'Sprint 13 — Financial Engine Core'
     due: '2027-01-01'
+    description: 'ADR-0009، بسته موتور مالی، ارزش زمانی پول، IRR و MIRR، شاخص‌ها و استهلاک (فاز ۴)'
+    phase: 4
+  - key: S14
+    title: 'Sprint 14 — Financing & Assumptions'
+    due: '2027-01-08'
+    description: 'جدول تسهیلات، تست طلایی، مدل فرض‌های ورودی کاربر و برنامه سرمایه‌گذاری (فاز ۴)'
+    phase: 4
+  - key: S15
+    title: 'Sprint 15 — Projected Statements'
+    due: '2027-01-15'
+    description: 'تولید و درآمد و هزینه، صورت‌های مالی پیش‌بینی، سناریو و حساسیت (فاز ۴)'
+    phase: 4
+  - key: S16
+    title: 'Sprint 16 — Financial Model Workspace'
+    due: '2027-01-22'
+    description: 'ذخیره و نسخه مدل، ویرایشگر ورودی، نمایش نتایج و خروجی Excel (فاز ۴)'
+    phase: 4
+  - key: S17
+    title: 'Sprint 17 — Feasibility Foundation'
+    due: '2027-01-29'
+    description: 'ADR-0010، مدل داده پروژه، ایجاد و ارسال پروژه، موتور پرسشنامه (فاز ۳)'
+    phase: 3
+  - key: S18
+    title: 'Sprint 18 — Questionnaire, Documents & Review'
+    due: '2027-02-05'
+    description: 'ویرایشگر قالب، تکمیل پرسشنامه، مدارک و بررسی اولیه (فاز ۳)'
+    phase: 3
+  - key: S19
+    title: 'Sprint 19 — Contracting & Expert Work'
+    due: '2027-02-12'
+    description: 'برآورد هزینه، قرارداد، فضای کار کارشناس و چرخه بازبینی (فاز ۳)'
+    phase: 3
+  - key: S20
+    title: 'Sprint 20 — Report & Delivery'
+    due: '2027-02-19'
+    description: 'تدوین گزارش، PDF فارسی، تحویل و داشبورد خط لوله (فاز ۳)'
+    phase: 3
+  - key: S21
+    title: 'Sprint 21 — Feasibility QA & Release v0.4.0'
+    due: '2027-02-26'
+    description: 'آزمون پذیرش موتور، آزمون امنیتی، سفر کامل و انتشار v0.4.0'
+    phase: 3
+  - key: S22
+    title: 'Sprint 22 — LMS Foundation'
+    due: '2027-03-05'
     description: 'ADR-0008، مدل داده LMS، API سرفصل، سرویس ثبت‌نام و fulfillment سفارش (فاز ۲)'
     phase: 2
-  - key: S14
-    title: 'Sprint 14 — Learner Experience'
-    due: '2027-01-08'
+  - key: S23
+    title: 'Sprint 23 — Learner Experience'
+    due: '2027-03-12'
     description: 'ویرایشگر سرفصل، سرفصل عمومی، تحویل امن ویدئو، دوره‌های من و ثبت پیشرفت (فاز ۲)'
     phase: 2
-  - key: S15
-    title: 'Sprint 15 — Commerce Operations'
-    due: '2027-01-15'
+  - key: S24
+    title: 'Sprint 24 — Commerce Operations'
+    due: '2027-03-19'
     description: 'تطبیق پرداخت، رسید، گزارش فروش و مدیریت ثبت‌نام‌ها (فاز ۲)'
     phase: 2
-  - key: S16
-    title: 'Sprint 16 — Notifications & Engagement'
-    due: '2027-01-22'
+  - key: S25
+    title: 'Sprint 25 — Notifications & Engagement'
+    due: '2027-03-26'
     description: 'صف و ایمیل اعلان، قالب‌های تراکنشی، نظر دوره و analytics (فاز ۲)'
     phase: 2
-  - key: S17
-    title: 'Sprint 17 — Phase 2 QA & Release v0.4.0'
-    due: '2027-01-29'
+  - key: S26
+    title: 'Sprint 26 — LMS QA & Release v0.5.0'
+    due: '2027-04-02'
     description: 'آزمون امنیتی و end-to-end و انتشار فاز ۲'
     phase: 2
   - key: P2
@@ -90,10 +135,12 @@ milestones:
     phase: 2
   - key: P3
     title: 'Phase 3 — Feasibility Platform'
-    description: 'پلتفرم امکان‌سنجی'
+    description: 'استوری‌های فاز ۳ که منتظر تصمیم کسب‌وکار هستند (needs:decision)'
+    phase: 3
   - key: P4
     title: 'Phase 4 — Financial Engine'
-    description: 'موتور محاسبات مالی'
+    description: 'استوری‌های فاز ۴ که منتظر تصمیم کسب‌وکار هستند (needs:decision)'
+    phase: 4
   - key: P5
     title: 'Phase 5 — Investment Opportunities'
     description: 'فرصت‌های سرمایه‌گذاری (کامل)'
@@ -131,7 +178,9 @@ labels:
   - { name: 'phase:0', color: 'ededed', description: 'Phase 0 — Foundation' }
   - { name: 'phase:1', color: 'ededed', description: 'Phase 1 — MVP' }
   - { name: 'phase:2', color: 'ededed', description: 'Phase 2 — LMS & Commerce' }
-  - { name: 'phase:future', color: 'ededed', description: 'Phase 3+' }
+  - { name: 'phase:3', color: 'ededed', description: 'Phase 3 — Feasibility Platform' }
+  - { name: 'phase:4', color: 'ededed', description: 'Phase 4 — Financial Engine' }
+  - { name: 'phase:future', color: 'ededed', description: 'Phase 5+' }
   - { name: 'needs:decision', color: 'e99695', description: 'Blocked on a business/legal decision' }
   - { name: 'status:blocked', color: '000000', description: 'Blocked' }
 
@@ -760,6 +809,7 @@ epics:
         acceptance:
           - 'تعریف وضعیت‌ها و transitionها به‌صورت pure با تست؛ بدون UI/DB'
       - id: ST-14.02
+        status: superseded
         title: 'پلتفرم امکان‌سنجی کامل (پرسشنامه، مدارک، کارشناس، تحویل)'
         sprint: P3
         points: 13
@@ -767,7 +817,7 @@ epics:
         area: [api, web]
         story: 'به‌عنوان متقاضی می‌خواهم فرآیند امکان‌سنجی را آنلاین طی کنم.'
         acceptance:
-          - 'مطابق فاز ۳ roadmap'
+          - 'جایگزین شد با EPIC-35 و EPIC-36 (برنامه امکان‌سنجی و موتور مالی)'
 
   - id: EPIC-15
     title: 'Financial Engine — موتور مالی'
@@ -786,6 +836,7 @@ epics:
         acceptance:
           - 'انواع NPV، IRR، MIRR، Payback، DSCR، Break-even، WACC، سناریو'
       - id: ST-15.02
+        status: superseded
         title: 'پیاده‌سازی محاسبات مالی با تست‌های deterministic'
         sprint: P4
         points: 13
@@ -793,7 +844,7 @@ epics:
         area: [api]
         story: 'به‌عنوان کارشناس می‌خواهم شاخص‌های مالی دقیق محاسبه شوند.'
         acceptance:
-          - 'استراتژی دقت اعشاری مستند؛ تست edge case'
+          - 'جایگزین شد با EPIC-33 و EPIC-34 (برنامه امکان‌سنجی و موتور مالی)'
 
   - id: EPIC-16
     title: 'Investment Opportunities — فرصت‌های سرمایه‌گذاری'
@@ -919,7 +970,7 @@ epics:
           - 'sitemap از entityهای منتشرشده؛ Organization و BreadcrumbList JSON-LD'
       - id: ST-20.02
         title: 'Analytics (provider-agnostic، رعایت حریم خصوصی)'
-        sprint: S16
+        sprint: S25
         points: 3
         priority: low
         area: [web]
@@ -1471,7 +1522,7 @@ epics:
     stories:
       - id: ST-28.01
         title: 'ADR-0008 و مدل داده LMS: بخش، درس، ثبت‌نام و پیشرفت'
-        sprint: S13
+        sprint: S22
         points: 8
         priority: high
         area: [api, db, docs]
@@ -1484,7 +1535,7 @@ epics:
           - 'domain-model.md و system-overview.md به‌روز شوند'
       - id: ST-28.02
         title: 'API مدیریت سرفصل: بخش‌ها و درس‌ها'
-        sprint: S13
+        sprint: S22
         points: 5
         priority: high
         area: [api]
@@ -1497,7 +1548,7 @@ epics:
           - 'تست e2e شامل تست منفی دسترسی (کاربر عادی و دانشجو 403)'
       - id: ST-28.03
         title: 'ویرایشگر سرفصل در پنل مدیریت'
-        sprint: S14
+        sprint: S23
         points: 8
         priority: high
         area: [web, ui]
@@ -1510,7 +1561,7 @@ epics:
           - 'تست Playwright و axe'
       - id: ST-28.04
         title: 'نمایش سرفصل در صفحه عمومی دوره و درس‌های پیش‌نمایش'
-        sprint: S14
+        sprint: S23
         points: 3
         priority: medium
         area: [web]
@@ -1522,7 +1573,7 @@ epics:
           - 'JSON-LD نوع Course به‌روز شود (syllabusSections)'
       - id: ST-28.05
         title: 'تحویل امن ویدئو و فایل درس پشت VideoHostingProvider'
-        sprint: S14
+        sprint: S23
         points: 8
         priority: high
         area: [api, security]
@@ -1542,7 +1593,7 @@ epics:
     stories:
       - id: ST-29.01
         title: 'سرویس ثبت‌نام: دوره رایگان، ثبت‌نام دستی و لغو'
-        sprint: S13
+        sprint: S22
         points: 8
         priority: high
         area: [api]
@@ -1555,7 +1606,7 @@ epics:
           - 'تست‌های دامنه و e2e، شامل دوره پولی بدون پرداخت (403) و دوره پیش‌نویس (404)'
       - id: ST-29.02
         title: 'دوره‌های من و صفحه پخش دوره'
-        sprint: S14
+        sprint: S23
         points: 8
         priority: high
         area: [web]
@@ -1568,7 +1619,7 @@ epics:
           - 'حالت‌های loading، empty، error و success؛ موبایل، تبلت و دسکتاپ؛ تست Playwright و axe'
       - id: ST-29.03
         title: 'ثبت پیشرفت و تکمیل دوره'
-        sprint: S14
+        sprint: S23
         points: 5
         priority: high
         area: [api]
@@ -1580,7 +1631,7 @@ epics:
           - 'رویداد تکمیل دوره در Audit Log؛ زمان تکمیل در Enrollment'
       - id: ST-29.04
         title: 'مدیریت ثبت‌نام‌ها برای کارکنان'
-        sprint: S15
+        sprint: S24
         points: 5
         priority: medium
         area: [api, web]
@@ -1592,7 +1643,7 @@ epics:
           - 'ثبت‌نام و لغو دستی از همین صفحه'
       - id: ST-29.05
         title: 'تبدیل درخواست ثبت‌نام آموزشی به ثبت‌نام'
-        sprint: S15
+        sprint: S24
         points: 3
         priority: medium
         area: [api, web]
@@ -1603,7 +1654,7 @@ epics:
           - 'وضعیت درخواست و رویداد آن به‌روز شود'
       - id: ST-29.06
         title: 'نظر و امتیاز دوره با تأیید کارشناس'
-        sprint: S16
+        sprint: S25
         points: 8
         priority: low
         area: [api, web]
@@ -1656,7 +1707,7 @@ epics:
     stories:
       - id: ST-30.01
         title: 'Fulfillment سفارش با outbox: پرداخت موفق → ثبت‌نام'
-        sprint: S13
+        sprint: S22
         points: 8
         priority: critical
         area: [api, db]
@@ -1669,7 +1720,7 @@ epics:
           - 'وضعیت fulfillment در صفحه سفارش کارکنان دیده شود'
       - id: ST-30.02
         title: 'مجموعه تست قرارداد PaymentGateway'
-        sprint: S13
+        sprint: S22
         points: 3
         priority: high
         area: [api, qa]
@@ -1679,7 +1730,7 @@ epics:
           - 'mock adapter فعلی از این مجموعه عبور کند'
       - id: ST-30.03
         title: 'تطبیق پرداخت‌های نیمه‌کاره و انقضای اختیاری سفارش'
-        sprint: S15
+        sprint: S24
         points: 5
         priority: high
         area: [api]
@@ -1691,7 +1742,7 @@ epics:
           - 'نتیجه هر تطبیق در Audit Log؛ تست برای VERIFIED، FAILED و timeout'
       - id: ST-30.04
         title: 'رسید پرداخت قابل چاپ'
-        sprint: S15
+        sprint: S24
         points: 3
         priority: medium
         area: [web]
@@ -1702,7 +1753,7 @@ epics:
           - 'فقط مالک سفارش یا کارکنان دارای orders:read-all؛ تست منفی'
       - id: ST-30.05
         title: 'گزارش فروش برای واحد مالی'
-        sprint: S15
+        sprint: S24
         points: 3
         priority: medium
         area: [api, web]
@@ -1750,7 +1801,7 @@ epics:
     stories:
       - id: ST-31.01
         title: 'صف ارسال (outbox) و گزارش تحویل اعلان'
-        sprint: S16
+        sprint: S25
         points: 5
         priority: medium
         area: [api, db]
@@ -1760,7 +1811,7 @@ epics:
           - 'هیچ متن حساس یا توکن در لاگ و جدول ذخیره نشود'
       - id: ST-31.02
         title: 'adapter ایمیل SMTP'
-        sprint: S16
+        sprint: S25
         points: 3
         priority: medium
         area: [api]
@@ -1771,7 +1822,7 @@ epics:
           - 'تست با سرور SMTP آزمایشی در CI؛ انتخاب سرویس‌دهنده نهایی همچنان OQ-08'
       - id: ST-31.03
         title: 'قالب‌های اعلان تراکنشی و تنظیمات اعلان کاربر'
-        sprint: S16
+        sprint: S25
         points: 5
         priority: medium
         area: [api, web]
@@ -1811,7 +1862,7 @@ epics:
     stories:
       - id: ST-32.01
         title: 'آزمون امنیتی محتوای پولی و پرداخت'
-        sprint: S17
+        sprint: S26
         points: 5
         priority: high
         area: [security, qa]
@@ -1822,7 +1873,7 @@ epics:
           - 'گزارش در docs/qa و رفع یافته‌ها پیش از انتشار'
       - id: ST-32.02
         title: 'سفر کامل دانشجو در Playwright، دسترس‌پذیری و کارایی پخش'
-        sprint: S17
+        sprint: S26
         points: 5
         priority: high
         area: [qa, web]
@@ -1832,12 +1883,466 @@ epics:
           - 'سناریو end-to-end با درگاه آزمایشی؛ axe بدون خطای serious و critical'
           - 'LCP صفحه دوره و صفحه پخش در بودجه requirements'
       - id: ST-32.03
-        title: 'انتشار v0.4.0'
-        sprint: S17
+        title: 'انتشار v0.5.0'
+        sprint: S26
         points: 3
         priority: high
         area: [docs, infra]
         depends: [ST-32.01, ST-32.02]
         story: 'به‌عنوان مالک محصول می‌خواهم فاز ۲ با changelog و یادداشت انتشار منتشر شود.'
         acceptance:
-          - 'CHANGELOG، HANDOFF و گزارش QA به‌روز؛ PR انتشار develop → main با تأیید مالک؛ tag v0.4.0 و GitHub Release'
+          - 'CHANGELOG، HANDOFF و گزارش QA به‌روز؛ PR انتشار develop → main با تأیید مالک؛ tag v0.5.0 و GitHub Release'
+
+  # ───────────── PHASES 4 + 3 — Financial Engine & Feasibility (executed before Phase 2) ─────────────
+  # Plan: docs/product/feasibility-financial-plan.md · ADR-0009 (engine) · ADR-0010 (platform)
+  # Owner rule (2026-10-02): every economic assumption is entered per project by the user; no platform defaults.
+  - id: EPIC-33
+    title: 'Financial Engine Core — هسته موتور محاسبات مالی'
+    phase: 4
+    priority: critical
+    goal: 'کتابخانه محاسبات مالی دقیق، خالص و نسخه‌دار که در API و مرورگر یکسان اجرا شود.'
+    stories:
+      - id: ST-33.01
+        title: 'ADR-0009 و بسته @roshd/financial-engine با راهبرد دقت اعشاری'
+        sprint: S13
+        points: 5
+        priority: critical
+        area: [api, docs]
+        story: 'به‌عنوان معمار می‌خواهم موتور مالی بسته‌ای مستقل و بدون وابستگی به فریم‌ورک باشد تا API و ویرایشگر وب نتیجه یکسان بدهند.'
+        acceptance:
+          - 'ADR-0009 از Proposed به Accepted برسد'
+          - 'بسته packages/financial-engine با decimal.js (۳۴ رقم معنی‌دار)؛ ورودی و خروجی فقط رشته اعشاری'
+          - 'قاعده lint و تست که استفاده از number در محاسبه را ممنوع کند'
+          - 'MODEL_VERSION صادر شود؛ port فعلی FinancialCalculator در API با adapter همین بسته پیاده شود'
+      - id: ST-33.02
+        title: 'ارزش زمانی پول: PV، FV، NPV، نرخ واقعی و اسمی'
+        sprint: S13
+        points: 5
+        priority: critical
+        area: [api]
+        depends: [ST-33.01]
+        story: 'به‌عنوان کارشناس مالی می‌خواهم ارزش فعلی و خالص ارزش فعلی را با قرارداد زمانی انتخابی خودم محاسبه کنم.'
+        acceptance:
+          - 'NPV با قرارداد پایان دوره یا میانه دوره به انتخاب کاربر؛ نرخ تنزیل ثابت یا مسیر نرخ برای هر دوره'
+          - 'تبدیل نرخ واقعی و اسمی با رابطه فیشر و تبدیل نرخ سالانه به ماهانه و فصلی'
+          - 'تست با مقادیر مرجع کنترل‌شده در صفحه‌گسترده و موارد مرزی (نرخ صفر، نرخ منفی، سری تهی)'
+      - id: ST-33.03
+        title: 'IRR و MIRR با تشخیص ریشه چندگانه'
+        sprint: S13
+        points: 5
+        priority: critical
+        area: [api]
+        depends: [ST-33.02]
+        story: 'به‌عنوان کارشناس مالی می‌خواهم نرخ بازده داخلی دقیق باشد و موتور به‌جای حدس، نبود یا چندگانگی IRR را گزارش کند.'
+        acceptance:
+          - 'حل‌کننده bracketed (بدون واگرایی) با تحلیل تغییر علامت جریان نقد'
+          - 'گزارش warning برای نبود ریشه و ریشه‌های چندگانه؛ MIRR با نرخ تأمین و نرخ سرمایه‌گذاری مجدد ورودی'
+          - 'تست خاصیت: NPV در IRR محاسبه‌شده در حد تلورانس صفر باشد'
+      - id: ST-33.04
+        title: 'دوره بازگشت، شاخص سودآوری، نقطه سربه‌سر، DSCR و WACC'
+        sprint: S13
+        points: 5
+        priority: high
+        area: [api]
+        depends: [ST-33.02]
+        story: 'به‌عنوان کارشناس مالی می‌خواهم شاخص‌های رایج طرح توجیهی را از یک منبع واحد بگیرم.'
+        acceptance:
+          - 'دوره بازگشت ساده و تنزیلی با درون‌یابی کسری؛ PI و نسبت منفعت به هزینه'
+          - 'نقطه سربه‌سر بر حسب مقدار و درآمد، تک‌محصولی و چندمحصولی با سهم فروش ورودی'
+          - 'DSCR و LLCR سالانه؛ WACC با نرخ مالیات ورودی'
+          - 'هر خروجی تعریف‌نشده (مثلاً عدم بازگشت) مقدار undefined و warning فارسی دارد'
+      - id: ST-33.05
+        title: 'جدول تسهیلات: دوره تنفس، اقساط و سود دوران ساخت'
+        sprint: S14
+        points: 8
+        priority: critical
+        area: [api]
+        depends: [ST-33.02]
+        story: 'به‌عنوان کارشناس مالی می‌خواهم جدول بازپرداخت هر تسهیلات را با شرایط واقعی همان قرارداد بسازم.'
+        acceptance:
+          - 'روش اقساط مساوی و اصل مساوی؛ دوره تنفس با سود پرداختی یا انباشته؛ سود دوران ساخت سرمایه‌ای یا پرداختی'
+          - 'چند تسهیلات هم‌زمان با ارز و نرخ جدا؛ همه شرایط ورودی کاربر'
+          - 'تست خاصیت: مجموع اصل بازپرداخت‌شده دقیقاً برابر اصل دریافتی'
+      - id: ST-33.06
+        title: 'استهلاک و تعدیل با شاخص و نرخ ارز'
+        sprint: S13
+        points: 3
+        priority: high
+        area: [api]
+        depends: [ST-33.01]
+        story: 'به‌عنوان کارشناس مالی می‌خواهم استهلاک هر گروه دارایی و اثر تورم و نرخ ارز را با مسیرهای ورودی خودم ببینم.'
+        acceptance:
+          - 'استهلاک خط مستقیم و نزولی با عمر و ارزش اسقاط ورودی برای هر گروه دارایی'
+          - 'تعدیل مبالغ با مسیر شاخص برای هر دسته هزینه و درآمد؛ تبدیل ارز با مسیر نرخ ارز هر دوره'
+      - id: ST-33.07
+        title: 'مجموعه تست طلایی و اجرای یکسان در Node و مرورگر'
+        sprint: S14
+        points: 5
+        priority: high
+        area: [qa, api]
+        depends: [ST-33.03, ST-33.04, ST-33.05, ST-33.06]
+        story: 'به‌عنوان مالک محصول می‌خواهم دقت موتور با نمونه‌های مرجع اثبات شود و نتیجه در هر محیط یکسان باشد.'
+        acceptance:
+          - 'fixtureهای مرجع با منبع و روش کنترل مستند در docs'
+          - 'همان مجموعه تست در Node و build مرورگر اجرا شود و خروجی بیت‌به‌بیت برابر باشد'
+
+  - id: EPIC-34
+    title: 'Project Financial Model — مدل مالی پروژه'
+    phase: 4
+    priority: critical
+    goal: 'از فرض‌ها و داده‌های هر پروژه، صورت‌های مالی پیش‌بینی، شاخص‌ها، سناریو و حساسیت ساخته شود؛ همه فرض‌ها را کاربر برای همان پروژه وارد می‌کند.'
+    stories:
+      - id: ST-34.01
+        title: 'مدل فرض‌ها: ورود کاربر برای هر پروژه، با واحد، دوره، منبع و تاریخ'
+        sprint: S14
+        points: 8
+        priority: critical
+        area: [api]
+        depends: [ST-33.01]
+        story: 'به‌عنوان کاربر می‌خواهم نرخ تنزیل، تورم، مالیات، نرخ ارز، نرخ سود تسهیلات و سایر فرض‌ها را متناسب با شرایط روز و همان پروژه وارد کنم.'
+        acceptance:
+          - 'هیچ مقدار پیش‌فرض اقتصادی در سامانه نباشد؛ فرض الزامیِ خالی محاسبه را با پیام فیلدی متوقف کند'
+          - 'هر فرض: مقدار یا مسیر دوره‌ای، واحد، منبع و تاریخ اعتبار (متن آزاد)'
+          - 'افق زمانی و واحد دوره (ماهانه، فصلی، سالانه) و ارز مبنا برای هر پروژه انتخاب کاربر'
+          - 'کاربر بتواند مجموعه فرض‌های خودش را الگو کند و در پروژه دیگر کپی کند؛ سامانه هیچ الگویی ارائه نمی‌دهد'
+          - 'schema در @roshd/validation با پیام خطای فارسی'
+      - id: ST-34.02
+        title: 'برنامه سرمایه‌گذاری و تأمین مالی'
+        sprint: S14
+        points: 8
+        priority: critical
+        area: [api]
+        depends: [ST-34.01, ST-33.05, ST-33.06]
+        story: 'به‌عنوان کارشناس می‌خواهم هزینه‌های سرمایه‌ای و ساختار تأمین مالی را دوره‌به‌دوره ببینم.'
+        acceptance:
+          - 'اقلام سرمایه‌ای به تفکیک گروه (زمین، ساختمان، ماشین‌آلات، تأسیسات، پیش‌بهره‌برداری، پیش‌بینی‌نشده) با ارز و زمان‌بندی'
+          - 'سهم آورده و تسهیلات؛ سود دوران ساخت؛ استهلاک از روی گروه دارایی'
+      - id: ST-34.03
+        title: 'تولید، درآمد، هزینه‌های عملیاتی و سرمایه در گردش'
+        sprint: S15
+        points: 8
+        priority: critical
+        area: [api]
+        depends: [ST-34.01]
+        story: 'به‌عنوان کارشناس می‌خواهم درآمد و هزینه هر سال از برنامه تولید و قیمت‌ها ساخته شود.'
+        acceptance:
+          - 'چند محصول با ظرفیت اسمی، برنامه بهره‌برداری (درصد ظرفیت هر دوره) و قیمت با مسیر تعدیل'
+          - 'هزینه متغیر و ثابت (مواد، دستمزد، انرژی، نگهداری، بیمه، اداری) با مسیر تعدیل جدا'
+          - 'سرمایه در گردش بر اساس روز یا درصد ورودی و تغییرات آن در جریان نقد'
+      - id: ST-34.04
+        title: 'صورت‌های مالی پیش‌بینی و شاخص‌های طرح'
+        sprint: S15
+        points: 8
+        priority: critical
+        area: [api]
+        depends: [ST-34.02, ST-34.03]
+        story: 'به‌عنوان کارشناس می‌خواهم صورت سود و زیان، جریان نقد و ترازنامه خلاصه و شاخص‌ها را یکجا ببینم.'
+        acceptance:
+          - 'سود و زیان با مالیات بر اساس نرخ و دوره‌های معافیت و انتقال زیان ورودی کاربر'
+          - 'جریان نقد از دید طرح و از دید سهامدار؛ ترازنامه خلاصه که تراز بماند (تست)'
+          - 'NPV، IRR، MIRR، دوره بازگشت، PI، نقطه سربه‌سر و DSCR از هسته موتور'
+      - id: ST-34.05
+        title: 'سناریو، تحلیل حساسیت و مقدار بحرانی'
+        sprint: S15
+        points: 8
+        priority: high
+        area: [api]
+        depends: [ST-34.04]
+        story: 'به‌عنوان کارشناس می‌خواهم اثر تغییر قیمت، هزینه، سرمایه‌گذاری، نرخ ارز و تورم را بر شاخص‌ها ببینم.'
+        acceptance:
+          - 'سناریو به‌صورت مجموعه بازنویسی فرض‌ها (پایه، خوش‌بینانه، بدبینانه و سناریوی دلخواه)'
+          - 'حساسیت یک‌متغیره با گام‌های ورودی و خروجی مناسب نمودار گردبادی'
+          - 'مقدار بحرانی هر متغیر (نقطه‌ای که NPV صفر می‌شود) یا گزارش نبود آن'
+      - id: ST-34.06
+        title: 'ماژول financial-model: ذخیره مدل، اجرای محاسبه و نسخه‌ها'
+        sprint: S16
+        points: 8
+        priority: critical
+        area: [api, db, security]
+        depends: [ST-34.04]
+        story: 'به‌عنوان کارشناس می‌خواهم مدل مالی ذخیره شود و هر محاسبه با ورودی و نسخه موتور قابل بازتولید بماند.'
+        acceptance:
+          - 'migration برای FinancialModel (ورودی‌ها نسخه‌دار) و CalculationRun (snapshot ورودی، hash، MODEL_VERSION، نتایج، هشدارها)'
+          - 'اجرای ذخیره‌شده هرگز بازنویسی نشود؛ تأیید اجرا توسط کارشناس ثبت و قفل شود'
+          - 'دسترسی فقط مالک، کارکنان مجاز و کارشناس منتسب؛ تست منفی IDOR؛ ثبت در Audit Log'
+      - id: ST-34.07
+        title: 'ویرایشگر ورودی‌های مدل مالی'
+        sprint: S16
+        points: 8
+        priority: high
+        area: [web, ui]
+        depends: [ST-34.06]
+        story: 'به‌عنوان کاربر می‌خواهم ورودی‌های مدل را در فرم‌های جدولی منظم وارد کنم و نتیجه را بلافاصله ببینم.'
+        acceptance:
+          - 'بخش‌ها: فرض‌ها، سرمایه‌گذاری، تأمین مالی، تولید و فروش، هزینه‌ها، سرمایه در گردش'
+          - 'ورود جدولی دوره‌ای با کیبورد، عدد فارسی، جداکننده هزارگان و واحد'
+          - 'محاسبه زنده در مرورگر با همان بسته؛ ذخیره خودکار؛ حالت‌های loading، empty، error و success'
+          - 'تست Playwright و axe'
+      - id: ST-34.08
+        title: 'نمایش نتایج: صورت‌ها، شاخص‌ها و نمودارها'
+        sprint: S16
+        points: 8
+        priority: high
+        area: [web, ui]
+        depends: [ST-34.07, ST-34.05]
+        story: 'به‌عنوان کاربر می‌خواهم صورت‌های مالی، شاخص‌ها، سناریوها و حساسیت را خوانا و قابل مقایسه ببینم.'
+        acceptance:
+          - 'جدول صورت‌ها با عدد فارسی و هشدارهای موتور کنار شاخص مربوط'
+          - 'نمودار جریان نقد تجمعی و نمودار گردبادی حساسیت، دسترس‌پذیر و با جدول جایگزین'
+          - 'مقایسه سناریوها کنار هم'
+      - id: ST-34.09
+        title: 'خروجی Excel صورت‌ها و جدول‌ها'
+        sprint: S16
+        points: 5
+        priority: medium
+        area: [api]
+        depends: [ST-34.06]
+        story: 'به‌عنوان کارشناس می‌خواهم ورودی‌ها و نتایج یک اجرای محاسبه را در Excel تحویل بگیرم.'
+        acceptance:
+          - 'فایل xlsx از یک CalculationRun مشخص با برگه‌های فرض‌ها، صورت‌ها و شاخص‌ها؛ RTL'
+          - 'ایمن در برابر formula injection؛ فقط با دسترسی به همان مدل'
+      - id: ST-34.10
+        title: 'ابزار برآورد اولیه برای کاربران عضو'
+        sprint: P4
+        points: 8
+        priority: medium
+        area: [web, api]
+        depends: [ST-34.08]
+        needs: [OQ-38]
+        story: 'به‌عنوان کاربر عضو می‌خواهم پیش از درخواست امکان‌سنجی، با فرض‌های خودم برآورد اولیه‌ای از طرحم بگیرم.'
+        acceptance:
+          - 'پس از تصمیم OQ-38؛ نسخه ساده ورودی‌ها، ذخیره در حساب خود کاربر، هشدار «نتیجه مشورتی است»'
+
+  - id: EPIC-35
+    title: 'Feasibility Platform — پلتفرم امکان‌سنجی'
+    phase: 3
+    priority: critical
+    goal: 'فرآیند کامل امکان‌سنجی آنلاین: پرسشنامه و مدارک متقاضی، بررسی و برآورد، قرارداد، کار کارشناس با مدل مالی، بازبینی و تحویل گزارش.'
+    stories:
+      - id: ST-35.01
+        title: 'ADR-0010 و مدل داده پروژه امکان‌سنجی'
+        sprint: S17
+        points: 8
+        priority: critical
+        area: [api, db, docs]
+        depends: [ST-34.06]
+        story: 'به‌عنوان معمار می‌خواهم پروژه امکان‌سنجی، تاریخچه وضعیت و انتساب کارشناس مدل‌سازی شود و فقط از state machine تغییر وضعیت دهد.'
+        acceptance:
+          - 'ADR-0010 از Proposed به Accepted برسد'
+          - 'migration برای FeasibilityProject، FeasibilityStatusEvent و ExpertAssignment؛ اتصال به FinancialModel'
+          - 'هر انتقال وضعیت از transition() با ثبت رویداد، Audit و اعلان؛ مجوزهای feasibility:manage و انتساب کارشناس'
+          - 'تست منفی: کاربر دیگر، کارشناس غیرمنتسب، انتقال غیرمجاز'
+      - id: ST-35.02
+        title: 'ایجاد، ارسال و پیگیری پروژه توسط متقاضی'
+        sprint: S17
+        points: 8
+        priority: critical
+        area: [api, web]
+        depends: [ST-35.01]
+        story: 'به‌عنوان متقاضی می‌خواهم پروژه امکان‌سنجی بسازم، پیش‌نویس کنم، ارسال کنم و وضعیتش را ببینم.'
+        acceptance:
+          - 'فهرست پروژه‌های من و صفحه پروژه با خط زمانی وضعیت'
+          - 'تبدیل درخواست امکان‌سنجی فاز ۱ (ServiceRequest) به پروژه توسط کارکنان با انتقال پیوست‌ها'
+          - 'حالت‌های loading، empty، error و success؛ موبایل و دسکتاپ'
+      - id: ST-35.03
+        title: 'موتور پرسشنامه: قالب نسخه‌دار و پاسخ'
+        sprint: S17
+        points: 8
+        priority: critical
+        area: [api, db]
+        depends: [ST-35.01]
+        story: 'به‌عنوان کارشناس می‌خواهم پرسشنامه‌ها داده باشند، نه کد، تا بدون انتشار نسخه جدید تغییر کنند.'
+        acceptance:
+          - 'قالب با بخش و انواع سؤال (متن، عدد با واحد، انتخابی، تاریخ، جدول، فایل) و نسخه'
+          - 'پروژه به نسخه قالب شروع‌شده سنجاق شود؛ پاسخ‌ها پس از ارسال قفل و فقط با NEEDS_MORE_INFO باز شوند'
+          - 'اعتبارسنجی سمت سرور بر اساس تعریف سؤال؛ تست دامنه'
+      - id: ST-35.04
+        title: 'ویرایشگر قالب پرسشنامه برای کارکنان'
+        sprint: S18
+        points: 5
+        priority: high
+        area: [web, ui]
+        depends: [ST-35.03]
+        story: 'به‌عنوان کارشناس می‌خواهم قالب پرسشنامه هر بخش صنعتی را بسازم و نسخه جدید منتشر کنم.'
+        acceptance:
+          - 'افزودن و مرتب‌سازی بخش و سؤال با کیبورد؛ پیش‌نمایش؛ انتشار نسخه'
+          - 'محتوای واقعی پرسشنامه‌ها از OQ-36 می‌آید؛ تا آن زمان یک قالب عمومی نمونه با برچسب «نمونه نمایشی»'
+      - id: ST-35.05
+        title: 'تکمیل پرسشنامه توسط متقاضی'
+        sprint: S18
+        points: 8
+        priority: critical
+        area: [web]
+        depends: [ST-35.03, ST-35.02]
+        story: 'به‌عنوان متقاضی می‌خواهم پرسشنامه را مرحله‌به‌مرحله پر کنم و کارم ذخیره شود.'
+        acceptance:
+          - 'فرم مرحله‌ای با ذخیره خودکار، نمایش پیشرفت و خطای فارسی کنار هر فیلد'
+          - 'پاسخ جدولی و عدد با واحد؛ قابل استفاده در موبایل؛ تست Playwright و axe'
+      - id: ST-35.06
+        title: 'مدارک پروژه: فهرست الزامی، بارگذاری خصوصی و نسخه'
+        sprint: S18
+        points: 5
+        priority: high
+        area: [api, web, security]
+        depends: [ST-35.01]
+        story: 'به‌عنوان متقاضی می‌خواهم مدارک خواسته‌شده را بارگذاری کنم و فقط افراد مجاز آن‌ها را ببینند.'
+        acceptance:
+          - 'FilePurpose.FEASIBILITY_DOCUMENT؛ فهرست مدارک الزامی از قالب؛ نسخه جدید به‌جای بازنویسی'
+          - 'دسترسی فقط مالک، کارکنان مجاز و کارشناس منتسب با لینک امضاشده؛ تست منفی (OQ-07 موقت: همه خصوصی)'
+      - id: ST-35.07
+        title: 'بررسی اولیه، درخواست اطلاعات تکمیلی و بایگانی'
+        sprint: S18
+        points: 5
+        priority: high
+        area: [api, web]
+        depends: [ST-35.02]
+        story: 'به‌عنوان کارشناس پذیرش می‌خواهم پروژه را بررسی کنم و در صورت نقص، اطلاعات تکمیلی بخواهم.'
+        acceptance:
+          - 'صف بررسی کارکنان؛ انتقال‌های INITIAL_REVIEW، NEEDS_MORE_INFO و ARCHIVED با یادداشت'
+          - 'اعلان به متقاضی و باز شدن پاسخ‌های مربوط برای ویرایش'
+      - id: ST-35.08
+        title: 'برآورد هزینه و پذیرش متقاضی'
+        sprint: S19
+        points: 5
+        priority: high
+        area: [api, web]
+        depends: [ST-35.07]
+        story: 'به‌عنوان کارشناس می‌خواهم برآورد هزینه و زمان مطالعه را ثبت کنم و متقاضی آن را بپذیرد یا رد کند.'
+        acceptance:
+          - 'مبلغ ریالی، شرح کار و مدت را کارشناس وارد می‌کند (OQ-01)؛ هیچ قیمتی خودکار محاسبه نمی‌شود'
+          - 'پذیرش متقاضی → CONTRACT_PENDING؛ رد → ARCHIVED؛ Audit و اعلان'
+      - id: ST-35.09
+        title: 'گام قرارداد: بارگذاری قرارداد امضاشده و تأیید'
+        sprint: S19
+        points: 3
+        priority: high
+        area: [api, web]
+        depends: [ST-35.08]
+        story: 'به‌عنوان کارشناس می‌خواهم پس از امضای قرارداد، پروژه را وارد مرحله اجرا کنم.'
+        acceptance:
+          - 'بارگذاری قرارداد امضاشده به‌صورت فایل خصوصی و تأیید کارکنان → IN_PROGRESS'
+          - 'پرداخت آنلاین و پرداخت مرحله‌ای پس از OQ-02 و OQ-09 (خارج از این استوری)'
+      - id: ST-35.10
+        title: 'انتساب کارشناس و فضای کار کارشناس'
+        sprint: S19
+        points: 8
+        priority: critical
+        area: [api, web, security]
+        depends: [ST-35.09, ST-34.08]
+        story: 'به‌عنوان کارشناس می‌خواهم پروژه‌های منتسب به خودم را با پرسشنامه، مدارک و مدل مالی یکجا ببینم.'
+        acceptance:
+          - 'انتساب و برداشتن کارشناس با feasibility:manage؛ نقش expert فقط به پروژه منتسب دسترسی دارد'
+          - 'فضای کار: پاسخ‌ها، مدارک، مدل مالی (EPIC-34)، یادداشت داخلی'
+          - 'تست منفی دسترسی برای کارشناس غیرمنتسب'
+      - id: ST-35.11
+        title: 'چرخه بازبینی کارشناس و متقاضی با نظر روی بخش‌ها'
+        sprint: S19
+        points: 5
+        priority: high
+        area: [api, web]
+        depends: [ST-35.10]
+        story: 'به‌عنوان متقاضی می‌خواهم پیش‌نویس مطالعه را ببینم و روی بخش‌ها نظر بدهم.'
+        acceptance:
+          - 'انتقال‌های EXPERT_REVIEW و CLIENT_REVIEW و بازگشت به IN_PROGRESS'
+          - 'نظرهای رشته‌ای روی هر بخش با وضعیت رسیدگی؛ اعلان'
+      - id: ST-35.12
+        title: 'تدوین گزارش: بخش‌های متنی و اجرای تأییدشده مدل مالی'
+        sprint: S20
+        points: 8
+        priority: critical
+        area: [api, web]
+        depends: [ST-35.10, ST-34.06]
+        story: 'به‌عنوان کارشناس می‌خواهم گزارش امکان‌سنجی را از بخش‌های متنی، پاسخ‌های منتخب و نتایج مالی تأییدشده بسازم.'
+        acceptance:
+          - 'ساختار بخش‌های گزارش قابل پیکربندی (OQ-35 موقت: بازار، فنی، مالی، جمع‌بندی)'
+          - 'فقط اجرای محاسبه تأییدشده کارشناس در گزارش قرار گیرد'
+          - 'نسخه پیش‌نویس قابل ویرایش و نسخه تحویلی تغییرناپذیر'
+      - id: ST-35.13
+        title: 'تولید PDF فارسی گزارش و نسخه‌های تحویلی'
+        sprint: S20
+        points: 8
+        priority: critical
+        area: [api, infra]
+        depends: [ST-35.12]
+        story: 'به‌عنوان متقاضی می‌خواهم گزارش نهایی را به‌صورت PDF فارسی و خوانا دریافت کنم.'
+        acceptance:
+          - 'PDF راست‌به‌چپ با فونت self-hosted، جدول‌ها و نمودارهای مالی، شماره صفحه و فهرست'
+          - 'هر نسخه فایل خصوصی با hash؛ دانلود با لینک امضاشده؛ انتخاب ابزار بر اساس اندازه image و کیفیت شکل‌دهی فارسی در PR گزارش شود'
+      - id: ST-35.14
+        title: 'تحویل، تأیید متقاضی و بایگانی'
+        sprint: S20
+        points: 3
+        priority: high
+        area: [api, web]
+        depends: [ST-35.13, ST-35.11]
+        story: 'به‌عنوان متقاضی می‌خواهم گزارش نهایی را تحویل بگیرم و پروژه بسته شود.'
+        acceptance:
+          - 'DELIVERED پس از تأیید متقاضی یا کارکنان؛ ARCHIVED؛ امضای گزارش طبق OQ-37 (موقت: تأیید کارکنان در سامانه)'
+      - id: ST-35.15
+        title: 'داشبورد خط لوله امکان‌سنجی برای مدیریت'
+        sprint: S20
+        points: 5
+        priority: medium
+        area: [api, web]
+        depends: [ST-35.07]
+        story: 'به‌عنوان مدیر می‌خواهم پروژه‌ها را به تفکیک وضعیت، کارشناس و مدت ماندن در هر مرحله ببینم.'
+        acceptance:
+          - 'شمارش بر اساس وضعیت، فیلتر کارشناس و بخش صنعتی، سن هر مرحله؛ خروجی CSV امن'
+      - id: ST-35.16
+        title: 'پرداخت آنلاین و مرحله‌ای هزینه مطالعه'
+        sprint: P3
+        points: 8
+        priority: medium
+        area: [api, web]
+        depends: [ST-35.08]
+        needs: [OQ-02, OQ-09]
+        story: 'به‌عنوان متقاضی می‌خواهم هزینه مطالعه را آنلاین و در صورت توافق مرحله‌ای پرداخت کنم.'
+        acceptance:
+          - 'پس از تصمیم OQ-02 و OQ-09؛ نوع قلم سفارش FEASIBILITY_STUDY در ماژول orders'
+
+  - id: EPIC-36
+    title: 'Feasibility & Engine QA and Release — آزمون و انتشار امکان‌سنجی و موتور مالی'
+    phase: 3
+    priority: high
+    goal: 'موتور مالی و پلتفرم امکان‌سنجی با آزمون امنیتی، end-to-end و تأیید کارشناس مالی منتشر شوند.'
+    stories:
+      - id: ST-36.01
+        title: 'آزمون پذیرش موتور مالی با کارشناس مالی'
+        sprint: S21
+        points: 3
+        priority: critical
+        area: [qa]
+        depends: [ST-34.08]
+        story: 'به‌عنوان مالک محصول می‌خواهم یک کارشناس مالی شرکت نتایج موتور را با یک طرح واقعی یا مرجع مقایسه و تأیید کند.'
+        acceptance:
+          - 'مقایسه با حداقل یک مطالعه مرجع (با اجازه مالک داده)؛ اختلاف‌ها مستند و رفع'
+      - id: ST-36.02
+        title: 'آزمون امنیتی پروژه‌ها، مدارک و مدل‌های مالی'
+        sprint: S21
+        points: 5
+        priority: critical
+        area: [security, qa]
+        depends: [ST-35.10, ST-35.13]
+        story: 'به‌عنوان مالک محصول می‌خواهم مطمئن باشم داده محرمانه متقاضیان فقط به افراد مجاز می‌رسد.'
+        acceptance:
+          - 'تست‌های منفی IDOR برای پروژه، پاسخ، مدرک، مدل مالی، اجرای محاسبه و گزارش؛ گزارش در docs/qa'
+      - id: ST-36.03
+        title: 'سفر کامل امکان‌سنجی در Playwright'
+        sprint: S21
+        points: 5
+        priority: high
+        area: [qa, web]
+        depends: [ST-35.14]
+        story: 'به‌عنوان تیم می‌خواهم سفر «ایجاد پروژه تا تحویل گزارش» خودکار آزموده شود.'
+        acceptance:
+          - 'سناریو با سه نقش متقاضی، کارکنان و کارشناس؛ axe بدون خطای serious و critical'
+      - id: ST-36.04
+        title: 'انتشار v0.4.0'
+        sprint: S21
+        points: 3
+        priority: high
+        area: [docs, infra]
+        depends: [ST-36.01, ST-36.02, ST-36.03]
+        story: 'به‌عنوان مالک محصول می‌خواهم موتور مالی و پلتفرم امکان‌سنجی منتشر شوند.'
+        acceptance:
+          - 'CHANGELOG، HANDOFF و گزارش QA به‌روز؛ PR انتشار با تأیید مالک؛ tag v0.4.0 و GitHub Release'
