@@ -48,6 +48,25 @@ Three currencies: **input** (I, any item may be entered in it), **local** (L, ca
 
 **No defaults** (deviation from COMFAR, whose DEFAULTS window pre-fills values): a required field left empty blocks calculation with a field-level message. Personal assumption templates may copy values from another project of the same user.
 
+### 3.1 COMFAR defaults and how we handle them
+
+COMFAR pre-fills some values (V.C, VII.B and individual windows). Our rule: nothing that changes a result is filled silently.
+
+| COMFAR default                                                                                                 | COMFAR value                                                                                    | Our handling                                                                     |
+| -------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| Inflation rate of every currency                                                                               | 0 %                                                                                             | Required. "No inflation" is an explicit per-project choice.                      |
+| Price escalation of every item                                                                                 | 0 %                                                                                             | Required per item or an explicit "no escalation" choice for the project.         |
+| MIRR reinvestment and borrowing rates                                                                          | the project IRR when not entered                                                                | Required when MIRR is requested; otherwise MIRR is not shown.                    |
+| Discount reference date                                                                                        | end of first year                                                                               | Required project choice (start of first period or end of first year).            |
+| First loan repayment date                                                                                      | one repayment period after the last disbursement or the start of production, whichever is later | Required per loan; the form may propose this date visibly, the user confirms it. |
+| Residual value / sale of assets                                                                                | year after production ends (or after depreciation ends)                                         | Required project choice, overridable per asset.                                  |
+| Break-even period                                                                                              | reference year                                                                                  | Required when break-even is requested.                                           |
+| Depreciation type, loan repayment type, capitalised interest share, cost allocation key, minimum days coverage | user-settable defaults                                                                          | Required per item; a visible "apply to all items" action, no hidden pre-fill.    |
+| Input mode (quantity or price = 1), local currency name, item currency and local/foreign origin, number format | user-settable defaults                                                                          | Allowed as personal UI preferences (they do not change results).                 |
+| Cash deficit                                                                                                   | automatic equity / interest-free overdraft                                                      | Reported as a warning; automatic coverage only on explicit request (§4.9).       |
+| Non-calculable ratio                                                                                           | printed as 0                                                                                    | Shown as "not calculable" with the reason (§5).                                  |
+| Data structure (cost items, one product)                                                                       | standard structure by project type and study level                                              | Offered as an empty starting structure (names only, no values).                  |
+
 ## 4. Calculation rules
 
 ### 4.1 Discounting, NPV, IRR, MIRR (XI.D–E)
