@@ -25,7 +25,7 @@ export const text = (min = 1, max = 255) =>
 /** Trimmed optional free text with a maximum length (empty string allowed). */
 export const optionalText = (max: number) =>
   z
-    .string()
+    .string({ error: 'متن معتبر وارد کنید.' })
     .trim()
     .max(max, { error: MESSAGES.tooLong(max) });
 

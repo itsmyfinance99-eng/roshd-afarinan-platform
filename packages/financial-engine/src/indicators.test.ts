@@ -36,14 +36,22 @@ describe('paybackPeriod (COMFAR X.C.6, normal payback)', () => {
     // Cumulative −40, −80, −100, −90, −30, 0: never positive without the salvage value …
     expect(result.value).toBeUndefined();
     expect(result.warnings).toEqual([{ code: 'payback.notReached' }]);
-    // … and recovered in the last year with it (−30 + 55 > 0 after 30/55 of the year).
+    // … and recovered with it at the end of the last year: the salvage arrives on its last day.
     const withSalvage = paybackPeriod(
       { periodMonths: [3, 3, 3, 3, 12, 12], amounts: ['-40', '-40', '-20', '10', '60', '30'] },
       { salvageValue: '25' },
     );
     expect(withSalvage.value?.period).toBe(5);
     expect(withSalvage.value?.endMonth).toBe(36);
-    expect(r12(withSalvage.value?.months)).toBe('30.545454545455');
+    expect(withSalvage.value?.months).toBe('36');
+  });
+
+  it('interpolates on operating flows only when the salvage is not needed', () => {
+    // Operating flows alone recover in the last year (−100 + 160 > 0 after 100/160 of it).
+    const result = paybackPeriod(yearly(['-100', '160']), { salvageValue: '50' });
+    expect(result.value).toEqual({ period: 1, endMonth: 24, months: '19.5' });
+    // A cumulative of exactly 0 before the salvage is completed by it at the period end.
+    expect(paybackPeriod(yearly(['-100', '100']), { salvageValue: '10' }).value?.months).toBe('24');
   });
 
   it('starts counting only once the cumulative cash flow has gone negative', () => {
@@ -95,7 +103,7 @@ describe('discountedPaybackPeriod (COMFAR X.C.6, dynamic payback)', () => {
       { annualRate: '0.12', salvageValue: '25' },
     );
     expect(result.value?.endMonth).toBe(36);
-    expect(r12(result.value?.months)).toBe('35.736769467172');
+    expect(result.value?.months).toBe('36');
   });
 
   it('is later than the normal payback and may not be reached at all', () => {
@@ -159,6 +167,29 @@ describe('benefitCostRatio', () => {
     expect(r12(result.value?.ratio)).toBe('0.720424671385');
     expect(r12(result.value?.presentValueOfBenefits)).toBe('904.968754762993');
     expect(r12(result.value?.presentValueOfCosts)).toBe('1256.160138190317');
+  });
+
+  it('refuses negative amounts and names the right field', () => {
+    let error: unknown;
+    try {
+      benefitCostRatio(
+        { periodMonths: [12, 12], benefits: ['0', '500'], costs: ['1000', '-900'] },
+        { annualRate: '0' },
+      );
+    } catch (e) {
+      error = e;
+    }
+    expect((error as EngineInputError).code).toBe('amount.negative');
+    expect((error as EngineInputError).field).toBe('costs[1]');
+    try {
+      benefitCostRatio(
+        { periodMonths: [12, 12], benefits: ['1'], costs: ['1', '1'] },
+        { annualRate: '0' },
+      );
+    } catch (e) {
+      error = e;
+    }
+    expect((error as EngineInputError).field).toBe('benefits');
   });
 
   it('is not calculable without costs', () => {
@@ -285,7 +316,7 @@ describe('productBreakEven (COMFAR X.C.6, each product)', () => {
     });
     expect(value.averageUnitPrice).toBeUndefined();
     expect(value.constantPrice).toEqual({});
-    expect(value.constantVolume).toEqual({ breakEvenSalesValue: '100' });
+    expect(value.constantVolume).toEqual({});
     expect(warnings).toEqual([{ code: 'breakEven.noVolume' }, { code: 'breakEven.noSales' }]);
   });
 });
@@ -352,6 +383,21 @@ describe('loanLifeCoverage', () => {
       '0.909090909091',
       undefined,
     ]);
+  });
+
+  it('names cashAvailable when its length does not match', () => {
+    let error: unknown;
+    try {
+      loanLifeCoverage({
+        periodMonths: [12, 12],
+        cashAvailable: ['1'],
+        openingDebt: ['1', '1'],
+        annualRate: '0.1',
+      });
+    } catch (e) {
+      error = e;
+    }
+    expect((error as EngineInputError).field).toBe('cashAvailable');
   });
 
   it('warns when there is no debt', () => {
