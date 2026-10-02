@@ -22,22 +22,34 @@ export const FINANCIAL_MODEL_MESSAGES = {
     `مسیر دوره‌ای باید برای هر دوره افق طرح یک مقدار داشته باشد (${toPersianDigits(periods)} مقدار).`,
   horizonTooLong: 'افق طرح حداکثر ۶۰۰ ماه (۵۰ سال) است.',
   required: (label: string) => `«${label}» برای محاسبه لازم است.`,
+  templateValueRequired: 'هر فرض الگو باید مقدار ثابت یا مسیر دوره‌ای داشته باشد.',
+  wholeNumber: 'عدد صحیح وارد کنید.',
+  tooFew: (min: number) => `حداقل ${toPersianDigits(min)} مورد لازم است.`,
+  tooMany: (max: number) => `حداکثر ${toPersianDigits(max)} مورد مجاز است.`,
+  tooSmall: (min: number) => `مقدار باید حداقل ${toPersianDigits(min)} باشد.`,
+  tooLarge: (max: number) => `مقدار باید حداکثر ${toPersianDigits(max)} باشد.`,
+  chooseYesNo: 'یکی از گزینه‌ها را انتخاب کنید.',
 } as const;
 
-/** Decimal number as a string; Persian digits, «٫» and thousands separators are accepted. */
+const M = FINANCIAL_MODEL_MESSAGES;
+
+/**
+ * Decimal number as a string. Persian digits and the Persian decimal point «٫» are accepted; a
+ * comma or «٬» only as a thousands separator between groups of three digits (so «0,18» is refused
+ * instead of silently becoming 18). Nothing else is removed or guessed.
+ */
 export const decimalStringSchema = z
   .string({ error: MESSAGES.required })
-  .transform((v) =>
-    toLatinDigits(v)
-      .replace(/[\s,٬]/g, '')
-      .replace(/٫/g, '.'),
-  )
+  .transform((v) => toLatinDigits(v).trim().replace(/٫/g, '.'))
   .pipe(
     z
       .string()
-      .max(40)
-      .regex(/^[+-]?(\d+(\.\d*)?|\.\d+)$/, { error: FINANCIAL_MODEL_MESSAGES.invalidDecimal }),
-  );
+      .max(40, { error: M.invalidDecimal })
+      .regex(/^[+-]?(\d{1,3}([,٬]\d{3})+(\.\d+)?|\d+(\.\d*)?|\.\d+)$/, {
+        error: M.invalidDecimal,
+      }),
+  )
+  .transform((v) => v.replace(/[,٬]/g, ''));
 
 export const currencyCodeSchema = z
   .string({ error: MESSAGES.required })
@@ -75,21 +87,27 @@ export const REPORTING_UNIT_LABELS_FA: Record<ReportingUnit, string> = {
 const MAX_HORIZON_MONTHS = 600;
 
 export const horizonSchema = z
-  .object({
-    /** First day of construction (Gregorian date from the date input). */
-    startDate: isoDaySchema,
-    construction: z.object({
-      periods: z.int({ error: 'تعداد دوره‌ها باید عدد صحیح باشد.' }).min(0).max(600),
-      periodMonths: periodMonthsSchema,
-    }),
-    production: z.object({
-      periods: z
-        .int({ error: 'تعداد دوره‌ها باید عدد صحیح باشد.' })
-        .min(1, { error: 'دوره بهره‌برداری حداقل یک دوره است.' })
-        .max(600),
-      periodMonths: periodMonthsSchema,
-    }),
-  })
+  .object(
+    {
+      /** First day of construction (Gregorian date from the date input). */
+      startDate: isoDaySchema,
+      construction: z.object({
+        periods: z
+          .int({ error: M.wholeNumber })
+          .min(0, { error: M.tooSmall(0) })
+          .max(600, { error: M.tooLarge(600) }),
+        periodMonths: periodMonthsSchema,
+      }),
+      production: z.object({
+        periods: z
+          .int({ error: M.wholeNumber })
+          .min(1, { error: 'دوره بهره‌برداری حداقل یک دوره است.' })
+          .max(600, { error: M.tooLarge(600) }),
+        periodMonths: periodMonthsSchema,
+      }),
+    },
+    { error: MESSAGES.required },
+  )
   .refine(
     (h) =>
       h.construction.periods * h.construction.periodMonths +
@@ -105,15 +123,23 @@ export function horizonPeriods(horizon: Horizon): number {
 }
 
 export const currenciesSchema = z
-  .object({
-    /** Calculation currency, e.g. IRR. */
-    local: currencyCodeSchema,
-    foreign: z.array(currencyCodeSchema).max(10),
-    reporting: z.object({
-      currency: currencyCodeSchema,
-      unit: z.enum(REPORTING_UNITS),
-    }),
-  })
+  .object(
+    {
+      /** Calculation currency, e.g. IRR. */
+      local: currencyCodeSchema,
+      foreign: z
+        .array(currencyCodeSchema, { error: MESSAGES.required })
+        .max(10, { error: M.tooMany(10) }),
+      reporting: z.object(
+        {
+          currency: currencyCodeSchema,
+          unit: z.enum(REPORTING_UNITS, { error: 'واحد نمایش را انتخاب کنید.' }),
+        },
+        { error: MESSAGES.required },
+      ),
+    },
+    { error: MESSAGES.required },
+  )
   .superRefine((c, ctx) => {
     const seen = new Set<string>();
     c.foreign.forEach((code, i) => {
@@ -146,7 +172,7 @@ export type Currencies = z.infer<typeof currenciesSchema>;
 const assumptionKeySchema = z
   .string({ error: MESSAGES.required })
   .trim()
-  .max(80)
+  .max(80, { error: M.invalidKey })
   .regex(/^[a-z][a-zA-Z0-9]*(\.[A-Za-z0-9_-]+)*$/, { error: FINANCIAL_MODEL_MESSAGES.invalidKey });
 
 const MAX_PATH = 600;
@@ -160,7 +186,11 @@ export const assumptionSchema = z
     /** One value for the whole horizon. */
     value: decimalStringSchema.optional(),
     /** One value per project period. */
-    path: z.array(decimalStringSchema).min(1).max(MAX_PATH).optional(),
+    path: z
+      .array(decimalStringSchema)
+      .min(1, { error: M.tooFew(1) })
+      .max(MAX_PATH, { error: M.tooMany(MAX_PATH) })
+      .optional(),
     /** Free text, e.g. «بانک مرکزی، گزارش تورم». */
     source: optionalText(300).optional(),
     /** Free text, e.g. «۱۴۰۵/۰۶/۳۱». */
@@ -193,8 +223,10 @@ export const projectAssumptionsSchema = z
     horizon: horizonSchema,
     currencies: currenciesSchema,
     /** COMFAR special feature: calculate with inflation (current prices). */
-    inflationEnabled: z.boolean(),
-    assumptions: z.array(assumptionSchema).max(MAX_ASSUMPTIONS),
+    inflationEnabled: z.boolean({ error: M.chooseYesNo }),
+    assumptions: z
+      .array(assumptionSchema, { error: MESSAGES.required })
+      .max(MAX_ASSUMPTIONS, { error: M.tooMany(MAX_ASSUMPTIONS) }),
   })
   .superRefine((input, ctx) => {
     uniqueKeys(input.assumptions, ctx, 'assumptions');
@@ -230,8 +262,12 @@ export function requiredAssumptions(
 }
 
 export interface AssumptionIssue {
+  /** The missing assumption; the editor shows the message at the field for this key. */
   key: string;
-  /** Field path in the project input, for showing the message next to the field. */
+  /**
+   * Path in the project input: the empty value of an existing entry, or `['assumptions']` when
+   * the entry does not exist yet (the editor then places the message by `key`).
+   */
   path: (string | number)[];
   code: 'assumption.required';
   message: string;
@@ -275,11 +311,15 @@ export function applyAssumptionTemplate(
     if (replacement === undefined) return a;
     replaced.push(a.key);
     fromTemplate.delete(a.key);
-    return { ...replacement };
+    return copyAssumption(replacement);
   });
   const added = [...fromTemplate.keys()];
-  for (const a of fromTemplate.values()) assumptions.push({ ...a });
+  for (const a of fromTemplate.values()) assumptions.push(copyAssumption(a));
   return { assumptions, replaced, added };
+}
+
+function copyAssumption(a: Assumption): Assumption {
+  return a.path === undefined ? { ...a } : { ...a, path: [...a.path] };
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -290,11 +330,23 @@ export const assumptionTemplateSchema = z
     name: text(1, 120),
     description: optionalText(500).optional(),
     assumptions: z
-      .array(assumptionSchema)
+      .array(assumptionSchema, { error: MESSAGES.required })
       .min(1, { error: 'الگو باید حداقل یک فرض داشته باشد.' })
-      .max(MAX_ASSUMPTIONS),
+      .max(MAX_ASSUMPTIONS, { error: M.tooMany(MAX_ASSUMPTIONS) }),
   })
-  .superRefine((t, ctx) => uniqueKeys(t.assumptions, ctx, 'assumptions'));
+  .superRefine((t, ctx) => {
+    uniqueKeys(t.assumptions, ctx, 'assumptions');
+    // A template exists to carry values: an empty entry would blank a filled one when copied.
+    t.assumptions.forEach((a, i) => {
+      if (a.value === undefined && a.path === undefined) {
+        ctx.addIssue({
+          code: 'custom',
+          message: M.templateValueRequired,
+          path: ['assumptions', i, 'value'],
+        });
+      }
+    });
+  });
 export type AssumptionTemplateInput = z.infer<typeof assumptionTemplateSchema>;
 
 export const listAssumptionTemplatesQuerySchema = paginationQuerySchema;

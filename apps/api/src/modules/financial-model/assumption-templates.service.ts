@@ -73,7 +73,8 @@ export class AssumptionTemplatesService {
     owner: Principal,
     meta: RequestMeta,
   ): Promise<AssumptionTemplateDetail> {
-    // A soft cap against runaway use: two creates racing may end one template above it.
+    // A soft cap against runaway use: concurrent creates may each pass the count and end a few
+    // templates above it (the request throttle bounds how many).
     const template = await this.prisma.$transaction(async (tx) => {
       const count = await tx.assumptionTemplate.count({ where: { ownerId: owner.userId } });
       if (count >= MAX_ASSUMPTION_TEMPLATES) {

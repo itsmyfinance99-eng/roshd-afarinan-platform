@@ -49,6 +49,15 @@ describe('decimalStringSchema', () => {
       expect(decimalStringSchema.safeParse(bad).success, bad).toBe(false);
     }
   });
+
+  it('accepts a comma only as a thousands separator, never as a decimal point', () => {
+    expect(decimalStringSchema.parse('1,250,000.5')).toBe('1250000.5');
+    expect(decimalStringSchema.parse('-12,500')).toBe('-12500');
+    // These used to lose the comma silently: 0,18 became 18.
+    for (const bad of ['0,18', '۰,۱۸', '1,2,3', '12,50', '1 5', '1234,567']) {
+      expect(decimalStringSchema.safeParse(bad).success, bad).toBe(false);
+    }
+  });
 });
 
 describe('projectAssumptionsSchema', () => {
@@ -220,6 +229,29 @@ describe('assumption templates', () => {
     ).toBe(false);
   });
 
+  it('refuses template entries without a value or a path', () => {
+    const result = assumptionTemplateSchema.safeParse({
+      name: 'ناقص',
+      assumptions: [{ key: 'discountRate', label: 'نرخ تنزیل', unit: '%' }],
+    });
+    expect(messagesOf(result)).toContain(FINANCIAL_MODEL_MESSAGES.templateValueRequired);
+  });
+
+  it('answers limits and types in Persian', () => {
+    const result = projectAssumptionsSchema.safeParse({
+      ...base,
+      inflationEnabled: 'yes',
+      horizon: { ...base.horizon, construction: { periods: 700, periodMonths: 12 } },
+      currencies: {
+        ...base.currencies,
+        foreign: Array.from({ length: 11 }, (_, i) => `A${'BCDEFGHIJKL'[i]}X`),
+      },
+    });
+    const messages = messagesOf(result);
+    expect(messages.length).toBeGreaterThan(0);
+    for (const message of messages) expect(message, message).toMatch(/[؀-ۿ]/);
+  });
+
   it('copies into a project: replaces the same keys, adds the others, keeps the rest', () => {
     const project = [
       { key: 'discountRate', label: 'نرخ تنزیل', unit: '%', value: '0.2' },
@@ -237,7 +269,12 @@ describe('assumption templates', () => {
       ['custom.land', '5000'],
       ['inflation.IRR', '0.3'],
     ]);
-    // The inputs are not changed.
+    // The inputs are not changed, and paths are copied, not shared.
     expect(project[0]?.value).toBe('0.2');
+    const pathTemplate = [{ key: 'inflation.IRR', label: 'تورم', unit: '%', path: ['0.3'] }];
+    const withPath = applyAssumptionTemplate([], pathTemplate);
+    withPath.assumptions[0]?.path?.push('0.4');
+    expect(withPath.assumptions[0]?.path).toEqual(['0.3', '0.4']);
+    expect(pathTemplate[0]?.path).toEqual(['0.3']);
   });
 });
