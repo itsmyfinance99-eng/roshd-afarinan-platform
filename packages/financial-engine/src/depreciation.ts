@@ -47,6 +47,8 @@ export interface DepreciationSchedule {
 }
 
 const TWELVE = new Decimal(12);
+/** 100 years: longer lives are input errors, and bounding them bounds the schedule loops. */
+const MAX_LIFE_MONTHS = 1200;
 
 function validate(input: DepreciationInput): { ibv: Decimal; sv: Decimal } {
   const ibv = toDecimal(input.initialBookValue);
@@ -55,6 +57,11 @@ function validate(input: DepreciationInput): { ibv: Decimal; sv: Decimal } {
   }
   if (!Number.isInteger(input.lifeMonths) || input.lifeMonths <= 0) {
     throw new EngineInputError('period.lengthNotPositiveInteger', 'lifeMonths');
+  }
+  if (input.lifeMonths > MAX_LIFE_MONTHS) {
+    throw new EngineInputError('depreciation.lifeTooLong', 'lifeMonths', {
+      max: String(MAX_LIFE_MONTHS),
+    });
   }
   const m1 = input.firstYearMonths;
   if (!Number.isInteger(m1) || m1 < 1 || m1 > 12) {
@@ -136,7 +143,7 @@ function linear(base: Decimal, cap: Decimal, lifeMonths: number, m1: number): De
  * Declining balance switching to linear to scrap: year 1 `IBV × DR × m1/12`; from year 2 the
  * declining charge `RBV × DR` applies while it exceeds `(RBV − SV) / RL`, RL being the remaining
  * life at the start of the year (spec §4.4.1). From the first year it does not, the rest is spread
- * evenly over the remaining months; a life that ends earlier writes the rest off at once.
+ * evenly over the remaining months. A life that ends within the first year is written off there.
  */
 function decliningBalance(
   ibv: Decimal,
@@ -146,18 +153,17 @@ function decliningBalance(
   rate: Decimal,
   schedule: DepreciationSchedule,
 ): Decimal[] {
+  // A life that ends within the first depreciation year is written off in that year.
+  if (lifeMonths <= m1) return [cap];
   const first = ibv.times(rate).times(m1).div(TWELVE);
   if (first.gte(cap)) return [cap];
   const cumulative: Decimal[] = [first];
   let charged = first;
   for (let year = 1; ; year++) {
+    // Positive here: the life outlasts the first year, and a year whose remaining life is 12
+    // months or less always ends below at the cap.
     const remainingMonths = lifeMonths - m1 - 12 * (year - 1);
     const remaining = cap.minus(charged);
-    if (remainingMonths <= 0) {
-      schedule.switchedToLinearInYear = year;
-      cumulative.push(cap);
-      return cumulative;
-    }
     const declining = ibv.minus(charged).times(rate);
     const straight = remaining.times(12).div(remainingMonths);
     if (!declining.gt(straight)) {
