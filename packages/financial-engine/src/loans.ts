@@ -105,9 +105,14 @@ export interface LoanSchedule {
 
 const DAYS_PER_YEAR = new Decimal(360);
 const MONTH = 30;
+/** 100 years of 30/360 days; bounds the timeline the schedule walks. */
+const MAX_DAY = 36_000;
+const MAX_REPAYMENTS = 1_200;
 
 function wholeDay(day: number, field: string): void {
-  if (!Number.isInteger(day) || day < 1) throw new EngineInputError('loan.dayInvalid', field);
+  if (!Number.isInteger(day) || day < 1 || day > MAX_DAY) {
+    throw new EngineInputError('loan.dayInvalid', field);
+  }
 }
 
 function monthEnd(day: number, field: string): void {
@@ -158,7 +163,8 @@ export function loanSchedule(input: LoanInput): CalculationResult<LoanSchedule> 
       wholeDay(f.day, `flows[${i}].day`);
       return { day: f.day, amount: toDecimal(f.amount) };
     })
-    .sort((a, b) => a.day - b.day);
+    // By day; on one day disbursements come before repayments, so the day nets out.
+    .sort((a, b) => a.day - b.day || b.amount.cmp(a.amount));
   const firstDay = flows[0]?.day ?? 1;
   const totalDisbursed = flows.reduce(
     (sum, f) => (f.amount.gt(0) ? sum.plus(f.amount) : sum),
@@ -181,7 +187,7 @@ export function loanSchedule(input: LoanInput): CalculationResult<LoanSchedule> 
 
   const share = toDecimal(input.capitalisedShare);
   if (share.isNegative() || share.gt(1)) {
-    throw new EngineInputError('rate.notInUnitInterval', 'capitalisedShare');
+    throw new EngineInputError('loan.capitalisedShare', 'capitalisedShare');
   }
   const capitaliseUntil = input.capitaliseUntilDay;
   if (share.gt(0)) {
@@ -217,6 +223,7 @@ export function loanSchedule(input: LoanInput): CalculationResult<LoanSchedule> 
     return s;
   };
   let repayments = 0;
+  let lastDay = firstDay;
   if (input.type === 'PROFILE') {
     if (input.interestDueDay === undefined) {
       throw new EngineInputError('loan.interestDueDayRequired', 'interestDueDay');
@@ -236,9 +243,12 @@ export function loanSchedule(input: LoanInput): CalculationResult<LoanSchedule> 
     while (due > firstDay) due -= period;
     while (due <= firstDay) due += period;
     for (; due <= horizonEnd; due += period) stop(due).due = true;
+    // Accrue up to the end of the horizon, so interest still owed there is reported.
+    stop(horizonEnd);
+    lastDay = horizonEnd;
   } else {
     const n = input.numberOfRepayments;
-    if (n === undefined || !Number.isInteger(n) || n < 1) {
+    if (n === undefined || !Number.isInteger(n) || n < 1 || n > MAX_REPAYMENTS) {
       throw new EngineInputError('loan.numberOfRepayments', 'numberOfRepayments');
     }
     repayments = n;
@@ -248,12 +258,9 @@ export function loanSchedule(input: LoanInput): CalculationResult<LoanSchedule> 
         throw new EngineInputError('loan.firstRepaymentRequired', 'firstRepaymentDay');
       }
       wholeDay(input.constructionEndDay, 'constructionEndDay');
-      const lastDisbursement = flows.reduce((d, f) => (f.amount.gt(0) ? f.day : d), firstDay);
-      first = defaultFirstRepaymentDay(
-        lastDisbursement,
-        input.constructionEndDay,
-        input.repaymentMonths,
-      );
+      // The last flow of any sign: repayments in the disbursement phase must stay inside it.
+      const lastFlow = flows[flows.length - 1]?.day ?? firstDay;
+      first = defaultFirstRepaymentDay(lastFlow, input.constructionEndDay, input.repaymentMonths);
       defaultsUsed.push({ key: 'loan.firstRepaymentDate', value: String(first) });
     }
     monthEnd(first, 'firstRepaymentDay');
@@ -276,14 +283,17 @@ export function loanSchedule(input: LoanInput): CalculationResult<LoanSchedule> 
       s.due = true;
       s.repayment = true;
     }
-    if (input.horizonEndDay !== undefined && first + (n - 1) * period > input.horizonEndDay) {
-      warnings.push({ code: 'loan.beyondHorizon' });
+    lastDay = first + (n - 1) * period;
+    if (lastDay > MAX_DAY) throw new EngineInputError('loan.dayInvalid', 'numberOfRepayments');
+    if (input.horizonEndDay !== undefined) {
+      wholeDay(input.horizonEndDay, 'horizonEndDay');
+      if (lastDay > input.horizonEndDay) warnings.push({ code: 'loan.beyondHorizon' });
     }
   }
   flows.forEach((f) => stop(f.day).flows.push(f.amount));
   // A rate from day X applies to days X, X + 1, …, i.e. to accrual after day X − 1.
   rates.forEach((r) => {
-    if (r.fromDay - 1 >= firstDay) stop(r.fromDay - 1).rate = r.rate;
+    if (r.fromDay - 1 >= firstDay && r.fromDay - 1 < lastDay) stop(r.fromDay - 1).rate = r.rate;
   });
 
   // Walk the timeline
@@ -463,25 +473,25 @@ export function loanPeriods(
     capitalisedInterest: ZERO,
     interest: ZERO,
     fees: ZERO,
-    closing: undefined as Decimal | undefined,
   }));
   const warnings: CalculationWarning[] = [];
   let p = 0;
-  for (const e of schedule.events) {
+  const events = [...schedule.events].sort((a, b) => a.day - b.day);
+  for (const e of events) {
     while (p < periodEndDays.length && e.day > (periodEndDays[p] ?? 0)) p++;
     const target = sums[p];
     if (target === undefined) {
       if (warnings.length === 0) warnings.push({ code: 'loan.beyondHorizon' });
       continue;
     }
-    const field = PERIOD_FIELDS[e.kind] as keyof Omit<(typeof sums)[number], 'closing'>;
+    const field = PERIOD_FIELDS[e.kind] as keyof (typeof sums)[number];
     target[field] = target[field].plus(e.amount);
-    target.closing = toDecimal(e.balance);
   }
   let balance = ZERO;
   const value = sums.map((s): LoanPeriod => {
     const opening = balance;
-    balance = s.closing ?? balance;
+    // From the flows, not from an event's balance: same-day events may come in any order.
+    balance = balance.plus(s.disbursement).plus(s.capitalisedInterest).minus(s.repayment);
     return {
       openingBalance: toDecimalString(opening),
       disbursement: toDecimalString(s.disbursement),

@@ -27,7 +27,7 @@ export const ENGINE_MESSAGES_FA = {
   'exchangeRate.notPositive': 'نرخ ارز باید بیشتر از صفر باشد.',
   'loan.negativeBalance': 'بازپرداخت از مانده تسهیلات بیشتر است.',
   'rate.negative': 'نرخ نمی‌تواند منفی باشد.',
-  'loan.dayInvalid': 'تاریخ باید روزی از افق طرح باشد (عدد صحیح از ۱ به بعد).',
+  'loan.dayInvalid': 'تاریخ باید روزی در افق طرح (حداکثر صد سال) باشد.',
   'loan.notMonthEnd': 'این تاریخ باید آخرین روز یک ماه باشد.',
   'loan.repaymentMonths': 'فاصله بازپرداخت باید ماهانه، سه‌ماهه، شش‌ماهه یا سالانه باشد.',
   'loan.noDisbursement': 'برای تسهیلات هیچ برداشتی وارد نشده است.',
@@ -39,10 +39,12 @@ export const ENGINE_MESSAGES_FA = {
   'loan.interestDueDayRequired': 'برای تسهیلات با جدول دلخواه، ماه پرداخت سود را وارد کنید.',
   'loan.horizonEndRequired': 'برای تسهیلات با جدول دلخواه، پایان افق طرح لازم است.',
   'loan.flowOutsideHorizon': 'این برداشت یا بازپرداخت بعد از پایان افق طرح است.',
-  'loan.numberOfRepayments': 'تعداد اقساط باید عدد صحیح مثبت باشد.',
+  'loan.numberOfRepayments': 'تعداد اقساط باید عدد صحیح از ۱ تا ۱۲۰۰ باشد.',
   'loan.firstRepaymentRequired':
     'تاریخ اولین قسط یا پایان دوره ساخت را وارد کنید تا تاریخ پیش‌فرض COMFAR محاسبه شود.',
-  'loan.flowAfterDisbursementPhase': 'برداشت بعد از پایان دوره برداشت ({until}) مجاز نیست.',
+  'loan.flowAfterDisbursementPhase':
+    'برداشت یا بازپرداخت بعد از پایان دوره برداشت مجاز نیست؛ تاریخ اولین قسط را دیرتر کنید.',
+  'loan.capitalisedShare': 'سهم سود انباشته باید از صفر تا ۱۰۰ درصد باشد.',
   'loan.periodsNotAscending': 'پایان دوره‌ها باید به ترتیب صعودی باشد.',
 
   // Warnings: a value that does not exist or cannot be computed
