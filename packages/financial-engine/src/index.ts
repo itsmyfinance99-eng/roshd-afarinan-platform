@@ -24,7 +24,7 @@ export type {
   Scenario,
   SensitivityRequest,
 } from './types';
-export { EngineInputError } from './errors';
+export { EngineInputError, isEngineInputError } from './errors';
 export { MODEL_VERSION } from './version';
 export {
   DEFAULT_DISCOUNT_REFERENCE,
@@ -116,4 +116,13 @@ export {
   type LoanSchedule,
   type LoanType,
 } from './loans';
+export {
+  planHorizon,
+  type BalanceYear,
+  type HorizonInput,
+  type HorizonPeriod,
+  type PeriodLength,
+  type PeriodPhase,
+  type PlanningHorizon,
+} from './model/horizon';
 export { financialCalculator } from './calculator';

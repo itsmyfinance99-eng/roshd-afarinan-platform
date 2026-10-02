@@ -1,5 +1,8 @@
 import { z } from 'zod';
-import { MESSAGES, isoDaySchema, optionalText, paginationQuerySchema, text } from './common';
+import { MESSAGES, optionalText, paginationQuerySchema, text } from './common';
+import { isEngineInputError } from '@roshd/financial-engine/errors';
+import { planHorizon } from '@roshd/financial-engine/horizon';
+import { engineMessageFa } from '@roshd/financial-engine/messages';
 import { toLatinDigits, toPersianDigits } from './normalize';
 
 /**
@@ -20,7 +23,6 @@ export const FINANCIAL_MODEL_MESSAGES = {
   valueOrPath: 'برای هر فرض یا یک مقدار ثابت وارد کنید یا مسیر دوره‌ای؛ هر دو با هم مجاز نیست.',
   pathLength: (periods: number) =>
     `مسیر دوره‌ای باید برای هر دوره افق طرح یک مقدار داشته باشد (${toPersianDigits(periods)} مقدار).`,
-  horizonTooLong: 'افق طرح حداکثر ۶۰۰ ماه (۵۰ سال) است.',
   required: (label: string) => `«${label}» برای محاسبه لازم است.`,
   templateValueRequired: 'هر فرض الگو باید مقدار ثابت یا مسیر دوره‌ای داشته باشد.',
   wholeNumber: 'عدد صحیح وارد کنید.',
@@ -85,48 +87,69 @@ export const REPORTING_UNIT_LABELS_FA: Record<ReportingUnit, string> = {
   '1000000000': 'میلیارد',
 };
 
-const MAX_HORIZON_MONTHS = 600;
+const wholeNumber = (min: number, max: number) =>
+  z
+    .int({ error: M.wholeNumber })
+    .min(min, { error: M.tooSmall(min) })
+    .max(max, { error: M.tooLarge(max) });
 
-export const horizonSchema = z
-  .object(
-    {
-      /** First day of construction (Gregorian date from the date input). */
-      startDate: isoDaySchema,
-      construction: z.object(
-        {
-          periods: z
-            .int({ error: M.wholeNumber })
-            .min(0, { error: M.tooSmall(0) })
-            .max(600, { error: M.tooLarge(600) }),
-          periodMonths: periodMonthsSchema,
-        },
-        { error: MESSAGES.required },
-      ),
-      production: z.object(
-        {
-          periods: z
-            .int({ error: M.wholeNumber })
-            .min(1, { error: 'دوره بهره‌برداری حداقل یک دوره است.' })
-            .max(600, { error: M.tooLarge(600) }),
-          periodMonths: periodMonthsSchema,
-        },
-        { error: MESSAGES.required },
-      ),
-    },
+const phaseSchema = (maxPeriods: number) =>
+  z.object(
+    { periods: wholeNumber(0, maxPeriods), periodMonths: periodMonthsSchema },
     { error: MESSAGES.required },
-  )
-  .refine(
-    (h) =>
-      h.construction.periods * h.construction.periodMonths +
-        h.production.periods * h.production.periodMonths <=
-      MAX_HORIZON_MONTHS,
-    { error: FINANCIAL_MODEL_MESSAGES.horizonTooLong, path: ['production', 'periods'] },
   );
+
+/** Calendar of the dates the user enters and reads; the calculation counts months only. */
+export const CALENDARS = ['SOLAR_HIJRI', 'GREGORIAN'] as const;
+export type Calendar = (typeof CALENDARS)[number];
+
+export const CALENDAR_LABELS_FA: Record<Calendar, string> = {
+  SOLAR_HIJRI: 'هجری شمسی',
+  GREGORIAN: 'میلادی',
+};
+
+/**
+ * Planning horizon with COMFAR's structure (comfar-model-spec §1, `planHorizon` in the engine):
+ * construction start month, month of balance, construction periods, an optional start-up phase of
+ * periodic planning (at most 24 months) and the number of production years. The engine's own
+ * checks (start-up length, total length) run here too, so the editor shows them at the field.
+ */
+const horizonFieldsSchema = z.object(
+  {
+    calendar: z.enum(CALENDARS, { error: 'تقویم را انتخاب کنید.' }),
+    /** Month in which construction starts on its first day. */
+    start: z.object(
+      { year: wholeNumber(1300, 2200), month: wholeNumber(1, 12) },
+      { error: MESSAGES.required },
+    ),
+    /** Month whose last day is the balance date (end of the financial year), e.g. 12 = Esfand. */
+    balanceMonth: wholeNumber(1, 12),
+    construction: phaseSchema(600),
+    startup: phaseSchema(24),
+    productionYears: wholeNumber(1, 50),
+  },
+  { error: MESSAGES.required },
+);
+
+export const horizonSchema = horizonFieldsSchema.superRefine((h, ctx) => {
+  // Field errors come first; the engine's checks only make sense on a well-formed horizon.
+  if (!horizonFieldsSchema.safeParse(h).success) return;
+  try {
+    planHorizon(h);
+  } catch (error) {
+    if (!isEngineInputError(error)) throw error;
+    ctx.addIssue({
+      code: 'custom',
+      message: engineMessageFa(error.code, error.params),
+      path: error.field.split('.'),
+    });
+  }
+});
 export type Horizon = z.infer<typeof horizonSchema>;
 
-/** Number of project periods (construction + production); per-period paths have this length. */
+/** Number of project periods (construction, start-up and production years). */
 export function horizonPeriods(horizon: Horizon): number {
-  return horizon.construction.periods + horizon.production.periods;
+  return planHorizon(horizon).periods.length;
 }
 
 export const currenciesSchema = z
@@ -243,6 +266,8 @@ export const projectAssumptionsSchema = z
   )
   .superRefine((input, ctx) => {
     uniqueKeys(input.assumptions, ctx, 'assumptions');
+    // An invalid horizon has its own messages; path lengths are checked once it is valid.
+    if (!horizonSchema.safeParse(input.horizon).success) return;
     const periods = horizonPeriods(input.horizon);
     input.assumptions.forEach((a, i) => {
       if (a.path !== undefined && a.path.length !== periods) {
