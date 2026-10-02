@@ -9,31 +9,34 @@ The golden suite pins the results of `@roshd/financial-engine` to values compute
 
 Every case calls one engine function with fixed input. The amounts are in rials at realistic magnitudes (up to 10^13) to exercise the 34-digit decimal arithmetic. The cases are constructed for testing; they are **not** real projects or real figures.
 
-| Case                        | Function                  | What it covers                                                                       |
-| --------------------------- | ------------------------- | ------------------------------------------------------------------------------------ |
-| `npv-textbook`              | `npv`                     | the textbook series −100, 60, 60 at 10 %                                             |
-| `npv-project`               | `npv`                     | sample project (2 construction + 5 production + salvage year), COMFAR reference date |
-| `npv-rate-path`             | `npv`                     | half-year periods, a discount-rate path                                              |
-| `irr-project`               | `irr`                     | sample project with salvage value                                                    |
-| `irr-uneven`                | `irr`                     | quarterly construction periods                                                       |
-| `mirr-project`              | `mirr`                    | separate reinvestment and borrowing rates, COMFAR reference date                     |
-| `payback-project`           | `paybackPeriod`           | period, date and interpolated duration                                               |
-| `dynamic-payback-project`   | `discountedPaybackPeriod` | the same on present values (12 %; at 18 % the project never pays back)               |
-| `npvr-project`              | `npvRatio`                | NPV / PVI with working-capital release in the salvage year                           |
-| `bcr`                       | `benefitCostRatio`        | present values of benefits and costs                                                 |
-| `break-even`                | `breakEven`               | with and without costs of finance, two products at the planned mix                   |
-| `product-break-even`        | `productBreakEven`        | constant-price and constant-volume analysis                                          |
-| `dscr`                      | `debtServiceCoverage`     | four years, one without debt service, the minimum                                    |
-| `llcr`                      | `loanLifeCoverage`        | rate path, debt ending before the horizon                                            |
-| `wacc`                      | `wacc`                    | equity and two loans after tax                                                       |
-| `depreciation-linear-scrap` | `depreciationSchedule`    | life in years and months, partial first year, scrap value                            |
-| `depreciation-declining`    | `depreciationSchedule`    | declining balance with the switch to linear, partial first year                      |
-| `depreciation-syd`          | `depreciationSchedule`    | sum of years digits with extra months and a partial first year                       |
-| `escalation`                | `priceEscalationFactors`  | inflation path, escalation and the first-year escalator                              |
-| `exchange-rates`            | `derivedExchangeRates`    | exchange-rate path from relative inflation                                           |
-| `loan-annuity`              | `loanSchedule`            | quarterly annuity, rate path, interest capitalised in construction, three fee types  |
-| `loan-constant-principal`   | `loanSchedule`            | half-yearly, half of the interest capitalised, guarantee fee                         |
-| `loan-profile`              | `loanSchedule`            | irregular repayments, interest month, rate change, interest after the last due date  |
+| Case                            | Function                  | What it covers                                                                       |
+| ------------------------------- | ------------------------- | ------------------------------------------------------------------------------------ |
+| `npv-textbook`                  | `npv`                     | the textbook series −100, 60, 60 at 10 %                                             |
+| `npv-project`                   | `npv`                     | sample project (2 construction + 5 production + salvage year), COMFAR reference date |
+| `npv-rate-path`                 | `npv`                     | half-year periods, a discount-rate path                                              |
+| `irr-project`                   | `irr`                     | sample project with salvage value                                                    |
+| `irr-uneven`                    | `irr`                     | quarterly construction periods                                                       |
+| `mirr-project`                  | `mirr`                    | separate reinvestment and borrowing rates, COMFAR reference date                     |
+| `payback-project`               | `paybackPeriod`           | period, date and interpolated duration                                               |
+| `dynamic-payback-project`       | `discountedPaybackPeriod` | the same on present values (12 %; at 18 % the project never pays back)               |
+| `npvr-project`                  | `npvRatio`                | NPV / PVI with working-capital release in the salvage year                           |
+| `bcr`                           | `benefitCostRatio`        | present values of benefits and costs                                                 |
+| `break-even`                    | `breakEven`               | with and without costs of finance, two products at the planned mix                   |
+| `product-break-even`            | `productBreakEven`        | constant-price and constant-volume analysis                                          |
+| `dscr`                          | `debtServiceCoverage`     | four years, one without debt service, the minimum                                    |
+| `llcr`                          | `loanLifeCoverage`        | rate path, debt ending before the horizon                                            |
+| `wacc`                          | `wacc`                    | equity and two loans after tax                                                       |
+| `depreciation-linear-scrap`     | `depreciationSchedule`    | life in years and months, partial first year, scrap value                            |
+| `depreciation-declining`        | `depreciationSchedule`    | declining balance with the switch to linear, partial first year                      |
+| `depreciation-syd`              | `depreciationSchedule`    | sum of years digits with extra months and a partial first year                       |
+| `depreciation-syd-salvage`      | `depreciationSchedule`    | sum of years digits with a scrap value                                               |
+| `depreciation-linear-remainder` | `depreciationSchedule`    | linear to scrap ending with a partial last year (`D_{M+1}`)                          |
+| `depreciation-linear-zero`      | `depreciationSchedule`    | linear to zero stopping at the scrap value                                           |
+| `escalation`                    | `priceEscalationFactors`  | inflation path, escalation and the first-year escalator                              |
+| `exchange-rates`                | `derivedExchangeRates`    | exchange-rate path from relative inflation                                           |
+| `loan-annuity`                  | `loanSchedule`            | quarterly annuity, rate path, interest capitalised in construction, three fee types  |
+| `loan-constant-principal`       | `loanSchedule`            | half-yearly, half of the interest capitalised, guarantee fee                         |
+| `loan-profile`                  | `loanSchedule`            | irregular repayments, interest month, rate change, interest after the last due date  |
 
 ## Control method
 
@@ -45,7 +48,7 @@ Every case calls one engine function with fixed input. The amounts are in rials 
 - linear depreciation in the manual's `M = integral part of …` form (the engine caps cumulative charges);
 - IRR by plain bisection (the engine scans a grid first).
 
-Every expected value is rounded half-even to 12 decimal places, and the Node test (`src/golden/golden.test.ts`) compares the engine's value rounded the same way: the match must be exact at that scale. When a formula or a COMFAR convention changes on purpose, both implementations change, `MODEL_VERSION` is bumped and the expected values are regenerated:
+Every expected value is rounded half-even to 12 decimal places, and the Node test (`src/golden/golden.test.ts`) compares the engine's value rounded the same way: the match must be exact at that scale. Each case also lists the warning codes (with their parameters) and the COMFAR defaults the result must report, derived from the spec's rules; these must match exactly too. CI regenerates `expected.json` from `reference.py` and fails if it differs from the committed file. When a formula or a COMFAR convention changes on purpose, both implementations change, `MODEL_VERSION` is bumped and the expected values are regenerated:
 
 ```bash
 python packages/financial-engine/golden/reference.py

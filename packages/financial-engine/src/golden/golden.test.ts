@@ -48,8 +48,25 @@ describe('golden cases (ST-33.07)', () => {
 
   for (const goldenCase of GOLDEN_CASES) {
     it(`${goldenCase.id}: ${goldenCase.title}`, () => {
-      const result = { value: (runGoldenCase(goldenCase) as { value: unknown }).value };
-      for (const [path, want] of Object.entries(expected[goldenCase.id] ?? {})) {
+      const full = runGoldenCase(goldenCase) as {
+        value: unknown;
+        warnings: { code: string; params?: Record<string, string> }[];
+        defaultsUsed: { key: string; value: string }[];
+      };
+      const { warnings, defaultsUsed, ...values } = expected[goldenCase.id] ?? {};
+      // Warnings and COMFAR defaults are part of the result and must match exactly.
+      expect(
+        full.warnings.map((w) =>
+          [w.code, ...Object.entries(w.params ?? {}).map(([k, v]) => `${k}=${v}`)].join(' '),
+        ),
+        'warnings',
+      ).toEqual(warnings);
+      expect(
+        full.defaultsUsed.map((d) => `${d.key}=${d.value}`),
+        'defaultsUsed',
+      ).toEqual(defaultsUsed);
+      const result = { value: full.value };
+      for (const [path, want] of Object.entries(values)) {
         const got = select(result, path);
         if (Array.isArray(want)) {
           expect(Array.isArray(got), path).toBe(true);

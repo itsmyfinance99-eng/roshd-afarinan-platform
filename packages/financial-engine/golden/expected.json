@@ -1,42 +1,62 @@
 {
   "npv-textbook": {
-    "value": "3.756574004508"
+    "value": "3.756574004508",
+    "warnings": [],
+    "defaultsUsed": []
   },
   "npv-project": {
-    "value": "-902075518702.883247987302"
+    "value": "-902075518702.883247987302",
+    "warnings": [],
+    "defaultsUsed": ["discounting.referenceDate=END_OF_FIRST_YEAR"]
   },
   "npv-rate-path": {
-    "value": "-178529002.344559296658"
+    "value": "-178529002.344559296658",
+    "warnings": [],
+    "defaultsUsed": []
   },
   "irr-project": {
-    "value": "0.144165874514"
+    "value": "0.144165874514",
+    "warnings": [],
+    "defaultsUsed": []
   },
   "irr-uneven": {
-    "value": "0.188608585498"
+    "value": "0.188608585498",
+    "warnings": [],
+    "defaultsUsed": []
   },
   "mirr-project": {
-    "value": "0.165759858080"
+    "value": "0.165759858080",
+    "warnings": [],
+    "defaultsUsed": ["discounting.referenceDate=END_OF_FIRST_YEAR"]
   },
   "payback-project": {
     "value.period": "5.000000000000",
     "value.endMonth": "72.000000000000",
-    "value.months": "67.100346020761"
+    "value.months": "67.100346020761",
+    "warnings": [],
+    "defaultsUsed": []
   },
   "dynamic-payback-project": {
     "value.period": "7.000000000000",
     "value.endMonth": "96.000000000000",
-    "value.months": "89.184048451420"
+    "value.months": "89.184048451420",
+    "warnings": [],
+    "defaultsUsed": []
   },
   "npvr-project": {
     "value.npv": "-1184608048584.679207017943",
     "value.presentValueOfInvestment": "8034982322260.817408239550",
     "value.ratio": "-0.147431319830",
-    "value.profitabilityIndex": "0.852568680170"
+    "value.profitabilityIndex": "0.852568680170",
+    "warnings": [],
+    "defaultsUsed": ["discounting.referenceDate=END_OF_FIRST_YEAR"]
   },
   "bcr": {
     "value.ratio": "0.924695341891",
     "value.presentValueOfBenefits": "10528653425.655976676385",
-    "value.presentValueOfCosts": "11386078147.776967930029"
+    "value.presentValueOfCosts": "11386078147.776967930029",
+    "warnings": [],
+    "defaultsUsed": []
   },
   "break-even": {
     "value.variableMargin": "2550000000000.000000000000",
@@ -56,7 +76,9 @@
     "value.excludingFinance.products[*].salesValue": [
       "2131490196078.431372549020",
       "713450980392.156862745098"
-    ]
+    ],
+    "warnings": [],
+    "defaultsUsed": []
   },
   "product-break-even": {
     "value.averageUnitPrice": "260000000.000000000000",
@@ -66,20 +88,28 @@
     "value.constantPrice.breakEvenSalesVolume": "8653.225806451613",
     "value.constantPrice.breakEvenRatio": "0.467741935484",
     "value.constantVolume.breakEvenSalesPrice": "206486486.486486486486",
-    "value.constantVolume.breakEvenRatio": "0.794178794179"
+    "value.constantVolume.breakEvenRatio": "0.794178794179",
+    "warnings": [],
+    "defaultsUsed": []
   },
   "dscr": {
     "value.periods[ratio].ratio": ["1.332792207792", "1.627843494086", "0.963768115942"],
     "value.minimum.period": "3.000000000000",
-    "value.minimum.ratio": "0.963768115942"
+    "value.minimum.ratio": "0.963768115942",
+    "warnings": [],
+    "defaultsUsed": []
   },
   "llcr": {
     "value[0]": "1.154838853094",
     "value[1]": "1.035041700296",
-    "value[2]": "0.554166666667"
+    "value[2]": "0.554166666667",
+    "warnings": [],
+    "defaultsUsed": []
   },
   "wacc": {
-    "value": "0.223825301205"
+    "value": "0.223825301205",
+    "warnings": [],
+    "defaultsUsed": []
   },
   "depreciation-linear-scrap": {
     "value.years[*].depreciation": [
@@ -89,7 +119,9 @@
       "450000000000.000000000000",
       "450000000000.000000000000",
       "450000000000.000000000000"
-    ]
+    ],
+    "warnings": [],
+    "defaultsUsed": []
   },
   "depreciation-declining": {
     "value.years[*].depreciation": [
@@ -100,7 +132,9 @@
       "175537666666.666666666667",
       "175537666666.666666666667",
       "43884416666.666666666667"
-    ]
+    ],
+    "warnings": [],
+    "defaultsUsed": []
   },
   "depreciation-syd": {
     "value.years[*].depreciation": [
@@ -109,7 +143,46 @@
       "246311111111.111111111111",
       "159377777777.777777777778",
       "72444444444.444444444444"
-    ]
+    ],
+    "warnings": [],
+    "defaultsUsed": []
+  },
+  "depreciation-syd-salvage": {
+    "value.years[*].depreciation": [
+      "231899305555.555555555556",
+      "357314236111.111111111111",
+      "292319328703.703703703704",
+      "223538310185.185185185185",
+      "154757291666.666666666667",
+      "85976273148.148148148148",
+      "17195254629.629629629630"
+    ],
+    "warnings": [],
+    "defaultsUsed": []
+  },
+  "depreciation-linear-remainder": {
+    "value.years[*].depreciation": [
+      "57904761904.761904761905",
+      "115809523809.523809523810",
+      "115809523809.523809523810",
+      "115809523809.523809523810",
+      "115809523809.523809523810",
+      "86857142857.142857142857"
+    ],
+    "warnings": [],
+    "defaultsUsed": []
+  },
+  "depreciation-linear-zero": {
+    "value.years[*].depreciation": [
+      "47619047619.047619047619",
+      "95238095238.095238095238",
+      "95238095238.095238095238",
+      "95238095238.095238095238",
+      "95238095238.095238095238",
+      "21428571428.571428571429"
+    ],
+    "warnings": [],
+    "defaultsUsed": []
   },
   "escalation": {
     "value[*]": [
@@ -118,7 +191,9 @@
       "2.533270950000",
       "3.318584944500",
       "4.247788728960"
-    ]
+    ],
+    "warnings": [],
+    "defaultsUsed": []
   },
   "exchange-rates": {
     "value[*]": [
@@ -127,9 +202,13 @@
       "1038058.252427184466",
       "1316561.686005209567",
       "1652155.841261439456"
-    ]
+    ],
+    "warnings": [],
+    "defaultsUsed": []
   },
   "loan-annuity": {
+    "warnings": [],
+    "defaultsUsed": ["loan.firstRepaymentDate=810"],
     "value.totalDisbursed": "2800000000000.000000000000",
     "value.totalInterestPaid": "1395325158798.861726495465",
     "value.totalCapitalisedInterest": "654588168760.009531250000",
@@ -168,6 +247,8 @@
     "value.debtAtRepaymentStart": "3454588168760.009531250000"
   },
   "loan-constant-principal": {
+    "warnings": [],
+    "defaultsUsed": [],
     "value.totalDisbursed": "1500000000000.000000000000",
     "value.totalInterestPaid": "1262358006250.488281250000",
     "value.totalCapitalisedInterest": "192102913476.562500000000",
@@ -201,6 +282,8 @@
     "value.debtAtRepaymentStart": "1692102913476.562500000000"
   },
   "loan-profile": {
+    "warnings": ["loan.interestAfterHorizon amount=5000000000"],
+    "defaultsUsed": [],
     "value.totalDisbursed": "800000000000.000000000000",
     "value.totalInterestPaid": "392833333333.333333333333",
     "value.totalCapitalisedInterest": "0.000000000000",

@@ -263,6 +263,48 @@ export const GOLDEN_CASES: GoldenCase[] = [
     ],
   },
   {
+    id: 'depreciation-syd-salvage',
+    title: 'Sum of years digits, 5 years 10 months, first year 7 months, scrap 6 %',
+    fn: 'depreciationSchedule',
+    args: [
+      {
+        method: 'SUM_OF_YEARS_DIGITS',
+        initialBookValue: '1450000000000',
+        lifeMonths: 70,
+        salvageRate: '0.06',
+        firstYearMonths: 7,
+      },
+    ],
+  },
+  {
+    id: 'depreciation-linear-remainder',
+    title: 'Linear to scrap, 5 years 3 months, first year 6 months: a partial last year',
+    fn: 'depreciationSchedule',
+    args: [
+      {
+        method: 'LINEAR_TO_SCRAP',
+        initialBookValue: '640000000000',
+        lifeMonths: 63,
+        salvageRate: '0.05',
+        firstYearMonths: 6,
+      },
+    ],
+  },
+  {
+    id: 'depreciation-linear-zero',
+    title: 'Linear to zero, 5 years 3 months, first year 6 months, stops at scrap 10 %',
+    fn: 'depreciationSchedule',
+    args: [
+      {
+        method: 'LINEAR_TO_ZERO',
+        initialBookValue: '500000000000',
+        lifeMonths: 63,
+        salvageRate: '0.1',
+        firstYearMonths: 6,
+      },
+    ],
+  },
+  {
     id: 'escalation',
     title: 'Current-price factors: inflation path, escalation 3 %, first-year escalator 2',
     fn: 'priceEscalationFactors',

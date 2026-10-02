@@ -46,6 +46,13 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm format:check
+      # The engine's golden values must come from the independent reference (ST-33.07), never be
+      # edited by hand or produced by the engine itself.
+      - name: Golden reference is reproducible
+        run: |
+          python3 packages/financial-engine/golden/reference.py
+          pnpm exec prettier --write packages/financial-engine/golden/expected.json
+          git diff --exit-code packages/financial-engine/golden/expected.json
       - run: pnpm verify
       - name: Install Playwright Chromium
         run: pnpm --filter @roshd/web exec playwright install --with-deps chromium

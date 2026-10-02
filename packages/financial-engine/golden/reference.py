@@ -8,7 +8,13 @@ by month, linear depreciation uses the manual's `M = integral part of ...` form.
 significant digits. Every value is written rounded half-even to 12 decimal places.
 
 Run from the repository root:  python packages/financial-engine/golden/reference.py
-It rewrites packages/financial-engine/golden/expected.json. Python 3.10+, standard library only.
+It rewrites packages/financial-engine/golden/expected.json (LF line endings; run prettier on it
+afterwards). CI regenerates the file and fails if it differs from the committed one. Python 3.10+,
+standard library only.
+
+Besides values, every case lists the warning codes and COMFAR defaults the result must carry,
+derived from the rules in comfar-model-spec.md (e.g. a reference date left open is reported as the
+default `END_OF_FIRST_YEAR`).
 """
 
 import json
@@ -32,6 +38,17 @@ def out(x):
         d = Decimal(q).scaleb(-12)
         return format(d.quantize(SCALE), 'f')
     return format(Decimal(x).quantize(SCALE, rounding=ROUND_HALF_EVEN), 'f')
+
+
+def exact(x):
+    """An exact decimal rendering of a fraction with a terminating expansion (e.g. warning params)."""
+    x = F(x)
+    d = x.denominator
+    for p in (2, 5):
+        while d % p == 0:
+            d //= p
+    assert d == 1, f'{x} has no exact decimal form'
+    return format(Decimal(x.numerator) / Decimal(x.denominator), 'f')
 
 
 def dec(x):
@@ -172,6 +189,18 @@ def linear_to_scrap(ibv, svr, life_months, m1):
     return charges
 
 
+def linear_to_zero(ibv, svr, life_months, m1):
+    ibv = F(ibv)
+    sv = ibv * F(svr)
+    life = F(life_months, 12)
+    whole = int((ibv - sv) * life / ibv - F(m1, 12) + 1)  # M = integral part of [...]
+    charges = [ibv / life * F(m1, 12)] + [ibv / life] * (whole - 1)
+    rest = ibv - sum(charges) - sv
+    if rest > 0:
+        charges.append(rest)  # D_{M+1} = RBV_M - SV
+    return charges
+
+
 def declining(ibv, svr, life_months, m1, rate):
     ibv, rate = F(ibv), F(rate)
     sv = ibv * F(svr)
@@ -198,8 +227,8 @@ def declining(ibv, svr, life_months, m1, rate):
     return charges
 
 
-def sum_of_years_digits(ibv, life_months, m1):
-    base = F(ibv)
+def sum_of_years_digits(ibv, svr, life_months, m1):
+    base = F(ibv) - F(ibv) * F(svr)
     years, extra = divmod(life_months, 12)
     if extra == 0:
         sodl = F(years * (years + 1), 2)
@@ -316,7 +345,19 @@ def loan(case):
             else:
                 balance += amount
                 events.append(('REPAYMENT', day, -amount))
+    warnings = []
+    if case['type'] == 'PROFILE':
+        if balance > 0:
+            warnings.append(f'loan.notRepaid balance={exact(balance)}')
+        unpaid = interest + guarantee + commitment
+        if unpaid > 0:
+            warnings.append(f'loan.interestAfterHorizon amount={exact(unpaid)}')
+    defaults = []
+    if case['type'] != 'PROFILE' and case.get('firstRepaymentDay') is None:
+        defaults.append(f'loan.firstRepaymentDate={first_repayment}')
     result = {
+        'warnings': warnings,
+        'defaultsUsed': defaults,
         'value.totalDisbursed': out(total),
         'value.totalInterestPaid': out(totals['interest']),
         'value.totalCapitalisedInterest': out(totals['capitalised']),
@@ -422,7 +463,13 @@ def build():
     e['depreciation-declining'] = {
         'value.years[*].depreciation': [out(c) for c in declining('1830000000000', '0.05', 72, 9, '0.3')]}
     e['depreciation-syd'] = {
-        'value.years[*].depreciation': [out(c) for c in sum_of_years_digits('960000000000', 51, 5)]}
+        'value.years[*].depreciation': [out(c) for c in sum_of_years_digits('960000000000', '0', 51, 5)]}
+    e['depreciation-syd-salvage'] = {
+        'value.years[*].depreciation': [out(c) for c in sum_of_years_digits('1450000000000', '0.06', 70, 7)]}
+    e['depreciation-linear-remainder'] = {
+        'value.years[*].depreciation': [out(c) for c in linear_to_scrap('640000000000', '0.05', 63, 6)]}
+    e['depreciation-linear-zero'] = {
+        'value.years[*].depreciation': [out(c) for c in linear_to_zero('500000000000', '0.1', 63, 6)]}
 
     inflation = [F(x) for x in ['0.35', '0.32', '0.3', '0.28', '0.25']]
     esc, factor, escalation = F('0.03'), F(1), []
@@ -457,10 +504,19 @@ def build():
                   {'day': 1290, 'amount': '-250000000000'}],
         'rates': [{'fromDay': 1, 'rate': '0.2'}, {'fromDay': 721, 'rate': '0.24'}],
         'capitalisedShare': '0', 'interestDueDay': 180, 'horizonEndDay': 1440})
+    # Warnings and COMFAR defaults (comfar-model-spec §3.1): a reference date left open is the
+    # default end of the first year; nothing else in these cases is defaulted or not calculable.
+    reference_default = ['discounting.referenceDate=END_OF_FIRST_YEAR']
+    for case_id, expected in e.items():
+        expected.setdefault('warnings', [])
+        expected.setdefault(
+            'defaultsUsed',
+            reference_default if case_id in ('npv-project', 'mirr-project', 'npvr-project') else [],
+        )
     return e
 
 
 if __name__ == '__main__':
     target = Path(__file__).with_name('expected.json')
-    target.write_text(json.dumps(build(), indent=2) + '\n', encoding='utf-8')
+    target.write_text(json.dumps(build(), indent=2) + '\n', encoding='utf-8', newline='\n')
     print(f'wrote {target}')
