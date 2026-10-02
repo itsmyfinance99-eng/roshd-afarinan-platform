@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<a href="{{ href }}" data-spotlight="" style="position:relative;display:flex;flex-direction:column;height:100%;background:#1A1F26;border:1px solid #2A313B;border-radius:8px;overflow:hidden;text-decoration:none;color:#EDEFF2;font-family:Vazirmatn,Tahoma,sans-serif;direction:rtl;transition:transform 200ms cubic-bezier(0.22,1,0.36,1),border-color 200ms,box-shadow 200ms" style-hover="transform:translateY(-3px);border-color:#D08A4E;box-shadow:0 18px 40px -24px rgba(208,138,78,0.45);color:#EDEFF2" style-focus="outline:none;border-color:#D08A4E;box-shadow:0 0 0 3px rgba(208,138,78,0.35),0 0 28px rgba(208,138,78,0.3)">
+  <span data-spot="" aria-hidden="true" style="position:absolute;inset:0;z-index:1;pointer-events:none;opacity:0;background:radial-gradient(320px circle at var(--mx,50%) var(--my,50%),rgba(208,138,78,0.08),transparent 60%)"></span>
+  <div style="position:relative;aspect-ratio:16/9;overflow:hidden;background:#15191F">
+    <div data-zoom="" role="img" aria-label="جای تصویر دوره" style="position:absolute;inset:0;background-image:linear-gradient(#232A33 1px,transparent 1px),linear-gradient(90deg,#232A33 1px,transparent 1px),linear-gradient(135deg,#1A1F26,#15191F);background-size:24px 24px,24px 24px,100% 100%;display:flex;align-items:center;justify-content:center">
+      <svg width="64" height="64" viewBox="0 0 64 64" fill="none" stroke="#4A5568" stroke-width="1.5" aria-hidden="true"><path d="M8 16h20a4 4 0 014 4v32a4 4 0 00-4-4H8z"></path><path d="M56 16H36a4 4 0 00-4 4v32a4 4 0 014-4h20z"></path></svg>
+    </div>
+    <div style="position:absolute;top:12px;right:12px;left:12px;display:flex;justify-content:space-between;gap:8px;z-index:2">
+      <span style="background:#1A1F26;color:#EDEFF2;font-size:12px;font-weight:700;padding:3px 8px;border-radius:4px;border:1px solid #2A313B">{{ priceLabel }}</span>
+      <span style="background:#1E1712;color:#E7B386;border:1px dashed #5A3E27;font-size:12px;font-weight:700;padding:3px 8px;border-radius:4px;white-space:nowrap">نمونه نمایشی</span>
+    </div>
+  </div>
+  <div style="position:relative;z-index:2;padding:20px;display:flex;flex-direction:column;gap:10px;flex:1">
+    <span style="font-size:13px;font-weight:700;color:#E7B386">{{ course.category }}</span>
+    <h3 style="font-family:'Noto Kufi Arabic',Vazirmatn,sans-serif;margin:0;font-size:17px;line-height:1.7;color:#EDEFF2;text-wrap:pretty">{{ course.title }}</h3>
+    <p style="margin:0;font-size:14px;color:#C3C9D2">{{ course.instructor }}</p>
+    <div style="margin-top:auto;padding-top:14px;border-top:1px solid #232A33;display:flex;gap:16px;font-size:13px;color:#C3C9D2">
+      <span>سطح: {{ course.level }}</span>
+      <span>مدت: {{ course.duration }}</span>
+    </div>
+  </div>
+</a>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:&quot;320px&quot;,&quot;height&quot;:&quot;420px&quot;},&quot;course&quot;:{&quot;editor&quot;:null,&quot;default&quot;:{&quot;id&quot;:&quot;c1&quot;,&quot;title&quot;:&quot;دوره نمونه&quot;,&quot;category&quot;:&quot;امکان‌سنجی&quot;,&quot;instructor&quot;:&quot;مدرس نمونه&quot;,&quot;level&quot;:&quot;مقدماتی&quot;,&quot;duration&quot;:&quot;۸ ساعت&quot;,&quot;free&quot;:false},&quot;tsType&quot;:&quot;Course&quot;}}">
+class Component extends DCLogic {
+  renderVals() { const c = this.props.course || {}; return { priceLabel: c.free ? 'رایگان' : 'غیررایگان', href: 'Course.dc.html?id=' + (c.id || 'c1') }; }
+}
+</script>
+</body>
+</html>

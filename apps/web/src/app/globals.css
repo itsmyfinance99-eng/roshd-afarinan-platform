@@ -21,8 +21,9 @@
 
 @layer base {
   html {
-    background: #fff;
+    background: var(--color-brand-900);
     color: var(--color-ink);
+    color-scheme: dark;
     font-family: var(--font-sans);
     -webkit-text-size-adjust: 100%;
     text-rendering: optimizeLegibility;
@@ -30,19 +31,28 @@
 
   body {
     min-height: 100vh;
+    background: var(--color-brand-900);
   }
 
   a {
-    color: var(--color-primary);
+    color: var(--color-accent);
   }
 
   a:hover {
-    color: var(--color-brand-900);
+    color: var(--color-ink);
   }
 
   :focus-visible {
-    outline: 3px solid var(--color-accent);
+    outline: 3px solid var(--color-focus);
     outline-offset: 2px;
+  }
+
+  ::selection {
+    background: color-mix(in srgb, var(--color-primary) 35%, transparent);
+  }
+
+  [data-surface='paper'] {
+    color-scheme: light;
   }
 
   button,
@@ -50,5 +60,526 @@
   select,
   textarea {
     font: inherit;
+  }
+}
+
+/* ---------- Decorative textures (design: dot / grid patterns, masked) ---------- */
+@utility dots {
+  background-image: radial-gradient(var(--dot-color, var(--color-line)) 1.1px, transparent 1.3px);
+  background-size: var(--dot-size, 22px) var(--dot-size, 22px);
+}
+
+@utility grid-lines {
+  background-image:
+    linear-gradient(var(--grid-color, var(--color-line)) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-color, var(--color-line)) 1px, transparent 1px);
+  background-size: var(--grid-size, 32px) var(--grid-size, 32px);
+}
+
+/* Copper text gradient used by the hero word loop and the footer wordmark. */
+@utility text-copper-gradient {
+  background-image: linear-gradient(
+    90deg,
+    var(--color-accent-soft),
+    var(--color-accent) 50%,
+    var(--color-primary)
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Cursor spotlight overlay: the parent [data-spotlight] sets --mx/--my (motion engine). */
+@utility spot {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 200ms ease;
+  background: radial-gradient(
+    var(--spot-size, 320px) circle at var(--mx, 50%) var(--my, 50%),
+    color-mix(in srgb, var(--spot-color, var(--color-primary)) var(--spot-alpha, 8%), transparent),
+    transparent 60%
+  );
+}
+
+[data-spotlight]:hover > [data-spot],
+[data-spotlight]:focus-visible > [data-spot] {
+  opacity: 1;
+}
+
+/* ---------- CMS Markdown (components/content/markdown.tsx) ---------- */
+@layer components {
+  .md {
+    font-size: 17px;
+    line-height: 2.1;
+    color: var(--color-ink-3);
+  }
+  .md :where(p) {
+    margin-block: 1rem;
+  }
+  .md :where(h2) {
+    margin: 2.5rem 0 1rem;
+    font-family: var(--font-display);
+    font-size: clamp(22px, 2.4vw, 28px);
+    font-weight: 800;
+    line-height: 1.5;
+    color: var(--color-ink);
+  }
+  .md :where(h3) {
+    margin: 2rem 0 0.75rem;
+    font-family: var(--font-display);
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--color-ink);
+  }
+  .md :where(h2, h3):first-child {
+    margin-top: 0;
+  }
+  .md :where(a) {
+    font-weight: 700;
+  }
+  .md :where(strong) {
+    color: var(--color-ink);
+  }
+  .md :where(ul) {
+    list-style: disc;
+    padding-inline-start: 1.5rem;
+  }
+  .md :where(ol) {
+    list-style: decimal;
+    padding-inline-start: 1.5rem;
+  }
+  .md :where(li) {
+    margin-block: 0.25rem;
+  }
+  .md :where(li)::marker {
+    color: var(--color-accent);
+  }
+  .md :where(blockquote) {
+    margin-block: 1.25rem;
+    border-inline-start: 4px solid var(--color-notice-border);
+    border-radius: var(--radius-chip);
+    background: var(--color-notice-bg);
+    padding: 0.5rem 1rem;
+    color: var(--color-notice-fg);
+  }
+  .md :where(code) {
+    border-radius: var(--radius-chip);
+    background: var(--color-surface-2);
+    padding: 0.1em 0.35em;
+    font-size: 0.9em;
+  }
+  .md :where(hr) {
+    margin-block: 2rem;
+    border-color: var(--color-line);
+  }
+  .md :where(table) {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 15px;
+  }
+  .md :where(th, td) {
+    border-bottom: 1px solid var(--color-line);
+    padding: 0.5rem 0.75rem;
+    text-align: start;
+  }
+
+  /* Outline rows (design Course «سرفصل‌ها»): every list item gets a numbered badge. */
+  .md-outline :where(ul, ol) {
+    list-style: none;
+    padding: 0;
+    border-top: 1px solid var(--color-line);
+    counter-reset: md-step;
+  }
+  .md-outline :where(ul, ol) > li {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    margin: 0;
+    border-bottom: 1px solid var(--color-line);
+    padding: 18px 4px;
+    font-size: 16.5px;
+    font-weight: 600;
+    line-height: 1.8;
+    color: var(--color-ink);
+    counter-increment: md-step;
+  }
+  .md-outline :where(ul, ol) > li::before {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-panel);
+    background: var(--color-surface-2);
+    color: var(--color-accent);
+    font-weight: 800;
+    content: counter(md-step, persian);
+  }
+}
+
+/* ---------- Motion (reference: design/claude-design/prototype/motion.js) ----------
+ * The root layout adds `ra-motion` to <html> before first paint unless the visitor prefers
+ * reduced motion. Every rule below is scoped to it, so without JS or under reduced motion
+ * the page renders its static end state. The motion engine (components/motion) marks
+ * elements with data-shown when they enter the viewport and data-shown="done" afterwards,
+ * which hands transitions back to the component's own utilities (hover lifts etc.).
+ */
+@keyframes ra-pulse {
+  0%,
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0.55;
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.9);
+    opacity: 0;
+  }
+}
+@keyframes ra-ping {
+  0% {
+    transform: scale(0.4);
+    opacity: 0.6;
+  }
+  80%,
+  100% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}
+@keyframes ra-breathe {
+  0%,
+  100% {
+    opacity: 0.75;
+    transform: scaleX(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scaleX(1.06);
+  }
+}
+@keyframes ra-drift {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  33% {
+    transform: translate3d(-10%, 6%, 0) scale(1.08);
+  }
+  66% {
+    transform: translate3d(6%, -4%, 0) scale(0.96);
+  }
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+@keyframes ra-shimmer {
+  0% {
+    transform: translateX(100%);
+  }
+  100% {
+    transform: translateX(-100%);
+  }
+}
+@keyframes ra-shine {
+  0% {
+    transform: translateX(140%);
+  }
+  16%,
+  100% {
+    transform: translateX(-240%);
+  }
+}
+@keyframes ra-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(50%);
+  }
+}
+@keyframes ra-wave {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-25px);
+  }
+}
+@keyframes ra-trace {
+  0% {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+  }
+  40%,
+  75% {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 0;
+  }
+  100% {
+    stroke-dasharray: 1;
+    stroke-dashoffset: -1;
+  }
+}
+@keyframes ra-bar {
+  0%,
+  100% {
+    transform: scaleY(0.6);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+@keyframes ra-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+@keyframes ra-flow {
+  from {
+    stroke-dasharray: 0.06 0.94;
+    stroke-dashoffset: 0;
+  }
+  to {
+    stroke-dasharray: 0.06 0.94;
+    stroke-dashoffset: -1;
+  }
+}
+@keyframes ra-node {
+  0% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  80%,
+  100% {
+    transform: scale(2.6);
+    opacity: 0;
+  }
+}
+@keyframes ra-dash {
+  from {
+    stroke-dashoffset: 0;
+  }
+  to {
+    stroke-dashoffset: -1;
+  }
+}
+
+/* Ambient loops (data-anim). An inline animation-delay on the element wins over these. */
+.ra-motion [data-anim='pulse'] {
+  animation: ra-pulse 2.8s var(--ease-state) infinite;
+}
+.ra-motion [data-anim='ping'] {
+  animation: ra-ping 3.2s var(--ease-enter) infinite;
+}
+.ra-motion [data-anim='breathe'] {
+  animation: ra-breathe 7s ease-in-out infinite;
+}
+.ra-motion:not([data-low-power]) [data-anim='drift'] {
+  animation: ra-drift 14s ease-in-out infinite;
+}
+.ra-motion [data-anim='shimmer'] {
+  animation: ra-shimmer 1.6s linear infinite;
+}
+.ra-motion [data-anim='shimmer-slow'] {
+  animation: ra-shimmer 4.2s var(--ease-state) infinite;
+}
+.ra-motion [data-anim='shine'] {
+  animation: ra-shine 6s var(--ease-state) 1.2s infinite;
+}
+.ra-motion [data-anim='dash'] {
+  animation: ra-dash 24s linear infinite;
+}
+.ra-motion [data-anim='wave'] {
+  animation: ra-wave 1.4s linear infinite;
+}
+.ra-motion [data-anim='trace'] {
+  animation: ra-trace 3.6s var(--ease-state) infinite;
+}
+.ra-motion [data-anim='bar'] {
+  animation: ra-bar 2.8s var(--ease-state) infinite;
+}
+.ra-motion [data-anim='float'] {
+  animation: ra-float 3s ease-in-out infinite;
+}
+.ra-motion [data-anim='flow'] {
+  animation: ra-flow 3.2s linear infinite;
+}
+.ra-motion [data-anim='node'] {
+  animation: ra-node 2.4s var(--ease-enter) infinite;
+}
+/* Shine sits off-screen when it is not animating. */
+[data-anim='shine'] {
+  transform: translateX(140%);
+}
+/* SVG pieces animate around their own box. */
+svg [data-anim='bar'],
+svg [data-anim='node'],
+svg [data-anim='float'],
+svg [data-reveal='pop'] {
+  transform-box: fill-box;
+}
+svg [data-anim='bar'] {
+  transform-origin: bottom;
+}
+svg [data-anim='node'],
+svg [data-reveal='pop'] {
+  transform-origin: center;
+}
+/* Floating paths (FloatingPaths component) */
+.ra-motion [data-path-dash] {
+  stroke-dasharray: 0.6 0.4;
+  animation: ra-dash var(--path-dur, 24s) linear infinite;
+}
+
+/* Reveal (data-reveal): fade (default), words, pop, wipe, grow-y. */
+.ra-motion [data-reveal]:not([data-shown='done']) {
+  transition-property: opacity, transform, filter, clip-path;
+  transition-duration: var(--ra-dur, 600ms);
+  transition-timing-function: var(--ease-enter);
+  transition-delay: var(--ra-delay, 0ms);
+}
+.ra-motion [data-reveal='']:not([data-shown]),
+.ra-motion [data-reveal='fade']:not([data-shown]) {
+  opacity: 0;
+  transform: translateY(20px);
+  filter: blur(6px);
+}
+.ra-motion [data-reveal='pop']:not([data-shown]) {
+  opacity: 0;
+  transform: scale(0.6);
+}
+.ra-motion [data-reveal='wipe']:not([data-shown]) {
+  clip-path: inset(0 0 0 100%);
+}
+.ra-motion [data-reveal='wipe'][data-shown='']:not([data-shown='done']) {
+  clip-path: inset(0 0 0 0);
+}
+.ra-motion [data-reveal='grow-y'] {
+  transform-origin: top;
+}
+.ra-motion [data-reveal='grow-y']:not([data-shown]) {
+  transform: scaleY(0);
+}
+.ra-motion [data-reveal='words'] .ra-w {
+  transition-property: opacity, transform, filter;
+  transition-duration: var(--ra-dur, 600ms);
+  transition-timing-function: var(--ease-enter);
+  transition-delay: calc(var(--ra-delay, 0ms) + var(--i, 0) * 45ms);
+}
+.ra-motion [data-reveal='words']:not([data-shown]) .ra-w {
+  opacity: 0;
+  transform: translateY(12px);
+  filter: blur(6px);
+}
+.ra-w {
+  display: inline-block;
+}
+
+/* Stroke draw (data-draw, element needs pathLength="1"). */
+.ra-motion [data-draw]:not([data-shown='done']) {
+  stroke-dasharray: 1;
+  transition: stroke-dashoffset var(--ra-dur, 900ms) var(--ease-enter) var(--ra-delay, 0ms);
+}
+.ra-motion [data-draw]:not([data-shown]) {
+  stroke-dashoffset: 1;
+}
+.ra-motion [data-draw][data-shown=''] {
+  stroke-dashoffset: 0;
+}
+
+/* Image zoom inside spotlight cards. */
+.ra-motion [data-zoom] {
+  transition: transform 500ms var(--ease-enter);
+}
+.ra-motion [data-spotlight]:hover [data-zoom] {
+  transform: scale(1.04);
+}
+
+/* Marquee (RTL: enters at the left edge and travels right). */
+.ra-motion [data-marquee] [data-track] {
+  animation: ra-marquee var(--speed, 48s) linear infinite;
+}
+.ra-motion [data-marquee]:hover [data-track],
+.ra-motion [data-marquee]:focus-within [data-track] {
+  animation-play-state: paused;
+}
+html:not(.ra-motion) [data-marquee] {
+  mask-image: none !important;
+}
+html:not(.ra-motion) [data-marquee] [data-track] {
+  width: auto !important;
+  flex-wrap: wrap;
+}
+html:not(.ra-motion) [data-marquee] [data-track] > * {
+  flex-wrap: wrap;
+}
+html:not(.ra-motion) [data-marquee] [data-dup],
+html:not(.ra-motion) [data-marquee] [data-edge] {
+  display: none;
+}
+
+/* Process rail (data-rail): the engine marks dots data-on / data-now while it plays. Without
+ * motion every step shows its finished state. */
+[data-dot] {
+  background: var(--color-brand-950);
+  color: var(--color-ink);
+}
+html:not(.ra-motion) [data-dot],
+[data-dot][data-on] {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-primary) 14%, transparent);
+}
+[data-dot][data-now] {
+  box-shadow:
+    0 0 0 8px color-mix(in srgb, var(--color-primary) 22%, transparent),
+    0 0 32px color-mix(in srgb, var(--color-primary) 80%, transparent);
+}
+.ra-motion [data-rail-fill='x'] {
+  transform: scaleX(0);
+  transform-origin: right;
+}
+.ra-motion [data-rail-fill='y'] {
+  transform: scaleY(0);
+  transform-origin: top;
+}
+
+/* Demo pill dismissed earlier in the session: hidden before hydration (no flash or shift). */
+html.ra-pill-closed [data-demo-pill] {
+  display: none;
+}
+@media (width < 77.5rem) {
+  html.ra-pill-closed [data-top-row] {
+    display: none;
+  }
+}
+
+/* Home intro cover until the Intro island draws (see MOTION_BOOT_SCRIPT). */
+html.ra-intro {
+  overflow: hidden;
+}
+html.ra-intro body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: radial-gradient(circle at 50% 50%, var(--color-brand-800), var(--color-brand-950));
+}
+
+/* Kill switch: reduced motion always wins (design README). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition-duration: 0s !important;
+    scroll-behavior: auto !important;
   }
 }

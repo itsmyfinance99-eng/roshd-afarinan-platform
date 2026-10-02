@@ -1,0 +1,110 @@
+/*
+ * Roshd design tokens — "Copper & Graphite" theme (v2).
+ * Drop-in replacement for packages/ui/src/tokens.css. Token NAMES are kept where a
+ * v1 equivalent exists so existing utilities (bg-brand-900, text-ink-3 …) keep working;
+ * values change. New tokens are marked NEW.
+ *
+ * The site is dark-first. "Paper" tokens are for long-form reading and long forms
+ * (services grid on home, course body, feasibility form) — wrap those regions in
+ * [data-surface="paper"] and remap ink/surface/line there (see bottom).
+ */
+@theme {
+  --font-sans: 'Vazirmatn Variable', Vazirmatn, 'Vazirmatn Fallback', Tahoma, sans-serif;
+  --font-display: 'Noto Kufi Arabic', 'Vazirmatn Variable', Vazirmatn, sans-serif; /* NEW — h1–h3, weight 800 */
+
+  /* Graphite (backgrounds, darkest → lightest) */
+  --color-brand-950: #0b0e12; /* footer, deepest */
+  --color-brand-900: #111418; /* page background */
+  --color-brand-800: #15191f; /* section alt / hero bottom */
+  --color-brand-700: #1a1f26; /* cards, controls */
+  --color-graphite-600: #232a33; /* NEW — dividers inside cards, hover fill */
+
+  /* Copper (accent) */
+  --color-primary: #d08a4e; /* buttons, active chip, rail fill, focus ring */
+  --color-primary-hover: #e09a5c;
+  --color-primary-soft: #1e1712; /* copper-tinted surface (badges, emphasised chip) */
+  --color-primary-line: #5a3e27; /* NEW — copper-tinted border */
+  --color-accent: #e7b386; /* copper text on dark (eyebrows, links, numbers) */
+  --color-accent-soft: #f0cba6; /* gradient top stop */
+  --color-copper-deep: #9a5a26; /* NEW — copper text/links on paper */
+  --color-steel: #8fa0b5; /* NEW — secondary lines, inactive nodes */
+
+  /* Ink on dark */
+  --color-ink: #edeff2; /* headings, primary text */
+  --color-ink-2: #edeff2;
+  --color-ink-3: #c3c9d2; /* body */
+  --color-ink-4: #c3c9d2;
+  --color-ink-5: #9aa3af; /* meta, captions */
+  --color-on-primary: #111418; /* NEW — text on copper buttons. Never white. */
+  --color-on-dark: #c3c9d2;
+  --color-on-dark-2: #9aa3af;
+
+  /* Surfaces & lines (dark) */
+  --color-surface: #15191f;
+  --color-surface-2: #1a1f26;
+  --color-surface-hover: #1a1f26;
+  --color-surface-muted: #15191f;
+  --color-line: #2a313b;
+  --color-line-2: #2a313b;
+  --color-line-3: #3a4250;
+  --color-line-strong: #3a4250;
+  --color-line-hover: #d08a4e;
+
+  /* Paper (NEW) */
+  --color-paper: #faf8f4;
+  --color-paper-2: #f4f1ec;
+  --color-paper-3: #efe9e0;
+  --color-paper-line: #ddd6cb;
+  --color-paper-line-strong: #cfc6b8;
+  --color-paper-ink: #1a1f26;
+  --color-paper-ink-2: #4a5260;
+
+  /* Status (dark) */
+  --color-demo-bg: #1e1712;
+  --color-demo-fg: #e7b386;
+  --color-demo-border: #5a3e27;
+  --color-notice-bg: #1e1712;
+  --color-notice-fg: #e7b386;
+  --color-notice-border: #5a3e27;
+  --color-success-bg: #12241a;
+  --color-success-fg: #7bd8a0;
+  --color-success-line: #4cc38a; /* NEW — animated check stroke */
+  --color-danger: #f97066;
+
+  /* Radii */
+  --radius-chip: 4px;
+  --radius-control: 6px;
+  --radius-card: 8px;
+  --radius-panel: 10px;
+  --radius-tile: 16px; /* NEW — bento tiles, form cards */
+  --radius-feature: 20px; /* NEW — feature tile, CTA panel */
+
+  /* Motion (NEW) */
+  --ease-enter: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-state: cubic-bezier(0.65, 0, 0.35, 1);
+
+  --container-page: 1280px;
+  --breakpoint-nav: 77.5rem; /* desktop nav from 1240px (v2 header has more items) */
+}
+
+/* Paper regions: remap ink/surface/line so shared components render correctly. */
+[data-surface='paper'] {
+  --color-ink: #1a1f26;
+  --color-ink-2: #1a1f26;
+  --color-ink-3: #4a5260;
+  --color-ink-4: #4a5260;
+  --color-ink-5: #4a5260;
+  --color-surface: #f4f1ec;
+  --color-surface-2: #efe9e0;
+  --color-brand-700: #faf8f4; /* cards on paper */
+  --color-line: #ddd6cb;
+  --color-line-2: #ddd6cb;
+  --color-line-3: #ddd6cb;
+  --color-line-strong: #cfc6b8;
+  --color-accent: #9a5a26; /* copper TEXT on paper must be the deep tone */
+  --color-danger: #b42318;
+  --color-success-bg: #eaf6ef;
+  --color-success-fg: #155b34;
+  background: var(--color-paper-2);
+  color: var(--color-ink);
+}

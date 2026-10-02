@@ -55,7 +55,7 @@ export interface TicketDetail extends TicketSummary {
 
 const STATUS_TONE: Record<TicketStatus, string> = {
   OPEN: 'bg-notice-bg text-notice-fg',
-  PENDING: 'bg-primary-soft text-primary',
+  PENDING: 'bg-paper-3 text-copper-deep',
   ANSWERED: 'bg-success-bg text-success-fg',
   CLOSED: 'bg-surface-2 text-ink-4',
 };
@@ -188,7 +188,7 @@ export function TicketConversation({
               m.internal
                 ? 'self-center border border-dashed border-notice-border bg-notice-bg'
                 : m.fromStaff
-                  ? 'self-end bg-primary-soft'
+                  ? 'self-end bg-paper-3'
                   : 'self-start border border-line bg-white',
             )}
           >

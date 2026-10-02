@@ -3,10 +3,11 @@ import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { Accordion } from './accordion';
 import { Button, ButtonLink } from './button';
-import { ChipGroup } from './chip';
+import { ChipGroup, Switch } from './chip';
 import { DemoBadge, EmptyState } from './feedback';
 import { FieldShell, TextInput } from './field';
 import { PageHero } from './page-hero';
+import { RevealWords } from './reveal-words';
 
 describe('Button', () => {
   it('defaults to type=button and supports variants', () => {
@@ -110,5 +111,40 @@ describe('PageHero', () => {
     expect(screen.getByRole('heading', { level: 1, name: 'آموزش تخصصی' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'صفحه اصلی' })).toHaveAttribute('href', '/');
     expect(screen.getByText('آموزش', { selector: '[aria-current="page"]' })).toBeInTheDocument();
+  });
+});
+
+describe('Switch', () => {
+  function Harness() {
+    const [on, setOn] = useState(false);
+    return (
+      <label>
+        <Switch checked={on} onChange={setOn} />
+        فقط رایگان
+      </label>
+    );
+  }
+
+  it('is a labelled switch that toggles', async () => {
+    render(<Harness />);
+    const toggle = screen.getByRole('switch', { name: 'فقط رایگان' });
+    expect(toggle).not.toBeChecked();
+    await userEvent.click(toggle);
+    expect(toggle).toBeChecked();
+  });
+});
+
+describe('RevealWords', () => {
+  it('splits by word only and keeps the text intact', () => {
+    const { container } = render(
+      <p>
+        <RevealWords text="پیام خود را ثبت کنید؛ کارشناسان تماس می‌گیرند." />
+      </p>,
+    );
+    expect(container.textContent).toBe('پیام خود را ثبت کنید؛ کارشناسان تماس می‌گیرند.');
+    const words = container.querySelectorAll('.ra-w');
+    expect(words).toHaveLength(8);
+    // ZWNJ joins stay inside one word.
+    expect(words[7]).toHaveTextContent('می‌گیرند.');
   });
 });

@@ -1,7 +1,8 @@
-import { buttonClasses, Container, DemoBadge, formatRials, Notice } from '@roshd/ui';
+import { buttonClasses, DemoBadge, formatRials, Notice, Shine } from '@roshd/ui';
 import { INVESTMENT_SECTOR_LABELS_FA, PROJECT_STAGE_LABELS_FA } from '@roshd/validation';
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { DetailLayout, FactList } from '@/components/content/detail-layout';
 import { MarkdownBody } from '@/components/content/markdown';
 import { PageIntro } from '@/components/layout/page-shell';
 import { site } from '@/content/site';
@@ -56,35 +57,27 @@ export default async function InvestmentOpportunityPage({ params }: { params: Pa
         title={project.title}
         lead={project.summary}
       />
-      <Container className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,300px),1fr))] items-start gap-10 py-12">
-        <div className="min-w-0 md:col-span-2">
-          {project.isDemo ? <DemoBadge className="mb-6" /> : null}
+      <DetailLayout
+        asideLabel="مشخصات طرح"
+        aside={
+          <>
+            <FactList facts={facts} />
+            <Link href={`${path}/interest`} className={buttonClasses('cta', 'xl')}>
+              <Shine />
+              <span className="relative">ابراز علاقه و دریافت اطلاعات</span>
+            </Link>
+            <Notice>
+              معرفی این طرح پیشنهاد سرمایه‌گذاری یا تضمین بازده نیست و هیچ تراکنشی در این سامانه
+              انجام نمی‌شود.
+            </Notice>
+          </>
+        }
+      >
+        {project.isDemo ? <DemoBadge className="self-start" /> : null}
+        <div data-reveal="">
           <MarkdownBody source={project.description} />
         </div>
-        <aside
-          aria-label="مشخصات طرح"
-          className="flex flex-col gap-5 rounded-card border border-line-2 p-6"
-        >
-          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-3 text-[15px]">
-            {facts.map(([label, value]) => (
-              <div key={label} className="contents">
-                <dt className="text-ink-5">{label}</dt>
-                <dd className="font-semibold text-ink-2">{value}</dd>
-              </div>
-            ))}
-          </dl>
-          <Link
-            href={`${path}/interest`}
-            className={buttonClasses('primary', 'lg', 'no-underline')}
-          >
-            ابراز علاقه و دریافت اطلاعات
-          </Link>
-          <Notice>
-            معرفی این طرح پیشنهاد سرمایه‌گذاری یا تضمین بازده نیست و هیچ تراکنشی در این سامانه انجام
-            نمی‌شود.
-          </Notice>
-        </aside>
-      </Container>
+      </DetailLayout>
     </>
   );
 }

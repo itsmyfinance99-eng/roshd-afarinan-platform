@@ -144,7 +144,7 @@ export function JalaliDateInput({
             }
           }}
           className={cn(
-            'h-[46px] w-full rounded-control border bg-white px-3 text-[15px] text-ink outline-none transition-colors focus-visible:border-primary',
+            'h-12 w-full rounded-control border bg-brand-700 px-3.5 text-[15px] text-ink outline-none transition-[border-color,box-shadow] duration-200 focus:border-focus focus:shadow-[0_0_0_4px_color-mix(in_srgb,var(--color-focus)_15%,transparent)]',
             message ? 'border-danger' : 'border-line-strong',
           )}
         />
@@ -154,7 +154,7 @@ export function JalaliDateInput({
           aria-expanded={open}
           aria-controls={open ? gridId : undefined}
           onClick={() => setOpen((was) => !was)}
-          className="h-[46px] shrink-0 rounded-control border border-line-strong bg-white px-3 text-sm text-ink-3 hover:border-primary"
+          className="h-12 shrink-0 cursor-pointer rounded-control border border-line-strong bg-brand-700 px-3 text-sm text-ink-3 hover:border-primary"
         >
           تقویم
         </button>
@@ -163,14 +163,14 @@ export function JalaliDateInput({
             type="button"
             aria-label={clearLabel}
             onClick={() => onChange('')}
-            className="h-[46px] shrink-0 rounded-control border border-line-strong bg-white px-3 text-sm text-ink-3 hover:border-primary"
+            className="h-12 shrink-0 cursor-pointer rounded-control border border-line-strong bg-brand-700 px-3 text-sm text-ink-3 hover:border-primary"
           >
             ×
           </button>
         ) : null}
       </div>
       {message ? (
-        <span id={`${id}-error`} role="alert" className="mt-1 block text-[13px] text-danger">
+        <span id={`${id}-error`} role="alert" className="mt-1.5 block text-[13px] text-danger">
           {message}
         </span>
       ) : null}
@@ -180,7 +180,7 @@ export function JalaliDateInput({
           id={gridId}
           role="dialog"
           aria-label="تقویم شمسی"
-          className="absolute z-20 mt-1 w-[280px] rounded-card border border-line bg-white p-3 shadow-lg"
+          className="absolute z-20 mt-1 w-[280px] rounded-card border border-line bg-brand-700 p-3 shadow-overlay"
         >
           <div className="mb-2 flex items-center justify-between gap-2">
             <button
@@ -236,8 +236,10 @@ export function JalaliDateInput({
                     tabIndex={isCursor ? 0 : -1}
                     onClick={() => pick(day)}
                     className={cn(
-                      'h-8 rounded-control text-sm outline-none focus-visible:border focus-visible:border-primary',
-                      isValue ? 'bg-brand-900 font-bold text-white' : 'text-ink hover:bg-surface',
+                      'h-8 cursor-pointer rounded-control text-sm outline-none focus-visible:border focus-visible:border-focus',
+                      isValue
+                        ? 'bg-primary font-bold text-on-primary'
+                        : 'text-ink hover:bg-surface',
                     )}
                   >
                     {toPersianDigits(i + 1)}

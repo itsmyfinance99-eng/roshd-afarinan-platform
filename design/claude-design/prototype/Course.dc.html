@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <title>جزئیات دوره — رشدآفرینان صنعت و معدن (نمونه v2 · مس و گرافیت)</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300..900&amp;family=Noto+Kufi+Arabic:wght@600..800&amp;display=swap">
+  <script src="mock-data.js"></script>
+  <script>window.RoshdForceMotion = true;</script>
+  <script src="motion.js"></script>
+  <style>html,body{margin:0;background:#111418;font-family:Vazirmatn,Tahoma,sans-serif;direction:rtl}*{box-sizing:border-box}a{color:#E7B386}a:hover{color:#EDEFF2}:focus-visible{outline:3px solid #D08A4E;outline-offset:2px}</style>
+</helmet>
+<div dir="rtl" lang="fa-IR" style="font-family:Vazirmatn,Tahoma,sans-serif;color:#EDEFF2;background:#111418;min-height:100vh">
+  <div style="position:sticky;top:0;z-index:50">
+    <dc-import name="SiteHeader" active="training" hint-size="100%,116px"></dc-import>
+    <div aria-hidden="true" style="position:absolute;left:0;right:0;bottom:-3px;height:3px;background:transparent">
+      <div data-progress="" style="height:100%;background:linear-gradient(270deg,#D08A4E,#D08A4E);transform:scaleX(0);transform-origin:right"></div>
+    </div>
+  </div>
+  <main>
+    <dc-import name="PageHero" crumb="{{ c.title }}" parent="آموزش" parent-href="Training.dc.html" eyebrow="{{ c.category }}" title="{{ c.title }}" lead="{{ lead }}" hint-size="100%,380px"></dc-import>
+    <div style="max-width:1280px;margin:0 auto;padding:48px 24px 96px;display:grid;grid-template-columns:{{ cols }};gap:48px;align-items:start">
+      <article style="min-width:0;display:flex;flex-direction:column;gap:48px">
+        <div data-reveal="" role="note" style="display:flex;gap:12px;align-items:flex-start;padding:14px 16px;background:#FFF8E8;border:1px solid #EFD9A6;border-radius:8px;font-size:14px;line-height:1.9;color:#5E3C00">
+          <span style="flex-shrink:0;background:#FFF4DC;color:#6B4200;border:1px dashed #D9A441;font-size:12px;font-weight:700;padding:2px 8px;border-radius:4px;white-space:nowrap">نمونه نمایشی</span>
+          <span>{{ d.about }}</span>
+        </div>
+        <section aria-labelledby="c-outline" data-reveal="">
+          <h2 id="c-outline" style="font-family:'Noto Kufi Arabic',Vazirmatn,sans-serif;margin:0 0 20px;font-size:clamp(22px,2.4vw,28px);font-weight:800;color:#1A1F26">سرفصل‌ها</h2>
+          <ol data-stagger="70" style="list-style:none;margin:0;padding:0;border-top:1px solid #DDD6CB">
+            <sc-for list="{{ outline }}" as="o" hint-placeholder-count="5">
+              <li data-reveal="" style="display:flex;gap:18px;align-items:center;padding:18px 4px;border-bottom:1px solid #DDD6CB">
+                <span style="flex-shrink:0;width:40px;height:40px;border-radius:10px;background:#EFE9E0;border:1px solid #DDD6CB;display:flex;align-items:center;justify-content:center;font-weight:800;color:#9A5A26">{{ o.n }}</span>
+                <span style="font-size:16.5px;font-weight:600;color:#1A1F26">{{ o.t }}</span>
+              </li>
+            </sc-for>
+          </ol>
+        </section>
+        <section aria-labelledby="c-aud" data-reveal="">
+          <h2 id="c-aud" style="font-family:'Noto Kufi Arabic',Vazirmatn,sans-serif;margin:0 0 20px;font-size:clamp(22px,2.4vw,28px);font-weight:800;color:#1A1F26">مخاطبان دوره</h2>
+          <div style="display:flex;flex-wrap:wrap;gap:8px">
+            <sc-for list="{{ d.audience }}" as="a" hint-placeholder-count="3">
+              <span style="height:40px;padding:0 16px;display:flex;align-items:center;border:1px solid #DDD6CB;border-radius:999px;font-size:15px;color:#1A1F26;background:#F4F1EC">{{ a }}</span>
+            </sc-for>
+          </div>
+        </section>
+        <section aria-labelledby="c-rel" data-reveal="">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:20px">
+            <h2 id="c-rel" style="font-family:'Noto Kufi Arabic',Vazirmatn,sans-serif;margin:0;font-size:clamp(22px,2.4vw,28px);font-weight:800;color:#1A1F26">دوره‌های مرتبط</h2>
+            <a href="Training.dc.html" style="font-size:14px;font-weight:700;color:#9A5A26;text-decoration:none">همه دوره‌ها ‹</a>
+          </div>
+          <div data-stagger="80" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,250px),1fr));gap:16px">
+            <sc-for list="{{ related }}" as="r" hint-placeholder-count="2"><div data-reveal=""><dc-import name="CourseCard" course="{{ r }}" hint-size="100%,390px"></dc-import></div></sc-for>
+          </div>
+        </section>
+      </article>
+
+      <aside aria-label="مشخصات دوره" style="position:{{ asidePos }};top:140px">
+        <div data-reveal="" style="position:relative;overflow:hidden;border:1px solid #2A313B;border-radius:16px;background:#1A1F26;box-shadow:0 30px 60px -40px rgba(0,0,0,0.45)">
+          <div aria-hidden="true" style="position:relative;height:120px;background:linear-gradient(155deg,#1E1712,#241A12 60%,#2A1D12);overflow:hidden">
+            <div style="position:absolute;inset:0;background-image:radial-gradient(rgba(231,179,134,0.25) 1px,transparent 1.2px);background-size:18px 18px;mask-image:radial-gradient(ellipse at 20% 100%,#000,transparent 75%);-webkit-mask-image:radial-gradient(ellipse at 20% 100%,#000,transparent 75%)"></div>
+            <span data-anim="ping" style="position:absolute;left:36px;top:34px;width:52px;height:52px;border-radius:50%;border:1px solid rgba(231,179,134,0.6)"></span>
+            <span style="position:absolute;left:56px;top:54px;width:12px;height:12px;border-radius:50%;background:#D08A4E;box-shadow:0 0 18px #D08A4E"></span>
+          </div>
+          <div style="padding:24px;display:flex;flex-direction:column;gap:18px">
+            <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px">
+              <span style="font-size:22px;font-weight:900;color:#EDEFF2">{{ price }}</span>
+              <span style="font-size:12px;font-weight:700;color:#EDEFF2;background:#1E1712;padding:3px 10px;border-radius:999px;white-space:nowrap">زمان برگزاری: پس از اعلام</span>
+            </div>
+            <dl style="margin:0;display:grid;grid-template-columns:auto 1fr;gap:12px 16px;font-size:14.5px">
+              <dt style="color:#9AA3AF">دسته</dt><dd style="margin:0;font-weight:600">{{ c.category }}</dd>
+              <dt style="color:#9AA3AF">سطح</dt><dd style="margin:0;font-weight:600">{{ c.level }}</dd>
+              <dt style="color:#9AA3AF">مدت</dt><dd style="margin:0;font-weight:600">{{ c.duration }}</dd>
+              <dt style="color:#9AA3AF">مدرس</dt><dd style="margin:0;font-weight:600">{{ c.instructor }}</dd>
+            </dl>
+            <sc-if value="{{ notReg }}" hint-placeholder-val="{{ true }}">
+              <button type="button" onClick="{{ register }}" style="position:relative;overflow:hidden;height:52px;border:none;border-radius:6px;background:#D08A4E;color:#111418;font:700 15px Vazirmatn,sans-serif;cursor:pointer;box-shadow:0 12px 28px -12px rgba(208,138,78,0.8);transition:background 150ms,transform 150ms" style-hover="background:#E09A5C;transform:translateY(-1px)">
+                <span data-anim="shine" aria-hidden="true" style="position:absolute;top:0;bottom:0;left:0;width:40%;background:linear-gradient(100deg,transparent,rgba(255,255,255,0.35),transparent);transform:translateX(140%)"></span>
+                <span style="position:relative">اعلام علاقه‌مندی به دوره</span>
+              </button>
+            </sc-if>
+            <sc-if value="{{ reg }}">
+              <div role="status" data-reveal="" style="display:flex;gap:12px;align-items:center;padding:14px;border-radius:8px;background:#12241A;color:#7BD8A0;font-size:14px;line-height:1.8">
+                <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true"><circle cx="14" cy="14" r="12" stroke="#4CC38A" stroke-width="2" pathLength="1" data-draw="" data-dur="600"></circle><path d="M9 14.5l3.2 3.2L19 11" stroke="#4CC38A" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" pathLength="1" data-draw="" data-delay="450" data-dur="450"></path></svg>
+                علاقه‌مندی نمونه ثبت شد. در این نسخه اطلاعاتی ارسال نمی‌شود.
+              </div>
+            </sc-if>
+            <a href="Contact.dc.html" style="text-align:center;font-size:14px;font-weight:700;color:#E7B386;text-decoration:none">پرسش درباره دوره ‹</a>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </main>
+  <dc-import name="SiteFooter" hint-size="100%,640px"></dc-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;courseId&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;c1&quot;,&quot;c2&quot;,&quot;c3&quot;,&quot;c4&quot;,&quot;c5&quot;,&quot;c6&quot;],&quot;default&quot;:&quot;c1&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  state = { id: 'c1', reg: false, w: typeof window !== 'undefined' ? window.innerWidth : 1280 };
+  componentDidMount() {
+    try { const id = new URLSearchParams(location.search).get('id'); if (id) this.setState({ id }); } catch (e) {}
+    this.onResize = () => this.setState({ w: window.innerWidth });
+    window.addEventListener('resize', this.onResize);
+    if (!window.RoshdData) this.poll = setInterval(() => { if (window.RoshdData) { clearInterval(this.poll); this.forceUpdate(); } }, 60);
+  }
+  componentWillUnmount() { clearInterval(this.poll); window.removeEventListener('resize', this.onResize); }
+  renderVals() {
+    const D = window.RoshdData || { courses: [], courseDetail: { outline: [], audience: [] } };
+    const fa = n => String(n).replace(/\d/g, d => '۰۱۲۳۴۵۶۷۸۹'[d]);
+    const c = D.courses.find(x => x.id === (this.props.courseId || this.state.id)) || D.courses[0] || {};
+    const d = D.courseDetail || { outline: [], audience: [] };
+    const wide = this.state.w >= 980;
+    return {
+      c, d, lead: 'دوره ' + (c.level || '') + ' · ' + (c.duration || '') + ' · ' + (c.free ? 'رایگان' : 'غیررایگان'),
+      outline: d.outline.map((t, i) => ({ t, n: fa(i + 1) })),
+      related: D.courses.filter(x => x.id !== c.id).slice(0, 2),
+      price: c.free ? 'رایگان' : 'غیررایگان',
+      cols: wide ? 'minmax(0,1fr) 360px' : 'minmax(0,1fr)', asidePos: wide ? 'sticky' : 'static',
+      reg: this.state.reg, notReg: !this.state.reg, register: () => this.setState({ reg: true }),
+    };
+  }
+}
+</script>
+</body>
+</html>

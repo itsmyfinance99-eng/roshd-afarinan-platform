@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <title>مقالات — رشدآفرینان صنعت و معدن (نمونه v2 · مس و گرافیت)</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300..900&amp;family=Noto+Kufi+Arabic:wght@600..800&amp;display=swap">
+  <script src="mock-data.js"></script>
+  <script>window.RoshdForceMotion = true;</script>
+  <script src="motion.js"></script>
+  <style>html,body{margin:0;background:#111418;font-family:Vazirmatn,Tahoma,sans-serif;direction:rtl}*{box-sizing:border-box}a{color:#E7B386}a:hover{color:#EDEFF2}:focus-visible{outline:3px solid #D08A4E;outline-offset:2px}</style>
+</helmet>
+<div dir="rtl" lang="fa-IR" data-auto-reveal="" style="font-family:Vazirmatn,Tahoma,sans-serif;color:#EDEFF2;background:#111418;min-height:100vh">
+  <dc-import name="SiteHeader" active="articles" hint-size="100%,116px" style="position:sticky;top:0;z-index:50;display:block"></dc-import>
+  <main>
+    <dc-import name="PageHero" crumb="مقالات" eyebrow="مقالات" title="مقالات و یادداشت‌های تخصصی" lead="مقالات فعلی نمونه نمایشی هستند." hint-size="100%,300px"></dc-import>
+    <section style="max-width:1280px;margin:0 auto;padding:48px 24px 80px">
+      <div role="group" aria-label="دسته مقالات" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:28px">
+        <sc-for list="{{ chips }}" as="c" hint-placeholder-count="5">
+          <button type="button" aria-pressed="{{ c.on }}" onClick="{{ c.pick }}" style="height:40px;padding:0 14px;border-radius:4px;border:1px solid {{ c.border }};background:{{ c.bg }};color:{{ c.fg }};font:600 14px Vazirmatn,sans-serif;cursor:pointer">{{ c.label }}</button>
+        </sc-for>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,320px),1fr));gap:20px">
+        <sc-for list="{{ items }}" as="a" hint-placeholder-count="6">
+          <div style="display:flex;flex-direction:column;gap:0;border-radius:8px;overflow:hidden;border:1px solid #2A313B">
+            <div role="img" aria-label="جای تصویر مقاله" style="aspect-ratio:16/9;background:repeating-linear-gradient(135deg,#232A33 0 10px,#1A1F26 10px 20px);display:flex;align-items:center;justify-content:center"><span style="font-family:ui-monospace,Menlo,monospace;font-size:12px;color:#9AA3AF">تصویر مقاله</span></div>
+            <dc-import name="ContentCard" item="{{ a }}" cta="ادامه مطلب" href="#" hint-size="100%,200px" style="display:block;margin:-1px"></dc-import>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+  </main>
+  <dc-import name="SiteFooter" hint-size="100%,640px"></dc-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { cat: 'همه' };
+  componentDidMount() { if (!window.RoshdData) this.poll = setInterval(() => { if (window.RoshdData) { clearInterval(this.poll); this.forceUpdate(); } }, 60); }
+  componentWillUnmount() { clearInterval(this.poll); }
+  renderVals() {
+    const D = window.RoshdData || { articles: [] };
+    const cat = this.state.cat;
+    const cats = ['همه', ...Array.from(new Set(D.articles.map(c => c.category)))];
+    return {
+      chips: cats.map(l => { const on = l === cat; return { label: l, on, bg: on ? '#D08A4E' : '#1A1F26', fg: on ? '#111418' : '#C3C9D2', border: on ? '#D08A4E' : '#3A4250', pick: () => this.setState({ cat: l }) }; }),
+      items: D.articles.filter(a => cat === 'همه' || a.category === cat),
+    };
+  }
+}
+</script>
+</body>
+</html>

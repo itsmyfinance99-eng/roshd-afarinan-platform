@@ -1,6 +1,5 @@
-import { Container } from '@roshd/ui';
 import type { Metadata } from 'next';
-import { ServiceRequestForm } from '@/components/forms/service-request-form';
+import { FeasibilityRequest } from '@/components/forms/feasibility-request';
 import { PageIntro } from '@/components/layout/page-shell';
 import { pageMetadata } from '@/lib/seo';
 
@@ -22,20 +21,19 @@ export default function FeasibilityRequestPage() {
         title="درخواست امکان‌سنجی"
         lead="اطلاعات اولیه طرح را ثبت کنید. پس از بررسی اولیه، کارشناسان دامنه خدمت و مراحل بعدی را با شما هماهنگ می‌کنند."
       />
-      <Container className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,420px),1fr))] items-start gap-12 py-16">
-        <div className="rounded-panel border border-line-2 p-[clamp(20px,3vw,32px)]">
-          <ServiceRequestForm type="FEASIBILITY" />
+      <section
+        aria-labelledby="req-title"
+        data-surface="paper"
+        className="relative overflow-hidden border-b border-paper-line"
+      >
+        <div
+          aria-hidden="true"
+          className="dots absolute inset-0 [--dot-color:var(--color-paper-line)] [mask-image:radial-gradient(ellipse_45%_60%_at_90%_10%,#000,transparent_70%)]"
+        />
+        <div className="relative mx-auto max-w-(--container-page) px-6 py-[88px]">
+          <FeasibilityRequest heading="اطلاعات طرح در سه مرحله" />
         </div>
-        <aside className="flex flex-col gap-4 text-[15px] leading-loose text-ink-3">
-          <h2 className="text-lg font-extrabold text-brand-900">چه اطلاعاتی لازم است؟</h2>
-          <p>شرح کوتاه ایده، حوزه فعالیت، محل اجرا و مرحله فعلی طرح کافی است.</p>
-          <p>مدت زمان مطالعه به دامنه و پیچیدگی طرح بستگی دارد و پس از بررسی اولیه اعلام می‌شود.</p>
-          <p>
-            پس از ثبت، یک کد پیگیری دریافت می‌کنید که با آن و شماره موبایل خود می‌توانید وضعیت را
-            ببینید.
-          </p>
-        </aside>
-      </Container>
+      </section>
     </>
   );
 }

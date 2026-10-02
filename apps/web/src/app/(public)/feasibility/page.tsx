@@ -1,9 +1,9 @@
-import { Accordion, buttonClasses, Container, ordinal, Section, SectionHeader } from '@roshd/ui';
+import { Accordion, toPersianDigits } from '@roshd/ui';
 import type { Metadata } from 'next';
-import Link from 'next/link';
+import type { CSSProperties } from 'react';
+import { FeasibilityRequest } from '@/components/forms/feasibility-request';
 import { PageIntro } from '@/components/layout/page-shell';
-import { ProcessSteps } from '@/components/sections/process-steps';
-import { faq, processSteps } from '@/content/site';
+import { faq } from '@/content/site';
 import { pageMetadata } from '@/lib/seo';
 
 export const metadata: Metadata = pageMetadata({
@@ -19,6 +19,7 @@ const scopes = [
   { title: 'طرح توجیهی', description: 'جمع‌بندی مطالعات در قالب طرح توجیهی.' },
 ];
 
+/** Feasibility (design Feasibility.dc.html): scope cards, paper request wizard, FAQ. */
 export default function FeasibilityPage() {
   return (
     <>
@@ -29,67 +30,72 @@ export default function FeasibilityPage() {
         lead="ارزیابی فنی، بازار و مالی طرح پیش از ورود به اجرا، با همراهی کارشناسان در هر مرحله."
       />
 
-      <Container className="py-[72px]">
-        <section aria-labelledby="scope-title">
-          <h2
-            id="scope-title"
-            className="mb-7 text-[clamp(24px,2.8vw,32px)] font-extrabold text-brand-900"
-          >
-            دامنه مطالعات
-          </h2>
-          <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,260px),1fr))] gap-px overflow-hidden rounded-card border border-line-2 bg-line-2">
-            {scopes.map((scope, i) => (
-              <div key={scope.title} className="flex flex-col gap-2.5 bg-white p-7">
-                <span className="text-[13px] text-ink-5">{ordinal(i)}</span>
-                <h3 className="text-[19px] font-extrabold text-brand-900">{scope.title}</h3>
-                <p className="text-sm leading-[1.9] text-ink-4">{scope.description}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-      </Container>
-
-      <Section tone="dark" aria-labelledby="flow-title">
-        <Container className="py-16">
-          <SectionHeader id="flow-title" title="فرایند انجام کار" tone="dark" className="mb-9" />
-          <ProcessSteps steps={processSteps} />
-        </Container>
-      </Section>
-
-      <Container className="py-[72px]">
-        <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,380px),1fr))] items-center gap-8 rounded-panel border border-line-2 bg-surface p-[clamp(28px,5vw,56px)]">
-          <div>
-            <p className="mb-2.5 text-sm font-bold text-primary">گام اول</p>
-            <h2 className="mb-3 text-[clamp(24px,2.8vw,32px)] font-extrabold text-brand-900">
-              درخواست امکان‌سنجی
-            </h2>
-            <p className="text-[15px] leading-loose text-ink-3">
-              اطلاعات اولیه طرح را ثبت کنید. کارشناسان پس از بررسی اولیه، دامنه خدمت را مشخص
-              می‌کنند.
-            </p>
-          </div>
-          <div className="flex flex-wrap justify-end gap-3">
-            <Link href="/feasibility/request" className={buttonClasses('primary', 'lg')}>
-              ثبت درخواست امکان‌سنجی
-            </Link>
-            <Link href="/track" className={buttonClasses('secondary', 'lg')}>
-              پیگیری درخواست
-            </Link>
-          </div>
+      <section aria-labelledby="deliver" className="mx-auto max-w-(--container-page) px-6 py-20">
+        <h2
+          id="deliver"
+          data-reveal=""
+          className="mb-7 font-display text-[clamp(26px,3vw,36px)] font-extrabold text-ink"
+        >
+          دامنه مطالعات
+        </h2>
+        <div
+          data-stagger="70"
+          className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,260px),1fr))] gap-4"
+        >
+          {scopes.map((scope, i) => (
+            <div
+              key={scope.title}
+              data-reveal=""
+              data-spotlight=""
+              className="relative flex flex-col gap-2.5 overflow-hidden rounded-panel border border-line bg-brand-700 p-7 transition-[transform,border-color,box-shadow] duration-200 ease-enter hover:-translate-y-[3px] hover:border-primary hover:shadow-[0_20px_44px_-28px_color-mix(in_srgb,var(--color-primary)_50%,transparent)]"
+            >
+              <span
+                data-spot=""
+                aria-hidden="true"
+                className="spot"
+                style={{ '--spot-size': '300px' } as CSSProperties}
+              />
+              <span className="relative text-sm font-bold text-accent">
+                {toPersianDigits(i + 1)}
+              </span>
+              <h3 className="relative font-display text-xl font-extrabold text-ink">
+                {scope.title}
+              </h3>
+              <p className="relative text-[14.5px] leading-[1.95] text-ink-3">
+                {scope.description}
+              </p>
+            </div>
+          ))}
         </div>
-      </Container>
+      </section>
 
-      <Section tone="muted" aria-labelledby="faq-title">
-        <div className="mx-auto max-w-[880px] px-6 py-[72px]">
+      <section
+        id="request"
+        aria-labelledby="req-title"
+        data-surface="paper"
+        className="relative scroll-mt-24 overflow-hidden border-y border-paper-line"
+      >
+        <div
+          aria-hidden="true"
+          className="dots absolute inset-0 [--dot-color:var(--color-paper-line)] [mask-image:radial-gradient(ellipse_45%_60%_at_90%_10%,#000,transparent_70%)]"
+        />
+        <div className="relative mx-auto max-w-(--container-page) px-6 py-[88px]">
+          <FeasibilityRequest />
+        </div>
+      </section>
+
+      <section aria-labelledby="faq-title">
+        <div className="mx-auto max-w-[880px] px-6 py-[88px]">
           <h2
             id="faq-title"
-            className="mb-6 text-[clamp(24px,2.8vw,32px)] font-extrabold text-brand-900"
+            data-reveal=""
+            className="mb-6 font-display text-[clamp(26px,3vw,36px)] font-extrabold text-ink"
           >
             پرسش‌های متداول
           </h2>
           <Accordion items={faq.map((f) => ({ question: f.question, answer: f.answer }))} />
         </div>
-      </Section>
+      </section>
     </>
   );
 }

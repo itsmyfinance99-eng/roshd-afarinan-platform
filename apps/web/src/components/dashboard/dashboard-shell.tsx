@@ -94,8 +94,8 @@ export function DashboardShell({ children }: { children: ReactNode }) {
 
   return (
     <MeProvider value={me}>
-      <div className="min-h-screen bg-surface">
-        <header className="border-b border-line bg-white">
+      <div className="min-h-screen bg-brand-900">
+        <header className="border-b border-line bg-brand-950">
           <div className="mx-auto flex h-[72px] max-w-(--container-page) items-center gap-4 px-6">
             <Logo />
             <div className="ms-auto flex items-center gap-3">
@@ -111,7 +111,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
                 </span>
               </span>
               <NotificationBell />
-              <Link href="/" className="text-sm no-underline">
+              <Link href="/" className="text-sm text-accent no-underline hover:text-ink">
                 سایت
               </Link>
               <Button variant="ghost" size="sm" onClick={() => void logout()}>
@@ -120,30 +120,37 @@ export function DashboardShell({ children }: { children: ReactNode }) {
             </div>
           </div>
         </header>
-        <div className="mx-auto grid max-w-(--container-page) gap-6 px-6 py-8 md:grid-cols-[220px_1fr]">
-          <nav aria-label="منوی داشبورد" className="min-w-0 md:self-start">
-            <ul className="flex gap-2 overflow-x-auto md:flex-col">
-              {items.map((item) => (
-                <li key={item.href} className="shrink-0">
-                  <Link
-                    href={item.href}
-                    aria-current={isActive(item.href) ? 'page' : undefined}
-                    className={cn(
-                      'block rounded-control px-4 py-2.5 text-sm no-underline',
-                      isActive(item.href)
-                        ? 'bg-brand-900 font-bold text-white hover:text-white'
-                        : 'bg-white text-ink-2 hover:text-primary',
-                    )}
-                  >
-                    {item.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </nav>
-          <main id="main" tabIndex={-1} className="min-w-0 rounded-panel bg-white p-6">
-            {children}
-          </main>
+        {/* Dashboard content reads on paper (design/INTEGRATION.md D14). */}
+        <div data-surface="paper" className="min-h-[calc(100vh-73px)]">
+          <div className="mx-auto grid max-w-(--container-page) gap-6 px-6 py-8 md:grid-cols-[220px_1fr]">
+            <nav aria-label="منوی داشبورد" className="min-w-0 md:self-start">
+              <ul className="flex gap-2 overflow-x-auto md:flex-col">
+                {items.map((item) => (
+                  <li key={item.href} className="shrink-0">
+                    <Link
+                      href={item.href}
+                      aria-current={isActive(item.href) ? 'page' : undefined}
+                      className={cn(
+                        'block rounded-control px-4 py-2.5 text-sm no-underline transition-colors',
+                        isActive(item.href)
+                          ? 'bg-primary font-bold text-on-primary hover:text-on-primary'
+                          : 'bg-paper text-ink hover:text-accent',
+                      )}
+                    >
+                      {item.label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+            <main
+              id="main"
+              tabIndex={-1}
+              className="min-w-0 rounded-panel border border-paper-line bg-paper p-6 outline-none"
+            >
+              {children}
+            </main>
+          </div>
         </div>
       </div>
     </MeProvider>

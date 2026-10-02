@@ -13,6 +13,7 @@ export const metadata: Metadata = pageMetadata({
 export default function RegisterPage() {
   return (
     <AuthCard
+      tab="register"
       title="ایجاد حساب کاربری"
       lead="با یک حساب، درخواست‌های آموزش، امکان‌سنجی، پژوهش و مشاوره را یک‌جا پیگیری کنید."
     >

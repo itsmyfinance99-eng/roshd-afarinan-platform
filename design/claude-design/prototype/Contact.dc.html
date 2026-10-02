@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <title>تماس با ما — رشدآفرینان صنعت و معدن (نمونه v2 · مس و گرافیت)</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300..900&amp;family=Noto+Kufi+Arabic:wght@600..800&amp;display=swap">
+  <script src="mock-data.js"></script>
+  <script>window.RoshdForceMotion = true;</script>
+  <script src="motion.js"></script>
+  <style>html,body{margin:0;background:#111418;font-family:Vazirmatn,Tahoma,sans-serif;direction:rtl}*{box-sizing:border-box}a{color:#E7B386}a:hover{color:#EDEFF2}:focus-visible{outline:3px solid #D08A4E;outline-offset:2px}</style>
+</helmet>
+<div dir="rtl" lang="fa-IR" data-auto-reveal="" style="font-family:Vazirmatn,Tahoma,sans-serif;color:#EDEFF2;background:#111418;min-height:100vh">
+  <dc-import name="SiteHeader" active="contact" hint-size="100%,116px" style="position:sticky;top:0;z-index:50;display:block"></dc-import>
+  <main>
+    <dc-import name="PageHero" crumb="تماس با ما" eyebrow="تماس با ما" title="درخواست مشاوره و ارتباط با کارشناسان" lead="پیام خود را ثبت کنید؛ کارشناسان برای هماهنگی با شما تماس می‌گیرند." hint-size="100%,320px"></dc-import>
+    <section style="max-width:1280px;margin:0 auto;padding:64px 24px 80px;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,380px),1fr));gap:40px;align-items:start">
+      <div style="background:#1A1F26;border:1px solid #2A313B;border-radius:16px;box-shadow:0 30px 60px -40px rgba(0,0,0,0.45);padding:clamp(20px,3vw,36px)">
+        <h2 style="font-family:'Noto Kufi Arabic',Vazirmatn,sans-serif;margin:0 0 6px;font-size:22px;font-weight:800;color:#EDEFF2">فرم تماس</h2>
+        <p style="margin:0 0 24px;font-size:14px;color:#C3C9D2">فیلدهای ستاره‌دار الزامی است.</p>
+        <sc-if value="{{ sent }}">
+          <div role="status" style="padding:28px 8px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:10px">
+            <svg width="72" height="72" viewBox="0 0 72 72" fill="none" aria-hidden="true"><circle cx="36" cy="36" r="32" stroke="#4CC38A" stroke-width="3" pathLength="1" data-draw="" data-dur="700"></circle><path d="M23 37l9 9 18-19" stroke="#4CC38A" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" pathLength="1" data-draw="" data-delay="550" data-dur="500"></path></svg>
+            <h3 data-reveal="" data-delay="600" style="font-family:'Noto Kufi Arabic',Vazirmatn,sans-serif;margin:8px 0 0;font-size:22px;font-weight:800;color:#EDEFF2">پیام نمونه ثبت شد</h3>
+            <p data-reveal="" data-delay="680" style="margin:0 0 12px;font-size:14px;color:#C3C9D2">در این نسخه ارسالی انجام نمی‌شود.</p>
+            <button type="button" onClick="{{ reset }}" style="height:44px;padding:0 18px;border:1px solid #D08A4E;background:#1A1F26;color:#E7B386;border-radius:6px;font:700 14px Vazirmatn,sans-serif;cursor:pointer">ارسال پیام جدید</button>
+          </div>
+        </sc-if>
+        <sc-if value="{{ notSent }}" hint-placeholder-val="{{ true }}">
+          <form onSubmit="{{ submit }}" novalidate="" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:18px">
+            <sc-for list="{{ fields }}" as="f" hint-placeholder-count="4">
+              <div style="display:flex;flex-direction:column;gap:6px;grid-column:{{ f.span }}">
+                <label for="{{ f.id }}" style="font-size:14px;font-weight:600;color:#EDEFF2">{{ f.label }} <span style="color:#F97066">{{ f.req }}</span></label>
+                <sc-if value="{{ f.isInput }}"><input id="{{ f.id }}" value="{{ f.value }}" onChange="{{ f.onChange }}" dir="{{ f.dir }}" inputmode="{{ f.mode }}" placeholder="{{ f.ph }}" aria-invalid="{{ f.invalid }}" aria-describedby="{{ f.errId }}" style="height:48px;border:1px solid {{ f.border }};border-radius:6px;padding:0 14px;font:400 15px Vazirmatn,sans-serif;text-align:right;outline:none;transition:border-color 200ms,box-shadow 250ms cubic-bezier(0.65,0,0.35,1)" style-focus="border-color:#D08A4E;box-shadow:0 0 0 4px rgba(208,138,78,0.15)"></sc-if>
+                <sc-if value="{{ f.isArea }}"><textarea id="{{ f.id }}" value="{{ f.value }}" onChange="{{ f.onChange }}" aria-invalid="{{ f.invalid }}" aria-describedby="{{ f.errId }}" rows="5" style="border:1px solid {{ f.border }};border-radius:6px;padding:12px 14px;font:400 15px/1.9 Vazirmatn,sans-serif;resize:vertical;outline:none;transition:border-color 200ms,box-shadow 250ms" style-focus="border-color:#D08A4E;box-shadow:0 0 0 4px rgba(208,138,78,0.15)"></textarea></sc-if>
+                <sc-if value="{{ f.err }}"><span id="{{ f.errId }}" role="alert" data-reveal="" data-dur="250" style="display:flex;align-items:center;gap:6px;font-size:13px;color:#F97066"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v5M12 16.5v.5"></path></svg>{{ f.err }}</span></sc-if>
+              </div>
+            </sc-for>
+            <button type="submit" disabled="{{ submitting }}" style="grid-column:1/-1;position:relative;overflow:hidden;height:52px;border:none;border-radius:6px;background:#D08A4E;color:#111418;font:700 15px Vazirmatn,sans-serif;cursor:pointer;opacity:{{ btnOpacity }};box-shadow:0 12px 28px -12px rgba(208,138,78,0.8);transition:background 150ms,transform 150ms" style-hover="background:#E09A5C;transform:translateY(-1px)">{{ btnLabel }}</button>
+          </form>
+        </sc-if>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:20px">
+        <dl style="margin:0;display:grid;grid-template-columns:auto 1fr;gap:14px 20px;font-size:15px;padding:24px;background:#15191F;border-radius:8px">
+          <dt style="color:#9AA3AF">نشانی</dt><dd style="margin:0">[نمونه] نشانی دفتر مرکزی</dd>
+          <dt style="color:#9AA3AF">تلفن</dt><dd style="margin:0">[نمونه] ۰۲۱-۰۰۰۰۰۰۰۰</dd>
+          <dt style="color:#9AA3AF">ایمیل</dt><dd style="margin:0">[نمونه] info@example.ir</dd>
+          <dt style="color:#9AA3AF">ساعات کاری</dt><dd style="margin:0">[نمونه] شنبه تا چهارشنبه</dd>
+        </dl>
+        <div role="img" aria-label="جای نقشه موقعیت دفتر" style="aspect-ratio:4/3;background:repeating-linear-gradient(135deg,#232A33 0 10px,#1A1F26 10px 20px);border-radius:8px;display:flex;align-items:center;justify-content:center"><span style="font-family:ui-monospace,Menlo,monospace;font-size:12px;color:#9AA3AF">نقشه موقعیت دفتر</span></div>
+      </div>
+    </section>
+  </main>
+  <dc-import name="SiteFooter" hint-size="100%,640px"></dc-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { v: { name: '', phone: '', subject: '', msg: '' }, errors: {}, tried: false, sent: false };
+  validate(v) {
+    const e = {};
+    if (v.name.trim().length < 3) e.name = 'نام را وارد کنید.';
+    const p = v.phone.replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d));
+    if (!/^09\d{9}$/.test(p)) e.phone = 'شماره موبایل معتبر نیست.';
+    if (v.msg.trim().length < 10) e.msg = 'متن پیام را کامل‌تر بنویسید.';
+    return e;
+  }
+  set(k, val) { const v = { ...this.state.v, [k]: val }; this.setState({ v, errors: this.state.tried ? this.validate(v) : {} }); }
+  submit = (ev) => {
+    ev.preventDefault();
+    const errors = this.validate(this.state.v);
+    this.setState({ errors, tried: true });
+    if (Object.keys(errors).length) return;
+    this.setState({ submitting: true });
+    this.t = setTimeout(() => this.setState({ submitting: false, sent: true }), 900);
+  };
+  componentWillUnmount() { clearTimeout(this.t); }
+  renderVals() {
+    const { v, errors, sent, submitting } = this.state;
+    const defs = [{ k: 'name', label: 'نام و نام خانوادگی', req: '*' }, { k: 'phone', label: 'شماره موبایل', req: '*', dir: 'ltr', mode: 'numeric', ph: '09xxxxxxxxx' }, { k: 'subject', label: 'موضوع', span: '1/-1' }, { k: 'msg', label: 'متن پیام', req: '*', area: true, span: '1/-1' }];
+    return {
+      sent, notSent: !sent, submit: this.submit, submitting: !!submitting,
+      btnLabel: submitting ? 'در حال ارسال…' : 'ارسال پیام', btnOpacity: submitting ? 0.7 : 1,
+      reset: () => this.setState({ sent: false, tried: false, errors: {}, v: { name: '', phone: '', subject: '', msg: '' } }),
+      fields: defs.map(d => ({ id: 'c-' + d.k, errId: 'c-' + d.k + '-err', label: d.label, req: d.req || '', span: d.span || 'auto', dir: d.dir || 'rtl', mode: d.mode || 'text', ph: d.ph || '', isInput: !d.area, isArea: !!d.area, value: v[d.k], onChange: e => this.set(d.k, e.target.value), err: errors[d.k] || '', invalid: !!errors[d.k], border: errors[d.k] ? '#F97066' : '#3A4250' })),
+    };
+  }
+}
+</script>
+</body>
+</html>

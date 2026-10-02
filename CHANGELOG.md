@@ -4,6 +4,27 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-02 — UI v2 "Copper & Graphite"
+
+### Changed
+
+- The whole web UI now follows the v2 "Copper & Graphite" Claude Design handoff (#220): dark-first tokens with `data-surface="paper"` reading regions, Noto Kufi Arabic display font (self-hosted), rebuilt public pages and shared components, and the dashboard on a paper surface. The raw handoff lives in `design/claude-design/`; decisions D1–D20 and the coverage checklist are in `design/INTEGRATION.md`.
+
+### Added
+
+- Zero-dependency motion layer (`apps/web/src/components/motion`): session-once skippable intro, scroll reveals, ticker, sonar grid and reading progress. All motion is off under `prefers-reduced-motion`; Playwright runs with reduced motion and `e2e/motion.spec.ts` covers the animated path.
+- `design/prompts/`: the prompt used to produce the v2 handoff, so a later design round can start from it.
+- `docs/HANDOFF.md`: current state, next steps and environment notes for whoever picks the project up next (#221).
+
+### Fixed
+
+- QA fixes before merge: ticker layout shift, tablet bento order, bidirectional text isolation, touch-target sizes and pill state before hydration.
+- The home hero's background glows no longer shift the layout when a slow device paints the hero before it has fully loaded (mobile CLS stayed above the 0.1 budget on slow CI runners) (#222).
+
+### Maintenance
+
+- CI actions moved to their current major versions, still pinned to commit SHAs (#217, #218).
+
 ## [0.2.0] - 2026-09-27 — Phase 1 (MVP + operational readiness)
 
 ### Added

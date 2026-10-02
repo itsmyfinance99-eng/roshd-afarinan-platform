@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <title>آموزش — رشدآفرینان صنعت و معدن (نمونه v2 · مس و گرافیت)</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300..900&amp;family=Noto+Kufi+Arabic:wght@600..800&amp;display=swap">
+  <script src="mock-data.js"></script>
+  <script>window.RoshdForceMotion = true;</script>
+  <script src="motion.js"></script>
+  <style>html,body{margin:0;background:#111418;font-family:Vazirmatn,Tahoma,sans-serif;direction:rtl}*{box-sizing:border-box}a{color:#E7B386}a:hover{color:#EDEFF2}:focus-visible{outline:3px solid #D08A4E;outline-offset:2px}</style>
+</helmet>
+<div dir="rtl" lang="fa-IR" style="font-family:Vazirmatn,Tahoma,sans-serif;color:#EDEFF2;background:#111418;min-height:100vh">
+  <dc-import name="SiteHeader" active="training" hint-size="100%,116px" style="position:sticky;top:0;z-index:50;display:block"></dc-import>
+  <main>
+    <dc-import name="PageHero" crumb="آموزش" eyebrow="آموزش" title="آموزش تخصصی سرمایه‌گذاری، اقتصاد، امکان‌سنجی و تأمین مالی" lead="دوره‌های این صفحه نمونه نمایشی هستند و برای بررسی ساختار کاتالوگ آموزشی قرار گرفته‌اند." hint-size="100%,380px"></dc-import>
+    <section aria-labelledby="catalog-title" style="max-width:1280px;margin:0 auto;padding:48px 24px 96px">
+      <h2 id="catalog-title" style="font-family:'Noto Kufi Arabic',Vazirmatn,sans-serif;position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">فهرست دوره‌ها</h2>
+      <div data-reveal="" style="display:flex;flex-wrap:wrap;gap:16px;justify-content:space-between;align-items:center;margin-bottom:12px;padding:12px;border:1px solid #2A313B;border-radius:10px;background:#1A1F26">
+        <div role="group" aria-label="دسته‌بندی دوره‌ها" ref="{{ chipsRef }}" style="position:relative;display:flex;flex-wrap:wrap;gap:6px">
+          <span aria-hidden="true" style="position:absolute;right:0;top:0;height:40px;width:{{ ind.w }}px;border-radius:6px;background:#D08A4E;box-shadow:0 6px 16px -8px rgba(0,0,0,0.6);transform:translate({{ ind.x }}px,{{ ind.y }}px);opacity:{{ ind.o }};transition:transform 300ms cubic-bezier(0.65,0,0.35,1),width 300ms cubic-bezier(0.65,0,0.35,1)"></span>
+          <sc-for list="{{ chips }}" as="c" hint-placeholder-count="5">
+            <button type="button" aria-pressed="{{ c.on }}" onClick="{{ c.pick }}" style="position:relative;white-space:nowrap;height:40px;padding:0 16px;border-radius:6px;border:none;background:transparent;color:{{ c.fg }};font:600 14px Vazirmatn,sans-serif;cursor:pointer;transition:color 250ms" style-hover="color:{{ c.hover }}">{{ c.label }}</button>
+          </sc-for>
+        </div>
+        <label style="display:flex;align-items:center;gap:10px;font-size:14px;color:#EDEFF2;cursor:pointer;padding-inline-end:4px">
+          <span style="position:relative;width:40px;height:24px;border-radius:999px;background:{{ swBg }};transition:background 250ms cubic-bezier(0.65,0,0.35,1)">
+            <input type="checkbox" checked="{{ freeOnly }}" onChange="{{ toggleFree }}" style="position:absolute;inset:0;opacity:0;margin:0;cursor:pointer">
+            <span aria-hidden="true" style="position:absolute;top:3px;right:3px;width:18px;height:18px;border-radius:50%;background:#1A1F26;box-shadow:0 1px 3px rgba(0,0,0,0.3);transform:{{ knob }};transition:transform 250ms cubic-bezier(0.65,0,0.35,1)"></span>
+          </span>
+          فقط دوره‌های رایگان
+        </label>
+      </div>
+      <p role="status" style="margin:0 0 24px;font-size:13px;color:#9AA3AF">{{ countLabel }}</p>
+      <sc-if value="{{ loading }}">
+        <div aria-busy="true" aria-label="در حال بارگذاری" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,270px),1fr));gap:20px">
+          <sc-for list="{{ skeletons }}" as="k" hint-placeholder-count="6">
+            <div style="position:relative;overflow:hidden;height:390px;border-radius:8px;background:#1A1F26;border:1px solid #2A313B">
+              <span data-anim="shimmer" style="position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(208,138,78,0.10),transparent)"></span>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+      <sc-if value="{{ showEmpty }}">
+        <div role="status" data-reveal="" style="padding:64px 24px;text-align:center;border:1px dashed #3A4250;border-radius:10px;background:#15191F">
+          <svg width="56" height="56" viewBox="0 0 64 64" fill="none" stroke="#4A5568" stroke-width="1.5" aria-hidden="true"><path d="M8 16h20a4 4 0 014 4v32a4 4 0 00-4-4H8z"></path><path d="M56 16H36a4 4 0 00-4 4v32a4 4 0 014-4h20z"></path></svg>
+          <p style="margin:12px 0 8px;font-size:18px;font-weight:700">دوره‌ای در این دسته وجود ندارد</p>
+          <p style="margin:0 0 16px;font-size:14px;color:#C3C9D2">دسته دیگری را انتخاب کنید یا فیلتر رایگان را بردارید.</p>
+          <button type="button" onClick="{{ reset }}" style="height:42px;padding:0 18px;border:1px solid #D08A4E;background:#1A1F26;color:#E7B386;border-radius:6px;font:700 14px Vazirmatn,sans-serif;cursor:pointer">نمایش همه دوره‌ها</button>
+        </div>
+      </sc-if>
+      <sc-if value="{{ showGrid }}" hint-placeholder-val="{{ true }}">
+        <div data-stagger="70" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,270px),1fr));gap:20px">
+          <sc-for list="{{ courses }}" as="c" hint-placeholder-count="6"><div data-reveal=""><dc-import name="CourseCard" course="{{ c }}" hint-size="100%,400px"></dc-import></div></sc-for>
+        </div>
+      </sc-if>
+    </section>
+  </main>
+  <dc-import name="SiteFooter" hint-size="100%,640px"></dc-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { cat: 'همه', freeOnly: false, loading: false, ind: { x: 0, y: 0, w: 0, o: 0 } };
+  chipsRef = React.createRef();
+  componentDidMount() {
+    if (!window.RoshdData) this.poll = setInterval(() => { if (window.RoshdData) { clearInterval(this.poll); this.forceUpdate(); } }, 60);
+    this.onResize = () => this.measure();
+    window.addEventListener('resize', this.onResize);
+    setTimeout(() => this.measure(), 300);
+  }
+  componentDidUpdate() { this.measure(); }
+  componentWillUnmount() { clearInterval(this.poll); clearTimeout(this.t); window.removeEventListener('resize', this.onResize); }
+  measure() {
+    const box = this.chipsRef.current; if (!box) return;
+    const b = box.querySelector('button[aria-pressed="true"]'); if (!b) return;
+    const x = -(box.offsetWidth - (b.offsetLeft + b.offsetWidth)), y = b.offsetTop, w = b.offsetWidth, c = this.state.ind;
+    if (c.x !== x || c.y !== y || c.w !== w || c.o !== 1) this.setState({ ind: { x, y, w, o: 1 } });
+  }
+  load(patch) { clearTimeout(this.t); this.setState({ ...patch, loading: true }); this.t = setTimeout(() => this.setState({ loading: false }), 450); }
+  renderVals() {
+    const D = window.RoshdData || { courses: [] };
+    const { cat, freeOnly, loading } = this.state;
+    const fa = n => String(n).replace(/\d/g, d => '۰۱۲۳۴۵۶۷۸۹'[d]);
+    const cats = ['همه', ...Array.from(new Set(D.courses.map(c => c.category)))];
+    const courses = D.courses.filter(c => (cat === 'همه' || c.category === cat) && (!freeOnly || c.free));
+    return {
+      chipsRef: this.chipsRef, ind: this.state.ind,
+      chips: cats.map(l => { const on = l === cat; return { label: l, on, fg: on ? '#111418' : '#C3C9D2', hover: on ? '#111418' : '#D08A4E', pick: () => this.load({ cat: l }) }; }),
+      freeOnly, toggleFree: () => this.load({ freeOnly: !freeOnly }),
+      swBg: freeOnly ? '#D08A4E' : '#3A4250', knob: freeOnly ? 'translateX(-16px)' : 'translateX(0)',
+      courses, loading, skeletons: [1, 2, 3, 4, 5, 6],
+      showEmpty: !loading && courses.length === 0, showGrid: !loading && courses.length > 0,
+      countLabel: loading ? 'در حال بارگذاری…' : fa(courses.length) + ' دوره نمونه',
+      reset: () => this.load({ cat: 'همه', freeOnly: false }),
+    };
+  }
+}
+</script>
+</body>
+</html>
