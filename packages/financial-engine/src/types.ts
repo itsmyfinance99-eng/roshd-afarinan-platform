@@ -22,6 +22,7 @@ import type {
   wacc,
 } from './indicators';
 import type { irr, mirr } from './irr';
+import type { loanPeriods, loanSchedule, sumLoanPeriods } from './loans';
 import type { npv } from './time-value';
 
 /** ISO 4217 code, e.g. "IRR", "USD", "EUR". Projects may define any currency (COMFAR VII.I). */
@@ -101,6 +102,9 @@ export interface FinancialCalculator {
   derivedExchangeRates: typeof derivedExchangeRates;
   convertCurrency: typeof convertCurrency;
   foreignLoanToLocal: typeof foreignLoanToLocal;
+  loanSchedule: typeof loanSchedule;
+  loanPeriods: typeof loanPeriods;
+  sumLoanPeriods: typeof sumLoanPeriods;
 }
 
 export interface SensitivityRequest {
