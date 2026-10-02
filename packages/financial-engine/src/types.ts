@@ -1,4 +1,15 @@
 import type { DecimalString } from './decimal';
+import type { depreciationSchedule, revaluedDepreciation } from './depreciation';
+import type {
+  applyFactors,
+  convertCurrency,
+  derivedExchangeRates,
+  foreignLoanToLocal,
+  indexFactorsFromLevels,
+  inflationIndex,
+  priceEscalationFactors,
+  relativeInflationFactors,
+} from './indexation';
 import type {
   benefitCostRatio,
   breakEven,
@@ -80,6 +91,16 @@ export interface FinancialCalculator {
   debtServiceCoverage: typeof debtServiceCoverage;
   loanLifeCoverage: typeof loanLifeCoverage;
   wacc: typeof wacc;
+  depreciationSchedule: typeof depreciationSchedule;
+  revaluedDepreciation: typeof revaluedDepreciation;
+  priceEscalationFactors: typeof priceEscalationFactors;
+  inflationIndex: typeof inflationIndex;
+  indexFactorsFromLevels: typeof indexFactorsFromLevels;
+  applyFactors: typeof applyFactors;
+  relativeInflationFactors: typeof relativeInflationFactors;
+  derivedExchangeRates: typeof derivedExchangeRates;
+  convertCurrency: typeof convertCurrency;
+  foreignLoanToLocal: typeof foreignLoanToLocal;
 }
 
 export interface SensitivityRequest {

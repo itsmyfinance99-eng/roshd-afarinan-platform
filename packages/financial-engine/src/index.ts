@@ -78,4 +78,27 @@ export {
   toPersianDigits,
   type EngineMessageCode,
 } from './messages';
+export {
+  depreciationSchedule,
+  revaluedDepreciation,
+  type DepreciationInput,
+  type DepreciationMethod,
+  type DepreciationSchedule,
+  type DepreciationYear,
+  type RevaluedYear,
+} from './depreciation';
+export {
+  applyFactors,
+  convertCurrency,
+  derivedExchangeRates,
+  foreignLoanToLocal,
+  indexFactorsFromLevels,
+  inflationIndex,
+  priceEscalationFactors,
+  relativeInflationFactors,
+  type EscalationInput,
+  type ForeignLoanLocalPeriod,
+  type ForeignLoanPeriod,
+  type RelativeInflationInput,
+} from './indexation';
 export { financialCalculator } from './calculator';

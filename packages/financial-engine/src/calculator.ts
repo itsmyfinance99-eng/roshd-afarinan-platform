@@ -1,3 +1,14 @@
+import { depreciationSchedule, revaluedDepreciation } from './depreciation';
+import {
+  applyFactors,
+  convertCurrency,
+  derivedExchangeRates,
+  foreignLoanToLocal,
+  indexFactorsFromLevels,
+  inflationIndex,
+  priceEscalationFactors,
+  relativeInflationFactors,
+} from './indexation';
 import {
   benefitCostRatio,
   breakEven,
@@ -29,4 +40,14 @@ export const financialCalculator: FinancialCalculator = {
   debtServiceCoverage,
   loanLifeCoverage,
   wacc,
+  depreciationSchedule,
+  revaluedDepreciation,
+  priceEscalationFactors,
+  inflationIndex,
+  indexFactorsFromLevels,
+  applyFactors,
+  relativeInflationFactors,
+  derivedExchangeRates,
+  convertCurrency,
+  foreignLoanToLocal,
 };

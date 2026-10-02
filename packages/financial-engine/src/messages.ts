@@ -16,6 +16,15 @@ export const ENGINE_MESSAGES_FA = {
   'series.empty': 'هیچ دوره‌ای وارد نشده است.',
   'series.lengthMismatch': 'تعداد مقادیر ({actual}) با تعداد دوره‌ها ({expected}) برابر نیست.',
   'wacc.noCapital': 'جمع منابع تأمین مالی باید بیشتر از صفر باشد.',
+  'depreciation.firstYearMonths': 'تعداد ماه‌های سال اول استهلاک باید عددی صحیح از ۱ تا ۱۲ باشد.',
+  'depreciation.rateRequired': 'برای روش نزولی، نرخ استهلاک را وارد کنید.',
+  'depreciation.rateOutOfRange': 'نرخ استهلاک نزولی باید بیشتر از صفر و حداکثر ۱۰۰ درصد باشد.',
+  'index.notPositive': 'شاخص یا ضریب تعدیل باید بیشتر از صفر باشد.',
+  'index.factorNotPositive': 'جمع تورم و افزایش قیمت این سال، ضریب قیمت را صفر یا منفی می‌کند.',
+  'index.escalatorNotInteger': 'ضریب افزایش قیمت سال اول باید عددی صحیح و نامنفی باشد.',
+  'index.baseOutOfRange': 'سال پایه شاخص خارج از بازه سال‌های واردشده است.',
+  'exchangeRate.notPositive': 'نرخ ارز باید بیشتر از صفر باشد.',
+  'loan.negativeBalance': 'بازپرداخت از مانده تسهیلات بیشتر است.',
 
   // Warnings: a value that does not exist or cannot be computed
   'irr.noSignChange': 'جریان نقدی تغییر علامت ندارد؛ نرخ بازده داخلی وجود ندارد.',

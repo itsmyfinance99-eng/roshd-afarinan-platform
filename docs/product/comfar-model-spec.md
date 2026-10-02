@@ -26,6 +26,16 @@ Three currencies: **input** (I, any item may be entered in it), **local** (L, ca
 - **Foreign-currency loans** are computed in their own currency and converted at the current rate; the restatement creates an exchange gain/loss `ADJ_j = B_{j+1} − (B_j + D_j − R_j + CI_j)` (in L), shown in the balance sheet and debt service. (XI.B, XI.M.2)
 - **Asset revaluation** (optional, with inflation): `V_j = V_i × FI_j / FI_i`, `FI_j = Π(1+R)`; depreciation on revalued amounts; the uplift is a separate "revaluation adjustment" in net worth. (XI.B)
 
+### 2.1 Implementation rules (ST-33.06, `packages/financial-engine/src/indexation.ts`)
+
+All paths are per year ending on a balance date; for a partial first year the user enters the rate of that partial year (nothing is scaled). Year-level factors are mapped to project periods by the model layer (ST-34).
+
+- **Current prices:** `F_1 = 1 + R_1 + ((1 + E_1)^e − 1)`, `F_j = F_{j−1} × (1 + R_j + E_j)`, current price = entered price × `F_j`. Inflation and escalation are added inside a year, as printed. Escalation is required (one rate or one per year; "0" is an explicit choice) and so is the first-year escalator `e` (whole number ≥ 0).
+- **Timing of year 1 (the manual is inconsistent, OQ-39):** the price formula inflates year 1 (`R_1` is in `F_1`), while the exchange-rate factor `PR_j` and the revaluation index `FI_j` start in year 2 ("first year not inflated"). The engine follows each formula as printed: entered prices are prices at the start of the horizon with flows at the end of the year, and the exchange rate and asset index of year 1 equal their initial values. The acceptance study (ST-36.01) checks this against COMFAR itself.
+- **Exchange rates:** either entered directly per year (our extension) or derived: `PR_1 = 1`, `PR_j = Π_{i<j} (1 + R_L,i)/(1 + R_I,i)`, `ER_j = PR_j × ER_0` (local units per foreign unit). The initial rate is required.
+- **Own index paths (our extension):** a category may follow a user-entered index (e.g. a price index); factors are `level_j / level_base`.
+- **Foreign-currency loans:** the schedule is computed in the loan currency (ST-33.05) and restated per period: flows and the closing balance at the period's rate, the opening balance equal to the previous local closing balance (the first one at the first period's rate), and `ADJ_j = closing − (opening + D − R + CI)` in local currency (positive = exchange loss). Interest and fees are converted at the period's rate.
+
 ## 3. Inputs (VII), as model sections
 
 | Section                     | Content (all user-entered)                                                                                                                                                                                                                                                                                                              |
@@ -91,6 +101,17 @@ Indirect costs are allocated to products by a key: direct cost, direct factory c
 ### 4.4 Depreciation (XI.H)
 
 Methods: linear to zero, linear to scrap, accelerated (declining balance, switching to linear-to-scrap when that gives more), sum-of-years-digits. Life in years + months; first year may be partial (`m1` months); salvage = rate × initial book value; the remaining book value at the end is written off in the last year. Sale of an asset: proceeds above book value = extraordinary income, below = extraordinary loss; book value at the end of production returns as capital in the scrap year. (XI.I)
+
+#### 4.4.1 Implementation rules (ST-33.06, `packages/financial-engine/src/depreciation.ts`)
+
+The engine produces one schedule per asset and depreciation year (balance date to balance date). The start date, the grouping of assets bought before the start of production and the mapping to project periods belong to the model layer (ST-34.02). Inputs: method, IBV, life in months, salvage rate (0 ≤ SVR < 1), months of the first depreciation year `m1` (1–12) and, for the declining balance, its rate (0 < DR ≤ 1). All are required.
+
+- **Exact total:** every method builds the cumulative charge per year and the last year closes at exactly `IBV − SV`, so a rounding residue in the 34th digit can neither add a tiny extra year nor push the book value below salvage.
+- **Linear to zero and to scrap:** `base / L` a year (`base` = IBV or IBV − SV), `m1/12` of it in the first year, until IBV − SV is charged. This is the manual's `M = integral part of …` with `D_{M+1} = RBV_M − SV`, and it stays defined when `M < 1` (life shorter than the first year: everything is charged in year 1).
+- **Declining balance, remaining life:** the manual prints `RL_j = L − j − m1/12 + 1`. Taken literally that is the life remaining **after** year j: with L = 5 and m1 = 12 the asset would be fully depreciated after four years and year 5 would divide by zero. The engine uses the life remaining at the **start** of year j, `RL_j = L − m1/12 − (j − 2)` (j ≥ 2), so the schedule spans L (OQ-39). Declining applies while `RBV × DR > (RBV − SV) / RL_j` (equal → linear, as VII.N says); after the switch the remainder is spread evenly over the remaining months, the last year possibly partial. If the life ends before the switch, the rest is written off in that year.
+- **Sum of years digits:** intermediate amounts per year of life as printed: with whole years `D_j = (L − j + 1)/SODL × (IBV − SV)`; with `m` extra months a first stub of `m` months, `D_1 = L/SODL × m/12 × (IBV − SV)`, then Y years on `IBV − D_1 − SV` with `SODL_adj = Y(Y+1)/2`; a life under one year is a single stub. The manual then shifts these onto depreciation years with a first year of `m1` months, but its printed shift formulas are not consistent: for `m1 > m` the two fractions of `DS_j` are swapped, and for `m1 ≤ m` the year-2 term divides the stub by 12 instead of `m`, so the total would not equal IBV − SV (OQ-39). The engine shifts by time: each depreciation year takes each life year's amount in proportion to the months they share. That equals the printed `DS_1` in both cases and the printed `DS_j` wherever the formulas are consistent, and it always depreciates exactly IBV − SV.
+- **Revaluation:** with inflation and revaluation active, depreciation and book value of year k are multiplied by `FI_j / FI_i` (index of the year over the index of the acquisition year). The cumulative revaluation adjustment in net worth is `revalued book value + revalued depreciation charged so far − IBV`, so the balance sheet still balances.
+- Capitalised interest is depreciated with the same methods (salvage 0).
 
 ### 4.5 Production costs (XI.J)
 
