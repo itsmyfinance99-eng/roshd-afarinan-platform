@@ -1927,6 +1927,7 @@ epics:
           - 'MODEL_VERSION صادر شود؛ port فعلی FinancialCalculator در API با adapter همین بسته پیاده شود'
           - 'همه فرمول‌های EPIC-33، EPIC-34 و EPIC-37 مطابق docs/product/comfar-model-spec.md؛ هر انحراف از COMFAR در همان سند ثبت شود'
       - id: ST-33.02
+        status: done
         title: 'ارزش زمانی پول: PV، FV، NPV، نرخ واقعی و اسمی'
         sprint: S13
         points: 5

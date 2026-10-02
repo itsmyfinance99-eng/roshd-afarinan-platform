@@ -24,9 +24,20 @@ export type {
   Scenario,
   SensitivityRequest,
 } from './types';
-
-/**
- * Version of the calculation model. Bump the minor version when a formula or default changes
- * results; every saved calculation run stores it (ADR-0009 §6).
- */
-export const MODEL_VERSION = '0.1.0';
+export { EngineInputError } from './errors';
+export { MODEL_VERSION } from './version';
+export {
+  DEFAULT_DISCOUNT_REFERENCE,
+  annualRateFromPeriod,
+  discountFactor,
+  futureValue,
+  nominalFromReal,
+  npv,
+  periodDiscountFactors,
+  periodRateFromAnnual,
+  presentValue,
+  realFromNominal,
+  type DiscountReference,
+  type DiscountingOptions,
+  type TimedSeries,
+} from './time-value';
