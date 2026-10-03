@@ -105,6 +105,11 @@ export interface StatementsInput {
   residualValueTiming?: ResidualValueTiming;
   /** Automatic coverage of cash deficits; on when absent (COMFAR default). */
   automaticCashCoverage?: boolean;
+  /**
+   * How much of the discounted cash flows to compute: everything (when absent), the NPV only, or
+   * the NPV and IRR. Searches that run the model many times (goal seek) ask for what they need.
+   */
+  indicatorScope?: 'ALL' | 'NPV' | 'NPV_AND_IRR';
 }
 
 export interface IncomeStatement {
@@ -277,7 +282,7 @@ export interface FinancialStatements {
 }
 
 /** Relative size below which a difference is a rounding residue of the 34-digit arithmetic. */
-const ROUNDING_TOLERANCE = '0.00000000000000000001';
+const ROUNDING_TOLERANCE = '0.0000000000000000000000000001';
 
 type Row = Decimal[];
 const at = (row: Row | undefined, j: number) => row?.[j] ?? ZERO;
@@ -379,6 +384,10 @@ export function financialStatements(
     typeof input.automaticCashCoverage !== 'boolean'
   ) {
     throw new EngineInputError('statements.option', 'automaticCashCoverage');
+  }
+  const scope = input.indicatorScope ?? 'ALL';
+  if (scope !== 'ALL' && scope !== 'NPV' && scope !== 'NPV_AND_IRR') {
+    throw new EngineInputError('statements.option', 'indicatorScope');
   }
   const totalCapitalRates = discountRates(
     input.discounting.totalCapitalRate,
@@ -744,9 +753,11 @@ export function financialStatements(
     const totalMonths = series.periodMonths.reduce((s, m) => s + m, 0);
     const referenceMonth =
       (reference ?? DEFAULT_DISCOUNT_REFERENCE) === 'START_OF_FIRST_PERIOD' ? 0 : 12;
-    const rateOfReturn = collect(irr(series));
+    const rateOfReturn = scope === 'NPV' ? undefined : collect(irr(series));
     let modified: DecimalString | undefined;
-    if (totalMonths > referenceMonth) {
+    if (scope !== 'ALL') {
+      // Left out on request.
+    } else if (totalMonths > referenceMonth) {
       modified = collect(
         mirr(series, {
           ...(reference === undefined ? {} : { reference }),
@@ -761,8 +772,9 @@ export function financialStatements(
     } else {
       warnings.push({ code: 'mirr.horizonTooShort', params: { basis } });
     }
-    const payback = collect(paybackPeriod(series));
-    const dynamicPayback = collect(discountedPaybackPeriod(series, { annualRate: path }));
+    const payback = scope === 'ALL' ? collect(paybackPeriod(series)) : undefined;
+    const dynamicPayback =
+      scope === 'ALL' ? collect(discountedPaybackPeriod(series, { annualRate: path })) : undefined;
     const result: DiscountedCashFlow = {
       salvageColumn,
       inflow: strings(inflows),
