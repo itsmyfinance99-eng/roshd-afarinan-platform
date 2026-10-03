@@ -917,6 +917,24 @@ describe('financialStatements: a project with every feature', () => {
     );
     // Nothing is left to depreciate once the allowance has used up the book value.
     close(value.incomeStatement.depreciation[n - 1]!, finance.interestDepreciation[n - 1]!);
+    // The whole book value, and an amount whose charges leave a residue in the last digit.
+    for (const allowance of ['3478', '5600']) {
+      const sheet = financialStatements(
+        everything({
+          assetSales: [],
+          allowances: { investment: on({}), depreciation: on({ 2: allowance }) },
+        }),
+      ).value.balanceSheet;
+      sheet.assets.total.forEach((total, j) => close(total, sheet.liabilities.total[j]!));
+    }
+    fails(
+      everything({
+        assetSales: [],
+        allowances: { investment: on({}), depreciation: on({ 2: '5600.000000000001' }) },
+      }),
+      'allowance.exceedsBookValue',
+      'allowances.depreciation[2]',
+    );
     fails(
       everything({
         assetSales: [],

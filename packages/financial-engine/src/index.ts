@@ -212,4 +212,30 @@ export {
   type ShareholderDividends,
   type StatementsInput,
 } from './model/statements';
+export { projectModel, type ProjectInput, type ProjectModel } from './model/project';
+export {
+  applyChanges,
+  criticalValues,
+  goalSeek,
+  indicatorSummary,
+  scenarioAnalysis,
+  sensitivityAnalysis,
+  type BasisIndicators,
+  type ChangeDimension,
+  type ChangeTarget,
+  type CriticalValue,
+  type CriticalVariable,
+  type GoalSeekValue,
+  type GoalSeekVariable,
+  type GoalTarget,
+  type IndicatorBasis,
+  type IndicatorSummary,
+  type ProjectChange,
+  type ScenarioInput,
+  type ScenarioResult,
+  type SensitivityPoint,
+  type SensitivityValue,
+  type SensitivityVariable,
+  type TornadoBar,
+} from './model/sensitivity';
 export { financialCalculator } from './calculator';

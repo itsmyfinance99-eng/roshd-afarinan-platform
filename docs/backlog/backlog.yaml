@@ -2081,6 +2081,7 @@ epics:
         sprint: S15
         points: 8
         priority: high
+        status: done
         area: [api]
         depends: [ST-34.04]
         story: 'به‌عنوان کارشناس می‌خواهم اثر تغییر قیمت، هزینه، سرمایه‌گذاری، نرخ ارز و تورم را بر شاخص‌ها ببینم.'

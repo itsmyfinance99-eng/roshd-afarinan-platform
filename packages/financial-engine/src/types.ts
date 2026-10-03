@@ -28,6 +28,13 @@ import type { financingSchedule } from './model/financing';
 import type { planHorizon } from './model/horizon';
 import type { investmentSchedule } from './model/investment';
 import type { operationsSchedule } from './model/operations';
+import type { projectModel } from './model/project';
+import type {
+  criticalValues,
+  goalSeek,
+  scenarioAnalysis,
+  sensitivityAnalysis,
+} from './model/sensitivity';
 import type { financialStatements } from './model/statements';
 import type { incomeTax } from './model/tax';
 import type { npv } from './time-value';
@@ -121,6 +128,11 @@ export interface FinancialCalculator {
   operationsSchedule: typeof operationsSchedule;
   incomeTax: typeof incomeTax;
   financialStatements: typeof financialStatements;
+  projectModel: typeof projectModel;
+  scenarioAnalysis: typeof scenarioAnalysis;
+  sensitivityAnalysis: typeof sensitivityAnalysis;
+  goalSeek: typeof goalSeek;
+  criticalValues: typeof criticalValues;
 }
 
 export interface SensitivityRequest {

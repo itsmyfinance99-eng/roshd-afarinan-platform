@@ -26,6 +26,13 @@ import { financingSchedule } from './model/financing';
 import { planHorizon } from './model/horizon';
 import { investmentSchedule } from './model/investment';
 import { operationsSchedule } from './model/operations';
+import { projectModel } from './model/project';
+import {
+  criticalValues,
+  goalSeek,
+  scenarioAnalysis,
+  sensitivityAnalysis,
+} from './model/sensitivity';
 import { financialStatements } from './model/statements';
 import { incomeTax } from './model/tax';
 import { npv } from './time-value';
@@ -66,4 +73,9 @@ export const financialCalculator: FinancialCalculator = {
   operationsSchedule,
   incomeTax,
   financialStatements,
+  projectModel,
+  scenarioAnalysis,
+  sensitivityAnalysis,
+  goalSeek,
+  criticalValues,
 };
