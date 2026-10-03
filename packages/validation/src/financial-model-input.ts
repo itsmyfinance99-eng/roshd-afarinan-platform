@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { MESSAGES, paginationQuerySchema, text } from './common';
+import { MESSAGES, optionalText, paginationQuerySchema, text } from './common';
 import {
   FINANCIAL_MODEL_MESSAGES,
   currencyCodeSchema,
@@ -273,6 +273,23 @@ const statementsSchema = z.object({
   automaticCashCoverage: z.boolean({ error: M.chooseYesNo }).optional(),
 });
 
+/** Inputs that may carry a note: their path in the input, e.g. `exchangeRates.USD`. */
+export const MAX_INPUT_NOTES = 300;
+
+/**
+ * Where an assumption comes from and the date it was valid on (ST-34.01): free text the user
+ * enters next to an input. It is stored with the run but never used in the calculation.
+ */
+const notesSchema = z
+  .record(
+    z.string().min(1).max(120),
+    z.object({ source: optionalText(300).optional(), asOf: optionalText(60).optional() }),
+    { error: MESSAGES.required },
+  )
+  .refine((notes) => Object.keys(notes).length <= MAX_INPUT_NOTES, {
+    error: M.tooMany(MAX_INPUT_NOTES),
+  });
+
 const projectInputFieldsSchema = z.object({
   horizon: horizonSchema,
   localCurrency: currencyCodeSchema,
@@ -299,6 +316,7 @@ const projectInputFieldsSchema = z.object({
     }),
   }),
   statements: statementsSchema,
+  notes: notesSchema.optional(),
 });
 
 /** Complete input of a calculation: the engine's `ProjectInput`, bounded in size. */

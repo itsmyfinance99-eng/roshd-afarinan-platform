@@ -18,6 +18,8 @@ interface NavItem {
   href: string;
   label: string;
   permission?: Permission;
+  /** Shown to holders of any of these permissions. */
+  anyOf?: readonly Permission[];
 }
 
 /** One shell for every role; items appear according to permissions (roadmap §28). */
@@ -29,6 +31,12 @@ const NAV: NavItem[] = [
   { href: '/dashboard/notifications', label: 'اعلان‌ها' },
   { href: '/dashboard/files', label: 'فایل‌های من' },
   { href: '/dashboard/profile', label: 'پروفایل' },
+  {
+    // The financial analysis tool is for experts and staff until OQ-38 decides about members.
+    href: '/dashboard/models',
+    label: 'مدل‌های مالی',
+    anyOf: ['financial-models:work', 'financial-models:manage'],
+  },
   {
     href: '/dashboard/manage/requests',
     label: 'مدیریت درخواست‌ها',
@@ -86,7 +94,11 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   }
 
   const me = state.data;
-  const items = NAV.filter((item) => !item.permission || me.permissions.includes(item.permission));
+  const items = NAV.filter(
+    (item) =>
+      (!item.permission || me.permissions.includes(item.permission)) &&
+      (!item.anyOf || item.anyOf.some((permission) => me.permissions.includes(permission))),
+  );
   const isActive = (href: string) =>
     href === '/dashboard'
       ? pathname === href

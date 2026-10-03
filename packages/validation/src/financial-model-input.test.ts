@@ -19,7 +19,16 @@ import {
   createFinancialModelSchema,
   projectInputSchema,
   updateFinancialModelSchema,
+  MAX_INPUT_NOTES,
 } from './financial-model-input';
+import {
+  ALLOCATION_KEY_LABELS_FA,
+  COST_CATEGORY_LABELS_FA,
+  COST_CENTRE_GROUP_LABELS_FA,
+  DEPRECIATION_METHOD_LABELS_FA,
+  EQUITY_CLASS_LABELS_FA,
+  INVESTMENT_GROUP_LABELS_FA,
+} from './financial-model-labels';
 
 const at = (values: Record<number, string>) => ['0', '0', '0', '0'].map((z, j) => values[j] ?? z);
 const none = { days: '0' };
@@ -175,6 +184,57 @@ describe('projectInputSchema', () => {
     const long = clone();
     long.investment.items[0].amounts = Array.from({ length: 601 }, () => '0');
     expect(projectInputSchema.safeParse(long).success).toBe(false);
+  });
+});
+
+describe('projectInputSchema: notes', () => {
+  it('keeps the source and date of an assumption with the input', () => {
+    const noted = clone();
+    noted.notes = {
+      'exchangeRates.USD': { source: '  بانک مرکزی  ', asOf: '۱۴۰۵/۰۶/۳۱' },
+      'statements.tax': {},
+    };
+    const parsed = projectInputSchema.parse(noted);
+    expect(parsed.notes).toEqual({
+      'exchangeRates.USD': { source: 'بانک مرکزی', asOf: '۱۴۰۵/۰۶/۳۱' },
+      'statements.tax': {},
+    });
+    // The engine ignores them.
+    const engineInput: ProjectInput = parsed;
+    expect(projectModel(engineInput).value.statements.totalCapital.npv).toBe(
+      projectModel(projectInputSchema.parse(input)).value.statements.totalCapital.npv,
+    );
+  });
+
+  it('bounds their number and length', () => {
+    const long = clone();
+    long.notes = { a: { source: 'x'.repeat(301) } };
+    expect(projectInputSchema.safeParse(long).success).toBe(false);
+    const many = clone();
+    many.notes = Object.fromEntries(
+      Array.from({ length: MAX_INPUT_NOTES + 1 }, (_, i) => [`k${i}`, { source: 's' }]),
+    );
+    expect(projectInputSchema.safeParse(many).success).toBe(false);
+    const wrong = clone();
+    wrong.notes = { a: 'text' };
+    expect(projectInputSchema.safeParse(wrong).success).toBe(false);
+  });
+});
+
+describe('labels', () => {
+  it('names every value of the lists in Persian', () => {
+    const lists: [readonly string[], Record<string, string>][] = [
+      [INVESTMENT_GROUP_VALUES, INVESTMENT_GROUP_LABELS_FA],
+      [EQUITY_CLASS_VALUES, EQUITY_CLASS_LABELS_FA],
+      [COST_CATEGORY_VALUES, COST_CATEGORY_LABELS_FA],
+      [COST_CENTRE_GROUP_VALUES, COST_CENTRE_GROUP_LABELS_FA],
+      [[...ALLOCATION_KEY_VALUES, 'SHARES'], ALLOCATION_KEY_LABELS_FA],
+      [DEPRECIATION_METHOD_VALUES, DEPRECIATION_METHOD_LABELS_FA],
+    ];
+    for (const [values, labels] of lists) {
+      expect(Object.keys(labels)).toEqual([...values]);
+      for (const label of Object.values(labels)) expect(label).toMatch(/[\u0600-\u06FF]/);
+    }
   });
 });
 
