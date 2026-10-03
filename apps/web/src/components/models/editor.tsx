@@ -10,9 +10,10 @@ import {
   useRef,
   useState,
   type KeyboardEvent,
+  type ReactNode,
 } from 'react';
-import { apiFetch } from '@/lib/api-client';
-import { withStructure } from '@/lib/model-editor/draft-ops';
+import { apiFetch, saveBlob } from '@/lib/api-client';
+import { canonical, withStructure } from '@/lib/model-editor/draft-ops';
 import { frameOf, resizeDraft } from '@/lib/model-editor/frame';
 import { SECTION_LABELS_FA, SECTIONS, type Issue, type SectionId } from '@/lib/model-editor/issues';
 import { formatDecimalFa, fractionToPercent, roundDecimal } from '@/lib/model-editor/numbers';
@@ -55,7 +56,16 @@ export function ModelEditor({
   onReload: () => void;
 }) {
   const [title, setTitle] = useState(model.title);
-  const [draft, setDraft] = useState<Draft>(() => withStructure(model.inputs));
+  const [draft, setDraft] = useState<Draft>(() => {
+    // A stored draft whose series do not fit its own horizon is brought to it once, at the end.
+    const loaded = withStructure(model.inputs);
+    const frame = frameOf(loaded);
+    return frame ? resizeDraft(loaded, frame) : loaded;
+  });
+  /** The horizon as it is being edited; the model follows it when it is applied. */
+  const [pendingHorizon, setPendingHorizon] = useState<unknown>(() =>
+    getIn(withStructure(model.inputs), ['horizon']),
+  );
   const [section, setSection] = useState<SectionId>('assumptions');
   /** Counts the changes; a save records the revision it stored. */
   const [revision, setRevision] = useState(0);
@@ -74,6 +84,8 @@ export function ModelEditor({
   const latest = useRef({ title, draft, revision });
   const inFlight = useRef<Promise<boolean> | null>(null);
   const blocked = useRef(false);
+  /** The last valid title: the inputs are saved with it while the typed one is not valid. */
+  const goodTitle = useRef(model.title);
   useEffect(() => {
     latest.current = { title, draft, revision };
   });
@@ -91,27 +103,41 @@ export function ModelEditor({
       while (inFlight.current) await inFlight.current;
       const snapshot = latest.current;
       if (snapshot.revision === stored.current) return true;
-      const name = snapshot.title.trim();
-      if (blocked.current || name.length < 3 || name.length > 150) return false;
+      if (blocked.current) return false;
+      const typed = snapshot.title.trim();
+      if (typed.length >= 3 && typed.length <= 150) goodTitle.current = typed;
+      const name = goodTitle.current;
+      const url = `/financial-models/${model.id}`;
+      const accept = (saved: number) => {
+        version.current = saved;
+        stored.current = snapshot.revision;
+        setSavedRevision(snapshot.revision);
+        setFailure(null);
+        return true;
+      };
       setSaving(true);
-      const request = apiFetch<FinancialModelDetail>(`/financial-models/${model.id}`, {
+      const request = apiFetch<FinancialModelDetail>(url, {
         method: 'PUT',
         body: { title: name, inputs: snapshot.draft, version: version.current },
       })
-        .then((result) => {
-          if (result.ok) {
-            version.current = result.data.version;
-            stored.current = snapshot.revision;
-            setSavedRevision(snapshot.revision);
-            setFailure(null);
-            return true;
-          }
-          if (result.status === 409) {
-            blocked.current = true;
-            setFailure({ kind: 'conflict' });
-          } else {
+        .then(async (result) => {
+          if (result.ok) return accept(result.data.version);
+          if (result.status !== 409) {
             setFailure({ kind: 'error', message: result.message });
+            return false;
           }
+          // A save whose answer was lost looks like a conflict: when the server holds exactly
+          // what was sent, it was this editor's own save.
+          const server = await apiFetch<FinancialModelDetail>(url);
+          if (
+            server.ok &&
+            server.data.title === name &&
+            canonical(server.data.inputs) === canonical(snapshot.draft)
+          ) {
+            return accept(server.data.version);
+          }
+          blocked.current = true;
+          setFailure({ kind: 'conflict' });
           return false;
         })
         .finally(() => {
@@ -140,14 +166,7 @@ export function ModelEditor({
   useEffect(() => () => void flush(), [flush]);
 
   const change = useCallback((edit: (current: Draft) => Draft) => {
-    setDraft((current) => {
-      let next = edit(current);
-      if (getIn(next, ['horizon']) !== getIn(current, ['horizon'])) {
-        const frame = frameOf(next);
-        if (frame) next = resizeDraft(next, frame);
-      }
-      return next;
-    });
+    setDraft(edit);
     setRevision((count) => count + 1);
     setRun((state) => (state.status === 'busy' ? state : { status: 'idle' }));
   }, []);
@@ -164,10 +183,28 @@ export function ModelEditor({
     () => new Map(live.issues.map((issue) => [issue.path, issue.message])),
     [live.issues],
   );
-  const api = useMemo<EditorApi>(
-    () => ({ draft, frame, issues, set, change }),
-    [draft, frame, issues, set, change],
+  const staging = useMemo<EditorApi['staging']>(
+    () => ({
+      horizon: pendingHorizon,
+      setHorizon: (path, value) =>
+        setPendingHorizon((current: unknown) => setIn(current, path, value)),
+      resetHorizon: () => setPendingHorizon(horizon),
+      // The values follow their periods phase by phase; see `resizeDraft`.
+      applyHorizon: () =>
+        change((current) => {
+          const next = setIn(current, ['horizon'], pendingHorizon);
+          const applied = frameOf(next);
+          return applied ? resizeDraft(next, applied, frameOf(current)) : next;
+        }),
+    }),
+    [pendingHorizon, horizon, change],
   );
+  const api = useMemo<EditorApi>(
+    () => ({ draft, frame, issues, set, change, staging }),
+    [draft, frame, issues, set, change, staging],
+  );
+  /** The live result belongs to what is on screen (it lags a moment behind every change). */
+  const fresh = live.input === draft;
   const counts = useMemo(() => {
     const bySection = new Map<SectionId, number>();
     for (const issue of live.issues) {
@@ -234,14 +271,22 @@ export function ModelEditor({
             saving={saving}
             dirty={dirty}
             failure={failure}
-            titleError={titleError}
             onRetry={() => void flush()}
             onReload={onReload}
+            onExport={() =>
+              saveBlob(
+                new Blob([JSON.stringify({ title, inputs: draft }, null, 2)], {
+                  type: 'application/json',
+                }),
+                'model-inputs.json',
+              )
+            }
           />
         </div>
 
         <LivePanel
           live={live}
+          fresh={fresh}
           currency={textAt(draft, ['localCurrency'])}
           onGo={setSection}
           run={run}
@@ -304,31 +349,37 @@ function SaveStatus({
   saving,
   dirty,
   failure,
-  titleError,
   onRetry,
   onReload,
+  onExport,
 }: {
   saving: boolean;
   dirty: boolean;
   failure: SaveFailure | null;
-  titleError: string | undefined;
   onRetry: () => void;
   onReload: () => void;
+  onExport: () => void;
 }) {
   if (failure?.kind === 'conflict') {
     return (
       <div role="alert" className="flex flex-col items-start gap-2 text-sm text-danger">
-        این مدل در جای دیگری تغییر کرده است؛ تغییرهای این صفحه ذخیره نمی‌شود.
-        <Button variant="outline" size="sm" onClick={onReload}>
-          بارگذاری نسخه تازه
-        </Button>
+        این مدل در جای دیگری تغییر کرده است؛ تغییرهای این صفحه ذخیره نمی‌شود. اگر به آن‌ها نیاز
+        دارید، پیش از بارگذاری نسخه تازه یک رونوشت بگیرید.
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" onClick={onExport}>
+            دریافت رونوشت این صفحه
+          </Button>
+          <Button variant="outline" size="sm" onClick={onReload}>
+            بارگذاری نسخه تازه
+          </Button>
+        </div>
       </div>
     );
   }
   if (failure && !saving) {
     return (
       <div role="alert" className="flex flex-col items-start gap-2 text-sm text-danger">
-        ذخیره نشد: {failure.message}
+        ذخیره نشد: {failure.message} تا ذخیره نشده از این صفحه بیرون نروید.
         <Button variant="outline" size="sm" onClick={onRetry}>
           تلاش دوباره
         </Button>
@@ -337,23 +388,21 @@ function SaveStatus({
   }
   return (
     <p role="status" aria-live="polite" className="pb-3 text-sm text-ink-3">
-      {saving
-        ? 'در حال ذخیره…'
-        : dirty
-          ? titleError
-            ? 'تا عنوان درست نشود ذخیره نمی‌شود.'
-            : 'تغییرها ذخیره نشده‌اند…'
-          : 'همه تغییرها ذخیره شد.'}
+      {saving ? 'در حال ذخیره…' : dirty ? 'تغییرها ذخیره نشده‌اند…' : 'همه تغییرها ذخیره شد.'}
     </p>
   );
 }
 
-const money = (value: string, currency: string) =>
-  `${formatDecimalFa(roundDecimal(value, 0))}${currency ? ` ${currency}` : ''}`;
+const money = (value: string, currency: string) => (
+  <>
+    <bdi dir="ltr">{formatDecimalFa(roundDecimal(value, 0))}</bdi>
+    {currency ? ` ${currency}` : ''}
+  </>
+);
 const percent = (value: string | undefined) =>
   value === undefined
     ? 'ندارد'
-    : `${formatDecimalFa(roundDecimal(fractionToPercent(value), 2))} درصد`;
+    : `\u2066${formatDecimalFa(roundDecimal(fractionToPercent(value), 2))}\u2069 درصد`;
 
 function duration(months: string | undefined): string {
   if (months === undefined) return 'ندارد';
@@ -376,7 +425,7 @@ function IndicatorList({
   value: Indicators;
   currency: string;
 }) {
-  const rows: [string, string][] = [
+  const rows: [string, ReactNode][] = [
     ['ارزش فعلی خالص (NPV)', money(value.npv, currency)],
     ['نرخ بازده داخلی (IRR)', percent(value.irr)],
     ['نرخ بازده داخلی تعدیل‌شده (MIRR)', percent(value.mirr)],
@@ -432,12 +481,14 @@ function IssueList({ issues, onGo }: { issues: Issue[]; onGo: (section: SectionI
 
 function LivePanel({
   live,
+  fresh,
   currency,
   onGo,
   run,
   onCalculate,
 }: {
   live: LiveState;
+  fresh: boolean;
   currency: string;
   onGo: (section: SectionId) => void;
   run:
@@ -458,18 +509,16 @@ function LivePanel({
         </h2>
         <Button
           size="sm"
-          disabled={run.status === 'busy' || live.status !== 'done'}
+          disabled={run.status === 'busy' || !fresh || live.status !== 'done'}
           onClick={onCalculate}
         >
           {run.status === 'busy' ? 'در حال ثبت…' : 'ثبت اجرای محاسبه'}
         </Button>
       </div>
-      <div aria-live="polite" className="flex flex-col gap-4">
-        {live.status === 'calculating' && live.issues.length === 0 ? (
-          <p role="status" className="text-sm text-ink-3">
-            در حال محاسبه…
-          </p>
-        ) : null}
+      <p role="status" className="min-h-6 text-sm text-ink-3">
+        {!fresh || live.status === 'calculating' ? 'در حال محاسبه…' : ''}
+      </p>
+      <div className={cn('flex flex-col gap-4', fresh ? '' : 'opacity-60')}>
         {live.status === 'unavailable' ? (
           <Notice>
             محاسبه زنده در این مرورگر در دسترس نیست. ورودی‌ها ذخیره می‌شوند و با «ثبت اجرای محاسبه»

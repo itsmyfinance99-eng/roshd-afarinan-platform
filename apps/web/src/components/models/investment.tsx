@@ -1,7 +1,6 @@
 'use client';
 
 import { INVESTMENT_GROUP_LABELS_FA } from '@roshd/validation';
-import { removeItem, renameItem } from '@/lib/model-editor/draft-ops';
 import { fit } from '@/lib/model-editor/frame';
 import { append, getIn, listAt, removeAt, textAt } from '@/lib/model-editor/paths';
 import {
@@ -22,6 +21,8 @@ import {
   CurrencyField,
   DepreciationFields,
   EscalationFields,
+  NamedItemCard,
+  NameField,
   OriginField,
   periodOptions,
 } from './parts';
@@ -47,19 +48,14 @@ export function InvestmentSection() {
         hint="هر قلم با گروه، ارز و شرایط استهلاک خودش. مبلغ هر دوره در جدول پایین، به ارز همان قلم و به قیمت‌های آغاز طرح وارد می‌شود."
       >
         {items.map((item, index) => (
-          <ItemCard
+          <NamedItemCard
             key={index}
+            kind="investment"
+            index={index}
             title={itemTitle('قلم', textAt(item, ['key']), index)}
-            onRemove={() => change((current) => removeItem(current, 'investment', index))}
           >
             <FieldGrid>
-              <TextField
-                path={[...ITEMS, index, 'key']}
-                label="نام قلم"
-                onCommit={(name) =>
-                  change((current) => renameItem(current, 'investment', index, name))
-                }
-              />
+              <NameField kind="investment" index={index} label="نام قلم" />
               <ChoiceField
                 path={[...ITEMS, index, 'group']}
                 label="گروه"
@@ -74,7 +70,7 @@ export function InvestmentSection() {
               salvage
               label="این قلم مستهلک می‌شود"
             />
-          </ItemCard>
+          </NamedItemCard>
         ))}
         <AddButton
           onClick={() =>

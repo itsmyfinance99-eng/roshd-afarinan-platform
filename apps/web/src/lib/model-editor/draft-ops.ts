@@ -30,7 +30,9 @@ export function withStructure(inputs: unknown): Draft {
   let draft: Draft = stored;
   const ensure = (path: Path, fallback: unknown, list: boolean) => {
     const value = getIn(draft, path);
-    const ok = list ? Array.isArray(value) : value !== null && typeof value === 'object';
+    const ok = list
+      ? Array.isArray(value)
+      : value !== null && typeof value === 'object' && !Array.isArray(value);
     if (!ok) draft = setIn(draft, path, fallback);
   };
   ensure(['exchangeRates'], {}, false);
@@ -72,17 +74,31 @@ const mapList = (draft: Draft, path: Path, map: (item: Draft) => Draft): Draft =
   );
 };
 
-/** Renames item `index` of a named list and everything that refers to its old name. */
+const filterList = (draft: Draft, path: Path, keep: (item: unknown) => boolean): Draft => {
+  const list = getIn(draft, path);
+  return Array.isArray(list) ? setIn(draft, path, list.filter(keep)) : draft;
+};
+
+/** Where the name of item `index` is stored. */
+export const namePath = (kind: NamedKind, index: number): Path => [...LISTS[kind], index, 'key'];
+
+/** Names of a kind already used by other items than `index`. */
+export function otherNames(draft: Draft, kind: NamedKind, index: number): string[] {
+  return listAt(draft, LISTS[kind])
+    .filter((_, i) => i !== index)
+    .map((item) => textAt(item, ['key']));
+}
+
+/**
+ * Renames item `index` of a named list and everything that refers to its old name — also from or
+ * to an empty name, so that clearing a name and typing another keeps the references. The editor
+ * refuses a name another item has, which keeps every reference unambiguous.
+ */
 export function renameItem(draft: Draft, kind: NamedKind, index: number, name: string): Draft {
   const path: Path = [...LISTS[kind], index, 'key'];
   const old = textAt(draft, path);
   let next = setIn(draft, path, name);
-  if (old === '' || old === name) return next;
-  // A name used twice refers to both items; the references stay with the first one.
-  const others = listAt(draft, LISTS[kind]).filter(
-    (item, i) => i !== index && textAt(item, ['key']) === old,
-  );
-  if (others.length > 0) return next;
+  if (old === name || otherNames(draft, kind, index).includes(old)) return next;
   const swap = (item: Draft, property: string) =>
     item[property] === old ? { ...item, [property]: name } : item;
   if (kind === 'equity') next = mapList(next, SHAREHOLDERS, (h) => swap(h, 'equity'));
@@ -109,30 +125,54 @@ export function renameItem(draft: Draft, kind: NamedKind, index: number, name: s
   return next;
 }
 
-/** Removes item `index` of a named list and what belongs to it alone. */
+/** What else goes when item `index` is removed, in words for the confirmation. */
+export function removalNote(draft: Draft, kind: NamedKind, index: number): string {
+  const name = textAt(draft, [...LISTS[kind], index, 'key']);
+  if (otherNames(draft, kind, index).includes(name)) return '';
+  const count = (path: Path, property: string) =>
+    listAt(draft, path).filter((item) => getIn(item, [property]) === name).length;
+  if (kind === 'product' && count(COSTS, 'product') > 0) {
+    return 'هزینه‌های مستقیم این محصول هم حذف می‌شوند.';
+  }
+  if (kind === 'equity' && count(SHAREHOLDERS, 'equity') > 0) {
+    return 'شرایط سود سهام این آورده هم حذف می‌شود.';
+  }
+  if (kind === 'investment' && count(ASSET_SALES, 'item') > 0) {
+    return 'فروش این قلم هم حذف می‌شود.';
+  }
+  return '';
+}
+
+/** Removes item `index` of a named list and everything that refers to it. */
 export function removeItem(draft: Draft, kind: NamedKind, index: number): Draft {
   const name = textAt(draft, [...LISTS[kind], index, 'key']);
+  const shared = otherNames(draft, kind, index).includes(name);
   let next = removeAt(draft, LISTS[kind], index);
-  const still = listAt(next, LISTS[kind]).some((item) => textAt(item, ['key']) === name);
-  if (still) return next;
-  const drop = (path: Path, property: string) => {
-    const list = getIn(next, path);
-    if (Array.isArray(list)) {
-      next = setIn(
-        next,
-        path,
-        list.filter((item: unknown) => getIn(item, [property]) !== name),
-      );
-    }
-  };
-  if (kind === 'equity') drop(SHAREHOLDERS, 'equity');
-  if (kind === 'investment') drop(ASSET_SALES, 'item');
+  if (shared) return next;
+  const refers = (property: string) => (item: unknown) => getIn(item, [property]) !== name;
+  if (kind === 'equity') next = filterList(next, SHAREHOLDERS, refers('equity'));
+  if (kind === 'investment') next = filterList(next, ASSET_SALES, refers('item'));
   if (kind === 'costCentre') {
     next = mapList(next, COSTS, (cost) => {
       if (cost.costCentre !== name) return cost;
       const { costCentre: _removed, ...rest } = cost;
       return rest;
     });
+  }
+  if (kind === 'product') {
+    // The direct costs of a product have no meaning without it.
+    next = filterList(next, COSTS, refers('product'));
+    next = mapList(next, COSTS, (cost) => {
+      const shares = getIn(cost, ['allocation', 'shares']);
+      return shares !== null && typeof shares === 'object' && Object.hasOwn(shares, name)
+        ? setIn(cost, ['allocation', 'shares', name], undefined)
+        : cost;
+    });
+    next = mapList(next, CENTRES, (centre) =>
+      Array.isArray(centre.products)
+        ? { ...centre, products: centre.products.filter((p: unknown) => p !== name) }
+        : centre,
+    );
   }
   return next;
 }
@@ -155,6 +195,25 @@ export function addCurrency(draft: Draft, code: string, frame: Frame | null): Dr
   return next;
 }
 
+/** Every input that is priced in a currency. */
+function mapPriced(draft: Draft, map: (item: Draft) => Draft): Draft {
+  let next = mapList(draft, ['investment', 'items'], map);
+  next = mapList(next, ['financing', 'equity'], map);
+  next = mapList(next, ['financing', 'loans'], map);
+  next = mapList(next, COSTS, map);
+  return mapList(next, ['operations', 'products'], (product) => mapList(product, ['sales'], map));
+}
+
+/** Number of inputs entered in a currency. */
+export function currencyUses(draft: Draft, code: string): number {
+  let uses = 0;
+  mapPriced(draft, (item) => {
+    if (item.currency === code) uses += 1;
+    return item;
+  });
+  return uses;
+}
+
 export function removeCurrency(draft: Draft, code: string): Draft {
   let next = setIn(draft, ['exchangeRates', code], undefined);
   if (inflationEnabled(next)) next = setIn(next, ['inflation', code], undefined);
@@ -162,25 +221,51 @@ export function removeCurrency(draft: Draft, code: string): Draft {
   return setIn(next, ['notes', `inflation.${code}`], undefined);
 }
 
-/** Changes the local currency; its inflation path (when inflation is on) follows the new code. */
+/**
+ * Changes the code of the local currency: every input entered in it, its inflation path and the
+ * note of that path follow the new code.
+ */
 export function setLocalCurrency(draft: Draft, code: string, frame: Frame | null): Draft {
   const old = textAt(draft, ['localCurrency']);
   let next = setIn(draft, ['localCurrency'], code);
-  if (!inflationEnabled(next) || old === code) return next;
+  if (old === code) return next;
+  if (old !== '') {
+    next = mapPriced(next, (item) => (item.currency === old ? { ...item, currency: code } : item));
+  }
+  const note = getIn(next, ['notes', `inflation.${old}`]);
+  if (note !== undefined) {
+    next = setIn(next, ['notes', `inflation.${old}`], undefined);
+    next = setIn(next, ['notes', `inflation.${code}`], note);
+  }
+  if (!inflationEnabled(next)) return next;
   const inflation = recordAt(next, ['inflation']);
   const path = Object.hasOwn(inflation, old)
     ? inflation[old]
     : fit([], frame?.projectYears.length ?? 0, '');
   next = setIn(next, ['inflation', old], undefined);
-  return Object.hasOwn(recordAt(next, ['inflation']), code)
-    ? next
-    : setIn(next, ['inflation', code], path);
+  return setIn(next, ['inflation', code], path);
 }
 
-/** Turns the calculation with inflation on (a path per currency, to be filled) or off. */
+/**
+ * Turns the calculation with inflation on (a path per currency, to be filled) or off. The
+ * escalation of prices stays: at constant prices it is a real price change.
+ */
 export function setInflation(draft: Draft, enabled: boolean, frame: Frame | null): Draft {
   if (!enabled) return setIn(draft, ['inflation'], undefined);
   const years = frame?.projectYears.length ?? 0;
   const paths = Object.fromEntries(currenciesOf(draft).map((code) => [code, fit([], years, '')]));
   return setIn(draft, ['inflation'], paths);
+}
+
+/** JSON with sorted keys: equal for equal content, whatever order the keys were stored in. */
+export function canonical(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`;
+  if (value !== null && typeof value === 'object') {
+    const record = value as Record<string, unknown>;
+    return `{${Object.keys(record)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${canonical(record[key])}`)
+      .join(',')}}`;
+  }
+  return JSON.stringify(value ?? null);
 }

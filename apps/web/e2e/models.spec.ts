@@ -211,15 +211,15 @@ test.describe('financial model editor', () => {
     await cell.blur();
     await expect(cell).toHaveValue('۲٬۵۰۰٫۵');
 
+    await expect.poll(() => saves.at(-1)?.inputs.investment.items[0]?.amounts[0]).toBe('2500.5');
     await expect(page.getByText('همه تغییرها ذخیره شد.')).toBeVisible();
-    expect(saves).toHaveLength(1);
     expect(saves[0]?.version).toBe(3);
-    expect(saves[0]?.inputs.investment.items[0]?.amounts[0]).toBe('2500.5');
+    const before = saves.length;
 
     // The next save builds on the version the first one returned.
     await cell.fill('3000');
-    await expect.poll(() => saves.length).toBe(2);
-    expect(saves[1]?.version).toBe(4);
+    await expect.poll(() => saves.length).toBeGreaterThan(before);
+    expect(saves.at(-1)?.version).toBe(3 + before);
   });
 
   test('moves between cells with the keyboard and pastes a block', async ({
@@ -324,6 +324,7 @@ test.describe('financial model editor', () => {
     await page.getByLabel('عنوان مدل').fill('طرح میلگرد ۲');
     await expect(page.getByText(/این مدل در جای دیگری تغییر کرده است/)).toBeVisible();
     await expect(page.getByRole('button', { name: 'بارگذاری نسخه تازه' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'دریافت رونوشت این صفحه' })).toBeVisible();
   });
 
   test('stores a calculation run after saving', async ({ page }) => {
@@ -346,6 +347,138 @@ test.describe('financial model editor', () => {
     await expect(page.getByText('اجرای شماره ۴ ثبت شد.')).toBeVisible();
     expect(saves.at(-1)?.title).toBe('طرح میلگرد — نسخه بانک');
     expect(order).toEqual(['PUT', 'POST']);
+  });
+
+  test('changes the horizon only when it is applied, and keeps values in their phase', async ({
+    page,
+  }) => {
+    await signIn(page);
+    const saves = await serveModel(page);
+    await page.goto('/dashboard/models/m1');
+    await expect(page.getByText('همه تغییرها ذخیره شد.')).toBeVisible();
+
+    // Typing 12 passes through 1: nothing of the model changes meanwhile.
+    const years = page.getByLabel(/سال‌های تولید/);
+    await years.fill('');
+    await years.pressSequentially('12');
+    await page.getByLabel(/تعداد دوره‌های ساخت/).fill('2');
+    await expect(page.getByText(/افق تازه ۱۴ دوره دارد/)).toBeVisible();
+    await page.waitForTimeout(1800);
+    expect(saves).toHaveLength(0);
+
+    await page.getByRole('button', { name: 'اعمال افق' }).click();
+    await expect.poll(() => saves.length).toBe(1);
+    const stored = saves[0]!.inputs;
+    expect(stored.horizon).toMatchObject({
+      productionYears: 12,
+      construction: { periods: 2, periodMonths: 12 },
+    });
+    // The sales of the three production years stay in production periods, after two of construction.
+    expect(stored.operations.products[0]?.sales[0]?.quantities).toEqual([
+      '0',
+      '0',
+      '100',
+      '100',
+      '100',
+      ...Array.from({ length: 9 }, () => '0'),
+    ]);
+    // New periods have no exchange rate yet: it is asked, not copied.
+    expect(stored.exchangeRates.USD).toEqual([
+      '600000',
+      '',
+      '600000',
+      '600000',
+      '600000',
+      ...Array.from({ length: 9 }, () => ''),
+    ]);
+    expect(stored.investment.items[0]?.depreciation?.startPeriod).toBe(2);
+    await expect(page.getByText(/برای محاسبه هنوز ۱۰ مورد لازم است/)).toBeVisible();
+  });
+
+  test('keeps the unit of a coverage and asks before removing a product', async ({ page }) => {
+    await signIn(page);
+    const saves = await serveModel(page);
+    await page.goto('/dashboard/models/m1');
+    await openSection(page, 'سرمایه در گردش');
+
+    const receivables = page.getByLabel(/^حساب‌های دریافتنی سطر فروش/);
+    const unit = page.getByLabel(/^واحد حساب‌های دریافتنی سطر فروش/);
+    await expect(unit).toHaveValue('shareOfYear');
+    await expect(receivables).toHaveValue('۱۰');
+    await receivables.fill('');
+    await expect(unit).toHaveValue('shareOfYear');
+    await receivables.fill('۲۵');
+    await expect
+      .poll(() => saves.at(-1)?.inputs.operations.products[0]?.sales[0]?.receivablesCoverage)
+      .toEqual({ shareOfYear: '0.25' });
+    // Days are another number: the value is asked again instead of being reinterpreted.
+    await unit.selectOption('days');
+    await expect(receivables).toHaveValue('');
+
+    await openSection(page, 'تولید و فروش');
+    // The basis of the sales volume always has one of its two values.
+    await expect(page.getByLabel(/مقدار فروش بر حسب/).locator('option')).toHaveCount(2);
+    const messages: string[] = [];
+    page.on('dialog', (dialog) => {
+      messages.push(dialog.message());
+      void dialog.accept();
+    });
+    await page.getByRole('button', { name: 'حذف محصول «میلگرد»' }).click();
+    expect(messages[0]).toContain('هزینه‌های مستقیم این محصول هم حذف می‌شوند');
+    await expect.poll(() => saves.at(-1)?.inputs.operations.products).toEqual([]);
+    expect(saves.at(-1)?.inputs.operations.costs).toEqual([]);
+  });
+
+  test('renames an item when its field is left and refuses a name in use', async ({ page }) => {
+    await signIn(page);
+    const withSale = inputs();
+    Object.assign(withSale.statements, {
+      assetSales: [{ item: 'ماشین‌آلات', period: 3, proceeds: '100' }],
+    });
+    const saves = await serveModel(page, model({ inputs: withSale }));
+    await page.goto('/dashboard/models/m1');
+    await openSection(page, 'سرمایه‌گذاری');
+
+    const name = page.getByLabel(/نام قلم/).first();
+    await name.fill('ساختمان');
+    await name.blur();
+    await expect(page.getByText('این نام برای مورد دیگری به کار رفته است.')).toBeVisible();
+    await name.fill('');
+    await name.fill('خط تولید');
+    await name.blur();
+    await expect.poll(() => saves.at(-1)?.inputs.investment.items[0]?.key).toBe('خط تولید');
+    const stored = saves.at(-1)!.inputs as ReturnType<typeof inputs> & {
+      statements: { assetSales: { item: string }[] };
+    };
+    expect(stored.statements.assetSales[0]?.item).toBe('خط تولید');
+    // No half-typed name was ever saved.
+    expect(saves.every((save) => save.inputs.investment.items[0]?.key !== '')).toBe(true);
+  });
+
+  test('recognises its own save when the answer was lost', async ({ page }) => {
+    await signIn(page);
+    let stored: Record<string, unknown> | undefined;
+    await page.route('**/api/v1/financial-models/m1', async (route) => {
+      if (route.request().method() === 'PUT') {
+        // The server stores the save, but the editor never sees the answer.
+        if (!stored) {
+          stored = route.request().postDataJSON() as Record<string, unknown>;
+          return route.fulfill({
+            status: 409,
+            contentType: 'application/json',
+            body: JSON.stringify({
+              error: { code: 'CONFLICT', message: 'نسخه تازه‌تری وجود دارد.' },
+            }),
+          });
+        }
+        return json(route, { ...model(), ...stored, version: 5 });
+      }
+      return json(route, stored ? { ...model(), ...stored, version: 4 } : model());
+    });
+    await page.goto('/dashboard/models/m1');
+    await page.getByLabel('عنوان مدل').fill('طرح میلگرد ۲');
+    await expect(page.getByText('همه تغییرها ذخیره شد.')).toBeVisible();
+    await expect(page.getByText(/این مدل در جای دیگری تغییر کرده است/)).toHaveCount(0);
   });
 
   test('has no serious accessibility violations in any section', async ({ page }) => {

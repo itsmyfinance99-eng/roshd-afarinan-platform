@@ -1,7 +1,6 @@
 'use client';
 
 import { MARKET_LABELS_FA } from '@roshd/validation';
-import { removeItem, renameItem } from '@/lib/model-editor/draft-ops';
 import { fit } from '@/lib/model-editor/frame';
 import {
   append,
@@ -17,8 +16,8 @@ import {
   Block,
   CheckField,
   ChoiceField,
+  confirmRemoval,
   FieldGrid,
-  ItemCard,
   itemTitle,
   NumberField,
   optionsOf,
@@ -27,7 +26,7 @@ import {
   TextField,
   useEditor,
 } from './fields';
-import { CurrencyField, EscalationFields, periodOptions } from './parts';
+import { CurrencyField, EscalationFields, NamedItemCard, NameField, periodOptions } from './parts';
 
 const PRODUCTS = ['operations', 'products'] as const;
 
@@ -66,16 +65,9 @@ function ProductCard({ index, name }: { index: number; name: string }) {
   const production = periodOptions(frame, 'production');
 
   return (
-    <ItemCard
-      title={itemTitle('محصول', name, index)}
-      onRemove={() => change((current) => removeItem(current, 'product', index))}
-    >
+    <NamedItemCard kind="product" index={index} title={itemTitle('محصول', name, index)}>
       <FieldGrid>
-        <TextField
-          path={[...base, 'key']}
-          label="نام محصول"
-          onCommit={(text) => change((current) => renameItem(current, 'product', index, text))}
-        />
+        <NameField kind="product" index={index} label="نام محصول" />
         <NumberField
           path={[...base, 'nominalCapacity']}
           label="ظرفیت اسمی سالانه"
@@ -119,7 +111,11 @@ function ProductCard({ index, name }: { index: number; name: string }) {
               <button
                 type="button"
                 className="text-sm text-accent underline"
-                onClick={() => change((current) => removeAt(current, [...base, 'sales'], row))}
+                onClick={() => {
+                  if (confirmRemoval(itemTitle('سطر فروش', textAt(line, ['key']), row))) {
+                    change((current) => removeAt(current, [...base, 'sales'], row));
+                  }
+                }}
               >
                 حذف سطر فروش
               </button>
@@ -136,21 +132,33 @@ function ProductCard({ index, name }: { index: number; name: string }) {
                 path={[...path, byCapacity ? 'capacityShares' : 'quantities']}
                 shown={byCapacity ? 'capacityShares' : 'quantities'}
                 label="مقدار فروش بر حسب"
+                noEmpty
                 options={[
                   ['quantities', 'مقدار در هر دوره'],
                   ['capacityShares', 'درصد ظرفیت اسمی'],
                 ]}
-                onCommit={(value) =>
-                  change((current) => {
-                    const other = value === 'capacityShares' ? 'quantities' : 'capacityShares';
-                    const cleared = setIn(current, [...path, other], undefined);
-                    return setIn(
-                      cleared,
-                      [...path, String(value ?? 'quantities')],
+                onCommit={(value) => {
+                  const chosen = value === 'capacityShares' ? 'capacityShares' : 'quantities';
+                  const other = chosen === 'capacityShares' ? 'quantities' : 'capacityShares';
+                  if (getIn(line, [chosen]) !== undefined) return;
+                  // A quantity is not a share of the capacity: the entered values cannot be kept.
+                  const entered = listAt(line, [other]).some((v) => v !== '0' && v !== '');
+                  if (
+                    entered &&
+                    !window.confirm(
+                      'با تغییر مبنا، مقادیر فروش واردشده این سطر پاک می‌شود. ادامه می‌دهید؟',
+                    )
+                  ) {
+                    return;
+                  }
+                  change((current) =>
+                    setIn(
+                      setIn(current, [...path, other], undefined),
+                      [...path, chosen],
                       fit([], periods.length, '0'),
-                    );
-                  })
-                }
+                    ),
+                  );
+                }}
               />
               <PerColumnField
                 path={[...path, 'price']}
@@ -208,6 +216,6 @@ function ProductCard({ index, name }: { index: number; name: string }) {
       >
         افزودن سطر فروش
       </AddButton>
-    </ItemCard>
+    </NamedItemCard>
   );
 }

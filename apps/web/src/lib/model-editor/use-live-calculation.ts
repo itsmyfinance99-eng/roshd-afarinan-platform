@@ -8,11 +8,16 @@ import type { Summary } from './summary';
 
 export type LiveState =
   /** The inputs are not complete yet: `issues` lists what a calculation needs. */
-  | { status: 'incomplete'; issues: Issue[] }
-  | { status: 'calculating'; issues: Issue[] }
-  | { status: 'done'; issues: Issue[]; summary: Summary }
-  /** The engine could not be started in this browser. */
-  | { status: 'unavailable'; issues: Issue[] };
+  (
+    | { status: 'incomplete'; issues: Issue[] }
+    | { status: 'calculating'; issues: Issue[] }
+    | { status: 'done'; issues: Issue[]; summary: Summary }
+    /** The engine could not be started in this browser. */
+    | { status: 'unavailable'; issues: Issue[] }
+  ) & {
+    /** The draft this state was computed for; it is out of date while that is not the current one. */
+    input: Draft | null;
+  };
 
 const DELAY_MS = 350;
 
@@ -22,7 +27,7 @@ const DELAY_MS = 350;
  * on screen.
  */
 export function useLiveCalculation(draft: Draft): LiveState {
-  const [state, setState] = useState<LiveState>({ status: 'calculating', issues: [] });
+  const [state, setState] = useState<LiveState>({ status: 'calculating', issues: [], input: null });
   const worker = useRef<Worker | null>(null);
   const busy = useRef(false);
   const request = useRef(0);
@@ -38,20 +43,21 @@ export function useLiveCalculation(draft: Draft): LiveState {
   useEffect(() => {
     const timer = setTimeout(() => {
       const id = (request.current += 1);
-      const check = checkDraft(draft);
-      if (!check.ok) {
-        setState({ status: 'incomplete', issues: check.issues });
-        return;
-      }
+      // A calculation of older inputs is of no use any more.
       if (busy.current) {
         worker.current?.terminate();
         worker.current = null;
         busy.current = false;
       }
+      const check = checkDraft(draft);
+      if (!check.ok) {
+        setState({ status: 'incomplete', issues: check.issues, input: draft });
+        return;
+      }
       try {
         worker.current ??= new Worker(new URL('./calc.worker.ts', import.meta.url));
       } catch {
-        setState({ status: 'unavailable', issues: [] });
+        setState({ status: 'unavailable', issues: [], input: draft });
         return;
       }
       const current = worker.current;
@@ -60,12 +66,13 @@ export function useLiveCalculation(draft: Draft): LiveState {
         busy.current = false;
         const outcome = event.data;
         if (outcome.ok) {
-          setState({ status: 'done', issues: [], summary: outcome.summary });
+          setState({ status: 'done', issues: [], summary: outcome.summary, input: draft });
         } else {
           const path = outcome.field === undefined ? '' : enginePath(outcome.field);
           setState({
             status: 'incomplete',
             issues: [describeIssue(path, outcome.message, draft)],
+            input: draft,
           });
         }
       };
@@ -73,10 +80,10 @@ export function useLiveCalculation(draft: Draft): LiveState {
         busy.current = false;
         worker.current?.terminate();
         worker.current = null;
-        setState({ status: 'unavailable', issues: [] });
+        setState({ status: 'unavailable', issues: [], input: draft });
       };
       busy.current = true;
-      setState((previous) => ({ status: 'calculating', issues: previous.issues }));
+      setState({ status: 'calculating', issues: [], input: draft });
       current.postMessage({ id, input: check.input } satisfies CalcRequest);
     }, DELAY_MS);
     return () => clearTimeout(timer);

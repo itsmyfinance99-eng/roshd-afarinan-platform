@@ -37,6 +37,33 @@ export interface EditorApi {
   /** Writes one value; `undefined` removes it. */
   set: (path: Path, value: unknown) => void;
   change: (edit: (draft: Draft) => Draft) => void;
+  /** The planning horizon being edited; the model follows it only when it is applied. */
+  staging: {
+    horizon: unknown;
+    setHorizon: (path: Path, value: unknown) => void;
+    applyHorizon: () => void;
+    resetHorizon: () => void;
+  };
+}
+
+/** An editor over another draft (e.g. the horizon being changed), with the same controls. */
+export function ScopedEditor({
+  draft,
+  issues,
+  set,
+  children,
+}: {
+  draft: Draft;
+  issues: ReadonlyMap<string, string>;
+  set: (path: Path, value: unknown) => void;
+  children: ReactNode;
+}) {
+  const parent = useEditor();
+  return (
+    <EditorContext.Provider value={{ ...parent, draft, issues, set, change: () => undefined }}>
+      {children}
+    </EditorContext.Provider>
+  );
 }
 
 const EditorContext = createContext<EditorApi | null>(null);
@@ -96,7 +123,11 @@ export function DecimalInput({
   cell,
   className,
 }: DecimalInputProps) {
-  const [text, setText] = useState<string | null>(null);
+  /** What is being typed, and the stored value it stands for. */
+  const [edit, setEdit] = useState<{ text: string; stored: unknown } | null>(null);
+  // A value changed from elsewhere (a paste, another control) wins over the text being typed.
+  const blank = (stored: unknown) => stored ?? empty ?? '';
+  const text = edit !== null && blank(edit.stored) === blank(value) ? edit.text : null;
   return (
     <input
       id={id}
@@ -113,14 +144,15 @@ export function DecimalInput({
       value={text ?? shown(value, percent, true)}
       onFocus={(event) => {
         // The plain text replaces the formatted one before anything is typed or selected.
-        flushSync(() => setText(shown(value, percent, false)));
+        flushSync(() => setEdit({ text: shown(value, percent, false), stored: value }));
         if (cell) event.currentTarget.select();
       }}
       onChange={(event) => {
-        setText(event.target.value);
-        onCommit(toStored(event.target.value, percent, empty));
+        const stored = toStored(event.target.value, percent, empty);
+        setEdit({ text: event.target.value, stored });
+        onCommit(stored);
       }}
-      onBlur={() => setText(null)}
+      onBlur={() => setEdit(null)}
       className={cn(
         control,
         'text-right',
@@ -216,7 +248,9 @@ function WholeInput({
   const [text, setText] = useState<string | null>(null);
   const rest =
     typeof value === 'number'
-      ? toPersianDigits(String(scale ? Math.round(scale.toShown(value) * 100) / 100 : value))
+      ? toPersianDigits(
+          String(scale ? Math.round(scale.toShown(value) * 100) / 100 : value).replace('.', '٫'),
+        )
       : typeof value === 'string'
         ? value
         : '';
@@ -293,6 +327,7 @@ export function TextField({
   dir,
   transform,
   onCommit,
+  refuse,
 }: {
   path: Path;
   label: string;
@@ -303,11 +338,24 @@ export function TextField({
   transform?: (text: string) => string;
   /** Replaces the plain write, for names that other inputs refer to. */
   onCommit?: (text: string) => void;
+  /**
+   * For a name other inputs refer to: it is written when the field is left, not letter by
+   * letter, and only when `refuse` has no objection (the old name stays until then).
+   */
+  refuse?: (text: string) => string | undefined;
 }) {
   const { draft, set } = useEditor();
   const id = useId();
-  const error = useIssue(path);
+  const issue = useIssue(path);
   const value = getIn(draft, path);
+  const stored = typeof value === 'string' ? value : '';
+  const [typed, setTyped] = useState<string | null>(null);
+  const objection = typed === null || !refuse ? undefined : refuse(typed.trim());
+  const error = objection ?? issue;
+  const commit = (text: string) => {
+    if (onCommit) onCommit(text);
+    else set(path, text === '' && !required ? undefined : text);
+  };
   return (
     <FieldShell id={id} label={label} required={required} error={error} hint={hint}>
       <TextInput
@@ -317,11 +365,19 @@ export function TextField({
         dir={dir}
         maxLength={maxLength}
         autoComplete="off"
-        value={typeof value === 'string' ? value : ''}
+        value={typed ?? stored}
         onChange={(event) => {
           const text = transform ? transform(event.target.value) : event.target.value;
-          if (onCommit) onCommit(text);
-          else set(path, text === '' && !required ? undefined : text);
+          if (refuse) setTyped(text);
+          else commit(text);
+        }}
+        onBlur={() => {
+          if (typed === null) return;
+          const text = typed.trim();
+          // A refused name is not written; the field keeps showing it with the reason.
+          if (refuse?.(text) !== undefined) return;
+          if (text !== stored) commit(text);
+          setTyped(null);
         }}
       />
     </FieldShell>
@@ -340,6 +396,7 @@ export function ChoiceField({
   numeric = false,
   optional,
   shown: override,
+  noEmpty = false,
   onCommit,
 }: {
   path: Path;
@@ -348,6 +405,8 @@ export function ChoiceField({
   hint?: ReactNode;
   /** The choice to show when it is not the value stored at `path` itself. */
   shown?: string;
+  /** One of the options is always chosen: no empty choice is offered. */
+  noEmpty?: boolean;
   /** The stored value is a number (a period, a year, a length in months). */
   numeric?: boolean;
   /** Text of the choice that stores nothing, for an input the model may leave open. */
@@ -377,8 +436,8 @@ export function ChoiceField({
           else set(path, next);
         }}
       >
-        <option value="">{optional ?? 'انتخاب کنید'}</option>
-        {known ? null : <option value={current}>{current}</option>}
+        {noEmpty ? null : <option value="">{optional ?? 'انتخاب کنید'}</option>}
+        {known ? null : <option value={current}>{toPersianDigits(current)} (نامعتبر)</option>}
         {options.map(([option, text]) => (
           <option key={option} value={option}>
             {text}
@@ -500,15 +559,17 @@ export function SeriesGrid({
       lines.forEach((line, r) => {
         const row = rows[cell.row + r];
         if (!row) return;
+        const series = fit(getIn(next, row.path), columns.length, row.empty);
         line.split('\t').forEach((raw, c) => {
           const col = cell.col + c;
-          if (col >= columns.length) return;
-          next = setIn(next, [...row.path, col], toStored(raw, row.percent ?? false, row.empty));
+          if (col < columns.length) {
+            series[col] = toStored(raw, row.percent ?? false, row.empty) ?? row.empty;
+          }
         });
+        next = setIn(next, row.path, series);
       });
       return next;
     });
-    cell.input.blur();
   };
 
   const firstError = rows
@@ -570,7 +631,12 @@ export function SeriesGrid({
                         error={issues.get(pathKey([...row.path, col]))}
                         ariaLabel={`${row.label}، ${column.group} ${column.label}`}
                         cell={{ row: r, col }}
-                        onCommit={(value) => set([...row.path, col], value)}
+                        onCommit={(value) =>
+                          set(
+                            row.path,
+                            series.map((old, i) => (i === col ? (value ?? row.empty) : old)),
+                          )
+                        }
                       />
                     </td>
                   ))}
@@ -616,6 +682,7 @@ export function PerColumnField({
   percent = false,
   unit,
   hint,
+  required = true,
 }: {
   path: Path;
   label: string;
@@ -623,6 +690,7 @@ export function PerColumnField({
   percent?: boolean;
   unit?: string;
   hint?: ReactNode;
+  required?: boolean;
 }) {
   const { draft, set } = useEditor();
   const value = getIn(draft, path);
@@ -647,7 +715,14 @@ export function PerColumnField({
   if (!series) {
     return (
       <div className="flex flex-col gap-2">
-        <NumberField path={path} label={label} unit={unit} percent={percent} hint={hint} />
+        <NumberField
+          path={path}
+          label={label}
+          unit={unit}
+          percent={percent}
+          hint={hint}
+          required={required}
+        />
         {columns.length > 0 ? toggle : null}
       </div>
     );
@@ -695,14 +770,13 @@ export function CoverageField({
           percent={share}
           error={error}
           describedBy={error ? `${id}-error` : hint ? `${id}-hint` : undefined}
-          onCommit={(next) => set(path, next === undefined ? undefined : { [name]: next })}
+          onCommit={(next) => set(path, { [name]: next ?? '' })}
         />
         <select
           aria-label={`واحد ${label}`}
           value={name}
-          onChange={(event) =>
-            set(path, value === undefined ? undefined : { [event.target.value]: value })
-          }
+          // Days and a share of the year are different numbers: the value is asked again.
+          onChange={(event) => set(path, { [event.target.value]: '' })}
           className={cn(control, 'h-12 w-32 shrink-0 border-line-strong px-2 text-sm')}
         >
           <option value="days">روز</option>
@@ -760,12 +834,20 @@ export function FieldGrid({ children }: { children: ReactNode }) {
   return <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{children}</div>;
 }
 
+/** Asks before something entered is removed; the save that follows cannot be undone. */
+export function confirmRemoval(title: string, note = ''): boolean {
+  return window.confirm(`${title} حذف شود؟${note ? ` ${note}` : ''}`);
+}
+
 export function ItemCard({
   title,
+  note,
   onRemove,
   children,
 }: {
   title: string;
+  /** What else is removed with the item, for the confirmation. */
+  note?: string;
   onRemove: () => void;
   children: ReactNode;
 }) {
@@ -773,7 +855,14 @@ export function ItemCard({
     <div className="flex flex-col gap-4 rounded-card border border-line p-4">
       <div className="flex items-center justify-between gap-3">
         <h4 className="text-[15px] font-bold text-ink">{title}</h4>
-        <Button variant="ghost" size="sm" aria-label={`حذف ${title}`} onClick={onRemove}>
+        <Button
+          variant="ghost"
+          size="sm"
+          aria-label={`حذف ${title}`}
+          onClick={() => {
+            if (confirmRemoval(title, note)) onRemove();
+          }}
+        >
           حذف
         </Button>
       </div>

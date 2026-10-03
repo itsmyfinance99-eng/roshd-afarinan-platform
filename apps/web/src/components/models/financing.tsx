@@ -8,9 +8,16 @@ import {
   toPersianDigits,
 } from '@roshd/validation';
 import type { ReactNode } from 'react';
-import { removeItem, renameItem } from '@/lib/model-editor/draft-ops';
 import { fit } from '@/lib/model-editor/frame';
-import { append, getIn, listAt, removeAt, textAt, type Path } from '@/lib/model-editor/paths';
+import {
+  append,
+  getIn,
+  listAt,
+  removeAt,
+  setIn,
+  textAt,
+  type Path,
+} from '@/lib/model-editor/paths';
 import {
   AddButton,
   Block,
@@ -29,7 +36,7 @@ import {
   useEditor,
   WholeField,
 } from './fields';
-import { CurrencyField, DepreciationFields, OriginField } from './parts';
+import { CurrencyField, DepreciationFields, NamedItemCard, NameField, OriginField } from './parts';
 
 const EQUITY = ['financing', 'equity'] as const;
 const LOANS = ['financing', 'loans'] as const;
@@ -56,19 +63,14 @@ export function FinancingSection() {
           const holder = shareholders.findIndex((h) => textAt(h, ['equity']) === name);
           const holderPath: Path = [...DISTRIBUTION, 'shareholders', holder];
           return (
-            <ItemCard
+            <NamedItemCard
               key={index}
+              kind="equity"
+              index={index}
               title={itemTitle('آورده', name, index)}
-              onRemove={() => change((current) => removeItem(current, 'equity', index))}
             >
               <FieldGrid>
-                <TextField
-                  path={[...EQUITY, index, 'key']}
-                  label="نام سهامدار یا منبع"
-                  onCommit={(text) =>
-                    change((current) => renameItem(current, 'equity', index, text))
-                  }
-                />
+                <NameField kind="equity" index={index} label="نام سهامدار یا منبع" />
                 <ChoiceField
                   path={[...EQUITY, index, 'class']}
                   label="نوع آورده"
@@ -119,7 +121,7 @@ export function FinancingSection() {
                   />
                 </FieldGrid>
               ) : null}
-            </ItemCard>
+            </NamedItemCard>
           );
         })}
         <AddButton
@@ -198,6 +200,19 @@ function LoanCard({ index, name }: { index: number; name: string }) {
           path={[...loan, 'type']}
           label="نوع بازپرداخت"
           options={optionsOf(LOAN_TYPE_LABELS_FA)}
+          onCommit={(value) =>
+            change((current) => {
+              // Each kind of loan has its own dates; those of the other kind are removed.
+              const unused =
+                value === 'PROFILE'
+                  ? ['numberOfRepayments', 'firstRepaymentDay']
+                  : ['interestDueDay'];
+              return unused.reduce(
+                (next, name) => setIn(next, [...loan, name], undefined),
+                setIn(current, [...loan, 'type'], value),
+              );
+            })
+          }
         />
         <ChoiceField
           path={[...loan, 'repaymentMonths']}

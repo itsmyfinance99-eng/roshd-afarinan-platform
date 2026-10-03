@@ -215,7 +215,7 @@ function labelOf(parts: string[], draft: Draft): string {
         words.push(`ستون ${number}`);
       } else words.push(`ردیف ${number}`);
     } else if (!SILENT.has(part) || i === parts.length - 1) {
-      words.push(FIELD_LABELS_FA[part] ?? part);
+      words.push(Object.hasOwn(FIELD_LABELS_FA, part) ? (FIELD_LABELS_FA[part] ?? part) : part);
     }
   });
   return words.join(' › ');

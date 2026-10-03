@@ -4,8 +4,8 @@ import {
   ALLOCATION_KEY_LABELS_FA,
   COST_CATEGORY_LABELS_FA,
   COST_CENTRE_GROUP_LABELS_FA,
+  MATERIAL_COST_CATEGORIES,
 } from '@roshd/validation';
-import { removeItem, renameItem } from '@/lib/model-editor/draft-ops';
 import { fit } from '@/lib/model-editor/frame';
 import {
   append,
@@ -30,9 +30,10 @@ import {
   TextField,
   useEditor,
 } from './fields';
-import { CurrencyField, EscalationFields, OriginField } from './parts';
+import { CurrencyField, EscalationFields, NamedItemCard, NameField, OriginField } from './parts';
 
 const COSTS = ['operations', 'costs'] as const;
+const MATERIALS: readonly string[] = MATERIAL_COST_CATEGORIES;
 const CENTRES = ['operations', 'costCentres'] as const;
 
 /** Cost items (direct to a product or indirect and allocated) and cost centres. */
@@ -73,19 +74,14 @@ export function CostsSection() {
           const limited = getIn(centre, ['products']);
           const chosen = Array.isArray(limited) ? (limited as unknown[]) : null;
           return (
-            <ItemCard
+            <NamedItemCard
               key={index}
+              kind="costCentre"
+              index={index}
               title={itemTitle('مرکز هزینه', textAt(centre, ['key']), index)}
-              onRemove={() => change((current) => removeItem(current, 'costCentre', index))}
             >
               <FieldGrid>
-                <TextField
-                  path={[...base, 'key']}
-                  label="نام مرکز هزینه"
-                  onCommit={(text) =>
-                    change((current) => renameItem(current, 'costCentre', index, text))
-                  }
-                />
+                <NameField kind="costCentre" index={index} label="نام مرکز هزینه" />
                 <ChoiceField
                   path={[...base, 'group']}
                   label="گروه"
@@ -124,7 +120,7 @@ export function CostsSection() {
                   ))}
                 </fieldset>
               ) : null}
-            </ItemCard>
+            </NamedItemCard>
           );
         })}
         <AddButton onClick={() => change((current) => append(current, CENTRES, { key: '' }))}>
@@ -169,6 +165,15 @@ function CostCard({
           path={[...base, 'category']}
           label="دسته هزینه"
           options={optionsOf(COST_CATEGORY_LABELS_FA)}
+          onCommit={(value) =>
+            change((current) => {
+              const next = setIn(current, [...base, 'category'], value);
+              // Only materials keep a stock.
+              return MATERIALS.includes(String(value))
+                ? next
+                : setIn(next, [...base, 'stockCoverage'], undefined);
+            })
+          }
         />
         <ChoiceField
           path={[...base, 'product']}

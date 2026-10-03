@@ -3,31 +3,37 @@
 import { Button, FieldShell, TextInput } from '@roshd/ui';
 import {
   CALENDAR_LABELS_FA,
+  horizonSchema,
   DISCOUNT_REFERENCE_LABELS_FA,
   PERIOD_LABELS_FA,
   RESIDUAL_VALUE_TIMING_LABELS_FA,
   toPersianDigits,
 } from '@roshd/validation';
-import { useId, useState } from 'react';
+import { useId, useMemo, useState } from 'react';
 import {
   addCurrency,
+  canonical,
+  currencyUses,
   inflationEnabled,
   removeCurrency,
   setInflation,
   setLocalCurrency,
 } from '@/lib/model-editor/draft-ops';
+import { droppedPeriods, frameOfHorizon } from '@/lib/model-editor/frame';
 import { append, listAt, recordAt, removeAt, textAt } from '@/lib/model-editor/paths';
 import {
   AddButton,
   Block,
   CheckField,
   ChoiceField,
+  confirmRemoval,
   FieldGrid,
   ItemCard,
   NoteFields,
   NumberField,
   optionsOf,
   PerColumnField,
+  ScopedEditor,
   SeriesGrid,
   TextField,
   useEditor,
@@ -53,72 +59,24 @@ export function AssumptionsSection() {
 
   return (
     <div className="flex flex-col gap-6">
-      <Block
-        title="افق برنامه‌ریزی"
-        hint="دوره ساخت، دوره راه‌اندازی (برنامه‌ریزی دوره‌ای در آغاز تولید، حداکثر ۲۴ ماه) و سال‌های تولید. با کوتاه‌کردن افق، مقادیر دوره‌های حذف‌شده پاک می‌شود."
-      >
-        <FieldGrid>
-          <ChoiceField
-            path={['horizon', 'calendar']}
-            label="تقویم"
-            options={optionsOf(CALENDAR_LABELS_FA)}
-          />
-          <WholeField path={['horizon', 'start', 'year']} label="سال آغاز ساخت" />
-          <ChoiceField
-            path={['horizon', 'start', 'month']}
-            label="ماه آغاز ساخت"
-            numeric
-            options={MONTHS}
-          />
-          <ChoiceField
-            path={['horizon', 'balanceMonth']}
-            label="ماه پایان سال مالی"
-            numeric
-            options={MONTHS}
-            hint="مثلاً ۱۲ برای اسفند."
-          />
-          <WholeField path={['horizon', 'construction', 'periods']} label="تعداد دوره‌های ساخت" />
-          <ChoiceField
-            path={['horizon', 'construction', 'periodMonths']}
-            label="طول هر دوره ساخت"
-            numeric
-            options={PERIOD_LENGTHS}
-          />
-          <WholeField
-            path={['horizon', 'startup', 'periods']}
-            label="تعداد دوره‌های راه‌اندازی"
-            hint="صفر یعنی تولید از ابتدا سالانه برنامه‌ریزی می‌شود."
-          />
-          <ChoiceField
-            path={['horizon', 'startup', 'periodMonths']}
-            label="طول هر دوره راه‌اندازی"
-            numeric
-            options={PERIOD_LENGTHS}
-          />
-          <WholeField path={['horizon', 'productionYears']} label="سال‌های تولید" unit="سال" />
-        </FieldGrid>
-        {frame ? (
-          <p role="status" className="text-sm text-ink-3">
-            این افق {toPersianDigits(frame.periods.length)} دوره دارد و{' '}
-            {toPersianDigits(frame.totalMonths)} ماه طول می‌کشد.
-          </p>
-        ) : null}
-      </Block>
+      <HorizonBlock />
 
       <Block
         title="ارزها و نرخ ارز"
-        hint="محاسبه با پول محلی انجام می‌شود. برای هر ارز خارجی، نرخ هر دوره را به پول محلی وارد کنید."
+        hint="محاسبه با ارز محلی انجام می‌شود. برای هر ارز خارجی، نرخ هر دوره را به ارز محلی وارد کنید."
       >
         <FieldGrid>
           <TextField
             path={['localCurrency']}
-            label="پول محلی (کد سه‌حرفی)"
+            label="ارز محلی (کد سه‌حرفی)"
             dir="ltr"
             maxLength={3}
-            hint="مثل IRR."
-            onCommit={(text) =>
-              change((current) => setLocalCurrency(current, text.toUpperCase(), frame))
+            hint="مثل IRR. با تغییر کد، همه اقلامی که به این ارز وارد شده‌اند همراه آن تغییر می‌کنند."
+            transform={(text) => text.toUpperCase()}
+            refuse={(text) =>
+              foreign.includes(text) ? 'این کد برای یکی از ارزهای خارجی تعریف شده است.' : undefined
             }
+            onCommit={(text) => change((current) => setLocalCurrency(current, text, frame))}
           />
           <NewCurrency
             taken={[local, ...foreign]}
@@ -129,7 +87,7 @@ export function AssumptionsSection() {
           <>
             <SeriesGrid
               caption="نرخ ارز"
-              unit={`${local || 'پول محلی'} برای هر واحد ارز`}
+              unit={`${local || 'ارز محلی'} برای هر واحد ارز`}
               columns={frame?.periods ?? []}
               rows={foreign.map((code) => ({
                 id: code,
@@ -145,7 +103,16 @@ export function AssumptionsSection() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => change((current) => removeCurrency(current, code))}
+                    onClick={() => {
+                      const uses = currencyUses(draft, code);
+                      const note =
+                        uses > 0
+                          ? `${toPersianDigits(uses)} قلم به این ارز وارد شده است و باید ارز آن‌ها را دوباره انتخاب کنید.`
+                          : '';
+                      if (confirmRemoval(`ارز ${code}`, note)) {
+                        change((current) => removeCurrency(current, code));
+                      }
+                    }}
                   >
                     حذف ارز {code}
                   </Button>
@@ -173,7 +140,7 @@ export function AssumptionsSection() {
               columns={frame?.projectYears ?? []}
               rows={Object.keys(recordAt(draft, ['inflation'])).map((code) => ({
                 id: code,
-                label: code || 'پول محلی',
+                label: code || 'ارز محلی',
                 path: ['inflation', code],
                 percent: true,
                 empty: '',
@@ -359,5 +326,113 @@ function NewCurrency({ taken, onAdd }: { taken: string[]; onAdd: (code: string) 
         </Button>
       </div>
     </FieldShell>
+  );
+}
+
+/**
+ * The planning horizon is changed as a whole: its fields edit a copy, and the tables of the model
+ * follow only when the user applies it — after being told how many periods lose their values.
+ */
+function HorizonBlock() {
+  const { draft, frame, staging } = useEditor();
+  const pending = staging.horizon;
+  const issues = useMemo(() => {
+    const parsed = horizonSchema.safeParse(pending);
+    return new Map(
+      parsed.success
+        ? []
+        : parsed.error.issues.map((issue) => [
+            ['horizon', ...issue.path.map(String)].join('.'),
+            issue.message,
+          ]),
+    );
+  }, [pending]);
+  const next = useMemo(() => frameOfHorizon(pending), [pending]);
+  const changed = canonical(pending) !== canonical(draft.horizon);
+  const dropped = frame && next ? droppedPeriods(frame, next) : 0;
+
+  return (
+    <Block
+      title="افق برنامه‌ریزی"
+      hint="دوره ساخت، دوره راه‌اندازی (برنامه‌ریزی دوره‌ای در آغاز تولید، حداکثر ۲۴ ماه) و سال‌های تولید. تغییر افق پس از زدن «اعمال افق» روی جدول‌های مدل می‌نشیند."
+    >
+      <ScopedEditor
+        draft={{ horizon: pending }}
+        issues={changed ? issues : new Map()}
+        set={(path, value) => staging.setHorizon(path.slice(1), value)}
+      >
+        <FieldGrid>
+          <ChoiceField
+            path={['horizon', 'calendar']}
+            label="تقویم"
+            options={optionsOf(CALENDAR_LABELS_FA)}
+          />
+          <WholeField path={['horizon', 'start', 'year']} label="سال آغاز ساخت" />
+          <ChoiceField
+            path={['horizon', 'start', 'month']}
+            label="ماه آغاز ساخت"
+            numeric
+            options={MONTHS}
+          />
+          <ChoiceField
+            path={['horizon', 'balanceMonth']}
+            label="ماه پایان سال مالی"
+            numeric
+            options={MONTHS}
+            hint="مثلاً ۱۲ برای اسفند."
+          />
+          <WholeField path={['horizon', 'construction', 'periods']} label="تعداد دوره‌های ساخت" />
+          <ChoiceField
+            path={['horizon', 'construction', 'periodMonths']}
+            label="طول هر دوره ساخت"
+            numeric
+            options={PERIOD_LENGTHS}
+          />
+          <WholeField
+            path={['horizon', 'startup', 'periods']}
+            label="تعداد دوره‌های راه‌اندازی"
+            hint="صفر یعنی تولید از ابتدا سالانه برنامه‌ریزی می‌شود."
+          />
+          <ChoiceField
+            path={['horizon', 'startup', 'periodMonths']}
+            label="طول هر دوره راه‌اندازی"
+            numeric
+            options={PERIOD_LENGTHS}
+          />
+          <WholeField path={['horizon', 'productionYears']} label="سال‌های تولید" unit="سال" />
+        </FieldGrid>
+      </ScopedEditor>
+      <div role="status" className="flex flex-col items-start gap-3 text-sm text-ink-3">
+        {!changed && frame ? (
+          <p>
+            این افق {toPersianDigits(frame.periods.length)} دوره دارد و{' '}
+            {toPersianDigits(frame.totalMonths)} ماه طول می‌کشد.
+          </p>
+        ) : null}
+        {changed && !next ? (
+          <p>افق تازه هنوز کامل نیست؛ پس از کامل شدن می‌توانید آن را اعمال کنید.</p>
+        ) : null}
+        {changed && next ? (
+          <>
+            <p className="text-ink">
+              افق تازه {toPersianDigits(next.periods.length)} دوره دارد و{' '}
+              {toPersianDigits(next.totalMonths)} ماه طول می‌کشد و هنوز اعمال نشده است.
+              {dropped > 0
+                ? ` مقادیر ${toPersianDigits(dropped)} دوره که در افق تازه نیست پاک می‌شود.`
+                : ''}{' '}
+              مقادیر هر مرحله (ساخت، راه‌اندازی، تولید) از ابتدای همان مرحله حفظ می‌شود.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Button size="sm" onClick={staging.applyHorizon}>
+                اعمال افق
+              </Button>
+              <Button variant="ghost" size="sm" onClick={staging.resetHorizon}>
+                انصراف
+              </Button>
+            </div>
+          </>
+        ) : null}
+      </div>
+    </Block>
   );
 }
