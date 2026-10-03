@@ -106,6 +106,8 @@ COMFAR pre-fills some values (V.C, VII.B and individual windows). Our rule: econ
 
 Indirect costs are allocated to products by a key: direct cost, direct factory cost, direct material, direct labour, sales, equal shares, or user percentages (constant). With cost-centre analysis, a centre's indirect costs go only to its products.
 
+**Implementation (ST-34.03, `packages/financial-engine/src/model/operations.ts`).** A cost item with a product is a direct cost; one without is an indirect cost and is entered as amounts per period only (COMFAR's adjustments). Keys are computed per period from the direct costs of the products produced (direct material = raw materials + factory supplies; sales = net sales revenue + subsidy). The key is required for every indirect item that can go to more than one product; there is no default key (§3.1). User shares must add up to 100 %. A cost centre belongs to one of COMFAR's six standard groups (production, storage, environment, marketing, services, administration) and may list its products; an indirect item of a centre is shared among those products only, and a direct item may only be assigned to a centre of its product. Items without a centre are counted in the production group (X.C.3). The last product with a share takes the remainder, so the products always add up to the item exactly. When a key has no basis in a period (e.g. direct labour when no product has labour) the cost is shared equally and the result carries the warning `allocation.noBasis` (our rule; the manual is silent).
+
 ### 4.4 Depreciation (XI.H)
 
 Methods: linear to zero, linear to scrap, accelerated (declining balance, switching to linear-to-scrap when that gives more), sum-of-years-digits. Life in years + months; first year may be partial (`m1` months); salvage = rate × initial book value; the remaining book value at the end is written off in the last year. Sale of an asset: proceeds above book value = extraordinary income, below = extraordinary loss; book value at the end of production returns as capital in the scrap year. (XI.I)
@@ -136,11 +138,25 @@ The engine produces one schedule per asset and depreciation year (balance date t
 - Per unit of output: variable `Q × C_j × S_j(P_j)`; fixed is an absolute amount; adjustments as above.
 - Fixed costs of short periods scale by `m/12`. Fixed costs are charged within the product's production interval even in no-sales periods (unless adjusted).
 
+**Implementation (ST-34.03, `operations.ts`).**
+
+- **Categories** (X.C.3 lines): raw materials, factory supplies, utilities, energy, spare parts (together: materials); labour, labour overheads, factory overheads (with materials: factory costs); administrative overheads (with factory costs: operating costs); leasing; direct marketing and marketing overheads. The schedule total is operating costs + leasing + marketing; depreciation and interest are added by the statements (ST-34.04). Maintenance, insurance and similar costs are the user's own items inside these categories.
+- **Two quantities:** every schedule exists for the products produced (CPP, with `P_j`) and for the products sold (CPS, with `S_j`); fixed costs and adjustments are the same in both.
+- **Prices** (`model/prices.ts`): an entered price is the price at the start of the horizon in the item's currency. The price of a period is the entered price × the price factor of the period's project year (§2.1; years end on balance dates and a period belongs to the year its last day falls in) × the period's exchange rate. Every sales line and cost item has its own escalation, so revenue, variable and fixed costs can each follow their own path. With inflation on, the inflation of every currency used and the escalation of every item are required ("0" is an explicit choice); without inflation an escalation is a real price path. The factor also applies to the fixed cost of the per-unit mode and to adjustments, which are entered at constant prices like everything else (our reading, OQ-39).
+- **Adjustments** may be negative in production periods (e.g. to switch a fixed cost off in a shut-down period), but neither the fixed nor the variable cost of an item may become negative. In construction periods an adjustment is a purchase of initial stock and only material categories may have one.
+- **Capacity utilisation** = production / (nominal capacity × m/12), within the product's production interval (the manual does not say how a short period is treated; OQ-39).
+
 ### 4.6 Sales and production programme (XI.L)
 
 - Coefficient of turnover `c = 30 × m / days_coverage`.
 - Finished-goods stock: required `RS_j = S_j / c`; brought forward `B_j = C_{j-1}` (starting balance first); `X = B − S`; carried `C = max(X, RS)`; production `P = S − B + C`. End stock is sold in period n+1.
 - Sales ending before production ends, and user-defined production intervals, follow the special cases in XI.L (production reduced before the last sales year; sales outside the interval only from stock).
+
+**Implementation (ST-34.03, `model/sales-programme.ts`, `operations.ts`).**
+
+- **Sales lines:** a product has one or more sales lines, each for the local or the export market, with its own currency, price (one value or one per period, net of sales tax), escalation, sales-tax rate, subsidy rate and subsidy amount per period (all required; "0" is explicit). Volumes are entered as quantities per period or as a share of the nominal capacity (a period of `m` months sells `m/12` of the share; our extension for the production programme "in % of capacity"). Gross sales revenue = net + sales tax (information only); sales revenue = net + subsidy. The subsidy amount is converted at the period's rate and not escalated.
+- **Programme:** as above, with `c = 30 × m / Mdc` per period. When the sales of the product's last production period are zero ("sales end early") the required stock is `min(S_j / c, Σ_{i>j} S_i)` and a period that sells less than its stock produces nothing, as printed. Outside a user-defined production interval sales must come from stock; selling more than the stock is refused with a message at the sales quantity of that period (COMFAR cuts the sales silently). The production interval defaults to the whole production phase (a structural default, not an economic one).
+- The stock left at the end of the horizon is part of the working capital liquidated in the scrap year.
 
 ### 4.7 Net working capital (XI.K)
 
@@ -157,6 +173,16 @@ The engine produces one schedule per asset and depreciation year (balance date t
 - Initial stocks and starting balances are consumed first: `X_j = WC_{j-1} − consumption_j`; `WC_j = max(X_j, RV_j)`.
 - Increase in current assets = cash outflow; increase in current liabilities = inflow (short-term finance). Liquidated in the scrap period.
 - Interest on short-term deposits: `IOS_j = CIH_j × s × r × m / 12`. (XI.O)
+
+**Implementation (ST-34.03, `model/working-capital.ts`, `operations.ts`).**
+
+- **Coverage** is required for every item (no default, §3.1), as days (COMFAR's Mdc) or as a share of the yearly basis (`days / 360`); 0 is an explicit "none". It is entered on the item it belongs to: stock and payables on each cost item (stock only for material categories), work in progress and finished products on each product, receivables on each sales line (market), cash once for local and once for foreign costs.
+- **Value algorithm only.** Materials are valued by the total value algorithm; the units algorithm (which differs only when initial stock is consumed at changing prices, manual table 10) is not implemented.
+- **Carry-over for stocks only (our reading, OQ-39).** The manual prints the recursion `X_j = WCV_{j−1} − B_j`, `WCV_j = max(X_j, RV_j)` for every item. For a material stock it means "what is left after this period's consumption" and is applied as printed. Applied to work in progress, receivables, cash and payables it would keep a balance for ever once the basis falls (receivables never collected and deposit interest still earned after sales stop), so these items equal their requirement `RV_j`. The two readings differ only when the previous value exceeds this period's basis plus requirement (coverage longer than a period, or a basis that drops sharply).
+- **Bases:** materials and payables: the item's cost of products produced; work in progress: the product's factory cost (direct + allocated); receivables: the product's cost of products sold (operating + marketing), shared among its sales lines by quantity sold (our reading, OQ-39); cash: operating cost less materials of all items, separately for local and foreign origin.
+- **Finished products** are the programme's stock at the operating cost per unit sold of the period, `C_j × CPS(OC)_j / S_j`. A period without sales produces nothing either, so the stock keeps its value (our reading; the manual defines the unit value only with sales, OQ-39). As printed, the unit value spreads the period's fixed costs over the units sold: in a period with few sales and a stock above the requirement the stock can be valued above the period's cost (kept as printed and covered by a test; OQ-39).
+- **Initial stock** bought in construction periods is a current asset from the period it is bought in and is consumed first, as printed. Starting balances belong to expansion projects (ST-34.11).
+- **Outputs:** every item per period, totals (inventory, receivables, cash, current assets, current liabilities, net working capital and its increase), the split by the origin of the underlying costs (an item's value follows the foreign share of its basis) and the value at the end of production, which is liquidated in the scrap year by the statements (ST-34.04). Short-term deposits are the entered share of the cash requirement, shown separately from cash in hand; their interest is per period as above.
 
 ### 4.8 Finance (XI.M)
 

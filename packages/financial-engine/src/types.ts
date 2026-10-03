@@ -27,6 +27,7 @@ import type { loanPeriods, loanSchedule, sumLoanPeriods } from './loans';
 import type { financingSchedule } from './model/financing';
 import type { planHorizon } from './model/horizon';
 import type { investmentSchedule } from './model/investment';
+import type { operationsSchedule } from './model/operations';
 import type { npv } from './time-value';
 
 /** ISO 4217 code, e.g. "IRR", "USD", "EUR". Projects may define any currency (COMFAR VII.I). */
@@ -115,6 +116,7 @@ export interface FinancialCalculator {
   planHorizon: typeof planHorizon;
   investmentSchedule: typeof investmentSchedule;
   financingSchedule: typeof financingSchedule;
+  operationsSchedule: typeof operationsSchedule;
 }
 
 export interface SensitivityRequest {

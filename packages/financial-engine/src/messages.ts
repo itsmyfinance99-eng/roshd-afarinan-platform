@@ -60,6 +60,37 @@ export const ENGINE_MESSAGES_FA = {
   'financing.interestDepreciationStart':
     'استهلاک سود انباشته باید بعد از آخرین تاریخ انباشت سود شروع شود.',
   'model.origin': 'منشأ قلم باید داخلی یا خارجی باشد.',
+  'amount.notPositive': 'این مقدار باید بیشتر از صفر باشد.',
+  'share.outOfRange': 'سهم باید از صفر تا ۱۰۰ درصد باشد.',
+  'operations.noProducts': 'دست‌کم یک محصول تعریف کنید.',
+  'operations.unknownProduct': 'این محصول تعریف نشده است.',
+  'operations.market': 'بازار فروش باید داخلی یا صادراتی باشد.',
+  'operations.volume':
+    'برای هر سطر فروش یا مقدار فروش هر دوره را وارد کنید یا درصد ظرفیت اسمی را، نه هر دو.',
+  'operations.nominalCapacityRequired': 'برای این ورودی، ظرفیت اسمی محصول را وارد کنید.',
+  'operations.constructionSales': 'در دوره ساخت فروشی وجود ندارد.',
+  'production.interval':
+    'بازه تولید محصول باید از یک دوره بهره‌برداری شروع شود و پایان آن پیش از شروع نباشد.',
+  'production.salesOutsideInterval':
+    'فروش این دوره خارج از بازه تولید محصول است و از موجودی کالای ساخته‌شده بیشتر است.',
+  'operations.inflationMissing': 'نرخ تورم {currency} برای سال‌های طرح وارد نشده است.',
+  'operations.escalationRequired':
+    'با فعال بودن تورم، نرخ افزایش قیمت این قلم را وارد کنید (صفر یعنی بدون افزایش).',
+  'operations.costCategory': 'دسته هزینه معتبر نیست.',
+  'operations.costCentre': 'مرکز هزینه تعریف نشده یا بدون محصول است.',
+  'operations.costCentreGroup': 'گروه مرکز هزینه معتبر نیست.',
+  'operations.costCentreProduct': 'محصول این قلم هزینه به این مرکز هزینه اختصاص ندارد.',
+  'operations.initialStockCategory':
+    'موجودی اولیه در دوره ساخت فقط برای مواد اولیه، ملزومات، آب و برق، انرژی و قطعات یدکی است.',
+  'operations.indirectStandard':
+    'هزینه غیرمستقیم فقط به‌صورت مبلغ هر دوره وارد می‌شود؛ هزینه استاندارد مخصوص هزینه مستقیم محصول است.',
+  'operations.standardMode': 'روش هزینه استاندارد باید «در ظرفیت اسمی» یا «به ازای هر واحد» باشد.',
+  'operations.negativeCost': 'تعدیل این دوره، هزینه ثابت یا متغیر قلم را منفی می‌کند.',
+  'operations.allocationRequired': 'کلید تسهیم این هزینه غیرمستقیم به محصولات را انتخاب کنید.',
+  'operations.allocationKey': 'کلید تسهیم معتبر نیست.',
+  'operations.allocationShares': 'جمع سهم محصولات در تسهیم باید ۱۰۰ درصد باشد.',
+  'operations.coverageRequired': 'روزهای پوشش این قلم سرمایه در گردش را وارد کنید.',
+  'operations.coverage': 'پوشش را یا بر حسب روز وارد کنید یا بر حسب درصد سال، نه هر دو.',
 
   // Warnings: a value that does not exist or cannot be computed
   'irr.noSignChange': 'جریان نقدی تغییر علامت ندارد؛ نرخ بازده داخلی وجود ندارد.',
@@ -86,6 +117,8 @@ export const ENGINE_MESSAGES_FA = {
   'llcr.noDebt': 'بدهی بلندمدت باقی‌مانده‌ای وجود ندارد؛ نسبت پوشش عمر وام قابل محاسبه نیست.',
   'loan.beyondHorizon': 'بخشی از بازپرداخت تسهیلات بعد از پایان افق طرح است.',
   'loan.notRepaid': 'تسهیلات تا پایان افق طرح تسویه نمی‌شود؛ مانده: {balance}.',
+  'allocation.noBasis':
+    'در دوره {period} مبنای تسهیم قلم «{item}» صفر است؛ هزینه به‌طور مساوی بین محصولات تقسیم شد.',
   'loan.interestAfterHorizon':
     'سود و کارمزد انباشته‌ای ({amount}) بعد از آخرین سررسید پرداخت سود باقی می‌ماند.',
 } as const satisfies Record<string, string>;
