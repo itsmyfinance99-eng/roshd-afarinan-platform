@@ -277,7 +277,8 @@ describe('financialStatements: a fully financed project', () => {
 
   it('computes break-even, debt-service coverage and ratios from the statements', () => {
     // Year 2: margin ratio 0.6; fixed costs 100 + 200, interest 25.
-    expect(value.breakEven.selectedPeriod).toBe(2);
+    expect(value.breakEven.selectedYear).toBe(1);
+    expect(value.breakEven.selected).toEqual(value.breakEven.periods[2]);
     expect(value.breakEven.periods[0]).toBeNull();
     const point = value.breakEven.periods[2]!;
     expect(point.variableMarginRatio).toBe('0.6');
@@ -331,7 +332,7 @@ describe('financialStatements: a fully financed project', () => {
       }),
     );
     expect(result.defaultsUsed).toEqual([]);
-    expect(result.value.breakEven.selectedPeriod).toBe(1);
+    expect(result.value.breakEven.selectedYear).toBe(0);
     // The residual value arrives on the last day of production.
     expect(result.value.totalCapital.salvageColumn).toBe(false);
     expect(result.value.totalCapital.net).toEqual(['-1200', '410', '455', '1100']);
@@ -435,6 +436,39 @@ describe('financialStatements: sale of assets and allowances', () => {
     expect(b.assets.fixedAssets).toEqual(['1200', '900', '700', '500']);
   });
 
+  it('does not depreciate again what a depreciation allowance has written off', () => {
+    const input = base({ allowances: { investment: at({}), depreciation: at({ 1: '700' }) } });
+    const { value } = financialStatements(input);
+    // Book values 1 000, 800 and 600 against allowances of 700: the last 100 of year 3 are
+    // already written off, so only 100 are charged there.
+    expect(value.incomeStatement.depreciation).toEqual(at({ 1: '200', 2: '200', 3: '100' }));
+    const b = balances(input);
+    expect(b.assets.depreciationAllowances).toEqual(['0', '700', '700', '600']);
+    expect(b.assets.fixedAssets).toEqual(['1200', '300', '100', '0']);
+  });
+
+  it('keeps an allowance when the asset is sold, as long as other assets cover it', () => {
+    const input = base({
+      allowances: { investment: at({}), depreciation: at({ 1: '300' }) },
+      assetSales: [{ item: 'machinery', period: 2, proceeds: '700' }],
+    });
+    const { value } = financialStatements(input);
+    // After the sale only the land of 200 is left: 100 of the year's charge are not booked.
+    expect(value.incomeStatement.depreciation).toEqual(at({ 1: '200', 2: '100' }));
+    expect(value.incomeStatement.extraordinaryIncome).toEqual(at({ 2: '100' }));
+    const b = balances(input);
+    expect(b.assets.fixedAssets).toEqual(['1200', '700', '0', '0']);
+    // An allowance that the remaining assets cannot cover is refused where it was entered.
+    fails(
+      base({
+        allowances: { investment: at({}), depreciation: at({ 1: '500' }) },
+        assetSales: [{ item: 'machinery', period: 2, proceeds: '700' }],
+      }),
+      'allowance.exceedsBookValue',
+      'allowances.depreciation[1]',
+    );
+  });
+
   it('carries a loss forward and shows accumulated losses in the balance sheet', () => {
     const input = base({
       allowances: { investment: at({}), depreciation: at({ 1: '400' }) },
@@ -482,6 +516,21 @@ describe('financialStatements: input errors', () => {
       'discounting.equityRate',
     );
     fails(base({ tax: { ...base().tax, brackets: [] } }), 'tax.bracketsRequired', 'tax.brackets');
+    fails(
+      base({
+        discounting: { totalCapitalRate: '0.1', equityRate: '0.1', reference: 'X' as never },
+      }),
+      'statements.option',
+      'discounting.reference',
+    );
+    fails(
+      base({ automaticCashCoverage: 'false' as never }),
+      'statements.option',
+      'automaticCashCoverage',
+    );
+    const twice = base();
+    twice.profitDistribution.shareholders.push(twice.profitDistribution.shareholders[0]!);
+    fails(twice, 'model.duplicateKey', 'profitDistribution.shareholders[1].equity');
   });
 
   it('refuses invalid asset sales and allowances', () => {
@@ -499,7 +548,7 @@ describe('financialStatements: input errors', () => {
         ],
       }),
       'model.duplicateKey',
-      'assetSales[1].key',
+      'assetSales[1].item',
     );
     fails(
       base({ allowances: { investment: at({ 0: '5' }), depreciation: at({}) } }),
@@ -797,6 +846,18 @@ describe('financialStatements: a project with every feature', () => {
     // Quotients are rounded to 34 significant digits, so the two sides agree to the last digits.
     b.assets.total.forEach((total, j) => close(total, b.liabilities.total[j]!));
     expect(b.assets.cashSurplus).toEqual(value.cashFlow.cashBalance);
+    // Net worth is what is left for the shareholders: assets less debts to third parties.
+    b.netWorth.forEach((netWorth, j) =>
+      close(
+        netWorth,
+        toDecimal(b.assets.total[j]!)
+          .minus(b.assets.accumulatedLosses[j]!)
+          .minus(b.assets.exchangeLosses[j]!)
+          .minus(b.liabilities.currentLiabilities[j]!)
+          .minus(b.liabilities.longTermDebt[j]!)
+          .toFixed(),
+      ),
+    );
     // The exchange adjustment of the foreign loan is a balance-sheet line of its own.
     expect(sum(b.assets.exchangeLosses).gt(0)).toBe(true);
     // Capitalised interest and the interest and fees of construction are assets.
@@ -838,6 +899,20 @@ describe('financialStatements: a project with every feature', () => {
     expect(sum(partner.repatriated).toFixed()).toBe(
       sum(partner.preferred).plus(sum(partner.ordinary)).toFixed(),
     );
+  });
+
+  it('analyses the selected break-even year as a whole', () => {
+    const { value } = financialStatements(everything({ referenceYear: 1 }));
+    const s = value.incomeStatement;
+    // The second financial year is the quarter to March 2029 plus the rest of 2029.
+    const revenue = sum([s.salesRevenue[5]!, s.salesRevenue[6]!]);
+    const variable = sum([s.variableCosts[5]!, s.variableCosts[6]!]);
+    const fixed = sum([s.fixedCosts[5]!, s.fixedCosts[6]!, s.depreciation[5]!, s.depreciation[6]!]);
+    expect(value.breakEven.selectedYear).toBe(1);
+    close(value.breakEven.selected.variableMargin, revenue.minus(variable).toFixed());
+    expect(value.breakEven.selected.excludingFinance.fixedCosts).toBe(fixed.toFixed());
+    // The depreciation of the year is booked in the period of the balance date only.
+    expect(s.depreciation[5]).toBe('0');
   });
 
   it('keeps subsidies out of the equity outflow and refuses dividends on them', () => {

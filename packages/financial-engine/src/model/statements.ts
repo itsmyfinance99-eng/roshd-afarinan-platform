@@ -213,7 +213,7 @@ export interface BalanceSheet {
     exchangeGains: DecimalString[];
     total: DecimalString[];
   };
-  /** Total equity plus cumulative retained profit (negative for accumulated losses). */
+  /** Total equity plus cumulative retained profit, less exchange losses (plus gains). */
   netWorth: DecimalString[];
 }
 
@@ -259,8 +259,11 @@ export interface FinancialStatements {
     npvRatio?: NpvRatioValue;
   };
   equity: DiscountedCashFlow;
-  /** Break-even of every production period (null in construction) and the selected period. */
-  breakEven: { periods: (BreakEvenValue | null)[]; selectedPeriod: number };
+  /**
+   * Break-even of every production period (null in construction), and of the selected financial
+   * year of production as a whole (the reference year unless the user chooses another).
+   */
+  breakEven: { periods: (BreakEvenValue | null)[]; selectedYear: number; selected: BreakEvenValue };
   debtService: DebtServiceCoverageValue | null;
   /** Ratios per period; null when a ratio cannot be computed. */
   ratios: {
@@ -360,6 +363,20 @@ export function financialStatements(
   if (timing !== 'YEAR_AFTER_PRODUCTION' && timing !== 'END_OF_PRODUCTION') {
     throw new EngineInputError('statements.residualValueTiming', 'residualValueTiming');
   }
+  const reference = input.discounting.reference;
+  if (
+    reference !== undefined &&
+    reference !== 'START_OF_FIRST_PERIOD' &&
+    reference !== 'END_OF_FIRST_YEAR'
+  ) {
+    throw new EngineInputError('statements.option', 'discounting.reference');
+  }
+  if (
+    input.automaticCashCoverage !== undefined &&
+    typeof input.automaticCashCoverage !== 'boolean'
+  ) {
+    throw new EngineInputError('statements.option', 'automaticCashCoverage');
+  }
   const totalCapitalRates = discountRates(
     input.discounting.totalCapitalRate,
     length,
@@ -404,13 +421,11 @@ export function financialStatements(
   uniqueKeys(
     sales.map((s) => s.item),
     'assetSales',
+    'item',
   );
   const proceeds = [...zeros];
   const extraordinary = [...zeros];
-  let depreciation = add(
-    row(investment.depreciation.total, 'investment.depreciation.total'),
-    row(financing.interestDepreciation, 'financing.interestDepreciation'),
-  );
+  let assetDepreciation = row(investment.depreciation.total, 'investment.depreciation.total');
   let fixedBook = row(investment.bookValue.fixed, 'investment.bookValue.fixed');
   let preProductionBook = row(investment.bookValue.preProduction, 'investment.bookValue');
   sales.forEach((sale, i) => {
@@ -440,7 +455,7 @@ export function financialStatements(
     extraordinary[sale.period] = at(extraordinary, sale.period)
       .plus(price)
       .minus(at(book, sale.period));
-    depreciation = minus(depreciation, after(charge));
+    assetDepreciation = minus(assetDepreciation, after(charge));
     if (item.group === 'PRE_PRODUCTION') preProductionBook = minus(preProductionBook, gone);
     else fixedBook = minus(fixedBook, gone);
   });
@@ -454,14 +469,38 @@ export function financialStatements(
     input.allowances?.depreciation ?? none,
     'allowances.depreciation',
   );
-  const allowancesToDate = cumulative(depreciationAllowance);
+  // Depreciation allowances (XI.R) write assets off early: what they have written off is not
+  // depreciated again. The ordinary charge of a period is reduced as far as the book value of
+  // fixed investment and pre-production expenditures would otherwise fall below the allowances
+  // granted; an allowance beyond what is left to write off is refused.
+  const granted = cumulative(depreciationAllowance);
+  const replaced = [...zeros];
+  let replacedToDate = ZERO;
+  let lastAllowance = 0;
+  const allowancesToDate = granted.map((allowance, j) => {
+    if (!at(depreciationAllowance, j).isZero()) lastAllowance = j;
+    const short = allowance
+      .minus(at(fixedBook, j))
+      .minus(at(preProductionBook, j))
+      .minus(replacedToDate);
+    if (short.gt(0)) {
+      if (short.gt(at(assetDepreciation, j))) {
+        throw new EngineInputError(
+          'allowance.exceedsBookValue',
+          `allowances.depreciation[${lastAllowance}]`,
+        );
+      }
+      replaced[j] = short;
+      replacedToDate = replacedToDate.plus(short);
+    }
+    return allowance.minus(replacedToDate);
+  });
+  const depreciation = add(
+    minus(assetDepreciation, replaced),
+    row(financing.interestDepreciation, 'financing.interestDepreciation'),
+  );
   const interestBook = row(financing.interestBookValue, 'financing.interestBookValue');
   const fixedAssets = minus(add(fixedBook, preProductionBook, interestBook), allowancesToDate);
-  minus(add(fixedBook, preProductionBook), allowancesToDate).forEach((v, j) => {
-    if (v.isNegative()) {
-      throw new EngineInputError('allowance.exceedsBookValue', `allowances.depreciation[${j}]`);
-    }
-  });
 
   // Net income statement (X.C.6). Interest and fees that are pre-production expenditures
   // (capitalised, or paid in construction) are assets, not costs of the period.
@@ -506,6 +545,7 @@ export function financialStatements(
   uniqueKeys(
     distribution.shareholders.map((s) => s.equity),
     'profitDistribution.shareholders',
+    'equity',
   );
   const shareholders = distribution.shareholders.map((s, i) => {
     const field = `profitDistribution.shareholders[${i}]`;
@@ -649,7 +689,7 @@ export function financialStatements(
     positive(retainedToDate),
     negative(exchangeToDate),
   );
-  const netWorth = add(totalEquity, retainedToDate);
+  const netWorth = minus(add(totalEquity, retainedToDate), exchangeToDate);
 
   // Discounted cash flows (XI.F). Residual values return in the year after production (COMFAR
   // default) or on the last day of production.
@@ -659,12 +699,12 @@ export function financialStatements(
   const salvageColumn = timing === 'YEAR_AFTER_PRODUCTION';
   const last = length - 1;
   const workingCapitalIncrease = minus(currentAssetsIncrease, payablesIncrease);
+  const liquidation = toDecimal(wc.liquidation);
   const residualTotalCapital = at(fixedAssets, last)
     .minus(at(interestBook, last))
-    .plus(wc.liquidation);
-  const residualEquity = at(fixedAssets, last).plus(wc.liquidation).minus(at(debt, last));
+    .plus(liquidation);
+  const residualEquity = at(fixedAssets, last).plus(liquidation).minus(at(debt, last));
   const months = periods.map((p) => p.months);
-  const reference = input.discounting.reference;
   const flow = (
     basis: 'totalCapital' | 'equity',
     inflows: Row,
@@ -765,19 +805,39 @@ export function financialStatements(
   if (input.breakEvenYear === undefined) {
     defaultsUsed.push({ key: 'breakEven.period', value: String(input.referenceYear + 1) });
   }
+  const breakEvenOf = (rows: [Row, Row, Row, Row], k: number, field: string) =>
+    withField(field, () =>
+      breakEven({
+        salesRevenue: toDecimalString(at(rows[0], k)),
+        variableCosts: toDecimalString(at(rows[1], k)),
+        fixedCosts: toDecimalString(at(rows[2], k)),
+        financialCosts: toDecimalString(at(rows[3], k)),
+      }),
+    );
+  const breakEvenRows: [Row, Row, Row, Row] = [
+    revenue,
+    variableCosts,
+    add(fixedCosts, depreciation),
+    financialCosts,
+  ];
   const breakEvenPeriods = periods.map((_, j) =>
-    production[j] === true
-      ? breakEven({
-          salesRevenue: toDecimalString(at(revenue, j)),
-          variableCosts: toDecimalString(at(variableCosts, j)),
-          fixedCosts: toDecimalString(at(fixedCosts, j).plus(at(depreciation, j))),
-          financialCosts: toDecimalString(at(financialCosts, j)),
-        })
-      : null,
+    production[j] === true ? breakEvenOf(breakEvenRows, j, `breakEven[${j}]`).value : null,
   );
-  const selectedPeriod = balancePeriod(input.breakEvenYear ?? input.referenceYear);
-  for (const w of breakEvenPeriods[selectedPeriod]?.warnings ?? []) {
-    warnings.push({ ...w, params: { ...w.params, period: String(selectedPeriod + 1) } });
+  // The selected year is analysed as a whole: yearly amounts such as depreciation are booked in
+  // one period of the year, so a single start-up period would not be comparable.
+  const selectedYear = input.breakEvenYear ?? input.referenceYear;
+  const selected = breakEvenOf(
+    [
+      yearly(breakEvenRows[0]),
+      yearly(breakEvenRows[1]),
+      yearly(breakEvenRows[2]),
+      yearly(breakEvenRows[3]),
+    ],
+    selectedYear,
+    'breakEven',
+  );
+  for (const w of selected.warnings) {
+    warnings.push({ ...w, params: { ...w.params, year: String(selectedYear + 1) } });
   }
 
   // Long-term debt-service coverage (X.C.7).
@@ -905,7 +965,7 @@ export function financialStatements(
       ...(npvr.value === undefined ? {} : { npvRatio: npvr.value }),
     },
     equity: equity.result,
-    breakEven: { periods: breakEvenPeriods.map((b) => b?.value ?? null), selectedPeriod },
+    breakEven: { periods: breakEvenPeriods, selectedYear, selected: selected.value },
     debtService,
     ratios: {
       netProfitToSales: perPeriod(netProfit, revenue),

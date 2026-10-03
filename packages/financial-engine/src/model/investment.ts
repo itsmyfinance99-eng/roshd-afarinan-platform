@@ -101,10 +101,12 @@ export function checkOrigin(origin: string, field: string): void {
 }
 
 /** Rejects a key used twice, so every schedule line can be traced to one input. */
-export function uniqueKeys(keys: string[], field: string): void {
+export function uniqueKeys(keys: string[], field: string, property = 'key'): void {
   const seen = new Set<string>();
   keys.forEach((key, i) => {
-    if (seen.has(key)) throw new EngineInputError('model.duplicateKey', `${field}[${i}].key`);
+    if (seen.has(key)) {
+      throw new EngineInputError('model.duplicateKey', `${field}[${i}].${property}`);
+    }
     seen.add(key);
   });
 }

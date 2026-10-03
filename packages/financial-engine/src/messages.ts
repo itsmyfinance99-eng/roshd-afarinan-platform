@@ -95,6 +95,7 @@ export const ENGINE_MESSAGES_FA = {
   'tax.bracketsRequired': 'دست‌کم یک پله مالیاتی با نرخ آن وارد کنید.',
   'tax.bracketLimits': 'حد پایین پله اول باید صفر باشد و حد پایین پله‌های بعد به ترتیب صعودی.',
   'statements.productionOnly': 'این مقدار فقط در دوره‌های بهره‌برداری وارد می‌شود.',
+  'statements.option': 'مقدار این گزینه معتبر نیست.',
   'statements.residualValueTiming':
     'زمان بازگشت ارزش اسقاط باید «سال پس از پایان تولید» یا «پایان تولید» باشد.',
   'assetSale.unknownItem': 'این قلم سرمایه‌گذاری تعریف نشده است.',
@@ -102,7 +103,7 @@ export const ENGINE_MESSAGES_FA = {
     'فروش دارایی باید در یک دوره بهره‌برداری باشد که به تاریخ ترازنامه ختم می‌شود.',
   'assetSale.acquisitionAfterSale': 'برای این قلم بعد از تاریخ فروش، خرید تازه‌ای وارد شده است.',
   'allowance.exceedsBookValue':
-    'جمع معافیت استهلاک تا این دوره از ارزش دفتری دارایی‌های ثابت بیشتر است.',
+    'جمع معافیت استهلاک از ارزش دفتری باقی‌مانده دارایی‌های ثابت بیشتر است.',
   'dividends.unknownEquity': 'این آورده در منابع تأمین مالی تعریف نشده است.',
   'dividends.subsidy': 'به یارانه و کمک بلاعوض سود سهام تعلق نمی‌گیرد.',
   'dividends.ordinaryShares':
