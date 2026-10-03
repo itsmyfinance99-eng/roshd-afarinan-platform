@@ -4,7 +4,7 @@ import { priceEscalationFactors } from '../indexation';
 import type { CurrencyCode } from '../types';
 import { withField } from './asset-depreciation';
 import type { PlanningHorizon } from './horizon';
-import { ratesFor } from './investment';
+import { ratesFor } from './rates';
 
 /**
  * Current prices in project periods (manual VII.K, XI.C; comfar-model-spec §2.1, §4.5): an entered

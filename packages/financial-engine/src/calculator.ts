@@ -26,6 +26,8 @@ import { financingSchedule } from './model/financing';
 import { planHorizon } from './model/horizon';
 import { investmentSchedule } from './model/investment';
 import { operationsSchedule } from './model/operations';
+import { financialStatements } from './model/statements';
+import { incomeTax } from './model/tax';
 import { npv } from './time-value';
 import type { FinancialCalculator } from './types';
 import { MODEL_VERSION } from './version';
@@ -62,4 +64,6 @@ export const financialCalculator: FinancialCalculator = {
   investmentSchedule,
   financingSchedule,
   operationsSchedule,
+  incomeTax,
+  financialStatements,
 };

@@ -92,6 +92,23 @@ export const ENGINE_MESSAGES_FA = {
   'operations.coverageRequired': 'روزهای پوشش این قلم سرمایه در گردش را وارد کنید.',
   'operations.coverage': 'پوشش را یا بر حسب روز وارد کنید یا بر حسب درصد سال، نه هر دو.',
 
+  'tax.bracketsRequired': 'دست‌کم یک پله مالیاتی با نرخ آن وارد کنید.',
+  'tax.bracketLimits': 'حد پایین پله اول باید صفر باشد و حد پایین پله‌های بعد به ترتیب صعودی.',
+  'statements.productionOnly': 'این مقدار فقط در دوره‌های بهره‌برداری وارد می‌شود.',
+  'statements.option': 'مقدار این گزینه معتبر نیست.',
+  'statements.residualValueTiming':
+    'زمان بازگشت ارزش اسقاط باید «سال پس از پایان تولید» یا «پایان تولید» باشد.',
+  'assetSale.unknownItem': 'این قلم سرمایه‌گذاری تعریف نشده است.',
+  'assetSale.period':
+    'فروش دارایی باید در یک دوره بهره‌برداری باشد که به تاریخ ترازنامه ختم می‌شود.',
+  'assetSale.acquisitionAfterSale': 'برای این قلم بعد از تاریخ فروش، خرید تازه‌ای وارد شده است.',
+  'allowance.exceedsBookValue':
+    'جمع معافیت استهلاک از ارزش دفتری باقی‌مانده دارایی‌های ثابت بیشتر است.',
+  'dividends.unknownEquity': 'این آورده در منابع تأمین مالی تعریف نشده است.',
+  'dividends.subsidy': 'به یارانه و کمک بلاعوض سود سهام تعلق نمی‌گیرد.',
+  'dividends.ordinaryShares':
+    'در سال {year} بهره‌برداری، جمع سهم سهامداران از سود قابل تقسیم باید ۱۰۰ درصد باشد.',
+
   // Warnings: a value that does not exist or cannot be computed
   'irr.noSignChange': 'جریان نقدی تغییر علامت ندارد؛ نرخ بازده داخلی وجود ندارد.',
   'irr.notFound': 'نرخ بازده داخلی بین منفی ۹۹ درصد و ۱۰۰۰ درصد پیدا نشد.',
@@ -121,6 +138,10 @@ export const ENGINE_MESSAGES_FA = {
     'در دوره {period} مبنای تسهیم قلم «{item}» صفر است؛ هزینه به‌طور مساوی بین محصولات تقسیم شد.',
   'loan.interestAfterHorizon':
     'سود و کارمزد انباشته‌ای ({amount}) بعد از آخرین سررسید پرداخت سود باقی می‌ماند.',
+  'cash.underFinanced':
+    'طرح در دوره‌های {periods} کسری نقد دارد و تأمین مالی آن کافی نیست؛ کسری با آورده خودکار (دوره ساخت) یا اضافه‌برداشت خودکار بدون بهره (دوره بهره‌برداری) پوشش داده شد.',
+  'cash.deficit':
+    'طرح در دوره‌های {periods} کسری نقد دارد و تأمین مالی آن کافی نیست؛ پوشش خودکار خاموش است و مانده نقد منفی نشان داده می‌شود.',
 } as const satisfies Record<string, string>;
 
 export type EngineMessageCode = keyof typeof ENGINE_MESSAGES_FA;

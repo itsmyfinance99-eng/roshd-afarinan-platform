@@ -258,3 +258,47 @@ describe('investmentSchedule', () => {
     expect(clean(value.bookValue.total)).toEqual(zeros(7));
   });
 });
+
+describe('investmentSchedule at current prices', () => {
+  const item: InvestmentItem = {
+    key: 'machinery',
+    group: 'MACHINERY',
+    currency: 'IRR',
+    origin: 'LOCAL',
+    amounts: at(7, { 0: '1000', 1: '1000', 3: '5000' }),
+    escalation: '0',
+    firstYearEscalator: 0,
+  };
+  // Six project years: the construction half-years of 2027, then 2028–2032.
+  const inflation = { IRR: ['0.1', '0.1', '0.1', '0.1', '0.1', '0.1'] };
+  const input = { horizon: yearly, localCurrency: 'IRR', exchangeRates: {}, inflation };
+
+  it('inflates acquisitions entered at the prices of the start of the horizon', () => {
+    const { value } = investmentSchedule({ ...input, items: [item] });
+    // 1.1 in the first year and 1.1³ in the third.
+    expect(value.fixedInvestment).toEqual(at(7, { 0: '1100', 1: '1100', 3: '6655' }));
+  });
+
+  it('adds the escalation of the item to the inflation of its currency', () => {
+    const { value } = investmentSchedule({
+      ...input,
+      items: [{ ...item, escalation: '0.05', firstYearEscalator: 1 }],
+    });
+    // 1 + 0.1 + 0.05 in the first year, × 1.15² by the third.
+    expect(value.fixedInvestment).toEqual(at(7, { 0: '1150', 1: '1150', 3: '7604.375' }));
+  });
+
+  it('requires the escalation and the inflation of the currency when inflation is on', () => {
+    const { escalation: _, ...bare } = item;
+    expect(() => investmentSchedule({ ...input, items: [bare] })).toThrowError(
+      new EngineInputError('operations.escalationRequired', 'items[0].escalation'),
+    );
+    expect(() =>
+      investmentSchedule({ ...input, inflation: { USD: inflation.IRR }, items: [item] }),
+    ).toThrowError(
+      new EngineInputError('operations.inflationMissing', 'items[0].currency', {
+        currency: 'IRR',
+      }),
+    );
+  });
+});
