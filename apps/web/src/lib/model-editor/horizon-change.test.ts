@@ -164,10 +164,8 @@ describe('a change of the horizon', () => {
     expect(droppedPeriods(frame(), quarters)).toBe(1);
   });
 
-  it('adds a start-up phase without moving the production years', () => {
+  it('replaces the first production year by a start-up phase and leaves the later years', () => {
     const next = frame({ startup: { periods: 2, periodMonths: 6 } });
-    const result = resizeDraft(draft(), next, frame());
-    const quantities = getIn(result, ['operations', 'products', 0, 'sales', 0, 'quantities']);
     expect(next.periods.map((p) => p.phase)).toEqual([
       'CONSTRUCTION',
       'STARTUP',
@@ -175,7 +173,63 @@ describe('a change of the horizon', () => {
       'PRODUCTION',
       'PRODUCTION',
     ]);
-    expect(quantities).toEqual(['0', '0', '0', '100', '200']);
+    // The half-years are new; 1408 and 1409 keep their own values.
+    expect(periodMap(frame(), next)).toEqual([0, -1, -1, 2, 3]);
+    expect(droppedPeriods(frame(), next)).toBe(1);
+    const result = resizeDraft(draft(), next, frame());
+    expect(getIn(result, ['operations', 'products', 0, 'sales', 0, 'quantities'])).toEqual([
+      '0',
+      '0',
+      '0',
+      '200',
+      '300',
+    ]);
+    expect(getIn(result, ['exchangeRates', 'USD'])).toEqual(['600', '', '', '620', '630']);
+    // Depreciation started on the first day of production: it still does.
+    expect(getIn(result, ['investment', 'items', 0, 'depreciation', 'startPeriod'])).toBe(1);
+    // The loan's started with 1408, the production interval ran from the start to the end of 1409.
+    expect(getIn(result, ['financing', 'loans', 0, 'depreciation', 'startPeriod'])).toBe(3);
+    expect(getIn(result, ['operations', 'products', 0, 'production'])).toEqual({
+      firstPeriod: 1,
+      lastPeriod: 4,
+    });
+    // The sale at the end of 1409 stays at the end of 1409.
+    expect(getIn(result, ['statements', 'assetSales', 0, 'period'])).toBe(4);
+  });
+
+  it('gives the first year back when the start-up phase is removed', () => {
+    const withStartup = frame({ startup: { periods: 4, periodMonths: 3 } });
+    const entered: Draft = {
+      horizon: horizon({ startup: { periods: 4, periodMonths: 3 } }),
+      exchangeRates: { USD: ['1', '2', '3', '4', '5', '6', '7'] },
+      investment: {
+        items: [
+          {
+            key: 'a',
+            amounts: ['9', '0', '0', '0', '0', '0', '0'],
+            depreciation: { startPeriod: 3 },
+          },
+        ],
+      },
+    };
+    const result = resizeDraft(entered, frame(), withStartup);
+    // The quarters are gone; the year that replaces them is asked, the later years keep theirs.
+    expect(getIn(result, ['exchangeRates', 'USD'])).toEqual(['1', '', '6', '7']);
+    expect(droppedPeriods(withStartup, frame())).toBe(4);
+    // Depreciation started with the third quarter: no period begins there any more.
+    expect(
+      getIn(result, ['investment', 'items', 0, 'depreciation', 'startPeriod']),
+    ).toBeUndefined();
+  });
+
+  it('keeps no production value when the financial year moves', () => {
+    const june = frame({ balanceMonth: 6 });
+    // Production starts in month 13; its first year is now six months long.
+    expect(june.periods[1]?.months).toBe(6);
+    const map = periodMap(frame(), june);
+    expect(map[0]).toBe(0);
+    expect(map.slice(1).every((from) => from === -1)).toBe(true);
+    expect(droppedPeriods(frame(), june)).toBe(3);
   });
 
   it('changes nothing when the same horizon is applied', () => {
@@ -231,6 +285,15 @@ describe('currencies', () => {
     expect(getIn(result, ['notes'])).toEqual({ 'inflation.IRT': { source: 'بانک مرکزی' } });
     expect(currencyUses(result, 'USD')).toBe(2);
     expect(currencyUses(result, 'IRR')).toBe(0);
+  });
+
+  it('keeps the items of the local currency when its code is cleared and typed again', () => {
+    const cleared = setLocalCurrency(draft(), '', frame());
+    expect(getIn(cleared, ['financing', 'equity', 0, 'currency'])).toBe('');
+    const typed = setLocalCurrency(cleared, 'IRT', frame());
+    expect(getIn(typed, ['financing', 'equity', 0, 'currency'])).toBe('IRT');
+    expect(getIn(typed, ['operations', 'costs', 1, 'currency'])).toBe('IRT');
+    expect(getIn(typed, ['investment', 'items', 0, 'currency'])).toBe('USD');
   });
 
   it('keeps the escalation of prices when inflation is turned off', () => {

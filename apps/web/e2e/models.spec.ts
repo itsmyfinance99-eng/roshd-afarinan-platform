@@ -457,28 +457,48 @@ test.describe('financial model editor', () => {
 
   test('recognises its own save when the answer was lost', async ({ page }) => {
     await signIn(page);
-    let stored: Record<string, unknown> | undefined;
+    let stored: { title: string; inputs: unknown } | undefined;
+    let serverVersion = 3;
+    const versions: number[] = [];
     await page.route('**/api/v1/financial-models/m1', async (route) => {
-      if (route.request().method() === 'PUT') {
-        // The server stores the save, but the editor never sees the answer.
-        if (!stored) {
-          stored = route.request().postDataJSON() as Record<string, unknown>;
-          return route.fulfill({
-            status: 409,
-            contentType: 'application/json',
-            body: JSON.stringify({
-              error: { code: 'CONFLICT', message: 'نسخه تازه‌تری وجود دارد.' },
-            }),
-          });
-        }
-        return json(route, { ...model(), ...stored, version: 5 });
+      if (route.request().method() !== 'PUT') {
+        return json(route, { ...model(), ...stored, version: serverVersion });
       }
-      return json(route, stored ? { ...model(), ...stored, version: 4 } : model());
+      const body = route.request().postDataJSON() as {
+        title: string;
+        inputs: unknown;
+        version: number;
+      };
+      versions.push(body.version);
+      if (!stored) {
+        // The server stores the save, but the connection drops before the answer.
+        stored = { title: body.title, inputs: body.inputs };
+        serverVersion = 4;
+        return route.abort('connectionreset');
+      }
+      if (body.version !== serverVersion) {
+        return route.fulfill({
+          status: 409,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            error: { code: 'CONFLICT', message: 'نسخه تازه‌تری وجود دارد.' },
+          }),
+        });
+      }
+      stored = { title: body.title, inputs: body.inputs };
+      serverVersion += 1;
+      return json(route, { ...model(), ...stored, version: serverVersion });
     });
     await page.goto('/dashboard/models/m1');
-    await page.getByLabel('عنوان مدل').fill('طرح میلگرد ۲');
+    const title = page.getByLabel('عنوان مدل');
+    await title.fill('طرح میلگرد ۲');
+    await expect(page.getByText(/ذخیره نشد:/)).toBeVisible();
+    // The user goes on typing; the next save meets the version of the save that got no answer.
+    await title.fill('طرح میلگرد ۲۳');
     await expect(page.getByText('همه تغییرها ذخیره شد.')).toBeVisible();
     await expect(page.getByText(/این مدل در جای دیگری تغییر کرده است/)).toHaveCount(0);
+    expect(stored?.title).toBe('طرح میلگرد ۲۳');
+    expect(versions).toEqual([3, 3, 4]);
   });
 
   test('has no serious accessibility violations in any section', async ({ page }) => {

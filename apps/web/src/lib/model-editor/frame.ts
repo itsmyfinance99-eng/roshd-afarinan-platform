@@ -23,8 +23,19 @@ export interface Column {
   group: string;
 }
 
+export interface FramePeriod extends Column {
+  phase: Phase;
+  balanceDate: boolean;
+  months: number;
+  /**
+   * Months from the start of its part of the project to the first day of the period: from the
+   * start of construction for a construction period, from the start of production otherwise.
+   */
+  from: number;
+}
+
 export interface Frame {
-  periods: (Column & { phase: Phase; balanceDate: boolean; months: number })[];
+  periods: FramePeriod[];
   /** Years ending on balance dates, from the start of the horizon (the first may be partial). */
   projectYears: Column[];
   /** Financial years of production. */
@@ -63,6 +74,7 @@ export function frameOfHorizon(value: unknown): Frame | null {
       phase: p.phase,
       balanceDate: p.balanceDate,
       months: p.months,
+      from: p.phase === 'CONSTRUCTION' ? p.startMonth : p.startMonth - horizon.productionStartMonth,
     })),
     projectYears,
     productionYears: horizon.balanceYears.map((y) => ({
@@ -85,29 +97,23 @@ export function fit(series: unknown, length: number, pad: string): string[] {
   });
 }
 
-const PHASES: readonly Phase[] = ['CONSTRUCTION', 'STARTUP', 'PRODUCTION'];
+/** Construction periods are compared with construction periods, operating ones with operating. */
+const part = (period: FramePeriod) => (period.phase === 'CONSTRUCTION' ? 'C' : 'O');
+const spanKey = (p: FramePeriod) => `${part(p)}:${p.from}:${p.months}`;
+const startKey = (p: FramePeriod) => `${part(p)}:${p.from}`;
+const endKey = (p: FramePeriod) => `${part(p)}:${p.from + p.months}`;
 
 /**
  * For every period of `next`, the period of `previous` whose values it keeps, or -1 for a new
- * one. Periods are matched inside their phase, from its start: a construction period added or
- * removed never moves the values of the production years. A construction or start-up phase whose
- * period length changed (say from years to quarters) keeps nothing — its old values would mean
- * something else.
+ * one. A period keeps values only of a period that covers the same time: the same months counted
+ * from the start of construction (construction periods) or from the start of production (start-up
+ * and production periods). So a longer construction phase moves the whole production programme
+ * with the start of production, while a start-up phase added in the first year replaces that year
+ * — its quarters are new and the later years stay where they are.
  */
 export function periodMap(previous: Frame, next: Frame): number[] {
-  const map = next.periods.map(() => -1);
-  for (const phase of PHASES) {
-    const before = previous.periods.flatMap((p, i) => (p.phase === phase ? [i] : []));
-    const after = next.periods.flatMap((p, i) => (p.phase === phase ? [i] : []));
-    const sameLength =
-      phase === 'PRODUCTION' ||
-      previous.periods[before[0] ?? -1]?.months === next.periods[after[0] ?? -1]?.months;
-    if (!sameLength) continue;
-    after.forEach((index, k) => {
-      map[index] = before[k] ?? -1;
-    });
-  }
-  return map;
+  const before = new Map(previous.periods.map((p, i) => [spanKey(p), i]));
+  return next.periods.map((p) => before.get(spanKey(p)) ?? -1);
 }
 
 /** Number of periods of `previous` whose values `next` does not keep. */
@@ -123,9 +129,10 @@ const sameSeries = (a: unknown, b: string[]) =>
  * flow); rates and prices are left empty, because the model has no defaults — the user is asked
  * for them. Values of removed periods are dropped.
  *
- * With `previous` (the frame the values were entered for) they follow their periods phase by
- * phase (`periodMap`), and the inputs that name a period or a production year move with them, or
- * are removed when that period no longer exists. Without it the series are only cut or padded at
+ * With `previous` (the frame the values were entered for) they follow the periods that cover
+ * the same time (`periodMap`), and the inputs that name a period move with its first or last day,
+ * or are removed when no period begins or ends there any more. Series per project year and per
+ * production year keep their order. Without it the series are only cut or padded at
  * the end — used for a stored draft whose lengths do not fit its own horizon.
  */
 export function resizeDraft(draft: Draft, frame: Frame, previous?: Frame | null): Draft {
@@ -161,13 +168,16 @@ export function resizeDraft(draft: Draft, frame: Frame, previous?: Frame | null)
   const each = (path: Path, visit: (item: Path) => void) =>
     listAt(next, path).forEach((_, i) => visit([...path, i]));
 
-  // Inputs that name a period follow it; one whose period is gone is asked again.
-  const moved = new Map(map.flatMap((from, to) => (from < 0 ? [] : [[from, to] as const])));
-  const periodIndex = (path: Path) => {
+  // Inputs that name a period follow its first day (a start) or its last day (an end) to the
+  // period of the new frame that begins or ends at the same time; otherwise they are asked again.
+  const starts = new Map(frame.periods.map((p, i) => [startKey(p), i]));
+  const ends = new Map(frame.periods.map((p, i) => [endKey(p), i]));
+  const periodIndex = (path: Path, edge: 'start' | 'end') => {
     const value = getIn(next, path);
-    if (previous && typeof value === 'number' && moved.get(value) !== value) {
-      next = setIn(next, path, moved.get(value));
-    }
+    if (!previous || typeof value !== 'number') return;
+    const old = previous.periods[value];
+    const moved = old && (edge === 'start' ? starts.get(startKey(old)) : ends.get(endKey(old)));
+    if (moved !== value) next = setIn(next, path, moved);
   };
   const productionYear = (path: Path) => {
     const value = getIn(next, path);
@@ -183,13 +193,15 @@ export function resizeDraft(draft: Draft, frame: Frame, previous?: Frame | null)
   each(['investment', 'items'], (item) => {
     periodSeries([...item, 'amounts'], '0');
     optionalYears([...item, 'escalation'], years);
-    periodIndex([...item, 'depreciation', 'startPeriod']);
+    periodIndex([...item, 'depreciation', 'startPeriod'], 'start');
   });
   each(['financing', 'equity'], (item) => periodSeries([...item, 'amounts'], '0'));
-  each(['financing', 'loans'], (loan) => periodIndex([...loan, 'depreciation', 'startPeriod']));
+  each(['financing', 'loans'], (loan) =>
+    periodIndex([...loan, 'depreciation', 'startPeriod'], 'start'),
+  );
   each(['operations', 'products'], (product) => {
-    periodIndex([...product, 'production', 'firstPeriod']);
-    periodIndex([...product, 'production', 'lastPeriod']);
+    periodIndex([...product, 'production', 'firstPeriod'], 'start');
+    periodIndex([...product, 'production', 'lastPeriod'], 'end');
     each([...product, 'sales'], (line) => {
       periodSeries([...line, 'quantities'], '0', false);
       periodSeries([...line, 'capacityShares'], '0', false);
@@ -208,7 +220,7 @@ export function resizeDraft(draft: Draft, frame: Frame, previous?: Frame | null)
   const statements: Path = ['statements'];
   periodSeries([...statements, 'allowances', 'investment'], '0', false);
   periodSeries([...statements, 'allowances', 'depreciation'], '0', false);
-  each([...statements, 'assetSales'], (sale) => periodIndex([...sale, 'period']));
+  each([...statements, 'assetSales'], (sale) => periodIndex([...sale, 'period'], 'end'));
   optionalPeriods([...statements, 'discounting', 'totalCapitalRate']);
   optionalPeriods([...statements, 'discounting', 'equityRate']);
   optionalYears([...statements, 'profitDistribution', 'retainedShare'], production);

@@ -86,6 +86,8 @@ export function ModelEditor({
   const blocked = useRef(false);
   /** The last valid title: the inputs are saved with it while the typed one is not valid. */
   const goodTitle = useRef(model.title);
+  /** A save that failed without an answer: the server may or may not have stored it. */
+  const unanswered = useRef<{ title: string; inputs: string } | null>(null);
   useEffect(() => {
     latest.current = { title, draft, revision };
   });
@@ -121,20 +123,36 @@ export function ModelEditor({
         body: { title: name, inputs: snapshot.draft, version: version.current },
       })
         .then(async (result) => {
-          if (result.ok) return accept(result.data.version);
+          if (result.ok) {
+            unanswered.current = null;
+            return accept(result.data.version);
+          }
           if (result.status !== 409) {
+            // No answer, or a server error: the save may have been stored all the same.
+            if (result.status === 0 || result.status >= 500) {
+              unanswered.current = { title: name, inputs: canonical(snapshot.draft) };
+            }
             setFailure({ kind: 'error', message: result.message });
             return false;
           }
-          // A save whose answer was lost looks like a conflict: when the server holds exactly
-          // what was sent, it was this editor's own save.
+          // A save whose answer was lost looks like a conflict. When the server holds exactly
+          // what this editor sent — now, or in the save that got no answer — nobody else changed
+          // the model: the editor takes the server's version and goes on.
           const server = await apiFetch<FinancialModelDetail>(url);
-          if (
-            server.ok &&
-            server.data.title === name &&
-            canonical(server.data.inputs) === canonical(snapshot.draft)
-          ) {
-            return accept(server.data.version);
+          if (server.ok) {
+            const held = canonical(server.data.inputs);
+            if (server.data.title === name && held === canonical(snapshot.draft)) {
+              unanswered.current = null;
+              return accept(server.data.version);
+            }
+            const lost = unanswered.current;
+            if (lost && server.data.title === lost.title && held === lost.inputs) {
+              unanswered.current = null;
+              version.current = server.data.version;
+              setFailure(null);
+              // Not stored yet: the loop sends the current state on top of that version.
+              return true;
+            }
           }
           blocked.current = true;
           setFailure({ kind: 'conflict' });

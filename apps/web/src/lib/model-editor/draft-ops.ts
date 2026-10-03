@@ -229,9 +229,8 @@ export function setLocalCurrency(draft: Draft, code: string, frame: Frame | null
   const old = textAt(draft, ['localCurrency']);
   let next = setIn(draft, ['localCurrency'], code);
   if (old === code) return next;
-  if (old !== '') {
-    next = mapPriced(next, (item) => (item.currency === old ? { ...item, currency: code } : item));
-  }
+  // Also from an empty code, so that clearing the code and typing another keeps the items.
+  next = mapPriced(next, (item) => (item.currency === old ? { ...item, currency: code } : item));
   const note = getIn(next, ['notes', `inflation.${old}`]);
   if (note !== undefined) {
     next = setIn(next, ['notes', `inflation.${old}`], undefined);

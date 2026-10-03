@@ -53,15 +53,17 @@ function indicators(flow: DiscountedCashFlow): Indicators {
 
 function warningText(warning: CalculationWarning): string {
   const text = engineMessageFa(warning.code, warning.params);
-  const basis = BASIS_FA[warning.params?.basis ?? ''];
-  return basis === undefined ? text : `${basis}: ${text}`;
+  const basis = warning.params?.basis ?? '';
+  return Object.hasOwn(BASIS_FA, basis) ? `${BASIS_FA[basis]}: ${text}` : text;
 }
 
 function defaultText(used: DefaultUsed): string {
   const label = ENGINE_DEFAULT_LABELS_FA[used.key] ?? used.key;
   if (used.item === undefined) return label;
   // The item is a basis of the discounted cash flows or the name of an input (a loan).
-  return `${label} (${BASIS_FA[used.item] ?? `«${used.item}»`})`;
+  // (a loan may be named anything, also «equity»: only the conventions of the flows have a basis)
+  const basis = used.key !== 'loan.firstRepaymentDate' && Object.hasOwn(BASIS_FA, used.item);
+  return `${label} (${basis ? BASIS_FA[used.item] : `«${used.item}»`})`;
 }
 
 /** Runs the model; an input the engine refuses comes back with its field and Persian message. */

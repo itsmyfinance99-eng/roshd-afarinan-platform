@@ -418,9 +418,11 @@ function HorizonBlock() {
               افق تازه {toPersianDigits(next.periods.length)} دوره دارد و{' '}
               {toPersianDigits(next.totalMonths)} ماه طول می‌کشد و هنوز اعمال نشده است.
               {dropped > 0
-                ? ` مقادیر ${toPersianDigits(dropped)} دوره که در افق تازه نیست پاک می‌شود.`
+                ? ` مقادیر ${toPersianDigits(dropped)} دوره که در افق تازه دوره هم‌زمانی ندارد پاک می‌شود.`
                 : ''}{' '}
-              مقادیر هر مرحله (ساخت، راه‌اندازی، تولید) از ابتدای همان مرحله حفظ می‌شود.
+              مقدار هر دوره فقط وقتی حفظ می‌شود که دوره‌ای با همان بازه زمانی (از آغاز ساخت یا از
+              آغاز تولید) در افق تازه باشد. تاریخ‌های تسهیلات جابه‌جا نمی‌شود؛ پس از اعمال، آن‌ها و
+              نرخ‌های تورم سالانه را بازبینی کنید.
             </p>
             <div className="flex flex-wrap gap-2">
               <Button size="sm" onClick={staging.applyHorizon}>

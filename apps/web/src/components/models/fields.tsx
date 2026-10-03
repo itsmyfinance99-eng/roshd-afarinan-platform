@@ -141,7 +141,7 @@ export function DecimalInput({
       title={error}
       data-row={cell?.row}
       data-col={cell?.col}
-      value={text ?? shown(value, percent, true)}
+      value={text ?? shown(value, percent, edit === null)}
       onFocus={(event) => {
         // The plain text replaces the formatted one before anything is typed or selected.
         flushSync(() => setEdit({ text: shown(value, percent, false), stored: value }));
@@ -350,8 +350,10 @@ export function TextField({
   const value = getIn(draft, path);
   const stored = typeof value === 'string' ? value : '';
   const [typed, setTyped] = useState<string | null>(null);
+  /** Why the last name typed was not written. */
+  const [rejected, setRejected] = useState<string>();
   const objection = typed === null || !refuse ? undefined : refuse(typed.trim());
-  const error = objection ?? issue;
+  const error = objection ?? rejected ?? issue;
   const commit = (text: string) => {
     if (onCommit) onCommit(text);
     else set(path, text === '' && !required ? undefined : text);
@@ -368,15 +370,17 @@ export function TextField({
         value={typed ?? stored}
         onChange={(event) => {
           const text = transform ? transform(event.target.value) : event.target.value;
+          setRejected(undefined);
           if (refuse) setTyped(text);
           else commit(text);
         }}
         onBlur={() => {
           if (typed === null) return;
           const text = typed.trim();
-          // A refused name is not written; the field keeps showing it with the reason.
-          if (refuse?.(text) !== undefined) return;
-          if (text !== stored) commit(text);
+          const reason = refuse?.(text);
+          // A refused name is not written: the field shows the stored one again, with the reason.
+          if (reason !== undefined) setRejected(`«${text}»: ${reason} نام قبلی ماند.`);
+          else if (text !== stored) commit(text);
           setTyped(null);
         }}
       />

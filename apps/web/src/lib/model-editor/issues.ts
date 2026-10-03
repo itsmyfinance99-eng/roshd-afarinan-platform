@@ -65,7 +65,7 @@ const FIELD_LABELS_FA: Record<string, string> = {
   periods: 'تعداد دوره',
   periodMonths: 'طول دوره',
   productionYears: 'سال‌های تولید',
-  localCurrency: 'پول محلی',
+  localCurrency: 'ارز محلی',
   exchangeRates: 'نرخ ارز',
   inflation: 'تورم',
   investment: 'سرمایه‌گذاری',
