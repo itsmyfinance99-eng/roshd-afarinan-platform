@@ -468,7 +468,7 @@ export class FinancialModelsService {
 
   /**
    * The assigned expert or staff approve a run once; the approval cannot be changed. Nobody
-   * approves a run of their own model, whatever else they may do.
+   * approves a run of their own model or a run they calculated themselves (four eyes).
    */
   async approve(
     modelId: string,
@@ -478,15 +478,22 @@ export class FinancialModelsService {
   ): Promise<CalculationRunDetail> {
     const relation = await this.visible(modelId, principal);
     if (relation.owner || (!relation.expert && !relation.manager)) throw new ForbiddenError();
+    const run = await this.prisma.calculationRun.findFirst({
+      where: { id: runId, modelId },
+      select: { createdById: true },
+    });
+    if (!run) throw new NotFoundError();
+    // Four eyes (owner decision, OQ-40): whoever calculated a run does not approve it.
+    if (run.createdById === principal.userId) {
+      throw new ForbiddenError(
+        'اجرایی را که خودتان محاسبه کرده‌اید نمی‌توانید تأیید کنید؛ تأیید باید توسط فرد دیگری انجام شود.',
+      );
+    }
     const { count } = await this.prisma.calculationRun.updateMany({
       where: { id: runId, modelId, approvedAt: null },
       data: { approvedAt: new Date(), approvedById: principal.userId },
     });
-    if (count !== 1) {
-      // Either no such run of this model, or it is approved already.
-      await this.getRun(modelId, runId, principal);
-      throw new ConflictError('این اجرا پیش‌تر تأیید شده است.');
-    }
+    if (count !== 1) throw new ConflictError('این اجرا پیش‌تر تأیید شده است.');
     await this.audit.record({
       action: 'calculation_run.approved',
       actorId: principal.userId,
