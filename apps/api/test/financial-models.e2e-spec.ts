@@ -517,6 +517,49 @@ describe('Financial models (e2e)', () => {
     expect(refused.body.error.details[0].path).toBe('assigneeId');
   });
 
+  it('needs a second person to approve a run (four eyes)', async () => {
+    const owner = await registerUser(app);
+    const expert = await registerUser(app, ['expert']);
+    const admin = await registerUser(app, ['admin']);
+    const model = await createModel(owner.token);
+    await assign(admin, model.id, expert.id).expect(200);
+    const byAdmin = await http()
+      .post(`${base}/${model.id}/runs`)
+      .set(auth(admin.token))
+      .expect(201);
+    const byExpert = await http()
+      .post(`${base}/${model.id}/runs`)
+      .set(auth(expert.token))
+      .expect(201);
+    const approval = (runId: string) => `${base}/${model.id}/runs/${runId}/approval`;
+
+    // Whoever calculated a run cannot approve it, staff included.
+    const own = await http()
+      .post(approval(byAdmin.body.data.id))
+      .set(auth(admin.token))
+      .expect(403);
+    expect(own.body.error.message).toContain('فرد دیگری');
+    await http().post(approval(byExpert.body.data.id)).set(auth(expert.token)).expect(403);
+    // The other one can.
+    await http().post(approval(byAdmin.body.data.id)).set(auth(expert.token)).expect(200);
+    await http().post(approval(byExpert.body.data.id)).set(auth(admin.token)).expect(200);
+
+    // The database refuses a self-approval as well.
+    const third = await http().post(`${base}/${model.id}/runs`).set(auth(admin.token)).expect(201);
+    const prisma = app.get(PrismaService);
+    await expect(
+      prisma.calculationRun.update({
+        where: { id: third.body.data.id as string },
+        data: { approvedAt: new Date(), approvedById: admin.id },
+      }),
+    ).rejects.toThrow(/other than its creator/);
+    // An unknown run is still a 404.
+    await http()
+      .post(approval('01999999-9999-7999-8999-999999999999'))
+      .set(auth(expert.token))
+      .expect(404);
+  });
+
   it('lets staff edit and calculate any model', async () => {
     const owner = await registerUser(app);
     const admin = await registerUser(app, ['admin']);
