@@ -151,4 +151,40 @@ export {
   type FinancingLoanSchedule,
   type FinancingSchedule,
 } from './model/financing';
+export {
+  ALLOCATION_KEYS,
+  COST_CATEGORIES,
+  COST_CENTRE_GROUPS,
+  operationsSchedule,
+  type AllocationKey,
+  type CostAllocation,
+  type CostBreakdown,
+  type CostCategory,
+  type CostCentre,
+  type CostCentreGroup,
+  type CostItem,
+  type Market,
+  type OperationsInput,
+  type OperationsProduct,
+  type OperationsSchedule,
+  type PerPeriod,
+  type ProductSchedule,
+  type RevenueLines,
+  type SalesLine,
+  type StandardCost,
+  type WorkingCapitalSchedule,
+} from './model/operations';
+export {
+  currentPriceFactors,
+  projectYears,
+  type PriceContext,
+  type PricedItem,
+} from './model/prices';
+export { productionProgramme, type Programme, type ProgrammeInput } from './model/sales-programme';
+export {
+  coverageDays,
+  workingCapitalValues,
+  type Coverage,
+  type WorkingCapitalItemInput,
+} from './model/working-capital';
 export { financialCalculator } from './calculator';
