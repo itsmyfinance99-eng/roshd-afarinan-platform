@@ -1,5 +1,6 @@
 import { type Decimal, ONE, ZERO, toDecimal, toDecimalString, type DecimalString } from './decimal';
 import { EngineInputError } from './errors';
+import type { EngineMessageCode } from './messages';
 import {
   DEFAULT_DISCOUNT_REFERENCE,
   assertTimedSeries,
@@ -66,6 +67,23 @@ export interface PaybackOptions {
   salvageValue?: DecimalString;
 }
 
+/** Warning codes of the normal and of the dynamic payback, so that a reader can tell them apart. */
+interface PaybackCodes {
+  noInvestment: EngineMessageCode;
+  notReached: EngineMessageCode;
+  notSustained: EngineMessageCode;
+}
+const NORMAL_PAYBACK: PaybackCodes = {
+  noInvestment: 'payback.noInvestment',
+  notReached: 'payback.notReached',
+  notSustained: 'payback.notSustained',
+};
+const DYNAMIC_PAYBACK: PaybackCodes = {
+  noInvestment: 'dynamicPayback.noInvestment',
+  notReached: 'dynamicPayback.notReached',
+  notSustained: 'dynamicPayback.notSustained',
+};
+
 /**
  * The cumulative amount must first go below zero (the investment) and then turn positive. A later
  * relapse to zero or below keeps the first payback, as COMFAR does, and adds a warning.
@@ -74,6 +92,7 @@ function paybackOf(
   amounts: Decimal[],
   periodMonths: number[],
   salvage: Decimal = ZERO,
+  codes: PaybackCodes = NORMAL_PAYBACK,
 ): CalculationResult<PaybackValue | undefined> {
   const lastPeriod = amounts.length - 1;
   let cumulative = ZERO;
@@ -105,12 +124,12 @@ function paybackOf(
         }
       }
     } else if (!cumulative.gt(0) && warnings.length === 0) {
-      warnings.push({ code: 'payback.notSustained', params: { period: String(i + 1) } });
+      warnings.push({ code: codes.notSustained, params: { period: String(i + 1) } });
     }
     start += months;
   });
-  if (!invested) return result(undefined, [{ code: 'payback.noInvestment' }]);
-  if (found === undefined) return result(undefined, [{ code: 'payback.notReached' }]);
+  if (!invested) return result(undefined, [{ code: codes.noInvestment }]);
+  if (found === undefined) return result(undefined, [{ code: codes.notReached }]);
   return result(found, warnings);
 }
 
@@ -150,7 +169,7 @@ export function discountedPaybackPeriod(
   const salvage = options.salvageValue === undefined ? ZERO : toDecimal(options.salvageValue);
   const discounted = series.amounts.map((a, i) => toDecimal(a).div(factors[i] ?? ONE));
   const last = factors[factors.length - 1] ?? ONE;
-  return paybackOf(discounted, series.periodMonths, salvage.div(last));
+  return paybackOf(discounted, series.periodMonths, salvage.div(last), DYNAMIC_PAYBACK);
 }
 
 // ---------------------------------------------------------------------------------------------
