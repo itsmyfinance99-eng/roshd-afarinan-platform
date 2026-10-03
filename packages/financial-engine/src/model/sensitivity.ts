@@ -305,7 +305,7 @@ function variableChange(variable: SensitivityVariable, change: DecimalString): P
   return { target: variable.target, [variable.dimension]: change };
 }
 
-function checkVariables(variables: SensitivityVariable[]): void {
+function checkVariables(input: ProjectInput, variables: SensitivityVariable[]): void {
   if (variables.length === 0) throw new EngineInputError('sensitivity.noVariables', 'variables');
   uniqueKeys(
     variables.map((v) => v.key),
@@ -319,7 +319,15 @@ function checkVariables(variables: SensitivityVariable[]): void {
     ) {
       throw new EngineInputError('sensitivity.dimension', `variables[${i}].dimension`);
     }
+    // A variable that matches nothing is refused here, with the variable's own field.
+    applyChange(input, variableChange(v, '0'), `variables[${i}]`);
   });
+}
+
+/** Warnings of `more` that `known` does not already hold. */
+function newWarnings(known: CalculationWarning[], more: CalculationWarning[]) {
+  const seen = new Set(known.map((w) => JSON.stringify(w)));
+  return more.filter((w) => !seen.has(JSON.stringify(w)));
 }
 
 /**
@@ -398,11 +406,16 @@ export interface SensitivityPoint {
   /** Relative change of the variable. */
   change: DecimalString;
   indicators: IndicatorSummary;
+  /** Warnings of this run that the base case does not have (e.g. an under-financed plan). */
+  warnings: CalculationWarning[];
 }
 
 export interface TornadoBar {
   key: string;
-  /** NPV at the lowest and at the highest change of the variable. */
+  /**
+   * NPV at the lowest and at the highest change of the variable; the base case (change 0) is one
+   * end when all steps lie on one side of it.
+   */
   low: { change: DecimalString; npv: DecimalString };
   high: { change: DecimalString; npv: DecimalString };
   /** |NPV(high) − NPV(low)|: the width of the bar. */
@@ -425,7 +438,7 @@ export function sensitivityAnalysis(
   input: ProjectInput,
   options: { variables: SensitivityVariable[]; steps: DecimalString[] },
 ): CalculationResult<SensitivityValue> {
-  checkVariables(options.variables);
+  checkVariables(input, options.variables);
   if (options.steps.length === 0) throw new EngineInputError('series.empty', 'steps');
   const steps = options.steps.map((s, i) => {
     factorOf(s, `steps[${i}]`);
@@ -438,38 +451,32 @@ export function sensitivityAnalysis(
   });
   const ordered = [...steps].sort((a, b) => a.cmp(b));
   const base = run(input, []);
-  const variables = options.variables.map((variable, i) => ({
+  const variables = options.variables.map((variable) => ({
     key: variable.key,
     points: ordered.map((step): SensitivityPoint => {
       const change = toDecimalString(step);
-      try {
-        return { change, indicators: run(input, [variableChange(variable, change)]).indicators };
-      } catch (error) {
-        if (error instanceof EngineInputError && error.field.startsWith('changes[0]')) {
-          throw new EngineInputError(
-            error.code,
-            `variables[${i}]${error.field.slice('changes[0]'.length)}`,
-            error.params,
-          );
-        }
-        throw error;
-      }
+      const point = run(input, [variableChange(variable, change)]);
+      return {
+        change,
+        indicators: point.indicators,
+        warnings: newWarnings(base.model.warnings, point.model.warnings),
+      };
     }),
   }));
   const bars = (basis: IndicatorBasis): TornadoBar[] =>
     variables
       .map((v) => {
-        const low = v.points[0];
-        const high = v.points[v.points.length - 1];
-        const at = (point: SensitivityPoint | undefined) => ({
-          change: point?.change ?? '0',
-          npv: point?.indicators[basis].npv ?? '0',
-        });
+        const ends = [
+          { change: '0', npv: base.indicators[basis].npv },
+          ...v.points.map((p) => ({ change: p.change, npv: p.indicators[basis].npv })),
+        ].sort((a, b) => toDecimal(a.change).cmp(b.change));
+        const low = ends[0] ?? { change: '0', npv: '0' };
+        const high = ends[ends.length - 1] ?? low;
         return {
           key: v.key,
-          low: at(low),
-          high: at(high),
-          swing: toDecimalString(toDecimal(at(high).npv).minus(at(low).npv).abs()),
+          low,
+          high,
+          swing: toDecimalString(toDecimal(high.npv).minus(low.npv).abs()),
         };
       })
       .sort((a, b) => toDecimal(b.swing).cmp(a.swing));
@@ -566,7 +573,7 @@ export function goalSeek(
   options: { target: GoalTarget; variables: GoalSeekVariable[] },
 ): CalculationResult<GoalSeekValue> {
   checkGoal(options.target, 'target');
-  checkVariables(options.variables);
+  checkVariables(input, options.variables);
   const goal = toDecimal(options.target.value);
   const limits = options.variables.map((v, i) => {
     const limit = toDecimal(v.maxChange);
@@ -575,28 +582,38 @@ export function goalSeek(
     factorOf(v.maxChange, `variables[${i}].maxChange`);
     return limit;
   });
-  const warnings: CalculationWarning[] = [];
+  const base = run(input, []);
+  const warnings: CalculationWarning[] = [...base.model.warnings];
   const applied: ProjectChange[] = [];
-  const distance = (changes: ProjectChange[]) => {
-    const scope = options.target.indicator === 'NPV' ? 'NPV' : 'NPV_AND_IRR';
-    const value = indicatorOf(run(input, changes, scope).indicators, options.target);
-    return value === undefined ? undefined : value.minus(goal);
+  const scope = options.target.indicator === 'NPV' ? 'NPV' : 'NPV_AND_IRR';
+  /** The indicator with `changes`, and its distance from the goal. */
+  const evaluate = (changes: ProjectChange[]) => {
+    const indicator = indicatorOf(run(input, changes, scope).indicators, options.target);
+    return indicator === undefined ? undefined : { indicator, distance: indicator.minus(goal) };
   };
+  const distance = (changes: ProjectChange[]) => evaluate(changes)?.distance;
   const value: GoalSeekValue = { reached: false, changes: [] };
-  const finish = (reached: boolean, achieved: Decimal | undefined) => {
+  const finish = (reached: boolean, achieved: Decimal | undefined, last?: ProjectChange) => {
     value.reached = reached;
-    if (achieved !== undefined) value.achieved = toDecimalString(achieved.plus(goal));
+    if (achieved !== undefined) value.achieved = toDecimalString(achieved);
     if (!reached) warnings.push({ code: 'goalSeek.notReached' });
-    return result(value, warnings);
+    // What the plan with the changes found warns about, beyond the base case.
+    const changes = last === undefined ? applied : [...applied, last];
+    if (changes.length > 0) {
+      warnings.push(...newWarnings(warnings, run(input, changes).model.warnings));
+    }
+    return result(value, warnings, base.model.defaultsUsed);
   };
 
-  let current = distance([]);
-  if (current !== undefined) value.base = toDecimalString(current.plus(goal));
-  if (current === undefined) {
+  const start = indicatorOf(base.indicators, options.target);
+  if (start === undefined) {
     warnings.push({ code: 'goalSeek.notCalculable' });
     return finish(false, undefined);
   }
-  if (current.isZero()) return finish(true, current);
+  value.base = toDecimalString(start);
+  let current = start.minus(goal);
+  let currentValue = start;
+  if (current.isZero()) return finish(true, start);
 
   for (const [i, variable] of options.variables.entries()) {
     const limit = limits[i] ?? ZERO;
@@ -604,27 +621,35 @@ export function goalSeek(
       ...applied,
       variableChange(variable, toDecimalString(change)),
     ];
-    const atLimit = distance(withChange(limit));
-    if (atLimit === undefined) {
+    const end = evaluate(withChange(limit));
+    if (end === undefined) {
       warnings.push({ code: 'goalSeek.notCalculable', params: { variable: variable.key } });
-      return finish(false, current);
+      return finish(false, currentValue);
     }
+    const atLimit = end.distance;
     if (atLimit.isZero() || atLimit.isNegative() !== current.isNegative()) {
       // The target lies within this variable's range.
       const change = atLimit.isZero()
         ? limit
         : bisect((c) => distance(withChange(c)), ZERO, current, limit);
-      if (change === undefined) {
+      const found = change === undefined ? undefined : evaluate(withChange(change));
+      // An indicator that jumps over the target (e.g. an IRR that stops being unique) leaves the
+      // bisection at the jump: the value there is no closer to the target than the ends were.
+      if (
+        change === undefined ||
+        found === undefined ||
+        (found.distance.abs().gt(current.abs()) && found.distance.abs().gt(atLimit.abs()))
+      ) {
         warnings.push({ code: 'goalSeek.notCalculable', params: { variable: variable.key } });
-        return finish(false, current);
+        return finish(false, currentValue);
       }
-      const achieved = distance(withChange(change));
+      const last = variableChange(variable, toDecimalString(change));
       value.changes.push({
         key: variable.key,
         change: toDecimalString(change),
-        ...(achieved === undefined ? {} : { achieved: toDecimalString(achieved.plus(goal)) }),
+        achieved: toDecimalString(found.indicator),
       });
-      return finish(true, achieved);
+      return finish(true, found.indicator, last);
     }
     if (atLimit.abs().gt(current.abs())) {
       warnings.push({ code: 'goalSeek.wrongDirection', params: { variable: variable.key } });
@@ -633,11 +658,12 @@ export function goalSeek(
     value.changes.push({
       key: variable.key,
       change: toDecimalString(limit),
-      achieved: toDecimalString(atLimit.plus(goal)),
+      achieved: toDecimalString(end.indicator),
     });
     current = atLimit;
+    currentValue = end.indicator;
   }
-  return finish(false, current);
+  return finish(false, currentValue);
 }
 
 export interface CriticalVariable extends SensitivityVariable {
@@ -665,7 +691,7 @@ export function criticalValues(
 ): CalculationResult<CriticalValue[]> {
   const target = { indicator: 'NPV', basis: options.basis } as const;
   checkGoal(target, 'options');
-  checkVariables(options.variables);
+  checkVariables(input, options.variables);
   const ranges = options.variables.map((v, i) => {
     factorOf(v.minChange, `variables[${i}].minChange`);
     const min = toDecimal(v.minChange);
@@ -674,8 +700,8 @@ export function criticalValues(
     if (max.lt(0)) throw new EngineInputError('sensitivity.range', `variables[${i}].maxChange`);
     return { min, max };
   });
-  const warnings: CalculationWarning[] = [];
   const base = run(input, []);
+  const warnings: CalculationWarning[] = [...base.model.warnings];
   const atBase = toDecimal(base.indicators[options.basis].npv);
   const value = options.variables.map((variable, i): CriticalValue => {
     const npv = (change: Decimal) =>

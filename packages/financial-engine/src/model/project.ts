@@ -1,7 +1,7 @@
 import type { DecimalString } from '../decimal';
 import type { CalculationResult, CalculationWarning, CurrencyCode, DefaultUsed } from '../types';
 import { MODEL_VERSION } from '../version';
-import { withField } from './asset-depreciation';
+import { EngineInputError } from '../errors';
 import {
   financingSchedule,
   type EquityContribution,
@@ -39,6 +39,21 @@ export interface ProjectModel {
   financing: FinancingSchedule;
   operations: OperationsSchedule;
   statements: FinancialStatements;
+}
+
+/** Inputs shared by every schedule: an error in them keeps its own path. */
+const SHARED = /^(exchangeRates|inflation|localCurrency)\b/;
+
+/** Runs `fn`, prefixing the field of an input error with the section of the input it belongs to. */
+function withField<T>(section: string, fn: () => T): T {
+  try {
+    return fn();
+  } catch (error) {
+    if (error instanceof EngineInputError && !SHARED.test(error.field)) {
+      throw new EngineInputError(error.code, `${section}.${error.field}`, error.params);
+    }
+    throw error;
+  }
 }
 
 /** Runs every schedule of the project; input errors carry the path of the section they are in. */

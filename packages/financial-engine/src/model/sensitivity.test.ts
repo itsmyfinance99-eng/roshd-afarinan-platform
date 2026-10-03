@@ -179,8 +179,13 @@ const close = (actual: string | undefined, expected: Decimal | string, tolerance
   ).toBe(true);
 const npvWith = (changes: ProjectChange[]) =>
   projectModel(applyChanges(project, changes)).value.statements.totalCapital.npv;
-const fails = (run: () => unknown, code: string, field: string) =>
-  expect(run).toThrowError(new EngineInputError(code as EngineInputError['code'], field));
+const fails = (
+  run: () => unknown,
+  code: string,
+  field: string,
+  params: Record<string, string> = {},
+) =>
+  expect(run).toThrowError(new EngineInputError(code as EngineInputError['code'], field, params));
 
 // Hand-computed cash flows of the total capital (see statements.test.ts for the base case).
 const BASE = ['-1200', '410', '455', '450', '650'];
@@ -219,6 +224,56 @@ describe('projectModel', () => {
         investment: { items: [{ ...project.investment.items[0]!, group: 'X' as never }] },
       }),
     ).toThrowError(/investment\.items\[0\]\.group/);
+  });
+});
+
+describe('projectModel: shared inputs', () => {
+  it('keeps the path of exchange rates and inflation, which belong to no section', () => {
+    const usd = { ...project.investment.items[1]!, currency: 'USD' };
+    const foreign = { ...project, investment: { items: [project.investment.items[0]!, usd] } };
+    fails(
+      () => projectModel({ ...foreign, exchangeRates: { USD: ['10'] } }),
+      'series.lengthMismatch',
+      'exchangeRates.USD',
+      { expected: '4', actual: '1' },
+    );
+    fails(
+      () => projectModel({ ...project, inflation: { IRR: ['0.1'] } }),
+      'series.lengthMismatch',
+      'inflation.IRR',
+      { expected: '4', actual: '1' },
+    );
+    // A missing rate is reported at the item that needs it.
+    fails(
+      () => projectModel(foreign),
+      'model.exchangeRateMissing',
+      'investment.items[1].currency',
+      {
+        currency: 'USD',
+      },
+    );
+  });
+
+  it('computes only the indicators a search asks for', () => {
+    const scoped = (indicatorScope: 'ALL' | 'NPV' | 'NPV_AND_IRR') =>
+      projectModel({ ...project, statements: { ...project.statements, indicatorScope } }).value
+        .statements.totalCapital;
+    const all = projectModel(project).value.statements.totalCapital;
+    expect(scoped('ALL')).toEqual(all);
+    expect(scoped('NPV')).toMatchObject({ npv: all.npv, net: all.net });
+    expect(scoped('NPV').irr).toBeUndefined();
+    expect(scoped('NPV_AND_IRR').irr).toBe(all.irr);
+    expect(scoped('NPV_AND_IRR').mirr).toBeUndefined();
+    expect(scoped('NPV_AND_IRR').payback).toBeUndefined();
+    fails(
+      () =>
+        projectModel({
+          ...project,
+          statements: { ...project.statements, indicatorScope: 'FOO' as never },
+        }),
+      'statements.option',
+      'statements.indicatorScope',
+    );
   });
 });
 
@@ -393,6 +448,22 @@ describe('sensitivityAnalysis', () => {
     expect(value.tornado.equity).toHaveLength(3);
   });
 
+  it('spans the base case when all steps lie on one side, and keeps the warnings of a point', () => {
+    const oneSided = sensitivityAnalysis(project, {
+      variables: [investment],
+      steps: ['0.25'],
+    }).value;
+    const bar = oneSided.tornado.totalCapital[0]!;
+    expect(bar.low).toEqual({ change: '0', npv: oneSided.base.totalCapital.npv });
+    expect(bar.high.change).toBe('0.25');
+    close(bar.swing, present(BASE).minus(present(INVESTMENT_UP)));
+    // Investment of 1 500 against sources of 1 300.
+    expect(oneSided.variables[0]!.points[0]!.warnings).toEqual([
+      { code: 'cash.underFinanced', params: { periods: '1' } },
+    ]);
+    expect(value.variables[1]!.points[0]!.warnings).toEqual([]);
+  });
+
   it('refuses invalid variables and steps', () => {
     const run = (variables: SensitivityVariable[], steps: string[]) => () =>
       sensitivityAnalysis(project, { variables, steps });
@@ -438,6 +509,38 @@ describe('criticalValues', () => {
     expect(warnings).toEqual([
       { code: 'sensitivity.noCriticalValue', params: { variable: 'investment' } },
     ]);
+  });
+
+  it('names the variable that matches nothing', () => {
+    fails(
+      () =>
+        criticalValues(project, {
+          basis: 'totalCapital',
+          variables: [
+            { ...salesPrice, minChange: '-0.5', maxChange: '0.5' },
+            {
+              key: 'fx',
+              target: { kind: 'EXCHANGE_RATE' },
+              dimension: 'price',
+              minChange: '-0.5',
+              maxChange: '0.5',
+            },
+          ],
+        }),
+      'sensitivity.noMatch',
+      'variables[1].target',
+    );
+    fails(
+      () =>
+        goalSeek(project, {
+          target: { indicator: 'NPV', basis: 'totalCapital', value: '400' },
+          variables: [
+            { key: 'fx', target: { kind: 'EXCHANGE_RATE' }, dimension: 'price', maxChange: '0.5' },
+          ],
+        }),
+      'sensitivity.noMatch',
+      'variables[0].target',
+    );
   });
 
   it('refuses a range that does not contain the original value', () => {
@@ -529,7 +632,31 @@ describe('goalSeek', () => {
     expect(wrong.warnings).toEqual([
       { code: 'goalSeek.wrongDirection', params: { variable: 'salesPrice' } },
       { code: 'goalSeek.notReached' },
+      // With prices 20 % lower the investment is not recovered within the horizon.
+      { code: 'payback.notReached', params: { basis: 'totalCapital' } },
+      { code: 'payback.notReached', params: { basis: 'equity' } },
     ]);
+  });
+
+  it('returns the defaults of the base case, exact values and the warnings of the plan found', () => {
+    const model = projectModel(project);
+    // A cheaper plant raises the NPV but is not needed here: a dearer one lowers it to 250.
+    const { value, warnings, defaultsUsed } = goalSeek(project, {
+      target: { indicator: 'NPV', basis: 'totalCapital', value: '250' },
+      variables: [{ ...investment, maxChange: '0.5' }],
+    });
+    expect(defaultsUsed).toEqual(model.defaultsUsed);
+    expect(value.base).toBe(model.value.statements.totalCapital.npv);
+    expect(value.reached).toBe(true);
+    close(value.achieved, '250', '0.001');
+    // The dearer plant is no longer covered by the equity and the loan.
+    expect(warnings).toEqual([{ code: 'cash.underFinanced', params: { periods: '1' } }]);
+    const far = goalSeek(project, {
+      target: { indicator: 'NPV', basis: 'totalCapital', value: '100000000000' },
+      variables: [{ ...salesPrice, maxChange: '0.1' }],
+    });
+    expect(far.value.base).toBe(model.value.statements.totalCapital.npv);
+    close(far.value.achieved, present(PRICE_UP));
   });
 
   it('needs no change when the target is already met and refuses invalid input', () => {

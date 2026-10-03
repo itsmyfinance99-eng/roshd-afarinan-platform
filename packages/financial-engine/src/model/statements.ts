@@ -385,6 +385,10 @@ export function financialStatements(
   ) {
     throw new EngineInputError('statements.option', 'automaticCashCoverage');
   }
+  const scope = input.indicatorScope ?? 'ALL';
+  if (scope !== 'ALL' && scope !== 'NPV' && scope !== 'NPV_AND_IRR') {
+    throw new EngineInputError('statements.option', 'indicatorScope');
+  }
   const totalCapitalRates = discountRates(
     input.discounting.totalCapitalRate,
     length,
@@ -749,7 +753,6 @@ export function financialStatements(
     const totalMonths = series.periodMonths.reduce((s, m) => s + m, 0);
     const referenceMonth =
       (reference ?? DEFAULT_DISCOUNT_REFERENCE) === 'START_OF_FIRST_PERIOD' ? 0 : 12;
-    const scope = input.indicatorScope ?? 'ALL';
     const rateOfReturn = scope === 'NPV' ? undefined : collect(irr(series));
     let modified: DecimalString | undefined;
     if (scope !== 'ALL') {
