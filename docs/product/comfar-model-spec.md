@@ -108,6 +108,16 @@ COMFAR pre-fills some values (V.C, VII.B and individual windows). Our rule: econ
 - Escalation of prices is required with inflation and optional at constant prices (a real price change); the days of coverage keep their unit, and changing the unit asks for the value again.
 - The menu entry is shown to holders of `financial-models:work` or `financial-models:manage` (OQ-38 is still open for members).
 
+### 3.5 Result views (ST-34.08, `apps/web/src/components/models/results`)
+
+- A stored run is shown from its own data: `results` (the engine's `ProjectModel`), `warnings`, `defaultsUsed` and the horizon of its `input` snapshot. Nothing is recalculated to show a statement, so the page shows exactly what was stored — also after the model or the engine changed. A run whose results the page cannot read says so instead of showing partial figures.
+- Tables (`lib/model-editor/statements.ts`): income statement, cash flow for financial planning (with the labelled automatic coverage lines), balance sheet, discounted cash flows of total capital and equity (with the residual value in its own row, in the year after production when it returns there), and ratios with break-even and debt-service coverage per period. Lines keep COMFAR's order; totals are the engine's lines, never sums made by the page.
+- Amounts are shown in a display unit chosen on the page (units, thousands, millions, billions of the local currency) by moving the decimal point of the stored value and rounding for display only.
+- A warning that is about one indicator of one basis (IRR, MIRR, payback, dynamic payback, NPV ratio) is shown next to that indicator; the others are listed together. An indicator that cannot be computed reads «ندارد», never 0.
+- Charts are plain SVG and read right to left like the tables. Each has a title and a description that says where the same figures are as a table (the cumulative cash flow in the discounted cash-flow table; the tornado in the sensitivity table under it).
+- Scenarios and sensitivity (§7.1) are calculated in a web worker on the run's input snapshot. The variables are COMFAR's global changes — sales price and quantity, price and quantity of production costs, fixed investment, exchange rate, inflation, discount rate — offered only when the model has such inputs. The percentages are always typed by the user; none is suggested. Results are not stored: they are an analysis of the run on screen.
+- Approval: the API returns `canApprove` with every run (assigned expert or staff, not the model's owner, not the user who calculated the run, run not approved yet) and does not return the run's creator. The page asks before approving, because an approval cannot be undone.
+
 ## 4. Calculation rules
 
 ### 4.1 Discounting, NPV, IRR, MIRR (XI.D–E)

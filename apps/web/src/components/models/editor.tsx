@@ -2,6 +2,7 @@
 
 import { Button, cn, ErrorMessage, FieldShell, Notice, SuccessMessage, TextInput } from '@roshd/ui';
 import { toPersianDigits } from '@roshd/validation';
+import Link from 'next/link';
 import {
   useCallback,
   useEffect,
@@ -75,7 +76,7 @@ export function ModelEditor({
   const [run, setRun] = useState<
     | { status: 'idle' }
     | { status: 'busy' }
-    | { status: 'done'; number: number }
+    | { status: 'done'; number: number; id: string }
     | { status: 'failed'; message: string; details: string[] }
   >({ status: 'idle' });
 
@@ -251,7 +252,7 @@ export function ModelEditor({
     });
     setRun(
       result.ok
-        ? { status: 'done', number: result.data.number }
+        ? { status: 'done', number: result.data.number, id: result.data.id }
         : {
             status: 'failed',
             message: result.message,
@@ -308,6 +309,7 @@ export function ModelEditor({
         </div>
 
         <LivePanel
+          modelId={model.id}
           live={live}
           fresh={fresh}
           currency={textAt(draft, ['localCurrency'])}
@@ -503,6 +505,7 @@ function IssueList({ issues, onGo }: { issues: Issue[]; onGo: (section: SectionI
 }
 
 function LivePanel({
+  modelId,
   live,
   fresh,
   currency,
@@ -510,6 +513,7 @@ function LivePanel({
   run,
   onCalculate,
 }: {
+  modelId: string;
   live: LiveState;
   fresh: boolean;
   currency: string;
@@ -517,7 +521,7 @@ function LivePanel({
   run:
     | { status: 'idle' }
     | { status: 'busy' }
-    | { status: 'done'; number: number }
+    | { status: 'done'; number: number; id: string }
     | { status: 'failed'; message: string; details: string[] };
   onCalculate: () => void;
 }) {
@@ -530,13 +534,18 @@ function LivePanel({
         <h2 id="live-result" className="text-lg font-bold text-ink">
           نتیجه زنده
         </h2>
-        <Button
-          size="sm"
-          disabled={run.status === 'busy' || !fresh || live.status !== 'done'}
-          onClick={onCalculate}
-        >
-          {run.status === 'busy' ? 'در حال ثبت…' : 'ثبت اجرای محاسبه'}
-        </Button>
+        <div className="flex flex-wrap items-center gap-3">
+          <Link href={`/dashboard/models/${modelId}/runs`} className="text-sm">
+            اجراها و نتایج
+          </Link>
+          <Button
+            size="sm"
+            disabled={run.status === 'busy' || !fresh || live.status !== 'done'}
+            onClick={onCalculate}
+          >
+            {run.status === 'busy' ? 'در حال ثبت…' : 'ثبت اجرای محاسبه'}
+          </Button>
+        </div>
       </div>
       <p role="status" className="min-h-6 text-sm text-ink-3">
         {!fresh || live.status === 'calculating' ? 'در حال محاسبه…' : ''}
@@ -583,7 +592,12 @@ function LivePanel({
         ) : null}
       </div>
       {run.status === 'done' ? (
-        <SuccessMessage>اجرای شماره {toPersianDigits(run.number)} ثبت شد.</SuccessMessage>
+        <SuccessMessage>
+          اجرای شماره {toPersianDigits(run.number)} ثبت شد.{' '}
+          <Link href={`/dashboard/models/${modelId}/runs/${run.id}`}>
+            دیدن صورت‌ها و نتایج کامل
+          </Link>
+        </SuccessMessage>
       ) : null}
       {run.status === 'failed' ? (
         <ErrorMessage>

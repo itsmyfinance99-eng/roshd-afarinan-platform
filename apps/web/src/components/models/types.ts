@@ -23,3 +23,23 @@ export interface CalculationRunRef {
   id: string;
   number: number;
 }
+
+/** A calculation run in a list (`GET /financial-models/:id/runs`). */
+export interface CalculationRunSummary extends CalculationRunRef {
+  /** Version of the model's inputs that was calculated. */
+  modelVersion: number;
+  inputHash: string;
+  engineVersion: string;
+  createdAt: string;
+  approvedAt: string | null;
+  /** The caller may approve this run now (four eyes: never the one who calculated it). */
+  canApprove: boolean;
+}
+
+/** A run with its input snapshot and results; `results` is the engine's `ProjectModel`. */
+export interface CalculationRunDetail extends CalculationRunSummary {
+  input: unknown;
+  results: unknown;
+  warnings: { code: string; params?: Record<string, string> }[];
+  defaultsUsed: { key: string; value: string; item?: string }[];
+}

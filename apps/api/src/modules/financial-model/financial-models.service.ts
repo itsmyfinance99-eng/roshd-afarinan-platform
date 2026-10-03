@@ -80,7 +80,13 @@ export interface FinancialModelDetail extends FinancialModelSummary {
 
 export type CalculationRunSummary = Prisma.CalculationRunGetPayload<{
   select: typeof RUN_SUMMARY_SELECT;
-}>;
+}> & {
+  /**
+   * Whether the caller may approve this run now: assigned expert or staff, not the model's owner,
+   * not the user who calculated the run (four eyes), and the run is not approved yet.
+   */
+  canApprove: boolean;
+};
 
 export interface CalculationRunDetail extends CalculationRunSummary {
   input: Prisma.JsonValue;
@@ -323,19 +329,41 @@ export class FinancialModelsService {
     principal: Principal,
     query: ListCalculationRunsQuery,
   ): Promise<PageResult<CalculationRunSummary>> {
-    await this.visible(modelId, principal);
+    const relation = await this.visible(modelId, principal);
     const where = { modelId };
     const [items, total] = await this.prisma.$transaction([
       this.prisma.calculationRun.findMany({
         where,
-        select: RUN_SUMMARY_SELECT,
+        select: { ...RUN_SUMMARY_SELECT, createdById: true },
         orderBy: { number: 'desc' },
         skip: (query.page - 1) * query.pageSize,
         take: query.pageSize,
       }),
       this.prisma.calculationRun.count({ where }),
     ]);
-    return new PageResult(items, query.page, query.pageSize, total);
+    return new PageResult(
+      items.map((run) => this.runView(run, relation, principal)),
+      query.page,
+      query.pageSize,
+      total,
+    );
+  }
+
+  /** A run as the caller sees it: without its creator, with what the caller may do. */
+  private runView<T extends { createdById: string | null; approvedAt: Date | null }>(
+    run: T,
+    relation: Relation,
+    principal: Principal,
+  ): Omit<T, 'createdById'> & { canApprove: boolean } {
+    const { createdById, ...view } = run;
+    return {
+      ...view,
+      canApprove:
+        (relation.expert || relation.manager) &&
+        !relation.owner &&
+        createdById !== principal.userId &&
+        run.approvedAt === null,
+    };
   }
 
   async getRun(
@@ -343,11 +371,12 @@ export class FinancialModelsService {
     runId: string,
     principal: Principal,
   ): Promise<CalculationRunDetail> {
-    await this.visible(modelId, principal);
+    const relation = await this.visible(modelId, principal);
     const run = await this.prisma.calculationRun.findFirst({
       where: { id: runId, modelId },
       select: {
         ...RUN_SUMMARY_SELECT,
+        createdById: true,
         input: true,
         results: true,
         warnings: true,
@@ -355,7 +384,7 @@ export class FinancialModelsService {
       },
     });
     if (!run) throw new NotFoundError();
-    return run;
+    return this.runView(run, relation, principal);
   }
 
   /**
