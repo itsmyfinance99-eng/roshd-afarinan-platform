@@ -1,10 +1,12 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { engineMessageFa, isEngineInputError } from '@roshd/financial-engine';
-import type { FinancialCalculator, ProjectInput } from '@roshd/financial-engine';
+import type { FinancialCalculator } from '@roshd/financial-engine';
 import {
+  CALCULATIONS_PER_MINUTE,
   FINANCIAL_MODEL_INPUT_VERSION,
   MAX_CALCULATION_RUNS,
   MAX_FINANCIAL_MODELS,
+  MAX_RESULTS_CHARS,
   projectInputSchema,
   type AssignInput,
   type CreateFinancialModelInput,
@@ -13,6 +15,7 @@ import {
   type UpdateFinancialModelInput,
 } from '@roshd/validation';
 import {
+  AppException,
   ConflictError,
   ForbiddenError,
   NotFoundError,
@@ -33,6 +36,8 @@ import { inputHash } from './domain/input-hash';
 /** Permission an assigned expert must hold. */
 const EXPERT_PERMISSION = 'financial-models:work';
 const MANAGE_PERMISSION = 'financial-models:manage';
+/** Text of the database error raised when an approved run would be deleted (see the migration). */
+const APPROVED_RUN_KEPT = 'an approved calculation run cannot be deleted';
 
 const SUMMARY_SELECT = {
   id: true,
@@ -88,12 +93,17 @@ interface Relation {
  *
  * - A model is visible to its owner, to the expert assigned to it and to staff holding
  *   `financial-models:manage`; for anyone else it does not exist (404, so ids cannot be probed).
+ *   All three may edit and calculate it; only staff assign the expert; the expert and staff
+ *   approve runs, but never of a model they own.
  * - Inputs are a draft and may be incomplete. A calculation validates them, runs the engine and
  *   stores a run: input snapshot, hash, engine version, results, warnings and defaults used.
  * - A run is never changed or recalculated; the expert (or staff) may approve it once.
  */
 @Injectable()
 export class FinancialModelsService {
+  /** Start times of each user's recent calculations (see `throttle`). */
+  private readonly calculations = new Map<string, number[]>();
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
@@ -175,7 +185,7 @@ export class FinancialModelsService {
       ...view,
       access: {
         edit: true,
-        approve: staff,
+        approve: staff && !relation.owner,
         assign: relation.manager,
         remove: relation.owner || relation.manager,
       },
@@ -227,15 +237,23 @@ export class FinancialModelsService {
   async remove(id: string, principal: Principal, meta: RequestMeta): Promise<void> {
     const relation = await this.visible(id, principal);
     if (!relation.owner && !relation.manager) throw new ForbiddenError();
-    await this.prisma.$transaction(async (tx) => {
-      const approved = await tx.calculationRun.count({
-        where: { modelId: id, approvedAt: { not: null } },
+    const kept = 'مدلی که اجرای تأییدشده دارد حذف نمی‌شود.';
+    await this.prisma
+      .$transaction(async (tx) => {
+        await this.lock(tx, id);
+        const approved = await tx.calculationRun.count({
+          where: { modelId: id, approvedAt: { not: null } },
+        });
+        if (approved > 0) throw new ConflictError(kept);
+        await tx.financialModel.delete({ where: { id } });
+      })
+      .catch((error: unknown) => {
+        // An approval that landed in between: the database refuses to delete an approved run.
+        if (error instanceof Error && error.message.includes(APPROVED_RUN_KEPT)) {
+          throw new ConflictError(kept);
+        }
+        throw error;
       });
-      if (approved > 0) {
-        throw new ConflictError('مدلی که اجرای تأییدشده دارد حذف نمی‌شود.');
-      }
-      await tx.financialModel.delete({ where: { id } });
-    });
     await this.audit.record({
       action: 'financial_model.deleted',
       actorId: principal.userId,
@@ -254,10 +272,16 @@ export class FinancialModelsService {
   ): Promise<FinancialModelDetail> {
     const current = await this.prisma.financialModel.findUnique({
       where: { id },
-      select: { assigneeId: true },
+      select: { assigneeId: true, ownerId: true },
     });
     if (!current) throw new NotFoundError();
     if (current.assigneeId === input.assigneeId) return this.get(id, actor);
+    if (input.assigneeId === current.ownerId) {
+      // The expert approves the owner's runs, so it must be someone else.
+      throw new ValidationFailedError([
+        { path: 'assigneeId', message: 'مالک مدل نمی‌تواند کارشناس همان مدل باشد.' },
+      ]);
+    }
     if (
       input.assigneeId &&
       !(await this.rbac.userHasPermission(input.assigneeId, EXPERT_PERMISSION))
@@ -334,6 +358,7 @@ export class FinancialModelsService {
     meta: RequestMeta,
   ): Promise<CalculationRunDetail> {
     await this.visible(modelId, principal);
+    this.throttle(principal.userId);
     const model = await this.prisma.financialModel.findUnique({
       where: { id: modelId },
       select: { inputs: true, version: true },
@@ -353,7 +378,7 @@ export class FinancialModelsService {
     const input = parsed.data;
     let outcome: ReturnType<FinancialCalculator['projectModel']>;
     try {
-      outcome = this.calculator.projectModel(input as ProjectInput);
+      outcome = this.calculator.projectModel(input);
     } catch (error) {
       if (!isEngineInputError(error)) throw error;
       throw new ValidationFailedError(
@@ -362,7 +387,17 @@ export class FinancialModelsService {
       );
     }
 
+    const results = JSON.stringify(outcome.value);
+    if (results.length > MAX_RESULTS_CHARS) {
+      throw new ValidationFailedError(
+        [{ path: 'inputs', message: 'نتایج این مدل برای ذخیره بیش از حد بزرگ است.' }],
+        'ورودی‌های مدل برای محاسبه معتبر نیست.',
+      );
+    }
+
     const run = await this.prisma.$transaction(async (tx) => {
+      // One calculation of a model is numbered at a time; a model deleted meanwhile is a 404.
+      await this.lock(tx, modelId);
       const last = await tx.calculationRun.aggregate({
         where: { modelId },
         _max: { number: true },
@@ -373,29 +408,21 @@ export class FinancialModelsService {
           'حداکثر تعداد اجراهای این مدل پر شده است. برای محاسبه‌های بیشتر، مدل تازه‌ای بسازید.',
         );
       }
-      return tx.calculationRun
-        .create({
-          data: {
-            modelId,
-            number: (last._max.number ?? 0) + 1,
-            modelVersion: model.version,
-            input: input,
-            inputHash: inputHash(input),
-            engineVersion: outcome.modelVersion,
-            results: outcome.value as unknown as Prisma.InputJsonObject,
-            warnings: outcome.warnings as unknown as Prisma.InputJsonArray,
-            defaultsUsed: outcome.defaultsUsed as unknown as Prisma.InputJsonArray,
-            createdById: principal.userId,
-          },
-          select: { id: true, number: true, inputHash: true, engineVersion: true },
-        })
-        .catch((error: unknown) => {
-          // Two calculations at once took the same number (unique per model).
-          if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-            throw new ConflictError('محاسبه دیگری هم‌زمان ثبت شد. دوباره تلاش کنید.');
-          }
-          throw error;
-        });
+      return tx.calculationRun.create({
+        data: {
+          modelId,
+          number: (last._max.number ?? 0) + 1,
+          modelVersion: model.version,
+          input: input,
+          inputHash: inputHash(input),
+          engineVersion: outcome.modelVersion,
+          results: JSON.parse(results) as Prisma.InputJsonObject,
+          warnings: outcome.warnings as unknown as Prisma.InputJsonArray,
+          defaultsUsed: outcome.defaultsUsed as unknown as Prisma.InputJsonArray,
+          createdById: principal.userId,
+        },
+        select: { id: true, number: true, inputHash: true, engineVersion: true },
+      });
     });
     await this.audit.record({
       action: 'calculation_run.created',
@@ -413,7 +440,10 @@ export class FinancialModelsService {
     return this.getRun(modelId, run.id, principal);
   }
 
-  /** The assigned expert or staff approve a run once; the approval cannot be changed. */
+  /**
+   * The assigned expert or staff approve a run once; the approval cannot be changed. Nobody
+   * approves a run of their own model, whatever else they may do.
+   */
   async approve(
     modelId: string,
     runId: string,
@@ -421,7 +451,7 @@ export class FinancialModelsService {
     meta: RequestMeta,
   ): Promise<CalculationRunDetail> {
     const relation = await this.visible(modelId, principal);
-    if (!relation.expert && !relation.manager) throw new ForbiddenError();
+    if (relation.owner || (!relation.expert && !relation.manager)) throw new ForbiddenError();
     const { count } = await this.prisma.calculationRun.updateMany({
       where: { id: runId, modelId, approvedAt: null },
       data: { approvedAt: new Date(), approvedById: principal.userId },
@@ -440,6 +470,35 @@ export class FinancialModelsService {
       meta,
     });
     return this.getRun(modelId, runId, principal);
+  }
+
+  /** Locks the model row until the transaction ends; 404 when the model is gone. */
+  private async lock(tx: Prisma.TransactionClient, id: string): Promise<void> {
+    const rows = await tx.$queryRaw<
+      { id: string }[]
+    >`SELECT "id" FROM "financial_models" WHERE "id" = ${id}::uuid FOR UPDATE`;
+    if (rows.length === 0) throw new NotFoundError();
+  }
+
+  /**
+   * At most CALCULATIONS_PER_MINUTE calculations per user and API process: the engine runs
+   * inside the request, so one user must not keep it busy.
+   */
+  private throttle(userId: string): void {
+    const now = Date.now();
+    const recent = (this.calculations.get(userId) ?? []).filter((at) => now - at < 60_000);
+    if (recent.length >= CALCULATIONS_PER_MINUTE) {
+      this.calculations.set(userId, recent);
+      throw new AppException('RATE_LIMITED');
+    }
+    recent.push(now);
+    this.calculations.set(userId, recent);
+    // Forget users who have been idle, so the map cannot grow without bound.
+    if (this.calculations.size > 10_000) {
+      for (const [key, times] of this.calculations) {
+        if (times.every((at) => now - at >= 60_000)) this.calculations.delete(key);
+      }
+    }
   }
 
   /** The caller's relations to a model; 404 when there is none (the model may not exist). */

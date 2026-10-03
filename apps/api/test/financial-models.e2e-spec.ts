@@ -3,6 +3,7 @@ import { MODEL_VERSION } from '@roshd/financial-engine';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { PrismaService } from '../src/modules/database/prisma.service';
+import { inputHash } from '../src/modules/financial-model/domain/input-hash';
 import { createTestApp, registerUser } from './helpers';
 
 // One construction year and three production years. Machinery 1 000 (200 a year) and land 200;
@@ -423,6 +424,136 @@ describe('Financial models (e2e)', () => {
     await http().get(`${base}/${model.id}`).set(auth(owner.token)).expect(404);
     const prisma = app.get(PrismaService);
     expect(await prisma.calculationRun.count({ where: { modelId: model.id } })).toBe(0);
+  });
+
+  it('keeps an approved run against every way of deleting it', async () => {
+    const owner = await registerUser(app);
+    const admin = await registerUser(app, ['admin']);
+    const model = await createModel(owner.token);
+    const other = await createModel(owner.token);
+    const run = await http().post(`${base}/${model.id}/runs`).set(auth(owner.token)).expect(201);
+    const runId = run.body.data.id as string;
+    // The hash is the hash of the stored input.
+    expect(inputHash(run.body.data.input)).toBe(run.body.data.inputHash);
+
+    // A run is approved through its own model only.
+    await http()
+      .post(`${base}/${other.id}/runs/${runId}/approval`)
+      .set(auth(admin.token))
+      .expect(404);
+    await http()
+      .post(`${base}/${model.id}/runs/${runId}/approval`)
+      .set(auth(admin.token))
+      .expect(200);
+
+    const prisma = app.get(PrismaService);
+    await expect(prisma.calculationRun.delete({ where: { id: runId } })).rejects.toThrow(
+      /cannot be deleted/,
+    );
+    await expect(prisma.financialModel.delete({ where: { id: model.id } })).rejects.toThrow(
+      /cannot be deleted/,
+    );
+    await http().delete(`${base}/${model.id}`).set(auth(admin.token)).expect(409);
+    expect(await prisma.calculationRun.count({ where: { id: runId } })).toBe(1);
+    // An approval needs its approver.
+    const second = await http().post(`${base}/${model.id}/runs`).set(auth(owner.token)).expect(201);
+    await expect(
+      prisma.calculationRun.update({
+        where: { id: second.body.data.id as string },
+        data: { approvedAt: new Date() },
+      }),
+    ).rejects.toThrow(/approver/);
+  });
+
+  it('lets nobody approve a run of their own model', async () => {
+    const admin = await registerUser(app, ['admin']);
+    const expertOwner = await registerUser(app, ['expert']);
+    const own = await createModel(admin.token);
+    const run = await http().post(`${base}/${own.id}/runs`).set(auth(admin.token)).expect(201);
+    await http()
+      .post(`${base}/${own.id}/runs/${run.body.data.id}/approval`)
+      .set(auth(admin.token))
+      .expect(403);
+    const seen = await http().get(`${base}/${own.id}`).set(auth(admin.token)).expect(200);
+    expect(seen.body.data.access).toMatchObject({ approve: false, assign: true });
+
+    // The owner cannot be made the expert of their own model.
+    const model = await createModel(expertOwner.token);
+    const refused = await assign(admin, model.id, expertOwner.id).expect(400);
+    expect(refused.body.error.details[0].path).toBe('assigneeId');
+  });
+
+  it('lets staff edit and calculate any model', async () => {
+    const owner = await registerUser(app);
+    const admin = await registerUser(app, ['admin']);
+    const model = await createModel(owner.token);
+    await http()
+      .put(`${base}/${model.id}`)
+      .set(auth(admin.token))
+      .send({ title: 'طرح فولاد (بازبینی)', inputs, version: 1 })
+      .expect(200);
+    await http().post(`${base}/${model.id}/runs`).set(auth(admin.token)).expect(201);
+  });
+
+  it('numbers concurrent calculations one after the other', async () => {
+    const owner = await registerUser(app);
+    const model = await createModel(owner.token);
+    const results = await Promise.all(
+      Array.from({ length: 5 }, () =>
+        http().post(`${base}/${model.id}/runs`).set(auth(owner.token)),
+      ),
+    );
+    expect(results.map((r) => r.status)).toEqual([201, 201, 201, 201, 201]);
+    expect(results.map((r) => r.body.data.number as number).sort()).toEqual([1, 2, 3, 4, 5]);
+  });
+
+  it('bounds the size of a calculation and the calculations of one user', async () => {
+    const owner = await registerUser(app);
+    // 500 monthly construction periods and three years: 503 periods × 20 investment items.
+    const big = structuredClone(inputs);
+    big.horizon.construction = { periods: 500, periodMonths: 1 };
+    const amounts = Array.from({ length: 503 }, () => '1');
+    big.investment.items = Array.from({ length: 20 }, (_, i) => ({
+      key: `item-${i}`,
+      group: 'LAND',
+      currency: 'IRR',
+      origin: 'LOCAL',
+      amounts,
+    }));
+    const model = await createModel(owner.token, { title: 'طرح خیلی بزرگ', inputs: big });
+    const refused = await http()
+      .post(`${base}/${model.id}/runs`)
+      .set(auth(owner.token))
+      .expect(400);
+    expect(refused.body.error.details).toEqual([
+      { path: 'inputs.horizon', message: expect.stringContaining('بیش از حد بزرگ') },
+    ]);
+
+    const small = await createModel(owner.token);
+    // The refused attempt counted too: nine more pass, the eleventh is turned away.
+    for (let i = 0; i < 9; i++) {
+      await http().post(`${base}/${small.id}/runs`).set(auth(owner.token)).expect(201);
+    }
+    const limited = await http()
+      .post(`${base}/${small.id}/runs`)
+      .set(auth(owner.token))
+      .expect(429);
+    expect(limited.body.error.code).toBe('RATE_LIMITED');
+  });
+
+  it('refuses drafts the database cannot store', async () => {
+    const owner = await registerUser(app);
+    const send = (body: object) => http().post(base).set(auth(owner.token)).send(body);
+    await send({ title: 'طرح فولاد', inputs: { note: 'a\u0000b' } }).expect(400);
+    let deep: object = {};
+    for (let i = 0; i < 50; i++) deep = { deep };
+    await send({ title: 'طرح فولاد', inputs: deep }).expect(400);
+    const model = await createModel(owner.token);
+    await http()
+      .put(`${base}/${model.id}`)
+      .set(auth(owner.token))
+      .send({ title: 'طرح فولاد', inputs: {}, version: 2147483648 })
+      .expect(400);
   });
 
   it('requires authentication and validates the body', async () => {

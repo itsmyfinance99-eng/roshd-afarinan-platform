@@ -46,7 +46,7 @@ export const PERMISSIONS = [
   'files:read-all',
   'orders:read-all',
   'catalog:manage',
-  /** Read every financial model and assign its expert. */
+  /** Full access to every financial model: read, edit, calculate, assign the expert, approve. */
   'financial-models:manage',
   /** May be assigned to a financial model as its expert: edit it, run and approve calculations. */
   'financial-models:work',

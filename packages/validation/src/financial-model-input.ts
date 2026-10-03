@@ -4,6 +4,7 @@ import {
   FINANCIAL_MODEL_MESSAGES,
   currencyCodeSchema,
   decimalStringSchema,
+  horizonPeriods,
   horizonSchema,
 } from './financial-model';
 
@@ -18,10 +19,23 @@ import {
  */
 
 export const FINANCIAL_MODEL_INPUT_VERSION = 1;
-export const MAX_FINANCIAL_MODELS = 100;
-export const MAX_CALCULATION_RUNS = 200;
+export const MAX_FINANCIAL_MODELS = 50;
+export const MAX_CALCULATION_RUNS = 50;
+/**
+ * Upper bound of the size of a calculation: project periods × input lines (investment items,
+ * equity, loans, sales lines, cost items). The engine runs inside the request and its results are
+ * stored whole; 10 000 keeps a run around a second and its results around a megabyte.
+ */
+export const MAX_CALCULATION_SIZE = 10_000;
+/** Largest stored result of one run, in characters of JSON. */
+export const MAX_RESULTS_CHARS = 4_000_000;
+/** Calculations one user may start per minute. */
+export const CALCULATIONS_PER_MINUTE = 10;
 
 const M = FINANCIAL_MODEL_MESSAGES;
+const M_TOO_LARGE =
+  'این مدل برای محاسبه بیش از حد بزرگ است؛ تعداد دوره‌ها (مثلاً دوره‌های ماهانه ساخت) یا تعداد اقلام را کمتر کنید.';
+const M_DRAFT = 'ساختار ورودی‌های مدل معتبر نیست.';
 const MAX_PERIODS = 600;
 const MAX_ITEMS = 300;
 
@@ -74,7 +88,7 @@ export const DEPRECIATION_METHOD_VALUES = [
   'SUM_OF_YEARS_DIGITS',
 ] as const;
 
-const choice = <T extends readonly [string, ...string[]]>(values: T) =>
+const choice = <const T extends readonly [string, ...string[]]>(values: T) =>
   z.enum(values, { error: M.chooseYesNo });
 const decimal = decimalStringSchema;
 const key = z
@@ -258,8 +272,7 @@ const statementsSchema = z.object({
   automaticCashCoverage: z.boolean({ error: M.chooseYesNo }).optional(),
 });
 
-/** Complete input of a calculation: the engine's `ProjectInput`. */
-export const projectInputSchema = z.object({
+const projectInputFieldsSchema = z.object({
   horizon: horizonSchema,
   localCurrency: currencyCodeSchema,
   exchangeRates: z.record(currencyCodeSchema, series),
@@ -286,13 +299,51 @@ export const projectInputSchema = z.object({
   }),
   statements: statementsSchema,
 });
+
+/** Complete input of a calculation: the engine's `ProjectInput`, bounded in size. */
+export const projectInputSchema = projectInputFieldsSchema.superRefine((input, ctx) => {
+  const lines =
+    input.investment.items.length +
+    input.financing.equity.length +
+    input.financing.loans.length +
+    input.operations.costs.length +
+    input.operations.products.reduce((sum, product) => sum + product.sales.length, 0);
+  // The horizon was checked above, so its periods can be counted.
+  const size = horizonPeriods(input.horizon) * lines;
+  if (size > MAX_CALCULATION_SIZE) {
+    ctx.addIssue({ code: 'custom', message: M_TOO_LARGE, path: ['horizon'] });
+  }
+});
 export type ProjectInputData = z.infer<typeof projectInputSchema>;
 
 /**
  * A draft: any JSON object. Its size is bounded by the API's body limit; its content is checked
  * with `projectInputSchema` when a calculation is requested.
  */
-const draftInputsSchema = z.record(z.string(), z.unknown(), { error: MESSAGES.required });
+const MAX_DRAFT_DEPTH = 12;
+const MAX_DRAFT_NODES = 200_000;
+
+/** JSON the database can store: no NUL characters, bounded depth and number of values. */
+function storable(value: unknown): boolean {
+  let nodes = 0;
+  const walk = (node: unknown, depth: number): boolean => {
+    nodes += 1;
+    if (nodes > MAX_DRAFT_NODES || depth > MAX_DRAFT_DEPTH) return false;
+    if (typeof node === 'string') return !node.includes('\u0000');
+    if (Array.isArray(node)) return node.every((item) => walk(item, depth + 1));
+    if (node !== null && typeof node === 'object') {
+      return Object.entries(node).every(
+        ([name, item]) => !name.includes('\u0000') && walk(item, depth + 1),
+      );
+    }
+    return true;
+  };
+  return walk(value, 0);
+}
+
+const draftInputsSchema = z
+  .record(z.string(), z.unknown(), { error: MESSAGES.required })
+  .refine(storable, { error: M_DRAFT });
 
 export const createFinancialModelSchema = z.object({
   title: text(3, 150),
@@ -304,7 +355,7 @@ export const updateFinancialModelSchema = z.object({
   title: text(3, 150),
   inputs: draftInputsSchema,
   /** Version the editor loaded; a save on top of a newer version is refused (409). */
-  version: z.int({ error: M.wholeNumber }).min(1),
+  version: z.int({ error: M.wholeNumber }).min(1).max(2_147_483_647),
 });
 export type UpdateFinancialModelInput = z.infer<typeof updateFinancialModelSchema>;
 

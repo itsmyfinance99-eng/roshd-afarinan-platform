@@ -131,7 +131,9 @@ describe('projectInputSchema', () => {
     expect(parsed.localCurrency).toBe('IRR');
     expect(parsed.investment.items[0]?.amounts[0]).toBe('1000');
     expect(parsed.investment.items[0]?.depreciation?.salvageRate).toBe('0.1');
-    const { value } = projectModel(parsed as ProjectInput);
+    // The schema output is assignable to the engine input: the compiler keeps the two in step.
+    const engineInput: ProjectInput = parsed;
+    const { value } = projectModel(engineInput);
     // 1 000 USD at 600 000.
     expect(value.investment.fixedInvestment[0]).toBe('600000000');
     expect(value.statements.incomeStatement.salesRevenue[1]).toBe('1000000000');
@@ -176,7 +178,37 @@ describe('projectInputSchema', () => {
   });
 });
 
+describe('projectInputSchema: size', () => {
+  it('refuses a calculation of more than 10 000 period-lines at the horizon', () => {
+    const big = clone();
+    // 500 monthly construction periods + three years = 503 periods, with 20 items.
+    big.horizon.construction = { periods: 500, periodMonths: 1 };
+    big.investment.items = Array.from({ length: 20 }, (_, i) => ({
+      ...big.investment.items[0],
+      key: `item-${i}`,
+    }));
+    const result = projectInputSchema.safeParse(big);
+    expect(result.error?.issues.map((i) => i.path.join('.'))).toEqual(['horizon']);
+    expect(result.error?.issues[0]?.message).toContain('بیش از حد بزرگ');
+  });
+});
+
 describe('financial model drafts', () => {
+  it('refuses drafts that cannot be stored', () => {
+    const draft = (inputs: unknown) =>
+      createFinancialModelSchema.safeParse({ title: 'طرح فولاد', inputs }).success;
+    expect(draft({ a: { b: [1, 'x', null, true] } })).toBe(true);
+    expect(draft({ a: 'x\u0000y' })).toBe(false);
+    expect(draft({ 'k\u0000': 1 })).toBe(false);
+    let deep: unknown = 1;
+    for (let i = 0; i < 20; i++) deep = { deep };
+    expect(draft({ deep })).toBe(false);
+    expect(
+      updateFinancialModelSchema.safeParse({ title: 'طرح فولاد', inputs: {}, version: 2147483648 })
+        .success,
+    ).toBe(false);
+  });
+
   it('accepts an incomplete draft and requires the version on a save', () => {
     expect(createFinancialModelSchema.parse({ title: '  طرح فولاد  ' })).toEqual({
       title: 'طرح فولاد',
