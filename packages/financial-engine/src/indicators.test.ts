@@ -123,7 +123,7 @@ describe('discountedPaybackPeriod (COMFAR X.C.6, dynamic payback)', () => {
     expect(normal.value?.period).toBe(2);
     const dynamic = discountedPaybackPeriod(yearly(['-1000', '600', '600']), { annualRate: '0.5' });
     expect(dynamic.value).toBeUndefined();
-    expect(dynamic.warnings).toEqual([{ code: 'payback.notReached' }]);
+    expect(dynamic.warnings).toEqual([{ code: 'dynamicPayback.notReached' }]);
   });
 
   it('requires a valid rate', () => {

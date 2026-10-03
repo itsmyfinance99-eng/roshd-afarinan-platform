@@ -172,9 +172,33 @@ describe('UNIDO sample case: discounted cash flows (X-9)', () => {
         -2600, -720, -10, 357, 1027, 1883, 901, -48, 1548, 2170, 2170, 1995, 1805, 1805, 1805, 1805,
         1805, 3123,
       ],
-      25,
+      20,
       'net cash return',
     );
+  });
+});
+
+describe('UNIDO sample case: break-even (annex I, table 10)', () => {
+  it('reproduces the coverage of fixed costs of the first five years', () => {
+    const points = statements.breakEven.periods.slice(2, 7);
+    // Variable margin 3 217, 4 388, 5 265, 5 850, 5 850.
+    near(
+      points.map((p) => p?.variableMargin ?? '0'),
+      [3217, 4388, 5265, 5850, 5850],
+      1,
+      'variable margin',
+    );
+    // Fixed costs including depreciation and interest: 3 652, 3 676, 3 583, 3 469, 3 368.
+    near(
+      points.map((p) => p?.includingFinance.fixedCosts ?? '0'),
+      [3652, 3676, 3583, 3469, 3368],
+      1,
+      'total fixed costs',
+    );
+    // The project does not break even in its first year (ratio 0.88).
+    expect(
+      points.map((p) => Number(p?.includingFinance.fixedCostCoverageRatio).toFixed(2)),
+    ).toEqual(['0.88', '1.19', '1.47', '1.69', '1.74']);
   });
 });
 
@@ -204,6 +228,18 @@ describe('UNIDO sample case: working capital (X-4)', () => {
     // COMFAR III: cash-in-hand on operating costs less materials, spare parts included in the
     // materials (2 700 / 24 in 1993 without stock). The book of 1991 prints 123 (2 950 / 24).
     near(wc.totals.cash.slice(2, 6), [123, 136, 146, 153], 12, 'cash-in-hand');
+    // Without the stock effect the gap is exactly the spare parts of 250 a year, which the book
+    // counts in the basis of cash-in-hand and COMFAR III among the materials: 250 / 24.
+    const noStock = unidoCase(allRetained);
+    const product = noStock.operations.products[0];
+    if (product) product.finishedGoodsCoverage = { days: '0' };
+    const cash = projectModel(noStock).value.operations.workingCapital.totals.cash.slice(2, 6);
+    near(
+      cash.map((v) => toDecimal(v).plus(toDecimal('250').div(24)).toFixed()),
+      [123, 136, 146, 153],
+      1,
+      'cash-in-hand on the basis of the book',
+    );
     // Net working capital: 1 341 against the printed 1 355 in 1993, 2 032 against 2 043 at the end.
     near(
       wc.totals.netWorkingCapital.slice(1, 6),

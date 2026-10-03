@@ -19,6 +19,8 @@ A garment factory. Construction 1991–1992, production 1993–2007 (55 %, 75 %,
 | IRR of the equity (schedule X-9/2) | 23.4 % | 23.47 % | +0.07 pt   |
 | Residual value in 2008             | 3 123  | 3 112.5 | −10.5      |
 
+A second test, `all-features.test.ts`, combines what this case lacks — inflation in two currencies with escalation, a moving exchange rate, declining-balance and sum-of-years-digits depreciation, start-up quarters, two products with allocated indirect costs, the sale of an asset, allowances, capitalised interest on a foreign annuity loan and preferred dividends — and checks that the engine stays consistent with itself (balance sheet, cash, allocation, restated debt, indicators). It is not a comparison with COMFAR: no published result exists for such a case.
+
 Equal to the printed figures in every year (to the rounding of the book, ±1):
 
 - fixed investment, pre-production expenditures and their foreign parts (X-1, X-2, X-6);
@@ -30,7 +32,7 @@ Equal to the printed figures in every year (to the rounding of the book, ±1):
 ## Differences and their cause
 
 1. **Net working capital (at most 19 a year in the cash flows, 11 in the residual value).** The book of 1991 computes every working-capital item on the costs of the products **sold** and cash-in-hand on local operating costs less raw materials and factory supplies (2 950 / 24 = 123 in 1993). COMFAR III, which the engine follows (reference manual XI.K, table 18), uses the costs of the products **produced** for materials, work in progress, cash-in-hand and payables, and counts spare parts among the materials, so cash-in-hand is 2 700 / 24 = 112.5 before the effect of the stock of finished products. The test shows that this is the only cause: with production equal to sales, raw materials, factory supplies, spare parts, work in progress, receivables and payables are the printed figures; finished products are the printed figures in the main run. These few units are the whole difference in NPV (0.2 %) and in the residual value.
-2. **A remainder of 21 in "raw materials in stock" in 1993 and 1994.** The book carries part of the initial stock of 400 for two years; the engine consumes the initial stock in the first production year, as COMFAR III's algorithm does (stock left after the year's consumption, or the requirement if that is higher).
+2. **A remainder of 21 in "raw materials in stock" in 1993 and 1994.** The book shows 21 in this line in both years without explaining it (possibly part of the initial stock of 400); the engine consumes the initial stock in the first production year, as COMFAR III's algorithm does (stock left after the year's consumption, or the requirement if that is higher).
 3. **IRR on equity.** The schedule prints 23.4 %, the text of the annex 22.7 %; the engine gives 23.47 %, which follows from difference 1.
 4. **Presentation of the balance sheet.** The book shows dividends as payable inside the cash surplus and the loss of 1993 as an asset line; the engine shows cash after dividends and accumulated losses on their own line. Totals therefore differ although the underlying figures agree.
 
@@ -40,13 +42,15 @@ Equal to the printed figures in every year (to the rounding of the book, ±1):
 - **Depreciation.** 10 % a year, straight-line; 1 000 of the local civil works at 5 %; machinery stops at its salvage value of 10 % (nine years of 350), which is the engine's "linear to zero" with a salvage rate; land is not depreciated. The replacement of 1998: the book depreciates the local part only (60 a year from 1999) and returns the foreign part of 400 in full; the input follows the book.
 - **Dividends.** COMFAR III distributes profit by percentages, the book pays a fixed 630. The test derives the retained share of each year from the net profit (which does not depend on it).
 - **Overdraft.** Entered as a loan with its own disbursement and repayments; the engine shows it with the long-term debt (6 000 = 5 600 + 400 in 1993).
-- **One product.** One unit is a year's output at full capacity; the 30 % export share and the 6 % export charge are inside the marketing costs given by the book.
+- **Accounts payable.** 15 days on the factory cost items only, none on administration and marketing: this reproduces the book (216 = 5 175 / 24 in 1993); COMFAR III would allow payables on every cost item.
+- **Initial stock.** The 400 of raw materials bought in 1992 are entered as 250 of raw material A (the foreign part printed in X-4/2) and 150 of raw material B (our assumption for the local part).
+- **One product.** One unit is a year's output at full capacity; the 30 % export share does not change any figure used here, and the book's sales programme and marketing costs are stated without the 6 % export charge, so it is not modelled.
 
 ## What this settles of OQ-39, and what it does not
 
-Confirmed by this case: discounting with the first year as reference date; interest and fees paid during construction as pre-production expenditures that are depreciated; straight-line depreciation ending at the salvage value; residual values in the year after production; tax holiday and tax; the cash flow and the two discounted cash flows.
+Confirmed by this case: discounting with the first year as reference date; interest paid during construction as pre-production expenditure that is depreciated; straight-line depreciation ending at the salvage value; residual values in the year after production; tax holiday and tax; break-even and the coverage of fixed costs (table 10 of the annex); the two discounted cash flows, and the surplus of the cash flow for financial planning within the working-capital difference.
 
-Not exercised by this case (still open in OQ-39): inflation and escalation, foreign currencies and exchange adjustments, declining-balance and sum-of-years-digits depreciation with a partial first year, start-up periods shorter than a year, capitalised interest, cost allocation among several products, allowances, sale of assets, preferred dividends. A second reference study that uses these features — ideally one run in COMFAR III itself — would cover them.
+Not exercised by this case (still open in OQ-39): loss carry-forward (the loss of 1993 falls inside the tax holiday), graduated tax brackets, sales tax and subsidies, annuity loans, fees, short-term deposits, leasing, automatic coverage of cash deficits, inflation and escalation, foreign currencies and exchange adjustments, declining-balance and sum-of-years-digits depreciation with a partial first year, start-up periods shorter than a year, capitalised interest, cost allocation among several products, allowances, sale of assets, preferred dividends. A second reference study that uses these features — ideally one run in COMFAR III itself — would cover them.
 
 ## Decisions
 

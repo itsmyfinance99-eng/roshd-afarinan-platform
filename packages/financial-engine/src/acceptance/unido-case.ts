@@ -176,20 +176,36 @@ export function unidoCase(retainedShare: DecimalString[]): ProjectInput {
         },
         // Replacement in the sixth production year. The book depreciates its local part only
         // (60 a year from 1999); the foreign part returns in full with the residual value.
+        // 500 of plant machinery and 500 of auxiliary equipment, 200 of each imported.
         {
-          key: 'replacement-local',
+          key: 'replacement-machinery-local',
           group: 'MACHINERY',
           currency: 'NCU',
           origin: 'LOCAL',
-          amounts: inYears({ 1998: '600' }),
+          amounts: inYears({ 1998: '300' }),
           depreciation: linear(10),
         },
         {
-          key: 'replacement-foreign',
+          key: 'replacement-machinery-foreign',
           group: 'MACHINERY',
           currency: 'NCU',
           origin: 'FOREIGN',
-          amounts: inYears({ 1998: '400' }),
+          amounts: inYears({ 1998: '200' }),
+        },
+        {
+          key: 'replacement-auxiliary-local',
+          group: 'AUXILIARY_EQUIPMENT',
+          currency: 'NCU',
+          origin: 'LOCAL',
+          amounts: inYears({ 1998: '300' }),
+          depreciation: linear(10),
+        },
+        {
+          key: 'replacement-auxiliary-foreign',
+          group: 'AUXILIARY_EQUIPMENT',
+          currency: 'NCU',
+          origin: 'FOREIGN',
+          amounts: inYears({ 1998: '200' }),
         },
         {
           key: 'pre-production-local',

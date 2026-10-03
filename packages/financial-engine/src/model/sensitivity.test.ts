@@ -632,9 +632,9 @@ describe('goalSeek', () => {
     expect(wrong.warnings).toEqual([
       { code: 'goalSeek.wrongDirection', params: { variable: 'salesPrice' } },
       { code: 'goalSeek.notReached' },
-      // With prices 20 % lower the investment is not recovered within the horizon.
-      { code: 'payback.notReached', params: { basis: 'totalCapital' } },
-      { code: 'payback.notReached', params: { basis: 'equity' } },
+      // With prices 20 % lower the investment is not recovered within the horizon at 10 %.
+      { code: 'dynamicPayback.notReached', params: { basis: 'totalCapital' } },
+      { code: 'dynamicPayback.notReached', params: { basis: 'equity' } },
     ]);
   });
 
