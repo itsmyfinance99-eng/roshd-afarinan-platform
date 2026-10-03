@@ -126,6 +126,19 @@ describe('discountedPaybackPeriod (COMFAR X.C.6, dynamic payback)', () => {
     expect(dynamic.warnings).toEqual([{ code: 'dynamicPayback.notReached' }]);
   });
 
+  it('reports with its own codes, never with those of the normal payback', () => {
+    const never = discountedPaybackPeriod(yearly(['100', '50']), { annualRate: '0.1' });
+    expect(never.value).toBeUndefined();
+    expect(never.warnings).toEqual([{ code: 'dynamicPayback.noInvestment' }]);
+    const again = discountedPaybackPeriod(yearly(['-100', '200', '-300', '400']), {
+      annualRate: '0.1',
+    });
+    expect(again.value?.period).toBe(1);
+    expect(again.warnings).toEqual([
+      { code: 'dynamicPayback.notSustained', params: { period: '3' } },
+    ]);
+  });
+
   it('requires a valid rate', () => {
     expect(() => discountedPaybackPeriod(yearly(['-1', '2']), { annualRate: '-1' })).toThrow(
       EngineInputError,

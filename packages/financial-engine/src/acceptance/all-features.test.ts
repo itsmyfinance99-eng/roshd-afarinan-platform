@@ -399,7 +399,23 @@ describe('all features together', () => {
     sheet.assets.total.forEach((total, j) =>
       close(total, sheet.liabilities.total[j]!, `period ${j}`),
     );
-    expect(sheet.assets.cashSurplus).toEqual(statements.cashFlow.cashBalance);
+    // Cash is what the cash flow leaves: inflows less outflows, plus the labelled automatic
+    // overdraft (drawn and repaid) and automatic equity, accumulated period by period.
+    const flow = statements.cashFlow;
+    let cash = new Decimal(0);
+    flow.cashBalance.forEach((balance, j) => {
+      cash = cash
+        .plus(flow.inflows.total[j]!)
+        .minus(flow.outflows.total[j]!)
+        .plus(flow.automaticOverdraft[j]!)
+        .plus(flow.automaticEquity[j]!);
+      close(balance, cash, `cash at the end of period ${j}`);
+      close(sheet.assets.cashSurplus[j]!, cash, `cash in the balance sheet of period ${j}`);
+    });
+    // The overdraft is drawn in the two periods of the warning and repaid by the end.
+    expect(toDecimal(flow.automaticOverdraft[2]!).gt(0)).toBe(true);
+    expect(toDecimal(flow.automaticOverdraft[5]!).gt(0)).toBe(true);
+    close(sum(flow.automaticOverdraft), '0', 'overdraft repaid');
   });
 
   it('prices investment with inflation, escalation and the exchange rate of the period', () => {
@@ -434,6 +450,14 @@ describe('all features together', () => {
     close(machinery.depreciation[5]!, cost.times('0.3'), 'machinery first year');
     // Never below the salvage value.
     expect(toDecimal(machinery.bookValue[9]!).gte(cost.times('0.1'))).toBe(true);
+    // Sum of the years' digits on the vehicles (57 600 over five years): 5/15, 4/15, … 1/15.
+    expect(investment.items[3]!.depreciation.slice(5)).toEqual([
+      '19200',
+      '15360',
+      '11520',
+      '7680',
+      '3840',
+    ]);
   });
 
   it('allocates every indirect cost to the products without a remainder', () => {
@@ -469,6 +493,17 @@ describe('all features together', () => {
       ),
     );
     expect(sum(loan.periods.map((p) => p.exchangeAdjustment)).gt(0)).toBe(true);
+    // 1 000 USD drawn at 100 with a fee of 1 % and 35 USD of interest capitalised.
+    expect(loan.periods[0]).toMatchObject({ fees: '1000', endingBalance: '103500' });
+    // The 1 035 USD owed are worth 15 more each at the rate of 1992 (115).
+    expect(loan.periods[1]?.exchangeAdjustment).toBe('15525');
+    // Nothing moves in the first quarter of 1993: the debt in USD is restated from 115 to 120.
+    close(
+      loan.periods[2]!.endingBalance,
+      toDecimal(loan.periods[1]!.endingBalance).div(115).times(120),
+      'debt at the rate of the first quarter',
+    );
+    expect(loan.periods[2]?.endingBalance).toBe('319346.145');
     // Repaid in full within the horizon.
     expect(loan.periods[9]!.endingBalance).toBe('0');
     expect(sum(sheet.assets.exchangeLosses).gt(0)).toBe(true);
@@ -493,36 +528,65 @@ describe('all features together', () => {
     close(income.depreciation[8]!, expected, 'depreciation after the sale');
   });
 
-  it('pays preferred dividends before ordinary ones and taxes by bracket after the holiday', () => {
-    expect(statements.taxYears[0]?.holiday).toBe(true);
-    expect(statements.taxYears[0]?.tax).toBe('0');
-    statements.taxYears.slice(1).forEach((year) => {
-      const taxable = toDecimal(year.taxableProfit);
-      const expected = taxable.lte(0)
-        ? new Decimal(0)
-        : taxable.lte(100000)
-          ? taxable.times('0.15')
-          : new Decimal(15000).plus(taxable.minus(100000).times('0.25'));
-      close(year.tax, expected, 'tax');
-    });
+  it('applies allowances, the tax holiday, the loss carried forward and the brackets', () => {
     const income = statements.incomeStatement;
-    const paid = statements.dividends.shareholders.reduce(
-      (s, h) => s.plus(sum(h.preferred)).plus(sum(h.ordinary)),
-      new Decimal(0),
+    const [first, second, ...later] = statements.taxYears;
+    // 1993 is a loss inside the holiday; the loss is carried to 1994.
+    expect(first?.holiday).toBe(true);
+    expect(first?.tax).toBe('0');
+    expect(toDecimal(first!.profit).isNegative()).toBe(true);
+    // 1994: the depreciation allowance is inside the gross profit, the investment allowance is
+    // deducted from it, and so is the loss of 1993.
+    expect(income.depreciationAllowance[6]).toBe('15000');
+    expect(income.investmentAllowance[6]).toBe('20000');
+    close(second!.profit, toDecimal(income.grossProfit[6]!).minus(20000), 'profit of 1994');
+    close(second!.deductibleLoss, toDecimal(first!.profit).neg(), 'loss brought forward');
+    close(
+      second!.taxableProfit,
+      toDecimal(second!.profit).minus(second!.deductibleLoss),
+      'taxable profit of 1994',
     );
-    close(paid, sum(income.dividends), 'dividends');
-    // The fund holds preference capital only: 12 % of 100 000 in every year with enough profit.
-    const fund = statements.dividends.shareholders[1]!;
-    fund.preferred.forEach((dividend) =>
-      expect(toDecimal(dividend).lte(12000), `preferred dividend ${dividend}`).toBe(true),
-    );
+    later.forEach((year) => expect(year.deductibleLoss).toBe('0'));
+    // 15 % up to 100 000 and 25 % above it; every year after the holiday is above the limit.
+    [second!, ...later].forEach((year) => {
+      const taxable = toDecimal(year.taxableProfit);
+      expect(year.holiday).toBe(false);
+      expect(taxable.gt(100000)).toBe(true);
+      close(year.tax, new Decimal(15000).plus(taxable.minus(100000).times('0.25')), 'tax');
+    });
+    // Interest on short-term deposits is income of every production period.
+    income.depositInterest.slice(2).forEach((v) => expect(toDecimal(v).gt(0)).toBe(true));
+  });
+
+  it('pays preferred dividends first and shares the rest by the ordinary shares', () => {
+    const income = statements.incomeStatement;
+    const [founders, fund, partner] = statements.dividends.shareholders;
+    expect([founders?.equity, fund?.equity, partner?.equity]).toEqual([
+      'founders',
+      'fund',
+      'partner',
+    ]);
+    // The fund holds preference capital only: 12 % of 100 000; the partner 5 % of 80 000.
+    expect(fund?.preferred.slice(6)).toEqual(['12000', '12000', '12000', '12000']);
+    expect(partner?.preferred.slice(6)).toEqual(['4000', '4000', '4000', '4000']);
+    expect(sum(founders!.preferred).isZero()).toBe(true);
+    expect(sum(fund!.ordinary).isZero()).toBe(true);
+    for (let j = 6; j < PERIODS; j += 1) {
+      // What is left after the preferred dividends: 70 % to the founders, 30 % to the partner.
+      const rest = toDecimal(income.dividends[j]!).minus(16000);
+      close(founders!.ordinary[j]!, rest.times('0.7'), `founders in period ${j}`);
+      close(partner!.ordinary[j]!, rest.times('0.3'), `partner in period ${j}`);
+    }
+    // Nothing is paid for the loss of 1993.
+    expect(sum(income.dividends.slice(0, 6)).isZero()).toBe(true);
   });
 
   it('gives indicators that agree with their own flows', () => {
     const flow = statements.totalCapital;
     // NPV = sum of the present values; NPV at the IRR is zero.
     close(flow.npv, sum(flow.presentValue), 'npv');
-    if (flow.irr !== undefined) {
+    expect(flow.irr).toBeDefined();
+    {
       const months = [...value.horizon.periods.map((p) => p.months), 12];
       let elapsed = 0;
       const atIrr = flow.net.reduce((total, amount, j) => {
