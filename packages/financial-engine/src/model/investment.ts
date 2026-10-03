@@ -8,6 +8,9 @@ import {
   type AssetDepreciation,
 } from './asset-depreciation';
 import type { PlanningHorizon } from './horizon';
+import { checkInflation, currentPriceFactors, type PricedItem } from './prices';
+
+export { ratesFor } from './rates';
 
 /**
  * Investment schedules (manual VII.N, X.C.1; comfar-model-spec §4.12): fixed investment and
@@ -33,12 +36,15 @@ export type InvestmentGroup = (typeof INVESTMENT_GROUPS)[number];
 /** Local or foreign content of an item, independent of the currency it is entered in. */
 export type Origin = 'LOCAL' | 'FOREIGN';
 
-export interface InvestmentItem {
+export interface InvestmentItem extends PricedItem {
   key: string;
   group: InvestmentGroup;
-  currency: CurrencyCode;
   origin: Origin;
-  /** Acquisitions per project period in the item's currency (flows on the period's last day). */
+  /**
+   * Acquisitions per project period in the item's currency (flows on the period's last day), at
+   * the prices of the horizon's start: they follow the currency's inflation and the item's
+   * escalation like every other price (comfar-model-spec §4.12).
+   */
   amounts: DecimalString[];
   /** Without conditions the item is not depreciated (e.g. land). */
   depreciation?: AssetDepreciation;
@@ -49,6 +55,8 @@ export interface InvestmentInput {
   localCurrency: CurrencyCode;
   /** Local units per unit of each foreign currency, one rate per project period. */
   exchangeRates: Record<CurrencyCode, DecimalString[]>;
+  /** Inflation per currency and project year; absent = constant prices (as in `PriceContext`). */
+  inflation?: Record<CurrencyCode, DecimalString[]>;
   items: InvestmentItem[];
 }
 
@@ -85,35 +93,6 @@ export interface InvestmentSchedule {
   bookValue: { fixed: DecimalString[]; preProduction: DecimalString[]; total: DecimalString[] };
 }
 
-/** Exchange rate per period for `currency` (1 for the local currency). */
-export function ratesFor(
-  currency: CurrencyCode,
-  input: { localCurrency: CurrencyCode; exchangeRates: Record<CurrencyCode, DecimalString[]> },
-  length: number,
-  field: string,
-): Decimal[] | undefined {
-  if (currency === input.localCurrency) return undefined;
-  const rates = Object.hasOwn(input.exchangeRates, currency)
-    ? input.exchangeRates[currency]
-    : undefined;
-  if (rates === undefined) {
-    throw new EngineInputError('model.exchangeRateMissing', field, { currency });
-  }
-  if (rates.length !== length) {
-    throw new EngineInputError('series.lengthMismatch', `exchangeRates.${currency}`, {
-      expected: String(length),
-      actual: String(rates.length),
-    });
-  }
-  return rates.map((r, j) => {
-    const rate = toDecimal(r);
-    if (!rate.gt(0)) {
-      throw new EngineInputError('exchangeRate.notPositive', `exchangeRates.${currency}[${j}]`);
-    }
-    return rate;
-  });
-}
-
 const ORIGINS: readonly string[] = ['LOCAL', 'FOREIGN'];
 
 /** Rejects an origin other than local or foreign, so the two splits always add up to the total. */
@@ -138,6 +117,7 @@ const strings = (values: Decimal[]) => values.map((v) => toDecimalString(v));
 /** Fixed investment and pre-production schedules with their depreciation, in local currency. */
 export function investmentSchedule(input: InvestmentInput): CalculationResult<InvestmentSchedule> {
   const length = input.horizon.periods.length;
+  checkInflation(input);
   uniqueKeys(
     input.items.map((i) => i.key),
     'items',
@@ -149,8 +129,8 @@ export function investmentSchedule(input: InvestmentInput): CalculationResult<In
     }
     checkOrigin(item.origin, `${field}.origin`);
     const own = periodAmounts(item.amounts, length, `${field}.amounts`);
-    const rates = ratesFor(item.currency, input, length, `${field}.currency`);
-    const local = rates === undefined ? own : own.map((a, j) => a.times(rates[j] ?? ZERO));
+    const factors = currentPriceFactors(input, item, field);
+    const local = own.map((a, j) => a.times(factors[j] ?? ZERO));
     const book = depreciateAcquisitions(
       input.horizon,
       local,

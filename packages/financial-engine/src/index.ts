@@ -187,4 +187,29 @@ export {
   type Coverage,
   type WorkingCapitalItemInput,
 } from './model/working-capital';
+export {
+  graduatedTax,
+  incomeTax,
+  type PerYear,
+  type TaxBracket,
+  type TaxConditions,
+  type TaxYear,
+} from './model/tax';
+export {
+  distributeProfit,
+  type DividendShareholder,
+  type ProfitDistribution,
+} from './model/dividends';
+export {
+  financialStatements,
+  type AssetSale,
+  type BalanceSheet,
+  type CashFlowForPlanning,
+  type DiscountedCashFlow,
+  type FinancialStatements,
+  type IncomeStatement,
+  type ResidualValueTiming,
+  type ShareholderDividends,
+  type StatementsInput,
+} from './model/statements';
 export { financialCalculator } from './calculator';
