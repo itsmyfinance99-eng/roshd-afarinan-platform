@@ -48,7 +48,11 @@ Confirmed by this case: discounting with the first year as reference date; inter
 
 Not exercised by this case (still open in OQ-39): inflation and escalation, foreign currencies and exchange adjustments, declining-balance and sum-of-years-digits depreciation with a partial first year, start-up periods shorter than a year, capitalised interest, cost allocation among several products, allowances, sale of assets, preferred dividends. A second reference study that uses these features — ideally one run in COMFAR III itself — would cover them.
 
+## Decisions
+
+- **Working capital (owner, 2026-10-03):** COMFAR III's rule is the criterion. Differences 1 and 2 are accepted as they are; the engine does not offer the convention of the 1991 edition.
+
 ## Open for the expert
 
-- Confirm that differences 1 and 2 are acceptable as "COMFAR III rule instead of the 1991 convention", or decide that the engine should offer the 1991 convention as an option.
 - Confirm the reading of the replacement of 1998 and of the fixed dividend.
+- A second reference study for the features this case does not use (see above).
