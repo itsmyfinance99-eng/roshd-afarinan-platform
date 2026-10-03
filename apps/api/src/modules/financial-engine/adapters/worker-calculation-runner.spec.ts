@@ -102,4 +102,18 @@ describe('WorkerCalculationRunner', () => {
     // The queue is free again afterwards.
     await expect(runner.run(input)).resolves.toBeDefined();
   });
+
+  it('drops queued runs and accepts none once the module is shutting down', async () => {
+    const closing = new WorkerCalculationRunner();
+    const queued = [closing.run(input), closing.run(input)].map((run) =>
+      run.then(
+        () => 'done',
+        (e: unknown) => (e instanceof CalculationBusyError ? 'busy' : 'stopped'),
+      ),
+    );
+    await closing.onModuleDestroy();
+    // The first was already running in its worker; the second never starts.
+    expect((await Promise.all(queued))[1]).toBe('busy');
+    await expect(closing.run(input)).rejects.toBeInstanceOf(CalculationBusyError);
+  });
 });

@@ -16,7 +16,7 @@ import {
 
 /** Longest a single calculation may run before its worker is stopped. */
 export const CALCULATION_TIMEOUT_MS = 5_000;
-/** Calculations that may wait for the worker; more are turned away. */
+/** Calculations in the queue, the running one included; more are turned away. */
 export const CALCULATION_QUEUE_LIMIT = 8;
 
 /**
@@ -59,11 +59,18 @@ export class WorkerCalculationRunner implements CalculationRunner, OnModuleDestr
   private readonly workers = new Set<Worker>();
   private tail: Promise<unknown> = Promise.resolve();
   private waiting = 0;
+  private closed = false;
 
   run(input: ProjectInput): Promise<CalculationResult<ProjectModel>> {
-    if (this.waiting >= CALCULATION_QUEUE_LIMIT) return Promise.reject(new CalculationBusyError());
+    if (this.closed || this.waiting >= CALCULATION_QUEUE_LIMIT) {
+      return Promise.reject(new CalculationBusyError());
+    }
     this.waiting += 1;
-    const next = this.tail.then(() => this.runInWorker(input));
+    const next = this.tail.then(() => {
+      // Queued runs are dropped once the module is shutting down.
+      if (this.closed) throw new CalculationBusyError();
+      return this.runInWorker(input);
+    });
     // The queue moves on whether this run succeeds or fails.
     this.tail = next
       .catch(() => undefined)
@@ -74,6 +81,7 @@ export class WorkerCalculationRunner implements CalculationRunner, OnModuleDestr
   }
 
   async onModuleDestroy(): Promise<void> {
+    this.closed = true;
     await Promise.all([...this.workers].map((worker) => worker.terminate()));
   }
 

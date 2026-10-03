@@ -6,8 +6,10 @@ import {
   FINANCIAL_MODEL_INPUT_VERSION,
   MAX_CALCULATION_RUNS,
   MAX_FINANCIAL_MODELS,
+  MAX_REPORTED_ISSUES,
   MAX_RESULTS_CHARS,
   projectInputSchema,
+  type ProjectInputData,
   type AssignInput,
   type CreateFinancialModelInput,
   type ListCalculationRunsQuery,
@@ -107,8 +109,10 @@ interface Relation {
  */
 @Injectable()
 export class FinancialModelsService {
-  /** Start times of each user's recent calculations (see `throttle`). */
+  /** Times of each user's recent calculation requests (see `throttle`). */
   private readonly calculations = new Map<string, number[]>();
+  /** Users with a calculation in the queue or running. */
+  private readonly running = new Set<string>();
 
   constructor(
     private readonly prisma: PrismaService,
@@ -370,19 +374,12 @@ export class FinancialModelsService {
     });
     if (!model) throw new NotFoundError();
 
-    const parsed = projectInputSchema.safeParse(model.inputs);
-    if (!parsed.success) {
-      throw new ValidationFailedError(
-        parsed.error.issues.map((issue) => ({
-          path: ['inputs', ...issue.path.map(String)].join('.'),
-          message: issue.message,
-        })),
-        'ورودی‌های مدل برای محاسبه کامل نیست.',
-      );
-    }
-    const input = parsed.data;
-    // Only attempts that reach the engine count against the user's limit.
+    // Every request counts: checking a large draft is work on the request thread too.
     this.throttle(principal.userId);
+    const input = this.parseInputs(model.inputs);
+    // One calculation per user at a time, so that nobody fills the queue alone.
+    if (this.running.has(principal.userId)) throw new AppException('RATE_LIMITED');
+    this.running.add(principal.userId);
     let outcome: CalculationResult<ProjectModel>;
     try {
       outcome = await this.runner.run(input);
@@ -412,6 +409,8 @@ export class FinancialModelsService {
         );
       }
       throw error;
+    } finally {
+      this.running.delete(principal.userId);
     }
 
     const results = JSON.stringify(outcome.value);
@@ -499,6 +498,38 @@ export class FinancialModelsService {
     return this.getRun(modelId, runId, principal);
   }
 
+  /**
+   * The complete calculation input of a draft, or a validation error that lists what is missing
+   * or malformed field by field (the first MAX_REPORTED_ISSUES; a huge draft could have
+   * hundreds of thousands).
+   */
+  private parseInputs(inputs: Prisma.JsonValue): ProjectInputData {
+    const incomplete = 'ورودی‌های مدل برای محاسبه کامل نیست.';
+    let parsed: ReturnType<typeof projectInputSchema.safeParse>;
+    try {
+      parsed = projectInputSchema.safeParse(inputs);
+    } catch {
+      // The schema library itself gives up on absurdly large invalid drafts.
+      throw new ValidationFailedError(
+        [{ path: 'inputs', message: 'ساختار ورودی‌های مدل معتبر نیست.' }],
+        incomplete,
+      );
+    }
+    if (parsed.success) return parsed.data;
+    const issues = parsed.error.issues;
+    const details = issues.slice(0, MAX_REPORTED_ISSUES).map((issue) => ({
+      path: ['inputs', ...issue.path.map(String)].join('.'),
+      message: issue.message,
+    }));
+    if (issues.length > MAX_REPORTED_ISSUES) {
+      details.push({
+        path: 'inputs',
+        message: `${(issues.length - MAX_REPORTED_ISSUES).toLocaleString('fa-IR')} خطای دیگر نمایش داده نشد.`,
+      });
+    }
+    throw new ValidationFailedError(details, incomplete);
+  }
+
   /** Locks the model row until the transaction ends; 404 when the model is gone. */
   private async lock(tx: Prisma.TransactionClient, id: string): Promise<void> {
     const rows = await tx.$queryRaw<
@@ -508,8 +539,8 @@ export class FinancialModelsService {
   }
 
   /**
-   * At most CALCULATIONS_PER_MINUTE calculations per user and API process, so that one user
-   * cannot keep the calculation worker to themselves.
+   * At most CALCULATIONS_PER_MINUTE calculation requests per user and API process, so that one
+   * user cannot keep the request thread or the calculation worker to themselves.
    */
   private throttle(userId: string): void {
     const now = Date.now();

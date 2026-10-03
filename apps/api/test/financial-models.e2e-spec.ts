@@ -3,6 +3,11 @@ import { MODEL_VERSION } from '@roshd/financial-engine';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { PrismaService } from '../src/modules/database/prisma.service';
+import {
+  CALCULATION_RUNNER,
+  CalculationBusyError,
+  CalculationTimeoutError,
+} from '../src/modules/financial-engine/ports/calculation-runner';
 import { inputHash } from '../src/modules/financial-model/domain/input-hash';
 import { createTestApp, registerUser } from './helpers';
 
@@ -225,6 +230,35 @@ describe('Financial models (e2e)', () => {
       const runs = await http().get(`${base}/${id}/runs`).set(auth(owner.token)).expect(200);
       expect(runs.body.meta.total).toBe(0);
     }
+
+    // A horizon the engine refuses is reported at its field, not as a server error.
+    const long = structuredClone(inputs);
+    long.horizon.productionYears = 50;
+    const tooLong = await createModel(owner.token, { title: 'افق بلند', inputs: long });
+    const horizon = await http()
+      .post(`${base}/${tooLong.id}/runs`)
+      .set(auth(owner.token))
+      .expect(400);
+    expect(horizon.body.error.details.map((d: { path: string }) => d.path)).toContain(
+      'inputs.horizon.productionYears',
+    );
+
+    // A draft with thousands of invalid values gets a short list and a count of the rest.
+    const broken = structuredClone(inputs);
+    broken.investment.items = Array.from({ length: 40 }, (_, i) => ({
+      key: `item-${i}`,
+      group: 'LAND',
+      currency: 'IRR',
+      origin: 'LOCAL',
+      amounts: ['x', 'y', 'z', 'w'],
+    }));
+    const many = await createModel(owner.token, { title: 'پر از خطا', inputs: broken });
+    const listed = await http().post(`${base}/${many.id}/runs`).set(auth(owner.token)).expect(400);
+    expect(listed.body.error.details).toHaveLength(51);
+    expect(listed.body.error.details[50]).toEqual({
+      path: 'inputs',
+      message: '۱۱۰ خطای دیگر نمایش داده نشد.',
+    });
   });
 
   it('calculates a model and keeps every run as an immutable snapshot', async () => {
@@ -497,14 +531,23 @@ describe('Financial models (e2e)', () => {
 
   it('numbers concurrent calculations one after the other', async () => {
     const owner = await registerUser(app);
+    const expert = await registerUser(app, ['expert']);
+    const admin = await registerUser(app, ['admin']);
     const model = await createModel(owner.token);
+    await assign(admin, model.id, expert.id).expect(200);
     const results = await Promise.all(
-      Array.from({ length: 5 }, () =>
-        http().post(`${base}/${model.id}/runs`).set(auth(owner.token)),
+      [owner, expert, admin].map((user) =>
+        http().post(`${base}/${model.id}/runs`).set(auth(user.token)),
       ),
     );
-    expect(results.map((r) => r.status)).toEqual([201, 201, 201, 201, 201]);
-    expect(results.map((r) => r.body.data.number as number).sort()).toEqual([1, 2, 3, 4, 5]);
+    expect(results.map((r) => r.status)).toEqual([201, 201, 201]);
+    expect(results.map((r) => r.body.data.number as number).sort()).toEqual([1, 2, 3]);
+
+    // One user has one calculation at a time; the second request is turned away.
+    const twice = await Promise.all(
+      [1, 2].map(() => http().post(`${base}/${model.id}/runs`).set(auth(owner.token))),
+    );
+    expect(twice.map((r) => r.status).sort()).toEqual([201, 429]);
   });
 
   it('bounds the size of a calculation and the calculations of one user', async () => {
@@ -530,8 +573,8 @@ describe('Financial models (e2e)', () => {
     ]);
 
     const small = await createModel(owner.token);
-    // Only calculations that reach the engine count: ten pass, the eleventh is turned away.
-    for (let i = 0; i < 10; i++) {
+    // Every request counts, the refused one too: nine more pass, the eleventh is turned away.
+    for (let i = 0; i < 9; i++) {
       await http().post(`${base}/${small.id}/runs`).set(auth(owner.token)).expect(201);
     }
     const limited = await http()
@@ -568,5 +611,49 @@ describe('Financial models (e2e)', () => {
       .send({ title: 'طرح فولاد', inputs: [] })
       .expect(400);
     await http().get(`${base}/not-a-uuid`).set(auth(owner.token)).expect(400);
+  });
+});
+
+describe('Financial models: limits of the calculation worker (e2e)', () => {
+  let app: INestApplication;
+  let failure: Error;
+  const http = () => request(app.getHttpServer());
+  const auth = (token: string) => ({ Authorization: `Bearer ${token}` });
+
+  beforeAll(async () => {
+    // A runner that fails the way the worker does when a model is too slow or the queue is full.
+    app = await createTestApp(
+      [],
+      [{ token: CALCULATION_RUNNER, value: { run: () => Promise.reject(failure) } }],
+    );
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  it('refuses a calculation that runs out of time and reports a full queue', async () => {
+    const owner = await registerUser(app);
+    const created = await http()
+      .post('/api/v1/financial-models')
+      .set(auth(owner.token))
+      .send({ title: 'طرح فولاد', inputs })
+      .expect(201);
+    const runs = `/api/v1/financial-models/${created.body.data.id}/runs`;
+
+    failure = new CalculationTimeoutError();
+    const slow = await http().post(runs).set(auth(owner.token)).expect(400);
+    expect(slow.body.error.details).toEqual([
+      { path: 'inputs', message: expect.stringContaining('بیش از زمان مجاز') },
+    ]);
+
+    failure = new CalculationBusyError();
+    const busy = await http().post(runs).set(auth(owner.token)).expect(503);
+    expect(busy.body.error.code).toBe('SERVICE_UNAVAILABLE');
+
+    // The user is free to try again, and nothing was stored.
+    await http().post(runs).set(auth(owner.token)).expect(503);
+    const list = await http().get(runs).set(auth(owner.token)).expect(200);
+    expect(list.body.meta.total).toBe(0);
   });
 });

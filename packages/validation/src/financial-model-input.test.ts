@@ -193,6 +193,15 @@ describe('projectInputSchema: size', () => {
   });
 });
 
+describe('projectInputSchema: horizon the engine refuses', () => {
+  it('reports the horizon and does not throw', () => {
+    const long = clone();
+    long.horizon.productionYears = 50;
+    const result = projectInputSchema.safeParse(long);
+    expect(result.error?.issues.map((i) => i.path.join('.'))).toEqual(['horizon.productionYears']);
+  });
+});
+
 describe('financial model drafts', () => {
   it('refuses drafts that cannot be stored', () => {
     const draft = (inputs: unknown) =>

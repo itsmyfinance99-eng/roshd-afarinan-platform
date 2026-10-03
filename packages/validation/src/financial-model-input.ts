@@ -28,8 +28,10 @@ export const MAX_CALCULATION_RUNS = 50;
 export const MAX_CALCULATION_SIZE = 20_000;
 /** Largest stored result of one run, in characters of JSON. */
 export const MAX_RESULTS_CHARS = 4_000_000;
-/** Calculations one user may start per minute. */
+/** Calculation requests one user may make per minute (valid or not). */
 export const CALCULATIONS_PER_MINUTE = 10;
+/** Validation messages returned for one calculation request; the rest is summarised. */
+export const MAX_REPORTED_ISSUES = 50;
 
 const M = FINANCIAL_MODEL_MESSAGES;
 const M_TOO_LARGE =
@@ -320,7 +322,8 @@ export function calculationSize(input: z.infer<typeof projectInputFieldsSchema>)
 }
 
 export const projectInputSchema = projectInputFieldsSchema.superRefine((input, ctx) => {
-  // The horizon was checked above, so its periods can be counted.
+  // The periods can only be counted on a horizon that passed its own checks (reported above).
+  if (!horizonSchema.safeParse(input.horizon).success) return;
   if (calculationSize(input) > MAX_CALCULATION_SIZE) {
     ctx.addIssue({ code: 'custom', message: M_TOO_LARGE, path: ['horizon'] });
   }
