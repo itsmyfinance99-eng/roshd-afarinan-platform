@@ -901,6 +901,32 @@ describe('financialStatements: a project with every feature', () => {
     );
   });
 
+  it('accepts a depreciation allowance that is used up by charges with endless decimals', () => {
+    // Book value 5 600 at the end of the first start-up quarter; the declining-balance plant and
+    // the studies over 36 months give charges that do not terminate.
+    const { value } = financialStatements(
+      everything({
+        assetSales: [],
+        allowances: { investment: on({}), depreciation: on({ 2: '5000' }) },
+      }),
+    );
+    const b = value.balanceSheet;
+    b.assets.total.forEach((total, j) => close(total, b.liabilities.total[j]!));
+    b.assets.fixedAssets.forEach((fixed, j) =>
+      expect(toDecimal(fixed).minus(b.assets.preProductionInterest[j]!).gt('-1e-24')).toBe(true),
+    );
+    // Nothing is left to depreciate once the allowance has used up the book value.
+    close(value.incomeStatement.depreciation[n - 1]!, finance.interestDepreciation[n - 1]!);
+    fails(
+      everything({
+        assetSales: [],
+        allowances: { investment: on({}), depreciation: on({ 2: '5601' }) },
+      }),
+      'allowance.exceedsBookValue',
+      'allowances.depreciation[2]',
+    );
+  });
+
   it('analyses the selected break-even year as a whole', () => {
     const { value } = financialStatements(everything({ referenceYear: 1 }));
     const s = value.incomeStatement;

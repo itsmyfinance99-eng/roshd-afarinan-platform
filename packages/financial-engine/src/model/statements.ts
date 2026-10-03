@@ -276,6 +276,9 @@ export interface FinancialStatements {
   };
 }
 
+/** Relative size below which a difference is a rounding residue of the 34-digit arithmetic. */
+const ROUNDING_TOLERANCE = '0.00000000000000000001';
+
 type Row = Decimal[];
 const at = (row: Row | undefined, j: number) => row?.[j] ?? ZERO;
 const strings = (row: Row) => row.map((v) => toDecimalString(v));
@@ -484,14 +487,18 @@ export function financialStatements(
       .minus(at(preProductionBook, j))
       .minus(replacedToDate);
     if (short.gt(0)) {
-      if (short.gt(at(assetDepreciation, j))) {
+      const charge = at(assetDepreciation, j);
+      // Book values and charges are rounded to 34 digits independently, so a shortfall may
+      // exceed the period's charge by a rounding residue; only a real excess is refused.
+      if (short.minus(charge).gt(allowance.times(ROUNDING_TOLERANCE))) {
         throw new EngineInputError(
           'allowance.exceedsBookValue',
           `allowances.depreciation[${lastAllowance}]`,
         );
       }
-      replaced[j] = short;
-      replacedToDate = replacedToDate.plus(short);
+      const covered = short.gt(charge) ? charge : short;
+      replaced[j] = covered;
+      replacedToDate = replacedToDate.plus(covered);
     }
     return allowance.minus(replacedToDate);
   });
