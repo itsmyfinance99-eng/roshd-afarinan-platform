@@ -372,6 +372,9 @@ importers:
 
   packages/validation:
     dependencies:
+      '@roshd/financial-engine':
+        specifier: workspace:*
+        version: link:../financial-engine
       '@roshd/types':
         specifier: workspace:*
         version: link:../types

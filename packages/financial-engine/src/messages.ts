@@ -16,6 +16,11 @@ export const ENGINE_MESSAGES_FA = {
   'series.empty': 'هیچ دوره‌ای وارد نشده است.',
   'series.lengthMismatch': 'تعداد مقادیر ({actual}) با تعداد دوره‌ها ({expected}) برابر نیست.',
   'wacc.noCapital': 'جمع منابع تأمین مالی باید بیشتر از صفر باشد.',
+  'horizon.outOfRange': 'این مقدار باید عددی صحیح از {min} تا {max} باشد.',
+  'horizon.periodLength': 'طول دوره باید ماهانه، سه‌ماهه، شش‌ماهه یا سالانه باشد.',
+  'horizon.startupTooLong': 'دوره راه‌اندازی حداکثر ۲۴ ماه است.',
+  'horizon.tooLong': 'افق طرح حداکثر {max} ماه است.',
+  'horizon.startupBeyondProduction': 'دوره راه‌اندازی از پایان دوره بهره‌برداری فراتر می‌رود.',
   'depreciation.firstYearMonths': 'تعداد ماه‌های سال اول استهلاک باید عددی صحیح از ۱ تا ۱۲ باشد.',
   'depreciation.lifeTooLong': 'عمر استهلاک حداکثر {max} ماه است.',
   'depreciation.rateRequired': 'برای روش نزولی، نرخ استهلاک را وارد کنید.',
@@ -46,6 +51,15 @@ export const ENGINE_MESSAGES_FA = {
     'برداشت یا بازپرداخت بعد از پایان دوره برداشت مجاز نیست؛ تاریخ اولین قسط را دیرتر کنید.',
   'loan.capitalisedShare': 'سهم سود انباشته باید از صفر تا ۱۰۰ درصد باشد.',
   'loan.periodsNotAscending': 'پایان دوره‌ها باید به ترتیب صعودی باشد.',
+  'model.duplicateKey': 'این کلید بیش از یک بار به کار رفته است.',
+  'model.exchangeRateMissing': 'نرخ ارز {currency} برای دوره‌های طرح وارد نشده است.',
+  'investment.group': 'گروه قلم سرمایه‌گذاری معتبر نیست.',
+  'investment.depreciationStart':
+    'شروع استهلاک باید اولین روز یکی از دوره‌های بهره‌برداری (راه‌اندازی یا تولید) باشد.',
+  'financing.equityClass': 'نوع آورده سهامداران معتبر نیست.',
+  'financing.interestDepreciationStart':
+    'استهلاک سود انباشته باید بعد از آخرین تاریخ انباشت سود شروع شود.',
+  'model.origin': 'منشأ قلم باید داخلی یا خارجی باشد.',
 
   // Warnings: a value that does not exist or cannot be computed
   'irr.noSignChange': 'جریان نقدی تغییر علامت ندارد؛ نرخ بازده داخلی وجود ندارد.',

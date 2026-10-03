@@ -1,3 +1,4 @@
+import { engineMessageFa } from '@roshd/financial-engine/messages';
 import { describe, expect, it } from 'vitest';
 import {
   FINANCIAL_MODEL_MESSAGES,
@@ -5,6 +6,8 @@ import {
   assumptionTemplateSchema,
   checkAssumptionsForCalculation,
   decimalStringSchema,
+  horizonPeriods,
+  horizonSchema,
   projectAssumptionsSchema,
   requiredAssumptions,
   type ProjectAssumptions,
@@ -12,9 +15,12 @@ import {
 
 const base = {
   horizon: {
-    startDate: '2026-03-21',
+    calendar: 'SOLAR_HIJRI',
+    start: { year: 1405, month: 1 },
+    balanceMonth: 12,
     construction: { periods: 4, periodMonths: 6 },
-    production: { periods: 10, periodMonths: 12 },
+    startup: { periods: 0, periodMonths: 12 },
+    productionYears: 10,
   },
   currencies: {
     local: 'irr',
@@ -87,25 +93,54 @@ describe('projectAssumptionsSchema', () => {
   });
 
   it('checks the horizon', () => {
-    const twoPhases = (construction: unknown, production: unknown) =>
-      projectAssumptionsSchema.safeParse({
-        ...base,
-        horizon: { ...base.horizon, construction, production },
-      }).success;
-    expect(twoPhases({ periods: 0, periodMonths: 12 }, { periods: 1, periodMonths: 12 })).toBe(
-      true,
-    );
-    expect(twoPhases({ periods: 2, periodMonths: 2 }, { periods: 5, periodMonths: 12 })).toBe(
-      false,
-    );
-    expect(twoPhases({ periods: 2, periodMonths: 12 }, { periods: 0, periodMonths: 12 })).toBe(
-      false,
-    );
+    const withHorizon = (changes: Record<string, unknown>) =>
+      projectAssumptionsSchema.safeParse({ ...base, horizon: { ...base.horizon, ...changes } });
+    expect(
+      withHorizon({ construction: { periods: 0, periodMonths: 12 }, productionYears: 1 }).success,
+    ).toBe(true);
+    expect(withHorizon({ construction: { periods: 2, periodMonths: 2 } }).success).toBe(false);
+    expect(withHorizon({ productionYears: 0 }).success).toBe(false);
+    expect(withHorizon({ balanceMonth: 13 }).success).toBe(false);
+    expect(withHorizon({ start: { year: 1405, month: 0 } }).success).toBe(false);
+    expect(withHorizon({ calendar: 'LUNAR' }).success).toBe(false);
+  });
+
+  it('runs the engine checks of the horizon at the field, in Persian', () => {
+    const startup = projectAssumptionsSchema.safeParse({
+      ...base,
+      horizon: { ...base.horizon, startup: { periods: 3, periodMonths: 12 } },
+    });
+    expect(startup.error?.issues).toEqual([
+      expect.objectContaining({
+        path: ['horizon', 'startup', 'periods'],
+        message: engineMessageFa('horizon.startupTooLong'),
+      }),
+    ]);
     const tooLong = projectAssumptionsSchema.safeParse({
       ...base,
-      horizon: { ...base.horizon, production: { periods: 60, periodMonths: 12 } },
+      horizon: { ...base.horizon, construction: { periods: 100, periodMonths: 6 } },
     });
-    expect(messagesOf(tooLong)).toContain(FINANCIAL_MODEL_MESSAGES.horizonTooLong);
+    expect(tooLong.error?.issues).toEqual([
+      expect.objectContaining({
+        path: ['horizon', 'construction', 'periods'],
+        message: 'افق طرح حداکثر ۶۰۰ ماه است.',
+      }),
+    ]);
+  });
+
+  it('counts the periods of a horizon with a start-up phase and a short first year', () => {
+    // Construction Mehr–Esfand 1405, start-up Farvardin–Shahrivar 1406 in two quarters, then the
+    // shortened first year to Esfand 1406 and two full years.
+    const horizon = horizonSchema.parse({
+      calendar: 'SOLAR_HIJRI',
+      start: { year: 1405, month: 7 },
+      balanceMonth: 12,
+      construction: { periods: 1, periodMonths: 6 },
+      startup: { periods: 2, periodMonths: 3 },
+      productionYears: 3,
+    });
+    expect(horizonPeriods(horizon)).toBe(6);
+    expect(horizonPeriods(projectAssumptionsSchema.parse(base).horizon)).toBe(14);
   });
 
   it('checks the currencies', () => {
@@ -268,7 +303,7 @@ describe('assumption templates', () => {
     const result = projectAssumptionsSchema.safeParse({
       ...base,
       inflationEnabled: 'yes',
-      horizon: { ...base.horizon, construction: { periods: 700, periodMonths: 12 } },
+      horizon: { ...base.horizon, construction: { periods: 700, periodMonths: 12 }, startup: null },
       currencies: {
         ...base.currencies,
         foreign: Array.from({ length: 11 }, (_, i) => `A${'BCDEFGHIJKL'[i]}X`),

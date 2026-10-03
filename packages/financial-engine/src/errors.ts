@@ -12,3 +12,16 @@ export class EngineInputError extends Error {
     this.name = 'EngineInputError';
   }
 }
+
+/**
+ * True for an `EngineInputError`, also when it comes from another copy of the engine module (e.g.
+ * CommonJS and ESM builds loaded side by side), where `instanceof` would fail.
+ */
+export function isEngineInputError(error: unknown): error is EngineInputError {
+  return (
+    error instanceof Error &&
+    error.name === 'EngineInputError' &&
+    typeof (error as Partial<EngineInputError>).code === 'string' &&
+    typeof (error as Partial<EngineInputError>).field === 'string'
+  );
+}

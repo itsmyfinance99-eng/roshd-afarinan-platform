@@ -24,7 +24,7 @@ export type {
   Scenario,
   SensitivityRequest,
 } from './types';
-export { EngineInputError } from './errors';
+export { EngineInputError, isEngineInputError } from './errors';
 export { MODEL_VERSION } from './version';
 export {
   DEFAULT_DISCOUNT_REFERENCE,
@@ -116,4 +116,39 @@ export {
   type LoanSchedule,
   type LoanType,
 } from './loans';
+export {
+  planHorizon,
+  type BalanceYear,
+  type HorizonInput,
+  type HorizonPeriod,
+  type PeriodLength,
+  type PeriodPhase,
+  type PlanningHorizon,
+} from './model/horizon';
+export {
+  depreciateAcquisitions,
+  type AssetBookValues,
+  type AssetDepreciation,
+} from './model/asset-depreciation';
+export {
+  INVESTMENT_GROUPS,
+  investmentSchedule,
+  type InvestmentGroup,
+  type InvestmentInput,
+  type InvestmentItem,
+  type InvestmentItemSchedule,
+  type InvestmentSchedule,
+  type Origin,
+  type OriginSplit,
+} from './model/investment';
+export {
+  EQUITY_CLASSES,
+  financingSchedule,
+  type EquityClass,
+  type EquityContribution,
+  type FinancingInput,
+  type FinancingLoan,
+  type FinancingLoanSchedule,
+  type FinancingSchedule,
+} from './model/financing';
 export { financialCalculator } from './calculator';

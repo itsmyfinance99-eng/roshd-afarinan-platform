@@ -23,6 +23,9 @@ import type {
 } from './indicators';
 import type { irr, mirr } from './irr';
 import type { loanPeriods, loanSchedule, sumLoanPeriods } from './loans';
+import type { financingSchedule } from './model/financing';
+import type { planHorizon } from './model/horizon';
+import type { investmentSchedule } from './model/investment';
 import type { npv } from './time-value';
 
 /** ISO 4217 code, e.g. "IRR", "USD", "EUR". Projects may define any currency (COMFAR VII.I). */
@@ -64,6 +67,8 @@ export interface DefaultUsed {
     | 'cash.autoCoverage';
   /** The value applied, as text (e.g. a rate or a period key). */
   value: string;
+  /** The input it applies to (e.g. a loan's key) when a result covers several. */
+  item?: string;
 }
 
 export interface CalculationResult<T> {
@@ -105,6 +110,9 @@ export interface FinancialCalculator {
   loanSchedule: typeof loanSchedule;
   loanPeriods: typeof loanPeriods;
   sumLoanPeriods: typeof sumLoanPeriods;
+  planHorizon: typeof planHorizon;
+  investmentSchedule: typeof investmentSchedule;
+  financingSchedule: typeof financingSchedule;
 }
 
 export interface SensitivityRequest {

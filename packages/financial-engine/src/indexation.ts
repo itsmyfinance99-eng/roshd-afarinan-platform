@@ -198,6 +198,12 @@ export interface ForeignLoanPeriod {
   interest: DecimalString;
   /** Fees paid in the period. */
   fees: DecimalString;
+  /**
+   * Balance at the end of the period in the loan's currency, as the schedule computed it (e.g.
+   * `loanPeriods`). When given it replaces the running sum of the flows, whose rounding in the 34th
+   * digit could otherwise leave a residue or a tiny negative balance after the last repayment.
+   */
+  closingBalance?: DecimalString;
 }
 
 export interface ForeignLoanLocalPeriod {
@@ -240,7 +246,10 @@ export function foreignLoanToLocal(
     const interest = amount(p.interest, `periods[${j}].interest`);
     const fees = amount(p.fees, `periods[${j}].fees`);
     const opening = localBalance ?? foreignBalance.times(er);
-    foreignBalance = foreignBalance.plus(d).minus(r).plus(ci);
+    foreignBalance =
+      p.closingBalance === undefined
+        ? foreignBalance.plus(d).minus(r).plus(ci)
+        : toDecimal(p.closingBalance);
     if (foreignBalance.isNegative() && !foreignBalance.isZero()) {
       throw new EngineInputError('loan.negativeBalance', `periods[${j}].repayment`);
     }
