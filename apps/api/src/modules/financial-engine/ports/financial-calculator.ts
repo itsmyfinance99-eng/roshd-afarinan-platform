@@ -21,6 +21,3 @@ export type {
   Scenario,
   SensitivityRequest,
 } from '@roshd/financial-engine';
-
-/** Injection token of the engine; bound to `financialCalculator` in the financial-model module. */
-export const FINANCIAL_CALCULATOR = Symbol('FINANCIAL_CALCULATOR');

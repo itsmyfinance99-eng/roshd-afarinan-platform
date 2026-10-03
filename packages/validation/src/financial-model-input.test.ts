@@ -179,7 +179,7 @@ describe('projectInputSchema', () => {
 });
 
 describe('projectInputSchema: size', () => {
-  it('refuses a calculation of more than 10 000 period-lines at the horizon', () => {
+  it('refuses an oversized calculation at the horizon', () => {
     const big = clone();
     // 500 monthly construction periods + three years = 503 periods, with 20 items.
     big.horizon.construction = { periods: 500, periodMonths: 1 };

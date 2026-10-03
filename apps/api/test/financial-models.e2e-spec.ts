@@ -530,8 +530,8 @@ describe('Financial models (e2e)', () => {
     ]);
 
     const small = await createModel(owner.token);
-    // The refused attempt counted too: nine more pass, the eleventh is turned away.
-    for (let i = 0; i < 9; i++) {
+    // Only calculations that reach the engine count: ten pass, the eleventh is turned away.
+    for (let i = 0; i < 10; i++) {
       await http().post(`${base}/${small.id}/runs`).set(auth(owner.token)).expect(201);
     }
     const limited = await http()

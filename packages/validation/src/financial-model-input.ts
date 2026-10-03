@@ -22,11 +22,10 @@ export const FINANCIAL_MODEL_INPUT_VERSION = 1;
 export const MAX_FINANCIAL_MODELS = 50;
 export const MAX_CALCULATION_RUNS = 50;
 /**
- * Upper bound of the size of a calculation: project periods × input lines (investment items,
- * equity, loans, sales lines, cost items). The engine runs inside the request and its results are
- * stored whole; 10 000 keeps a run around a second and its results around a megabyte.
+ * Upper bound of the size of a calculation (see `calculationSize`). It refuses clearly oversized
+ * models before any work is done; the API also stops a calculation that runs too long.
  */
-export const MAX_CALCULATION_SIZE = 10_000;
+export const MAX_CALCULATION_SIZE = 20_000;
 /** Largest stored result of one run, in characters of JSON. */
 export const MAX_RESULTS_CHARS = 4_000_000;
 /** Calculations one user may start per minute. */
@@ -301,16 +300,28 @@ const projectInputFieldsSchema = z.object({
 });
 
 /** Complete input of a calculation: the engine's `ProjectInput`, bounded in size. */
-export const projectInputSchema = projectInputFieldsSchema.superRefine((input, ctx) => {
+/**
+ * Rough size of a calculation: project periods × everything computed per period — input lines
+ * (investment items, equity, loans, sales lines, cost items), products, cost centres and a fixed
+ * part for the statements — plus the allocation of every indirect cost to every product.
+ */
+export function calculationSize(input: z.infer<typeof projectInputFieldsSchema>): number {
+  const { products, costs, costCentres } = input.operations;
   const lines =
     input.investment.items.length +
     input.financing.equity.length +
     input.financing.loans.length +
-    input.operations.costs.length +
-    input.operations.products.reduce((sum, product) => sum + product.sales.length, 0);
+    costs.length +
+    products.reduce((sum, product) => sum + product.sales.length, 0);
+  const indirect = costs.filter((cost) => cost.product === undefined).length;
+  const perPeriod =
+    lines + products.length + (costCentres?.length ?? 0) + 20 + (indirect * products.length) / 10;
+  return Math.ceil(horizonPeriods(input.horizon) * perPeriod);
+}
+
+export const projectInputSchema = projectInputFieldsSchema.superRefine((input, ctx) => {
   // The horizon was checked above, so its periods can be counted.
-  const size = horizonPeriods(input.horizon) * lines;
-  if (size > MAX_CALCULATION_SIZE) {
+  if (calculationSize(input) > MAX_CALCULATION_SIZE) {
     ctx.addIssue({ code: 'custom', message: M_TOO_LARGE, path: ['horizon'] });
   }
 });

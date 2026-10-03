@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
-import { financialCalculator } from '@roshd/financial-engine';
-import { FINANCIAL_CALCULATOR } from '../financial-engine/ports/financial-calculator';
+import { WorkerCalculationRunner } from '../financial-engine/adapters/worker-calculation-runner';
+import { CALCULATION_RUNNER } from '../financial-engine/ports/calculation-runner';
 import { UsersModule } from '../users/users.module';
 import { AssumptionTemplatesController } from './assumption-templates.controller';
 import { AssumptionTemplatesService } from './assumption-templates.service';
@@ -9,8 +9,8 @@ import { FinancialModelsService } from './financial-models.service';
 
 /**
  * Financial model of a project (EPIC-34, ADR-0009): personal assumption templates (ST-34.01) and
- * the stored model with its calculation runs (ST-34.06). The engine is bound to the
- * `FinancialCalculator` port here, so tests can replace it.
+ * the stored model with its calculation runs (ST-34.06). The engine runs behind the
+ * `CalculationRunner` port (a worker thread), so tests can replace it.
  */
 @Module({
   imports: [UsersModule],
@@ -18,7 +18,7 @@ import { FinancialModelsService } from './financial-models.service';
   providers: [
     AssumptionTemplatesService,
     FinancialModelsService,
-    { provide: FINANCIAL_CALCULATOR, useValue: financialCalculator },
+    { provide: CALCULATION_RUNNER, useClass: WorkerCalculationRunner },
   ],
   exports: [AssumptionTemplatesService, FinancialModelsService],
 })

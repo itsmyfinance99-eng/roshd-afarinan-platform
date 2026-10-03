@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { engineMessageFa, isEngineInputError } from '@roshd/financial-engine';
-import type { FinancialCalculator } from '@roshd/financial-engine';
+import type { CalculationResult, ProjectModel } from '@roshd/financial-engine';
 import {
   CALCULATIONS_PER_MINUTE,
   FINANCIAL_MODEL_INPUT_VERSION,
@@ -19,6 +19,7 @@ import {
   ConflictError,
   ForbiddenError,
   NotFoundError,
+  ServiceUnavailableError,
   ValidationFailedError,
 } from '../../common/errors/app-exception';
 import { PageResult } from '../../common/http/page-result';
@@ -26,7 +27,12 @@ import type { RequestMeta } from '../../common/http/request-meta';
 import { Prisma } from '../../generated/prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../database/prisma.service';
-import { FINANCIAL_CALCULATOR } from '../financial-engine/ports/financial-calculator';
+import {
+  CALCULATION_RUNNER,
+  CalculationBusyError,
+  CalculationTimeoutError,
+  type CalculationRunner,
+} from '../financial-engine/ports/calculation-runner';
 import { hasPermission, type Principal } from '../rbac/principal';
 import { RbacService } from '../rbac/rbac.service';
 import { staffRef, type StaffRef } from '../users/staff-ref';
@@ -109,7 +115,7 @@ export class FinancialModelsService {
     private readonly audit: AuditService,
     private readonly rbac: RbacService,
     private readonly users: UsersService,
-    @Inject(FINANCIAL_CALCULATOR) private readonly calculator: FinancialCalculator,
+    @Inject(CALCULATION_RUNNER) private readonly runner: CalculationRunner,
   ) {}
 
   async list(
@@ -358,7 +364,6 @@ export class FinancialModelsService {
     meta: RequestMeta,
   ): Promise<CalculationRunDetail> {
     await this.visible(modelId, principal);
-    this.throttle(principal.userId);
     const model = await this.prisma.financialModel.findUnique({
       where: { id: modelId },
       select: { inputs: true, version: true },
@@ -376,15 +381,37 @@ export class FinancialModelsService {
       );
     }
     const input = parsed.data;
-    let outcome: ReturnType<FinancialCalculator['projectModel']>;
+    // Only attempts that reach the engine count against the user's limit.
+    this.throttle(principal.userId);
+    let outcome: CalculationResult<ProjectModel>;
     try {
-      outcome = this.calculator.projectModel(input);
+      outcome = await this.runner.run(input);
     } catch (error) {
-      if (!isEngineInputError(error)) throw error;
-      throw new ValidationFailedError(
-        [{ path: `inputs.${error.field}`, message: engineMessageFa(error.code, error.params) }],
-        'ورودی‌های مدل برای محاسبه معتبر نیست.',
-      );
+      const invalid = 'ورودی‌های مدل برای محاسبه معتبر نیست.';
+      if (isEngineInputError(error)) {
+        throw new ValidationFailedError(
+          [{ path: `inputs.${error.field}`, message: engineMessageFa(error.code, error.params) }],
+          invalid,
+        );
+      }
+      if (error instanceof CalculationTimeoutError) {
+        throw new ValidationFailedError(
+          [
+            {
+              path: 'inputs',
+              message:
+                'محاسبه این مدل بیش از زمان مجاز طول کشید؛ تعداد دوره‌ها یا اقلام را کمتر کنید.',
+            },
+          ],
+          invalid,
+        );
+      }
+      if (error instanceof CalculationBusyError) {
+        throw new ServiceUnavailableError(
+          'محاسبه‌های زیادی در صف است. چند لحظه دیگر دوباره تلاش کنید.',
+        );
+      }
+      throw error;
     }
 
     const results = JSON.stringify(outcome.value);
@@ -481,8 +508,8 @@ export class FinancialModelsService {
   }
 
   /**
-   * At most CALCULATIONS_PER_MINUTE calculations per user and API process: the engine runs
-   * inside the request, so one user must not keep it busy.
+   * At most CALCULATIONS_PER_MINUTE calculations per user and API process, so that one user
+   * cannot keep the calculation worker to themselves.
    */
   private throttle(userId: string): void {
     const now = Date.now();
