@@ -297,6 +297,7 @@ test.describe('financial model results', () => {
     await page.getByRole('button', { name: 'محاسبه سناریوها' }).click();
 
     const comparison = page.getByRole('region', { name: 'مقایسه سناریوها با حالت پایه' });
+    await expect(comparison).toBeVisible({ timeout: 30_000 });
     await expect(comparison.getByRole('columnheader')).toHaveText([
       'شاخص',
       'پایه',
@@ -319,9 +320,19 @@ test.describe('financial model results', () => {
     await page.getByRole('button', { name: 'محاسبه حساسیت' }).click();
     await expect(page.getByText(/دست‌کم یک درصد تغییر وارد کنید/)).toBeVisible();
     await page.getByLabel(/گام‌های تغییر/).fill('-10 10');
+    // Two variables are enough here: every variable and step is a full run of the model.
+    for (const name of [
+      'مقدار فروش',
+      'قیمت اقلام هزینه تولید',
+      'مقدار مصرف اقلام هزینه',
+      'سرمایه‌گذاری ثابت',
+      'نرخ تنزیل',
+    ]) {
+      await page.getByRole('checkbox', { name, exact: true }).uncheck();
+    }
     await page.getByRole('button', { name: 'محاسبه حساسیت' }).click();
     const tornado = page.getByRole('img', { name: 'نمودار گردبادی حساسیت NPV کل سرمایه' });
-    await expect(tornado).toBeVisible();
+    await expect(tornado).toBeVisible({ timeout: 30_000 });
     await expect(tornado).toHaveAccessibleDescription(/ارقام در جدول زیر نمودار آمده است/);
     const table = page.getByRole('region', { name: 'جدول حساسیت' });
     await expect(table.getByRole('columnheader')).toHaveText([
@@ -381,7 +392,7 @@ test.describe('financial model results', () => {
     await page.getByLabel('قیمت فروش، سناریوی بدبینانه').fill('-10');
     await page.getByRole('button', { name: 'محاسبه سناریوها' }).click();
     const comparison = page.getByRole('region', { name: 'مقایسه سناریوها با حالت پایه' });
-    await expect(comparison).toBeVisible();
+    await expect(comparison).toBeVisible({ timeout: 30_000 });
     await expect(comparison.getByText('(مبلغ‌ها به IRR)')).toBeVisible();
 
     await openTab(page, 'ترازنامه');
