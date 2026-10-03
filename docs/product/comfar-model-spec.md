@@ -94,6 +94,19 @@ COMFAR pre-fills some values (V.C, VII.B and individual windows). Our rule: econ
 - **Access:** the owner, the expert assigned to the model (must hold `financial-models:work`; the `expert` role has it) and staff with `financial-models:manage` (full access to every model: read, edit, calculate, assign the expert, approve). For anyone else the model and its runs do not exist (404). Owner decision of 2026-10-03: the expert is assigned on the model itself until the feasibility project exists (ST-35.01), then the assignment moves there. Every create, save, delete, assignment, calculation and approval is in the audit log.
 - **Open:** the per-project assumptions of §3.2 (with source and as-of date) are not yet linked to the stored inputs; the editor (ST-34.07) does that. The per-user limit and the calculation queue are kept in the memory of each API process. One user can still store up to 50 × 50 runs; a per-owner storage quota is not implemented.
 
+### 3.4 Editor of the inputs (ST-34.07, `apps/web/src/components/models`, `apps/web/src/lib/model-editor`)
+
+- The draft the editor saves **is** the engine's input (`projectInputSchema`), possibly incomplete; there is no second format. The same schema decides in the browser and on the server whether a calculation can run.
+- Sections: assumptions (horizon, currencies and exchange rates, inflation, discounting, tax, conventions of the statements), investment (items, sale of assets, allowances), financing (equity with dividend conditions, profit distribution, loans), production and sales, costs (items and cost centres), working capital (every coverage in one place).
+- Numbers are shown with Persian digits and «٬» / «٫» and stored as canonical decimal strings; rates and shares are shown in percent and stored as fractions, converted by moving the decimal point in the text (no floating point). What is not a number is kept as typed and reported at the field.
+- Tables have one column per project period, project year (inflation, escalation) or production year (tax rates, dividends). When the horizon changes, series are cut or extended: amounts and quantities with 0, rates and prices with an empty cell the user must fill. No economic value is ever filled in.
+- Loan dates are entered as month numbers from the start of the project and stored as 30/360 day indices (month end = month × 30; a rate applies from the first day of its month).
+- Renaming an item renames every reference to it (a product in its costs, allocation shares and cost centres; a contribution in its dividend conditions; an investment item in its sale).
+- `notes` (optional, in the input): source and as-of date of an assumption, keyed by the path of the input (`exchangeRates.USD`, `inflation.IRR`, `statements.discounting`, `statements.tax`). They are stored with the run and ignored by the engine.
+- Saving: a moment after every change, on top of the loaded version; a 409 stops saving until the user loads the newer version. "Store a calculation run" saves first and then asks the server to calculate the saved inputs.
+- The live calculation runs `projectModel` in a web worker and shows the indicators only; the statements are the subject of ST-34.08. It is never stored: a run exists only when the server calculated it.
+- The menu entry is shown to holders of `financial-models:work` or `financial-models:manage` (OQ-38 is still open for members).
+
 ## 4. Calculation rules
 
 ### 4.1 Discounting, NPV, IRR, MIRR (XI.D–E)
