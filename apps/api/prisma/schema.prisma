@@ -54,6 +54,10 @@ model User {
   assignedTickets     Ticket[]                 @relation("TicketAssignee")
   orders              Order[]
   assumptionTemplates AssumptionTemplate[]     @relation("AssumptionTemplateOwner")
+  financialModels     FinancialModel[]         @relation("FinancialModelOwner")
+  assignedModels      FinancialModel[]         @relation("FinancialModelAssignee")
+  calculationRuns     CalculationRun[]         @relation("CalculationRunCreator")
+  approvedRuns        CalculationRun[]         @relation("CalculationRunApprover")
 
   @@map("users")
 }
@@ -737,4 +741,64 @@ model AssumptionTemplate {
 
   @@index([ownerId, updatedAt])
   @@map("assumption_templates")
+}
+
+/// Financial model of a project (ST-34.06, ADR-0009 §6): the user's inputs as a draft that may be
+/// incomplete. Every save bumps `version`; calculations are stored as immutable runs.
+model FinancialModel {
+  id            String   @id @default(uuid(7)) @db.Uuid
+  ownerId       String   @db.Uuid
+  /// Expert working on the model (holds financial-models:work when assigned). Moves to the
+  /// feasibility project once that exists (ST-35.01).
+  assigneeId    String?  @db.Uuid
+  title         String
+  /// Draft inputs in the shape of the engine's ProjectInput (projectInputSchema in
+  /// @roshd/validation checks them when a calculation is requested). Amounts are decimal strings.
+  inputs        Json     @default("{}")
+  /// Shape of `inputs` (FINANCIAL_MODEL_INPUT_VERSION).
+  schemaVersion Int      @default(1)
+  /// Incremented on every save; a save on top of an older version is refused.
+  version       Int      @default(1)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  owner    User             @relation("FinancialModelOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  assignee User?            @relation("FinancialModelAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  runs     CalculationRun[]
+
+  @@index([ownerId, updatedAt])
+  @@index([assigneeId, updatedAt])
+  @@index([updatedAt])
+  @@map("financial_models")
+}
+
+/// One calculation of a financial model (ADR-0009 §6). Written once and never changed, except that
+/// an expert may approve it once; a new calculation is a new run.
+model CalculationRun {
+  id            String    @id @default(uuid(7)) @db.Uuid
+  modelId       String    @db.Uuid
+  /// Sequence within the model, from 1.
+  number        Int
+  /// `version` of the model the inputs were taken from.
+  modelVersion  Int
+  /// The validated inputs the engine received.
+  input         Json
+  /// SHA-256 of the canonical JSON of `input`.
+  inputHash     String
+  /// MODEL_VERSION of @roshd/financial-engine that produced the results.
+  engineVersion String
+  results       Json
+  warnings      Json
+  defaultsUsed  Json
+  createdById   String?   @db.Uuid
+  createdAt     DateTime  @default(now())
+  approvedById  String?   @db.Uuid
+  approvedAt    DateTime?
+
+  model      FinancialModel @relation(fields: [modelId], references: [id], onDelete: Cascade)
+  createdBy  User?          @relation("CalculationRunCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  approvedBy User?          @relation("CalculationRunApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+
+  @@unique([modelId, number])
+  @@map("calculation_runs")
 }

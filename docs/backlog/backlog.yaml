@@ -2095,6 +2095,7 @@ epics:
         sprint: S16
         points: 8
         priority: critical
+        status: done
         area: [api, db, security]
         depends: [ST-34.04]
         story: 'به‌عنوان کارشناس می‌خواهم مدل مالی ذخیره شود و هر محاسبه با ورودی و نسخه موتور قابل بازتولید بماند.'

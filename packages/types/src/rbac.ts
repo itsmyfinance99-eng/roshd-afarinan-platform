@@ -46,6 +46,10 @@ export const PERMISSIONS = [
   'files:read-all',
   'orders:read-all',
   'catalog:manage',
+  /** Full access to every financial model: read, edit, calculate, assign the expert, approve. */
+  'financial-models:manage',
+  /** May be assigned to a financial model as its expert: edit it, run and approve calculations. */
+  'financial-models:work',
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
@@ -57,7 +61,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
   student: [],
   applicant: [],
   investor: [],
-  expert: ['requests:read-all'],
+  expert: ['requests:read-all', 'financial-models:work'],
   instructor: [],
   editor: ['cms:write', 'cms:publish', 'catalog:manage'],
   support: ['requests:read-all', 'requests:manage', 'tickets:read-all', 'tickets:reply'],
