@@ -107,9 +107,12 @@ const endKey = (p: FramePeriod) => `${part(p)}:${p.from + p.months}`;
  * For every period of `next`, the period of `previous` whose values it keeps, or -1 for a new
  * one. A period keeps values only of a period that covers the same time: the same months counted
  * from the start of construction (construction periods) or from the start of production (start-up
- * and production periods). So a longer construction phase moves the whole production programme
- * with the start of production, while a start-up phase added in the first year replaces that year
- * — its quarters are new and the later years stay where they are.
+ * and production periods). So a construction phase longer by whole years moves the whole
+ * production programme with the start of production, while a start-up phase added in the first
+ * year replaces that year — its quarters are new and the later years stay where they are. A
+ * change that moves the start of production inside the financial year (half a year more of
+ * construction, another start month) makes the first production year partial and every later
+ * year begin at another time: no production period covers the same time, so none keeps values.
  */
 export function periodMap(previous: Frame, next: Frame): number[] {
   const before = new Map(previous.periods.map((p, i) => [spanKey(p), i]));

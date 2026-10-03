@@ -350,9 +350,12 @@ export function TextField({
   const value = getIn(draft, path);
   const stored = typeof value === 'string' ? value : '';
   const [typed, setTyped] = useState<string | null>(null);
-  /** Why the last name typed was not written. */
-  const [rejected, setRejected] = useState<string>();
+  /** Why the last name typed was not written, and the stored name it was refused for. */
+  const [rejection, setRejection] = useState<{ reason: string; stored: string }>();
   const objection = typed === null || !refuse ? undefined : refuse(typed.trim());
+  // The refusal is about this item's name as it was: it is gone once that name changes (also when
+  // the card now shows another item).
+  const rejected = rejection?.stored === stored ? rejection.reason : undefined;
   const error = objection ?? rejected ?? issue;
   const commit = (text: string) => {
     if (onCommit) onCommit(text);
@@ -370,7 +373,7 @@ export function TextField({
         value={typed ?? stored}
         onChange={(event) => {
           const text = transform ? transform(event.target.value) : event.target.value;
-          setRejected(undefined);
+          setRejection(undefined);
           if (refuse) setTyped(text);
           else commit(text);
         }}
@@ -379,8 +382,9 @@ export function TextField({
           const text = typed.trim();
           const reason = refuse?.(text);
           // A refused name is not written: the field shows the stored one again, with the reason.
-          if (reason !== undefined) setRejected(`«${text}»: ${reason} نام قبلی ماند.`);
-          else if (text !== stored) commit(text);
+          if (reason !== undefined) {
+            setRejection({ reason: `«${text}»: ${reason} نام قبلی ماند.`, stored });
+          } else if (text !== stored) commit(text);
           setTyped(null);
         }}
       />

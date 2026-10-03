@@ -86,8 +86,11 @@ export function ModelEditor({
   const blocked = useRef(false);
   /** The last valid title: the inputs are saved with it while the typed one is not valid. */
   const goodTitle = useRef(model.title);
-  /** A save that failed without an answer: the server may or may not have stored it. */
-  const unanswered = useRef<{ title: string; inputs: string } | null>(null);
+  /**
+   * Saves that failed without an answer since the last one that was accepted: the server may or
+   * may not have stored any of them.
+   */
+  const unanswered = useRef<{ title: string; inputs: string }[]>([]);
   useEffect(() => {
     latest.current = { title, draft, revision };
   });
@@ -124,13 +127,13 @@ export function ModelEditor({
       })
         .then(async (result) => {
           if (result.ok) {
-            unanswered.current = null;
+            unanswered.current = [];
             return accept(result.data.version);
           }
           if (result.status !== 409) {
             // No answer, or a server error: the save may have been stored all the same.
             if (result.status === 0 || result.status >= 500) {
-              unanswered.current = { title: name, inputs: canonical(snapshot.draft) };
+              unanswered.current.push({ title: name, inputs: canonical(snapshot.draft) });
             }
             setFailure({ kind: 'error', message: result.message });
             return false;
@@ -142,12 +145,14 @@ export function ModelEditor({
           if (server.ok) {
             const held = canonical(server.data.inputs);
             if (server.data.title === name && held === canonical(snapshot.draft)) {
-              unanswered.current = null;
+              unanswered.current = [];
               return accept(server.data.version);
             }
-            const lost = unanswered.current;
-            if (lost && server.data.title === lost.title && held === lost.inputs) {
-              unanswered.current = null;
+            const own = unanswered.current.some(
+              (lost) => server.data.title === lost.title && held === lost.inputs,
+            );
+            if (own) {
+              unanswered.current = [];
               version.current = server.data.version;
               setFailure(null);
               // Not stored yet: the loop sends the current state on top of that version.
@@ -207,7 +212,7 @@ export function ModelEditor({
       setHorizon: (path, value) =>
         setPendingHorizon((current: unknown) => setIn(current, path, value)),
       resetHorizon: () => setPendingHorizon(horizon),
-      // The values follow their periods phase by phase; see `resizeDraft`.
+      // Values stay with the periods that cover the same time; see `resizeDraft`.
       applyHorizon: () =>
         change((current) => {
           const next = setIn(current, ['horizon'], pendingHorizon);

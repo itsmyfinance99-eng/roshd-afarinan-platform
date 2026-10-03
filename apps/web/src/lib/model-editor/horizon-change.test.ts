@@ -232,6 +232,28 @@ describe('a change of the horizon', () => {
     expect(droppedPeriods(frame(), june)).toBe(3);
   });
 
+  it('keeps no production value when production starts inside the financial year', () => {
+    const before = frame({ construction: { periods: 2, periodMonths: 6 } });
+    const after = frame({ construction: { periods: 3, periodMonths: 6 } });
+    // Half a year more of construction: the first production year is six months long now.
+    expect(after.periods.map((p) => p.months)).toEqual([6, 6, 6, 6, 12, 12]);
+    expect(periodMap(before, after)).toEqual([0, 1, -1, -1, -1, -1]);
+    expect(droppedPeriods(before, after)).toBe(3);
+  });
+
+  it('asks again for a period input that pointed outside the horizon', () => {
+    const wrong: Draft = {
+      horizon: horizon(),
+      investment: {
+        items: [{ key: 'a', amounts: ['0', '0', '0', '0'], depreciation: { startPeriod: 9 } }],
+      },
+    };
+    const result = resizeDraft(wrong, frame(), frame());
+    expect(
+      getIn(result, ['investment', 'items', 0, 'depreciation', 'startPeriod']),
+    ).toBeUndefined();
+  });
+
   it('changes nothing when the same horizon is applied', () => {
     const same = draft();
     expect(resizeDraft(same, frame(), frame())).toBe(same);

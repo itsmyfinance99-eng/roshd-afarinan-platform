@@ -349,7 +349,7 @@ test.describe('financial model editor', () => {
     expect(order).toEqual(['PUT', 'POST']);
   });
 
-  test('changes the horizon only when it is applied, and keeps values in their phase', async ({
+  test('changes the horizon only when it is applied, and keeps values with their periods', async ({
     page,
   }) => {
     await signIn(page);
@@ -499,6 +499,58 @@ test.describe('financial model editor', () => {
     await expect(page.getByText(/این مدل در جای دیگری تغییر کرده است/)).toHaveCount(0);
     expect(stored?.title).toBe('طرح میلگرد ۲۳');
     expect(versions).toEqual([3, 3, 4]);
+  });
+
+  test('recognises its own save after an outage of several requests', async ({ page }) => {
+    await signIn(page);
+    let stored: { title: string; inputs: unknown } | undefined;
+    let serverVersion = 3;
+    let attempts = 0;
+    const versions: number[] = [];
+    await page.route('**/api/v1/financial-models/m1', async (route) => {
+      if (route.request().method() !== 'PUT') {
+        return json(route, { ...model(), ...stored, version: serverVersion });
+      }
+      const body = route.request().postDataJSON() as {
+        title: string;
+        inputs: unknown;
+        version: number;
+      };
+      versions.push(body.version);
+      attempts += 1;
+      if (attempts === 1) {
+        // Stored, but the answer is lost.
+        stored = { title: body.title, inputs: body.inputs };
+        serverVersion = 4;
+        return route.abort('connectionreset');
+      }
+      // The connection is down: the second save never reaches the server.
+      if (attempts === 2) return route.abort('internetdisconnected');
+      if (body.version !== serverVersion) {
+        return route.fulfill({
+          status: 409,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            error: { code: 'CONFLICT', message: 'نسخه تازه‌تری وجود دارد.' },
+          }),
+        });
+      }
+      stored = { title: body.title, inputs: body.inputs };
+      serverVersion += 1;
+      return json(route, { ...model(), ...stored, version: serverVersion });
+    });
+    await page.goto('/dashboard/models/m1');
+    const title = page.getByLabel('عنوان مدل');
+    await title.fill('طرح میلگرد ۲');
+    await expect.poll(() => attempts).toBe(1);
+    await expect(page.getByText(/ذخیره نشد:/)).toBeVisible();
+    await title.fill('طرح میلگرد ۲۳');
+    await expect.poll(() => attempts).toBe(2);
+    await title.fill('طرح میلگرد ۲۳۴');
+    await expect(page.getByText('همه تغییرها ذخیره شد.')).toBeVisible();
+    await expect(page.getByText(/این مدل در جای دیگری تغییر کرده است/)).toHaveCount(0);
+    expect(stored?.title).toBe('طرح میلگرد ۲۳۴');
+    expect(versions).toEqual([3, 3, 3, 4]);
   });
 
   test('has no serious accessibility violations in any section', async ({ page }) => {
