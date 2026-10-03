@@ -178,7 +178,7 @@ export function balanceSheetTable(statements: Statements): StatementTable {
       {
         // Not a part of the totals above: equity plus retained profit, less exchange losses.
         title: 'ارزش ویژه',
-        rows: amounts([['ارزش ویژه (آورده و سود انباشته)', netWorth, true]]),
+        rows: amounts([['ارزش ویژه', netWorth, true]]),
       },
     ],
   };
@@ -283,17 +283,17 @@ function debtServiceSection(
     rows: [
       {
         label: 'نقد در دسترس برای خدمت بدهی',
-        values: points.map((_, j) => debtService?.periods[j]?.cashAvailable ?? null),
+        values: points.map((_, j) => debtService.periods[j]?.cashAvailable ?? null),
         kind: 'amount',
       },
       {
         label: 'خدمت بدهی (اصل، سود و کارمزد)',
-        values: points.map((_, j) => debtService?.periods[j]?.debtService ?? null),
+        values: points.map((_, j) => debtService.periods[j]?.debtService ?? null),
         kind: 'amount',
       },
       ratio(
         'نسبت پوشش خدمت بدهی',
-        points.map((_, j) => debtService?.periods[j]?.ratio ?? null),
+        points.map((_, j) => debtService.periods[j]?.ratio ?? null),
       ),
     ],
   };

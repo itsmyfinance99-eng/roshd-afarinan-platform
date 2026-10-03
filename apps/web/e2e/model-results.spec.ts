@@ -410,6 +410,59 @@ test.describe('financial model results', () => {
     await expect(
       page.getByText(/هر گام باید بیشتر از منفی ۱۰۰ و حداکثر ۱۰۰۰ درصد باشد/),
     ).toBeVisible();
+    // The same range holds for a scenario, and the message names where it is.
+    await page.getByLabel('قیمت فروش، سناریوی بدبینانه').fill('-150');
+    await page.getByRole('button', { name: 'محاسبه سناریوها' }).click();
+    await expect(
+      page.getByText(
+        'در سناریوی «بدبینانه»، درصد تغییر «قیمت فروش» باید بیشتر از منفی ۱۰۰ و حداکثر ۱۰۰۰ درصد باشد.',
+      ),
+    ).toBeVisible();
+    // More runs of the model than one analysis may ask for.
+    await page.getByLabel(/گام‌های تغییر/).fill('-40 -30 -20 -10 10 20 30 40');
+    await page.getByRole('button', { name: 'محاسبه حساسیت' }).click();
+    await expect(
+      page.getByText(/کل مدل را ۵۶ بار حساب می‌کند؛ حداکثر ۴۸ بار ممکن است/),
+    ).toBeVisible();
+  });
+
+  test('keeps the page for warnings or defaults of another shape', async ({ page }) => {
+    await signIn(page);
+    for (const extra of [
+      { warnings: null },
+      { warnings: [{}] },
+      { warnings: [{ code: 'payback.notSustained', params: null }] },
+      { defaultsUsed: [null] },
+    ]) {
+      await serveRun(page, run(extra));
+      await page.goto('/dashboard/models/m1/runs/r1');
+      await expect(
+        page.getByText(/نتایج این اجرا با این نسخه از برنامه قابل نمایش نیست/),
+        JSON.stringify(extra),
+      ).toBeVisible();
+      // The statements are still there.
+      await openTab(page, 'سود و زیان');
+      await expect(page.getByRole('region', { name: 'صورت سود و زیان' })).toBeVisible();
+      await page.unroute('**/api/v1/financial-models/m1/runs/r1');
+    }
+  });
+
+  test('does not show a line with missing values as if they were empty', async ({ page }) => {
+    await signIn(page);
+    const { statements } = calculated.value;
+    const short = { ...statements.incomeStatement, salesRevenue: ['1'] };
+    await serveRun(
+      page,
+      run({
+        results: { ...calculated.value, statements: { ...statements, incomeStatement: short } },
+      }),
+    );
+    await page.goto('/dashboard/models/m1/runs/r1');
+    await openTab(page, 'سود و زیان');
+    await expect(
+      page.getByText(/نتایج این اجرا با این نسخه از برنامه قابل نمایش نیست/),
+    ).toBeVisible();
+    await expect(page.getByRole('region', { name: 'صورت سود و زیان' })).toHaveCount(0);
   });
 
   test('reloads the run when an approval is refused', async ({ page }) => {

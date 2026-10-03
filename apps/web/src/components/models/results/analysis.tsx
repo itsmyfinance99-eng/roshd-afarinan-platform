@@ -6,6 +6,8 @@ import { toPersianDigits, type ReportingUnit } from '@roshd/validation';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { ScenarioResult, SensitivityResult } from '@/lib/model-editor/analysis';
 import {
+  CHANGE_RANGE_FA,
+  changeInRange,
   changeOf,
   MAX_ANALYSIS_RUNS,
   parseSteps,
@@ -80,6 +82,7 @@ export function SensitivityPanel({ input, unit, unitLabel }: PanelProps) {
   const [basis, setBasis] = useState<Basis>('totalCapital');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
+  const [stopped, setStopped] = useState(false);
   const [result, setResult] = useState<SensitivityResult | null>(null);
   const stepsId = useId();
   const basisId = useId();
@@ -101,6 +104,7 @@ export function SensitivityPanel({ input, unit, unitLabel }: PanelProps) {
       );
     }
     setError(undefined);
+    setStopped(false);
     setResult(null);
     setBusy(true);
     const signal = runner.start();
@@ -113,8 +117,8 @@ export function SensitivityPanel({ input, unit, unitLabel }: PanelProps) {
       },
       signal,
     );
-    if (signal.aborted) return setBusy(false);
     setBusy(false);
+    if (signal.aborted) return setStopped(true);
     if (outcome.ok && outcome.result.kind === 'sensitivity') setResult(outcome.result);
     else if (!outcome.ok) {
       fail(`${outcome.message} یکی از گام‌ها برای یکی از متغیرهای انتخاب‌شده قابل محاسبه نیست.`);
@@ -194,7 +198,11 @@ export function SensitivityPanel({ input, unit, unitLabel }: PanelProps) {
         )}
       </div>
       <p role="status" className="min-h-6 text-sm text-ink-3">
-        {busy ? 'در حال محاسبه… برای هر متغیر و هر گام، کل مدل دوباره حساب می‌شود.' : ''}
+        {busy
+          ? 'در حال محاسبه… برای هر متغیر و هر گام، کل مدل دوباره حساب می‌شود.'
+          : stopped
+            ? 'محاسبه متوقف شد.'
+            : ''}
       </p>
       {error ? <ErrorMessage>{error}</ErrorMessage> : null}
       {result ? (
@@ -222,6 +230,7 @@ export function SensitivityPanel({ input, unit, unitLabel }: PanelProps) {
             base={result.base[basis].npv}
             rows={bars.map((bar) => ({ label: label(bar.key), low: bar.low, high: bar.high }))}
             format={(value) => amountText(value, unit)}
+            unitLabel={unitLabel}
             formatChange={changeText}
           />
           <div
@@ -307,6 +316,7 @@ export function ScenarioPanel({ input, unit, unitLabel }: PanelProps) {
   const [scenarios, setScenarios] = useState<ScenarioDraft[]>([{ name: '', changes: {} }]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
+  const [stopped, setStopped] = useState(false);
   const [result, setResult] = useState<ScenarioResult | null>(null);
   const runner = useRunner();
 
@@ -335,6 +345,11 @@ export function ScenarioPanel({ input, unit, unitLabel }: PanelProps) {
             `در سناریوی «${names[index]}»، درصد تغییر «${VARIABLE_LABELS_FA[key]}» عدد معتبری نیست.`,
           );
         }
+        if (!changeInRange(typed)) {
+          return fail(
+            `در سناریوی «${names[index]}»، درصد تغییر «${VARIABLE_LABELS_FA[key]}» باید ${CHANGE_RANGE_FA} باشد.`,
+          );
+        }
         if (fraction !== '0') changes.push(changeOf(key, fraction));
       }
       if (changes.length === 0) {
@@ -343,12 +358,13 @@ export function ScenarioPanel({ input, unit, unitLabel }: PanelProps) {
       requests.push({ key: names[index] ?? '', changes });
     }
     setError(undefined);
+    setStopped(false);
     setResult(null);
     setBusy(true);
     const signal = runner.start();
     const outcome = await runAnalysis({ kind: 'scenarios', input, scenarios: requests }, signal);
     setBusy(false);
-    if (signal.aborted) return;
+    if (signal.aborted) return setStopped(true);
     if (outcome.ok && outcome.result.kind === 'scenarios') setResult(outcome.result);
     else if (!outcome.ok) fail(outcome.message);
   };
@@ -462,7 +478,7 @@ export function ScenarioPanel({ input, unit, unitLabel }: PanelProps) {
         ) : null}
       </div>
       <p role="status" className="min-h-6 text-sm text-ink-3">
-        {busy ? 'در حال محاسبه…' : ''}
+        {busy ? 'در حال محاسبه…' : stopped ? 'محاسبه متوقف شد.' : ''}
       </p>
       {error ? <ErrorMessage>{error}</ErrorMessage> : null}
       {result ? (

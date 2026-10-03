@@ -73,7 +73,7 @@ export function CumulativeChart({
 
   return (
     <figure className="flex flex-col gap-2">
-      <div role="group" aria-label={title} tabIndex={0} className={SCROLLER}>
+      <div role="group" aria-label={`${title}، قابل پیمایش افقی`} tabIndex={0} className={SCROLLER}>
         <svg
           role="img"
           aria-labelledby={titleId}
@@ -228,10 +228,13 @@ export function TornadoChart({
   base,
   rows,
   format,
+  unitLabel,
   formatChange,
 }: {
   title: string;
   description: string;
+  /** Unit of the amounts, e.g. «میلیون IRR». */
+  unitLabel: string;
   /** NPV of the base case: the vertical line every bar crosses or touches. */
   base: string;
   rows: TornadoRow[];
@@ -255,7 +258,7 @@ export function TornadoChart({
 
   return (
     <figure>
-      <div role="group" aria-label={title} tabIndex={0} className={SCROLLER}>
+      <div role="group" aria-label={`${title}، قابل پیمایش افقی`} tabIndex={0} className={SCROLLER}>
         <svg
           role="img"
           aria-labelledby={titleId}
@@ -273,7 +276,7 @@ export function TornadoChart({
             textAnchor="start"
             className="fill-ink-3 text-[11px]"
           >
-            {`خط عمودی: حالت پایه، ${format(base)}`}
+            {`خط عمودی: حالت پایه، ${format(base)}${unitLabel ? ` ${unitLabel}` : ''}`}
           </text>
           {rows.map((row, i) => {
             const from = x(toNumber(row.low.npv));

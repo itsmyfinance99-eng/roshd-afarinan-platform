@@ -115,7 +115,7 @@ export const ENGINE_DEFAULT_LABELS_FA: Record<string, string> = {
   'mirr.rates': 'نرخ سرمایه‌گذاری مجدد و استقراض در MIRR برابر نرخ بازده داخلی',
   'discounting.referenceDate': 'تاریخ مرجع تنزیل: پایان سال اول',
   'loan.firstRepaymentDate': 'تاریخ اولین قسط تسهیلات طبق قاعده COMFAR',
-  'assets.residualValuePeriod': 'بازگشت ارزش اسقاط در سال پس از پایان تولید',
+  'assets.residualValuePeriod': 'بازگشت ارزش باقی‌مانده دارایی‌ها در سال پس از پایان تولید',
   'breakEven.period': 'سال تحلیل نقطه سربه‌سر برابر سال مرجع',
   'cash.autoCoverage': 'پوشش خودکار کسری نقد',
 };

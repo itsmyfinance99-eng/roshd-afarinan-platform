@@ -130,14 +130,6 @@ export function RunView({
   const { statements } = model;
   const currency = textAt(run.input, ['localCurrency']);
   const label = unitLabel(unit, currency);
-  const placed = run.warnings.flatMap((warning) => {
-    const place = warningPlace(warning);
-    return place ? [{ ...place, text: warningMessage(warning) }] : [];
-  });
-  const general = unique(
-    run.warnings.filter((warning) => warningPlace(warning) === null).map(warningText),
-  );
-  const defaults = unique(run.defaultsUsed.map(defaultText));
 
   const approve = async () => {
     if (!window.confirm('تأیید اجرا قابل بازگشت نیست و اجرا را قفل می‌کند. تأیید می‌کنید؟')) return;
@@ -267,9 +259,8 @@ export function RunView({
               frame={frame}
               unit={unit}
               label={label}
-              placed={placed}
-              general={general}
-              defaults={defaults}
+              warnings={run.warnings}
+              defaultsUsed={run.defaultsUsed}
             />
           ) : null}
           {tab === 'income' ? schedule(() => incomeStatementTable(statements)) : null}
@@ -319,14 +310,14 @@ function Schedule({
   unitLabel: string;
 }) {
   const table = build();
-  return (
-    <StatementTableView
-      table={table}
-      columns={tableColumns(frame, table.salvageColumn)}
-      unit={unit}
-      unitLabel={label}
-    />
-  );
+  const columns = tableColumns(frame, table.salvageColumn);
+  // A line that is not one value per column is not shown as if the rest were empty.
+  for (const row of table.sections.flatMap((section) => section.rows)) {
+    if (!Array.isArray(row.values) || row.values.length !== columns.length) {
+      throw new Error(`unexpected shape of «${row.label}»`);
+    }
+  }
+  return <StatementTableView table={table} columns={columns} unit={unit} unitLabel={label} />;
 }
 
 function SummaryPart({
@@ -334,18 +325,26 @@ function SummaryPart({
   frame,
   unit,
   label,
-  placed,
-  general,
-  defaults,
+  warnings,
+  defaultsUsed,
 }: {
   statements: ProjectModel['statements'];
   frame: Frame;
   unit: ReportingUnit;
   label: string;
-  placed: { basis: Basis; indicator: IndicatorKey; text: string }[];
-  general: string[];
-  defaults: string[];
+  warnings: CalculationRunDetail['warnings'];
+  defaultsUsed: CalculationRunDetail['defaultsUsed'];
 }) {
+  // Stored with the run like its results, and read here for the same reason: a shape this page
+  // does not know ends in the boundary's message, not in a broken page.
+  const placed = warnings.flatMap((warning) => {
+    const place = warningPlace(warning);
+    return place ? [{ ...place, text: warningMessage(warning) }] : [];
+  });
+  const general = unique(
+    warnings.filter((warning) => warningPlace(warning) === null).map(warningText),
+  );
+  const defaults = unique(defaultsUsed.map(defaultText));
   return (
     <>
       <h2 className="sr-only">خلاصه و شاخص‌ها</h2>

@@ -86,11 +86,17 @@ export function percentAsFraction(text: string): string | null {
   return percent === null ? null : percentToFraction(percent);
 }
 
+export const CHANGE_RANGE_FA = 'بیشتر از منفی ۱۰۰ و حداکثر ۱۰۰۰ درصد';
+
 /**
- * A step must be above −100 % (at −100 % a price or rate is zero, which the model refuses) and at
- * most +1000 % (beyond that it is a typing error). Compared as text: no value becomes a number.
+ * A change (a step of the sensitivity analysis or a percentage of a scenario) is above −100 % —
+ * at −100 % a price or rate is zero, which an exchange rate may not be and which says little for
+ * the others — and at most +1000 % (beyond that it is a typing error). Compared as text: no
+ * value becomes a number.
  */
-function stepInRange(percent: string): boolean {
+export function changeInRange(text: string): boolean {
+  const percent = percentOf(text);
+  if (percent === null) return false;
   const [whole = '0', fraction = ''] = percent.replace('-', '').split('.');
   if (percent.startsWith('-')) return whole.length < 3;
   return whole.length < 4 || (whole === '1000' && /^0*$/.test(fraction));
@@ -112,10 +118,10 @@ export function parseSteps(text: string): Parsed<string[]> {
     if (fraction === '0') {
       return { ok: false, message: 'صفر همان حالت پایه است؛ آن را از گام‌ها بردارید.' };
     }
-    if (!stepInRange(percentOf(part) ?? '0')) {
+    if (!changeInRange(part)) {
       return {
         ok: false,
-        message: `«${part}» خارج از بازه است؛ هر گام باید بیشتر از منفی ۱۰۰ و حداکثر ۱۰۰۰ درصد باشد.`,
+        message: `«${part}» خارج از بازه است؛ هر گام باید ${CHANGE_RANGE_FA} باشد.`,
       };
     }
     if (steps.includes(fraction)) return { ok: false, message: `«${part}» دو بار آمده است.` };
