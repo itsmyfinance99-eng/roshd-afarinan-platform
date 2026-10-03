@@ -220,6 +220,7 @@ export function benefitCostRatio(
   series: BenefitCostSeries,
   options: Omit<DiscountingOptions, 'salvageValue'>,
 ): CalculationResult<BenefitCostValue | undefined> {
+  if (series.periodMonths.length === 0) throw new EngineInputError('series.empty', 'periodMonths');
   sameLength(series.benefits, series.periodMonths.length, 'benefits');
   sameLength(series.costs, series.periodMonths.length, 'costs');
   assertTimedSeries({ periodMonths: series.periodMonths, amounts: series.benefits });

@@ -54,6 +54,18 @@ describe('paybackPeriod (COMFAR X.C.6, normal payback)', () => {
     expect(paybackPeriod(yearly(['-100', '100']), { salvageValue: '10' }).value?.months).toBe('24');
   });
 
+  it('treats a negative salvage value (e.g. clean-up costs) as an outflow at the end', () => {
+    // Recovered in year 2; the clean-up cost at the end of year 3 pushes the cumulative back to
+    // −10: the first payback stays, with a relapse warning (as for any later negative flow).
+    const relapse = paybackPeriod(yearly(['-100', '150', '10']), { salvageValue: '-70' });
+    expect(relapse.value).toEqual({ period: 1, endMonth: 24, months: '20' });
+    expect(relapse.warnings).toEqual([{ code: 'payback.notSustained', params: { period: '3' } }]);
+    // Operating flows recover in the last year, but not after the clean-up cost.
+    const never = paybackPeriod(yearly(['-100', '120']), { salvageValue: '-30' });
+    expect(never.value).toBeUndefined();
+    expect(never.warnings).toEqual([{ code: 'payback.notReached' }]);
+  });
+
   it('starts counting only once the cumulative cash flow has gone negative', () => {
     const result = paybackPeriod(yearly(['10', '-100', '200']));
     // Cumulative 10, −90, +110: the early 10 is not a payback.
@@ -190,6 +202,12 @@ describe('benefitCostRatio', () => {
       error = e;
     }
     expect((error as EngineInputError).field).toBe('benefits');
+    try {
+      benefitCostRatio({ periodMonths: [], benefits: [], costs: [] }, { annualRate: '0' });
+    } catch (e) {
+      error = e;
+    }
+    expect(error).toMatchObject({ code: 'series.empty', field: 'periodMonths' });
   });
 
   it('is not calculable without costs', () => {

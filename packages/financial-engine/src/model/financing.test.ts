@@ -209,6 +209,8 @@ describe('financingSchedule', () => {
     expect(usd?.periods.map((p) => p.endingBalance)).toEqual(
       irr?.periods.map((p) => p.endingBalance),
     );
+    // A constant rate books no exchange gain or loss, not even a rounding residue.
+    expect(usd?.periods.map((p) => p.exchangeAdjustment)).toEqual(zeros(7));
   });
 
   it('works without a construction phase', () => {
@@ -254,6 +256,17 @@ describe('financingSchedule', () => {
       }),
     );
     expect(depreciating(3)().value.interestDepreciation).toEqual(at({ 3: '60', 4: '60' }));
+    // Without capitalisation a leftover "capitalise until" day does not restrict the start.
+    const paid = financingSchedule({
+      ...input,
+      loans: [
+        {
+          ...localLoan,
+          loan: { ...localLoan.loan, capitalisedShare: '0', capitaliseUntilDay: 720 },
+        },
+      ],
+    });
+    expect(paid.value.interestDepreciation).toEqual(at({ 2: '50' }));
   });
 
   it('refuses inputs it cannot place, with the field', () => {
