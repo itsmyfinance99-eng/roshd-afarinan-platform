@@ -36,7 +36,11 @@ export interface Programme {
  * - Outside the production interval sales come from stock only; selling more than the stock is
  *   refused (COMFAR cuts the sales silently).
  */
-export function productionProgramme(input: ProgrammeInput, field: string): Programme {
+export function productionProgramme(
+  input: ProgrammeInput,
+  /** Input path of the sales of a period, for the error of a sale outside the interval. */
+  field: (period: number) => string,
+): Programme {
   const { sales, months, coverageDays, firstPeriod, lastPeriod } = input;
   const futureSales = sales.map(() => ZERO);
   for (let j = sales.length - 2; j >= 0; j--) {
@@ -51,7 +55,7 @@ export function productionProgramme(input: ProgrammeInput, field: string): Progr
     let end: Decimal;
     if (j < firstPeriod || j > lastPeriod) {
       if (sold.gt(stock)) {
-        throw new EngineInputError('production.salesOutsideInterval', `${field}[${j}]`);
+        throw new EngineInputError('production.salesOutsideInterval', field(j));
       }
       end = stock.minus(sold);
     } else {

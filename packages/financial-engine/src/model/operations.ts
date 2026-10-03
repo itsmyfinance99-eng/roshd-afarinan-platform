@@ -574,7 +574,12 @@ export function operationsSchedule(input: OperationsInput): CalculationResult<Op
         firstPeriod,
         lastPeriod,
       },
-      `${field}.sales`,
+      // The first sales line that sells in the period.
+      (j) => {
+        const k = lines.findIndex((l) => !at(l.quantity, j).isZero());
+        const volume = product.sales[k]?.quantities === undefined ? 'capacityShares' : 'quantities';
+        return `${field}.sales[${k}].${volume}[${j}]`;
+      },
     );
     return {
       product,
@@ -773,15 +778,21 @@ export function operationsSchedule(input: OperationsInput): CalculationResult<Op
         : products.filter((p) => cost.centre?.products?.includes(p.product.key));
     const allocation = cost.item.allocation;
     let rows: Decimal[][];
+    if (
+      allocation !== undefined &&
+      !(ALLOCATION_KEYS as readonly string[]).includes(allocation.key)
+    ) {
+      throw new EngineInputError('operations.allocationKey', `${field}.key`);
+    }
     if (eligible.length === 1) {
       rows = [periods.map(() => ONE)];
     } else if (allocation === undefined) {
       throw new EngineInputError('operations.allocationRequired', field);
-    } else if (!(ALLOCATION_KEYS as readonly string[]).includes(allocation.key)) {
-      throw new EngineInputError('operations.allocationKey', `${field}.key`);
     } else if (allocation.key === 'SHARES') {
       let total = ZERO;
-      for (const [key, value] of Object.entries(allocation.shares)) {
+      // Shares that are missing altogether add up to 0 and are refused below.
+      const entered: Record<string, DecimalString> | undefined = allocation.shares;
+      for (const [key, value] of Object.entries(entered ?? {})) {
         if (!eligible.some((p) => p.product.key === key)) {
           throw new EngineInputError('operations.unknownProduct', `${field}.shares.${key}`);
         }
@@ -822,14 +833,20 @@ export function operationsSchedule(input: OperationsInput): CalculationResult<Op
       for (const name of ['fixed', 'variableProduced', 'variableSold'] as const) {
         const whole = at(cost[name], j);
         let rest = whole;
+        // The last product with a share takes the remainder, so the parts add up to the item
+        // exactly and a product without a share gets exactly 0.
+        const last = sum.isZero()
+          ? parts.length - 1
+          : rows.reduce((found, row, p) => (at(row, j).isZero() ? found : p), 0);
         parts.forEach((part, p) => {
-          // The last product takes the remainder, so the parts add up to the item exactly.
           const value =
-            p === parts.length - 1
+            p === last
               ? rest
-              : sum.isZero()
-                ? whole.div(parts.length)
-                : whole.times(at(rows[p], j)).div(sum);
+              : p > last
+                ? ZERO
+                : sum.isZero()
+                  ? whole.div(parts.length)
+                  : whole.times(at(rows[p], j)).div(sum);
           rest = rest.minus(value);
           part[name].push(value);
         });
@@ -844,11 +861,13 @@ export function operationsSchedule(input: OperationsInput): CalculationResult<Op
     months: p.months,
     production: production[j] === true,
   }));
+  // Only material stocks carry a value over; every other item equals its requirement.
   const values = (bases: Decimal[], days: Decimal, purchases?: Decimal[]) =>
     workingCapitalValues({
       bases,
       periods: wcPeriods,
       days,
+      stock: purchases !== undefined,
       ...(purchases === undefined ? {} : { purchases }),
     });
   /** `value × part / whole`, 0 when the whole is 0. */
@@ -878,21 +897,17 @@ export function operationsSchedule(input: OperationsInput): CalculationResult<Op
     };
   });
 
-  // Finished products: the stock of the programme at the operating cost per unit sold (per unit
-  // produced in a period without sales; unchanged when nothing is sold or produced).
+  // Finished products: the stock of the programme at the operating cost per unit sold. A period
+  // without sales produces nothing either (XI.L), so the stock keeps its value.
   const finishedProducts = products.map((product) => {
     const own = cellsOf(product);
-    const operating = (sold: boolean, foreign: boolean) =>
-      sumCells(own, sold, length, foreign ? foreignOnly(inSet(OPERATING)) : inSet(OPERATING));
-    const bases = {
-      sold: [operating(true, false), operating(true, true)],
-      produced: [operating(false, false), operating(false, true)],
-    } as const;
+    const operating = (foreign: boolean) =>
+      sumCells(own, true, length, foreign ? foreignOnly(inSet(OPERATING)) : inSet(OPERATING));
+    const basis = [operating(false), operating(true)] as const;
     let previous = [ZERO, ZERO] as const;
     const rows = periods.map((_, j) => {
       const stock = at(product.carried, j);
-      const quantity = at(product.sold, j).isZero() ? at(product.produced, j) : at(product.sold, j);
-      const basis = at(product.sold, j).isZero() ? bases.produced : bases.sold;
+      const quantity = at(product.sold, j);
       if (stock.isZero()) previous = [ZERO, ZERO];
       else if (!quantity.isZero()) {
         previous = [

@@ -5,6 +5,12 @@ import { EngineInputError } from '../errors';
  * Working-capital items by value (manual XI.K, total value algorithm; comfar-model-spec §4.7).
  * The requirement of a period is its basis divided by the coefficient of turnover
  * `c = 30 × m / Mdc`; stock bought in the construction phase is consumed first.
+ *
+ * The manual prints one recursion for every item (`X = WCV − B`, `WCV = max(X, RV)`). For a stock
+ * it means "what is left after this period's consumption"; for receivables, payables, work in
+ * progress and cash it would keep a balance for ever once its basis falls (e.g. receivables that
+ * are never collected after sales stop). The engine therefore carries a value over only for
+ * stocks; the other items equal their requirement (spec §4.7, OQ-39).
  */
 
 /**
@@ -39,11 +45,13 @@ export interface WorkingCapitalItemInput {
   days: Decimal;
   /** Initial stock bought per construction period (materials only). */
   purchases?: Decimal[];
+  /** A stock: what is left of the previous value is kept when it is above the requirement. */
+  stock: boolean;
 }
 
 /**
  * Value of an item at the end of each period: in construction the stock bought so far; in
- * production `X_j = WCV_{j−1} − B_j`, `WCV_j = max(X_j, RV_j)` with `RV_j = B_j / c_j`.
+ * production `RV_j = B_j / c_j`, and for a stock `X_j = WCV_{j−1} − B_j`, `WCV_j = max(X_j, RV_j)`.
  */
 export function workingCapitalValues(input: WorkingCapitalItemInput): Decimal[] {
   let value = ZERO;
@@ -52,7 +60,7 @@ export function workingCapitalValues(input: WorkingCapitalItemInput): Decimal[] 
     if (p.production) {
       const required = basis.times(input.days).div(30 * p.months);
       const left = value.minus(basis);
-      value = left.gt(required) ? left : required;
+      value = input.stock && left.gt(required) ? left : required;
     } else {
       value = value.plus(input.purchases?.[j] ?? ZERO);
     }

@@ -250,6 +250,26 @@ describe('operationsSchedule: one product', () => {
     expect(increases).toBeCloseTo(Number(value.workingCapital.liquidation), 9);
   });
 
+  it('values a stock above the requirement at the cost per unit sold, as printed', () => {
+    // 180 days; sales 100, 100, 20, 30, 0 end early, so 2030 sells 20 out of a stock of 50.
+    const { value: low } = operationsSchedule({
+      ...base,
+      products: [
+        steel({
+          finishedGoodsCoverage: { days: '180' },
+          sales: [line({ quantities: at({ 2: '100', 3: '100', 4: '20', 5: '30' }) })],
+        }),
+      ],
+      costs: [wages],
+    });
+    expect(low.products[0]?.quantities.stockCarried).toEqual(at({ 2: '50', 3: '50', 4: '30' }));
+    // Wages sold: 1500 + 0.5 × S. 50 × 1550 / 100, then 30 × 1510 / 20: the fixed cost of the
+    // year is spread over the 20 units sold.
+    expect(low.workingCapital.finishedProducts[0]?.values).toEqual(
+      at({ 2: '775', 3: '775', 4: '2265' }),
+    );
+  });
+
   it('lets an adjustment switch a fixed cost off in a period', () => {
     const shutDown = operationsSchedule({
       ...base,
@@ -564,6 +584,29 @@ describe('operationsSchedule: several products, indirect costs and cost centres'
       'costs[3].allocation.shares.c',
     );
     fails(
+      withCost(
+        indirect({ key: 'x', category: 'LABOUR', allocation: { key: 'SHARES' } as never }, '10'),
+      ),
+      'operations.allocationShares',
+      'costs[3].allocation.shares',
+    );
+    // A key is checked even when the centre has a single product and needs none.
+    fails(
+      withCost(
+        indirect(
+          {
+            key: 'x',
+            category: 'LABOUR',
+            costCentre: 'store',
+            allocation: { key: 'BOGUS' } as never,
+          },
+          '10',
+        ),
+      ),
+      'operations.allocationKey',
+      'costs[3].allocation.key',
+    );
+    fails(
       withCost(unit('x', '1', '1', { product: 'a', costCentre: 'store' })),
       'operations.costCentreProduct',
       'costs[3].costCentre',
@@ -698,7 +741,7 @@ describe('operationsSchedule: input checks', () => {
     fails(
       { ...base, products: [steel({ production: { firstPeriod: 3, lastPeriod: 6 } })] },
       'production.salesOutsideInterval',
-      'products[0].sales[2]',
+      'products[0].sales[0].quantities[2]',
     );
   });
 
@@ -723,6 +766,14 @@ describe('operationsSchedule: input checks', () => {
       '660',
       '660',
     ]);
+    // Everything else unwinds once production and sales have stopped.
+    const wc = value.workingCapital;
+    expect(wc.workInProgress[0]?.values.slice(5)).toEqual(['0', '0']);
+    expect(wc.receivables[0]?.values.slice(5)).toEqual(['0', '0']);
+    expect(wc.payables[0]?.values.slice(5)).toEqual(['0', '0']);
+    expect(wc.materials[0]?.values[5]).toBe(wc.materials[0]?.values[4]);
+    expect(value.depositInterest.slice(5)).toEqual(['0', '0']);
+    expect(wc.totals.netWorkingCapital[6]).toBe(wc.liquidation);
   });
 
   it('refuses inconsistent cost items', () => {

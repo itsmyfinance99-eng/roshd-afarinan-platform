@@ -16,7 +16,7 @@ function programme(sales: string[], days: string, firstPeriod = 0, lastPeriod = 
       firstPeriod,
       lastPeriod,
     },
-    'sales',
+    (j) => `sales[${j}]`,
   );
   return {
     broughtForward: strings(result.broughtForward),
@@ -53,7 +53,7 @@ describe('productionProgramme (XI.L)', () => {
         firstPeriod: 0,
         lastPeriod: 1,
       },
-      'sales',
+      (j) => `sales[${j}]`,
     );
     // Half-year: c = 30 × 6 / 36 = 5; year: c = 10.
     expect(strings(result.carried)).toEqual(['60', '60']);
@@ -105,6 +105,7 @@ describe('working capital by value (XI.K)', () => {
       periods,
       days: toDecimal('36'),
       purchases: decimals(['500', '0', '0']),
+      stock: true,
     });
     // 500 bought; year 1 consumes 300 and 200 is left (above the required 30); then 30.
     expect(strings(values)).toEqual(['500', '200', '30']);
@@ -115,8 +116,16 @@ describe('working capital by value (XI.K)', () => {
       bases: decimals(['0', '900', '2400']),
       periods: [periods[0]!, { months: 6, production: true }, periods[2]!],
       days: toDecimal('18'),
+      stock: false,
     });
     expect(strings(values)).toEqual(['0', '90', '120']);
+  });
+
+  it('carries a value over for stocks only', () => {
+    // The basis falls to zero: a stock stays, receivables and the like unwind.
+    const input = { bases: decimals(['0', '360', '0']), periods, days: toDecimal('720') };
+    expect(strings(workingCapitalValues({ ...input, stock: true }))).toEqual(['0', '720', '720']);
+    expect(strings(workingCapitalValues({ ...input, stock: false }))).toEqual(['0', '720', '0']);
   });
 
   it('reads coverage as days or as a share of the year', () => {
