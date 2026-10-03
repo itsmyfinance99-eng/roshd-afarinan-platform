@@ -62,7 +62,6 @@ export function StatementTableView({
               {section.title ? (
                 <tr className="border-t border-line">
                   <th
-                    scope="colgroup"
                     colSpan={columns.length + 1}
                     className="bg-paper px-3 pt-3 pb-1 text-start text-[13px] font-bold text-ink-3"
                   >

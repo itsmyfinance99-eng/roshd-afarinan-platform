@@ -56,24 +56,24 @@ export function incomeStatementTable(statements: Statements): StatementTable {
         rows: amounts([
           ['درآمد فروش', s.salesRevenue],
           ['هزینه‌های متغیر', s.variableCosts],
-          ['حاشیه متغیر', s.variableMargin, true],
+          ['حاشیه فروش متغیر', s.variableMargin, true],
           ['هزینه‌های ثابت (بدون استهلاک)', s.fixedCosts],
           ['استهلاک', s.depreciation],
           ['حاشیه عملیاتی', s.operationalMargin, true],
           ['سود سپرده کوتاه‌مدت', s.depositInterest],
           ['هزینه‌های مالی', s.financialCosts],
-          ['سود ناخالص عملیات', s.grossProfitFromOperations, true],
+          ['سود عملیات پس از هزینه‌های مالی', s.grossProfitFromOperations, true],
           ['درآمد غیرعملیاتی (فروش دارایی)', s.extraordinaryIncome],
           ['زیان غیرعملیاتی (فروش دارایی)', s.extraordinaryLoss],
           ['معافیت استهلاک', s.depreciationAllowance],
-          ['سود ناخالص', s.grossProfit, true],
+          ['سود پیش از مالیات', s.grossProfit, true],
           ['معافیت سرمایه‌گذاری', s.investmentAllowance],
           ['زیان سال‌های قبل (کسرشده)', s.deductibleLoss],
           ['سود مشمول مالیات', s.taxableProfit],
           ['مالیات بر درآمد', s.incomeTax],
           ['سود خالص', s.netProfit, true],
           ['سود سهام', s.dividends],
-          ['سود تقسیم‌نشده', s.retainedProfit, true],
+          ['سود تقسیم‌نشده دوره', s.retainedProfit, true],
         ]),
       },
     ],
@@ -170,11 +170,15 @@ export function balanceSheetTable(statements: Statements): StatementTable {
           ...classes,
           ['آورده خودکار (پوشش کسری دوره ساخت)', liabilities.automaticEquity],
           ['جمع آورده', liabilities.totalEquity, true],
-          ['اندوخته (سود تقسیم‌نشده انباشته)', liabilities.reserves],
+          ['سود انباشته', liabilities.reserves],
           ['سود تسعیر ارز', liabilities.exchangeGains],
           ['جمع بدهی‌ها و حقوق صاحبان سهام', liabilities.total, true],
-          ['ارزش ویژه', netWorth, true],
         ]),
+      },
+      {
+        // Not a part of the totals above: equity plus retained profit, less exchange losses.
+        title: 'ارزش ویژه',
+        rows: amounts([['ارزش ویژه (آورده و سود انباشته)', netWorth, true]]),
       },
     ],
   };
@@ -200,7 +204,10 @@ export function discountedCashFlowTable(statements: Statements, basis: Basis): S
         rows: amounts([
           ['ورودی نقد', perPeriod(flow.inflow)],
           ['خروجی نقد', perPeriod(flow.outflow)],
-          ['ارزش اسقاط', flow.net.map((_, j) => (j === last ? flow.residualValue : null))],
+          [
+            'ارزش باقی‌مانده (دارایی‌ها و سرمایه در گردش)',
+            flow.net.map((_, j) => (j === last ? flow.residualValue : null)),
+          ],
           ['جریان نقد خالص', flow.net, true],
           ['جریان نقد خالص تجمعی', flow.cumulative],
           ['ارزش فعلی جریان نقد خالص', flow.presentValue],
@@ -255,25 +262,39 @@ export function ratiosTable(statements: Statements): StatementTable {
           ),
         ],
       },
+      // A project without long-term loans has no debt service to cover.
+      ...(debtService === null ? [] : [debtServiceSection(debtService, points.length)]),
+    ],
+  };
+}
+
+function debtServiceSection(
+  debtService: NonNullable<Statements['debtService']>,
+  periods: number,
+): StatementSection {
+  const points = Array.from({ length: periods });
+  const ratio = (label: string, values: (string | null)[]): StatementRow => ({
+    label,
+    values,
+    kind: 'ratio',
+  });
+  return {
+    title: 'خدمت بدهی بلندمدت',
+    rows: [
       {
-        title: 'خدمت بدهی بلندمدت',
-        rows: [
-          {
-            label: 'نقد در دسترس برای خدمت بدهی',
-            values: points.map((_, j) => debtService?.periods[j]?.cashAvailable ?? null),
-            kind: 'amount',
-          },
-          {
-            label: 'خدمت بدهی (اصل، سود و کارمزد)',
-            values: points.map((_, j) => debtService?.periods[j]?.debtService ?? null),
-            kind: 'amount',
-          },
-          ratio(
-            'نسبت پوشش خدمت بدهی',
-            points.map((_, j) => debtService?.periods[j]?.ratio ?? null),
-          ),
-        ],
+        label: 'نقد در دسترس برای خدمت بدهی',
+        values: points.map((_, j) => debtService?.periods[j]?.cashAvailable ?? null),
+        kind: 'amount',
       },
+      {
+        label: 'خدمت بدهی (اصل، سود و کارمزد)',
+        values: points.map((_, j) => debtService?.periods[j]?.debtService ?? null),
+        kind: 'amount',
+      },
+      ratio(
+        'نسبت پوشش خدمت بدهی',
+        points.map((_, j) => debtService?.periods[j]?.ratio ?? null),
+      ),
     ],
   };
 }
@@ -281,7 +302,7 @@ export function ratiosTable(statements: Statements): StatementTable {
 /** The columns of a table: the periods, and the year after production when values return there. */
 export function tableColumns(frame: Frame, salvageColumn = false): Column[] {
   return salvageColumn
-    ? [...frame.periods, { label: 'پس از تولید', group: 'ارزش اسقاط' }]
+    ? [...frame.periods, { label: 'پس از تولید', group: 'ارزش باقی‌مانده' }]
     : frame.periods;
 }
 

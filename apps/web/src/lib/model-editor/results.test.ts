@@ -21,6 +21,7 @@ import {
 } from './statements';
 import { defaultText, warningPlace, warningText } from './warnings';
 
+const RESIDUAL = 'ارزش باقی‌مانده (دارایی‌ها و سرمایه در گردش)';
 const at = (values: Record<number, string>) => ['0', '0', '0', '0'].map((z, j) => values[j] ?? z);
 const none = { days: '0' };
 const horizon = {
@@ -163,19 +164,77 @@ describe('statement tables', () => {
     expect(table.salvageColumn).toBe(true);
     const columns = tableColumns(frame, true);
     expect(columns).toHaveLength(5);
-    expect(columns.at(-1)).toEqual({ label: 'پس از تولید', group: 'ارزش اسقاط' });
+    expect(columns.at(-1)).toEqual({ label: 'پس از تولید', group: 'ارزش باقی‌مانده' });
     expect(tableColumns(frame)).toHaveLength(4);
     const row = (label: string) => table.sections[0]!.rows.find((r) => r.label === label)!.values;
     // Flows are per period; the last column holds the residual value alone.
     expect(row('ورودی نقد').at(-1)).toBeNull();
-    expect(row('ارزش اسقاط')).toEqual([
-      null,
-      null,
-      null,
-      null,
-      statements.totalCapital.residualValue,
-    ]);
+    expect(row(RESIDUAL)).toEqual([null, null, null, null, statements.totalCapital.residualValue]);
     expect(row('جریان نقد خالص').at(-1)).toBe(statements.totalCapital.residualValue);
+  });
+
+  it('keeps the residual value in the last period when it returns there', () => {
+    const atEnd = projectModel({
+      ...input,
+      statements: { ...input.statements, residualValueTiming: 'END_OF_PRODUCTION' },
+    }).value.statements;
+    const table = discountedCashFlowTable(atEnd, 'equity');
+    expect(table.salvageColumn).toBe(false);
+    const rows = table.sections[0]!.rows;
+    const row = (label: string) => rows.find((r) => r.label === label)!.values;
+    for (const r of rows) expect(r.values).toHaveLength(4);
+    expect(row(RESIDUAL)).toEqual([null, null, null, atEnd.equity.residualValue]);
+    // Inflow less outflow plus the residual value is the net flow of the last period.
+    const net =
+      Number(row('ورودی نقد')[3]) -
+      Number(row('خروجی نقد')[3]) +
+      Number(atEnd.equity.residualValue);
+    expect(Number(row('جریان نقد خالص')[3])).toBeCloseTo(net, 4);
+  });
+
+  it('shows debt service only for a project with long-term loans', () => {
+    expect(statements.debtService).toBeNull();
+    expect(ratiosTable(statements).sections.map((section) => section.title)).toEqual([
+      'نسبت‌های مالی',
+      'نقطه سربه‌سر هر دوره تولید',
+    ]);
+    const withLoan = projectModel({
+      ...input,
+      financing: {
+        ...input.financing,
+        loans: [
+          {
+            key: 'bank',
+            currency: 'IRR',
+            origin: 'LOCAL',
+            loan: {
+              type: 'CONSTANT_PRINCIPAL',
+              repaymentMonths: 12,
+              flows: [{ day: 360, amount: '100000000' }],
+              rates: [{ fromDay: 1, rate: '0.2' }],
+              capitalisedShare: '0',
+              numberOfRepayments: 2,
+              firstRepaymentDay: 720,
+            },
+          },
+        ],
+      },
+    }).value.statements;
+    const sections = ratiosTable(withLoan).sections;
+    expect(sections.at(-1)?.title).toBe('خدمت بدهی بلندمدت');
+    for (const row of sections.at(-1)!.rows) expect(row.values).toHaveLength(4);
+    expect(sections.at(-1)!.rows[2]!.values.some((value) => value !== null)).toBe(true);
+  });
+
+  it('puts the net worth in a section of its own', () => {
+    const sections = balanceSheetTable(statements).sections;
+    expect(sections.map((section) => section.title)).toEqual([
+      'دارایی‌ها',
+      'بدهی‌ها و حقوق صاحبان سهام',
+      'ارزش ویژه',
+    ]);
+    expect(sections[1]!.rows.at(-1)?.label).toBe('جمع بدهی‌ها و حقوق صاحبان سهام');
+    expect(sections[2]!.rows[0]!.values).toBe(statements.balanceSheet.netWorth);
   });
 
   it('formats amounts in the display unit, percentages and missing values', () => {
@@ -256,6 +315,14 @@ describe('analysis inputs', () => {
     expect(parseSteps(Array.from({ length: 13 }, (_, i) => String(i + 1)).join(' ')).ok).toBe(
       false,
     );
+    // A step is above −100 % and at most +1000 %.
+    for (const outside of ['-100', '-120', '-100.5', '1000.5', '1001', '250000']) {
+      expect(parseSteps(outside), outside).toMatchObject({ ok: false });
+    }
+    expect(parseSteps('-99.9 1000 0.001')).toEqual({
+      ok: true,
+      value: ['-0.999', '10', '0.00001'],
+    });
     expect(percentAsFraction('۱۲٫۵')).toBe('0.125');
     expect(percentAsFraction('x')).toBeNull();
   });

@@ -77,7 +77,8 @@ export function indicatorText(
 
 /** A change entered as a fraction, as a signed percentage: «+۱۰٪». */
 export function changeText(fraction: string): string {
-  const percent = roundDecimal(fractionToPercent(fraction), 2);
+  // A step is shown as it was entered: rounding would turn a small change into «۰٪».
+  const percent = fractionToPercent(fraction);
   const sign = percent.startsWith('-') ? '' : '+';
   return `⁦${sign}${formatDecimalFa(percent)}٪⁩`;
 }

@@ -343,6 +343,96 @@ test.describe('financial model results', () => {
     ).toBeVisible();
   });
 
+  test('shows a plain message for results of another shape, part by part', async ({ page }) => {
+    await signIn(page);
+    // A run stored by another version of the engine: one schedule is missing.
+    const { ratios: _ratios, ...rest } = calculated.value.statements;
+    await serveRun(page, run({ results: { ...calculated.value, statements: rest } }));
+    await page.goto('/dashboard/models/m1/runs/r1');
+    await expect(page.getByRole('heading', { name: 'کل سرمایه' })).toBeVisible();
+    await openTab(page, 'نسبت‌ها');
+    await expect(
+      page.getByText(/نتایج این اجرا با این نسخه از برنامه قابل نمایش نیست/),
+    ).toBeVisible();
+    // The other parts are still readable.
+    await openTab(page, 'سود و زیان');
+    await expect(page.getByRole('region', { name: 'صورت سود و زیان' })).toBeVisible();
+  });
+
+  test('shows the tables of a run whose input this version cannot analyse', async ({ page }) => {
+    await signIn(page);
+    // An older snapshot: an input the current schema requires is missing.
+    const { cash: _cash, ...operations } = input.operations;
+    await serveRun(page, run({ input: { ...input, operations } }));
+    await page.goto('/dashboard/models/m1/runs/r1');
+    await openTab(page, 'سود و زیان');
+    await expect(page.getByRole('region', { name: 'صورت سود و زیان' })).toBeVisible();
+    await openTab(page, 'سناریو و حساسیت');
+    await expect(page.getByText(/سناریو و حساسیت برای آن در دسترس نیست/)).toBeVisible();
+    await expect(page.getByRole('button', { name: 'محاسبه حساسیت' })).toHaveCount(0);
+  });
+
+  test('keeps what was typed and calculated while another part is open', async ({ page }) => {
+    await signIn(page);
+    await serveRun(page);
+    await page.goto('/dashboard/models/m1/runs/r1');
+    await openTab(page, 'سناریو و حساسیت');
+    await page.getByLabel('نام سناریوی ۱').fill('بدبینانه');
+    await page.getByLabel('قیمت فروش، سناریوی بدبینانه').fill('-10');
+    await page.getByRole('button', { name: 'محاسبه سناریوها' }).click();
+    const comparison = page.getByRole('region', { name: 'مقایسه سناریوها با حالت پایه' });
+    await expect(comparison).toBeVisible();
+    await expect(comparison.getByText('(مبلغ‌ها به IRR)')).toBeVisible();
+
+    await openTab(page, 'ترازنامه');
+    await expect(comparison).toBeHidden();
+    await openTab(page, 'سناریو و حساسیت');
+    await expect(page.getByLabel('نام سناریوی ۱')).toHaveValue('بدبینانه');
+    await expect(comparison).toBeVisible();
+    // Changing an input removes the result that no longer belongs to it.
+    await page.getByLabel('قیمت فروش، سناریوی بدبینانه').fill('-20');
+    await expect(comparison).toHaveCount(0);
+
+    // A step the model cannot take is refused before anything is calculated.
+    await page.getByLabel(/گام‌های تغییر/).fill('-100 10');
+    await page.getByRole('button', { name: 'محاسبه حساسیت' }).click();
+    await expect(
+      page.getByText(/هر گام باید بیشتر از منفی ۱۰۰ و حداکثر ۱۰۰۰ درصد باشد/),
+    ).toBeVisible();
+  });
+
+  test('reloads the run when an approval is refused', async ({ page }) => {
+    await signIn(page);
+    let refused = false;
+    await page.route('**/api/v1/financial-models/m1/runs/r1', (route) =>
+      json(
+        route,
+        run(
+          refused
+            ? { approvedAt: '2026-10-04T08:00:00Z', canApprove: false }
+            : { canApprove: true },
+        ),
+      ),
+    );
+    await page.route('**/api/v1/financial-models/m1/runs/r1/approval', (route) => {
+      refused = true;
+      return route.fulfill({
+        status: 409,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          error: { code: 'CONFLICT', message: 'این اجرا پیش‌تر تأیید شده است.' },
+        }),
+      });
+    });
+    await page.goto('/dashboard/models/m1/runs/r1');
+    page.on('dialog', (dialog) => void dialog.accept());
+    await page.getByRole('button', { name: 'تأیید این اجرا' }).click();
+    await expect(page.getByText('این اجرا پیش‌تر تأیید شده است.')).toBeVisible();
+    // Someone else approved it meanwhile: the page shows that and offers no approval any more.
+    await expect(page.getByText(/تأییدشده در/)).toBeVisible();
+    await expect(page.getByRole('button', { name: 'تأیید این اجرا' })).toHaveCount(0);
+  });
+
   test('has no serious accessibility violations in any part', async ({ page }) => {
     await signIn(page);
     await serveRun(page);

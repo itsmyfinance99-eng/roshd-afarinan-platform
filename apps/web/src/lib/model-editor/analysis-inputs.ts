@@ -69,12 +69,31 @@ export function changeOf(key: VariableKey, fraction: string): ProjectChange {
   return { target, [dimension]: fraction };
 }
 
+/**
+ * Most model calculations one sensitivity analysis may ask for (variables × steps): each is a
+ * full run of the model in the browser.
+ */
+export const MAX_ANALYSIS_RUNS = 48;
+
 export type Parsed<T> = { ok: true; value: T } | { ok: false; message: string };
 
-/** One percentage as typed («-۱۰», «12.5») → a fraction, or null when it is not a number. */
+/** One percentage as typed («-۱۰», «12.5٪») as a canonical number, or null. */
+const percentOf = (text: string): string | null => normalizeDecimal(text.replace(/[٪%]/g, ''));
+
+/** One percentage as typed → a fraction, or null when it is not a number. */
 export function percentAsFraction(text: string): string | null {
-  const number = normalizeDecimal(text.replace(/[٪%]/g, ''));
-  return number === null ? null : percentToFraction(number);
+  const percent = percentOf(text);
+  return percent === null ? null : percentToFraction(percent);
+}
+
+/**
+ * A step must be above −100 % (at −100 % a price or rate is zero, which the model refuses) and at
+ * most +1000 % (beyond that it is a typing error). Compared as text: no value becomes a number.
+ */
+function stepInRange(percent: string): boolean {
+  const [whole = '0', fraction = ''] = percent.replace('-', '').split('.');
+  if (percent.startsWith('-')) return whole.length < 3;
+  return whole.length < 4 || (whole === '1000' && /^0*$/.test(fraction));
 }
 
 /**
@@ -92,6 +111,12 @@ export function parseSteps(text: string): Parsed<string[]> {
     if (fraction === null) return { ok: false, message: `«${part}» عدد معتبری نیست.` };
     if (fraction === '0') {
       return { ok: false, message: 'صفر همان حالت پایه است؛ آن را از گام‌ها بردارید.' };
+    }
+    if (!stepInRange(percentOf(part) ?? '0')) {
+      return {
+        ok: false,
+        message: `«${part}» خارج از بازه است؛ هر گام باید بیشتر از منفی ۱۰۰ و حداکثر ۱۰۰۰ درصد باشد.`,
+      };
     }
     if (steps.includes(fraction)) return { ok: false, message: `«${part}» دو بار آمده است.` };
     steps.push(fraction);

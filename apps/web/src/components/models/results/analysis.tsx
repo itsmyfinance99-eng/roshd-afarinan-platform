@@ -7,6 +7,7 @@ import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { ScenarioResult, SensitivityResult } from '@/lib/model-editor/analysis';
 import {
   changeOf,
+  MAX_ANALYSIS_RUNS,
   parseSteps,
   percentAsFraction,
   runAnalysis,
@@ -33,23 +34,46 @@ const ROWS: IndicatorRowKey[] = ['npv', 'irr', 'mirr', 'payback', 'dynamicPaybac
 const cell = 'border-t border-line px-3 py-1.5 text-end whitespace-nowrap';
 const head = 'bg-surface px-3 py-2 text-end font-semibold whitespace-nowrap text-ink-3';
 const rowHead = 'border-t border-line px-3 py-1.5 text-start font-normal text-ink';
+const field =
+  'h-9 w-full rounded-control border border-line-strong bg-brand-700 px-2 text-sm text-ink disabled:opacity-60';
 
-/** Stops a running analysis when the panel goes away. */
-function useAbort() {
+const RELATIVE_NOTE = 'تغییرها نسبی‌اند: ۱۰ درصد افزایش یک نرخ ۲۰ درصدی یعنی ۲۲ درصد، نه ۳۰ درصد.';
+
+/**
+ * One analysis at a time: `start` gives the signal of a new run and stops the one before it;
+ * `stop` ends the current one. The panel going away stops it too.
+ */
+function useRunner() {
   const controller = useRef<AbortController | null>(null);
   useEffect(() => () => controller.current?.abort(), []);
-  return () => {
-    controller.current?.abort();
-    controller.current = new AbortController();
-    return controller.current.signal;
+  return {
+    start: () => {
+      controller.current?.abort();
+      controller.current = new AbortController();
+      return controller.current.signal;
+    },
+    stop: () => controller.current?.abort(),
   };
+}
+
+function AmountNote({ unitLabel }: { unitLabel: string }) {
+  return unitLabel ? (
+    <span className="ms-2 text-xs font-normal text-ink-3">(مبلغ‌ها به {unitLabel})</span>
+  ) : null;
+}
+
+interface PanelProps {
+  input: ProjectInput;
+  unit: ReportingUnit;
+  /** e.g. «میلیون IRR». */
+  unitLabel: string;
 }
 
 /**
  * One-variable sensitivity of a run: every chosen variable is changed by every step while the
  * others stay, and the whole model is calculated again each time.
  */
-export function SensitivityPanel({ input, unit }: { input: ProjectInput; unit: ReportingUnit }) {
+export function SensitivityPanel({ input, unit, unitLabel }: PanelProps) {
   const available = useMemo(() => variablesOf(input), [input]);
   const [chosen, setChosen] = useState<VariableKey[]>(available);
   const [steps, setSteps] = useState('');
@@ -59,14 +83,27 @@ export function SensitivityPanel({ input, unit }: { input: ProjectInput; unit: R
   const [result, setResult] = useState<SensitivityResult | null>(null);
   const stepsId = useId();
   const basisId = useId();
-  const nextSignal = useAbort();
+  const runner = useRunner();
+
+  const fail = (message: string) => {
+    setError(message);
+    setResult(null);
+  };
 
   const calculate = async () => {
     const parsed = parseSteps(steps);
-    if (!parsed.ok) return setError(parsed.message);
-    if (chosen.length === 0) return setError('دست‌کم یک متغیر انتخاب کنید.');
+    if (!parsed.ok) return fail(parsed.message);
+    if (chosen.length === 0) return fail('دست‌کم یک متغیر انتخاب کنید.');
+    const runs = chosen.length * parsed.value.length;
+    if (runs > MAX_ANALYSIS_RUNS) {
+      return fail(
+        `این تحلیل کل مدل را ${toPersianDigits(runs)} بار حساب می‌کند؛ حداکثر ${toPersianDigits(MAX_ANALYSIS_RUNS)} بار ممکن است. متغیر یا گام کمتری انتخاب کنید.`,
+      );
+    }
     setError(undefined);
+    setResult(null);
     setBusy(true);
+    const signal = runner.start();
     const outcome = await runAnalysis(
       {
         kind: 'sensitivity',
@@ -74,14 +111,18 @@ export function SensitivityPanel({ input, unit }: { input: ProjectInput; unit: R
         variables: chosen.map(sensitivityVariable),
         steps: parsed.value,
       },
-      nextSignal(),
+      signal,
     );
+    if (signal.aborted) return setBusy(false);
     setBusy(false);
     if (outcome.ok && outcome.result.kind === 'sensitivity') setResult(outcome.result);
-    else if (!outcome.ok) setError(outcome.message);
+    else if (!outcome.ok) {
+      fail(`${outcome.message} یکی از گام‌ها برای یکی از متغیرهای انتخاب‌شده قابل محاسبه نیست.`);
+    }
   };
 
-  const label = (key: string) => VARIABLE_LABELS_FA[key as VariableKey] ?? key;
+  const label = (key: string) =>
+    Object.hasOwn(VARIABLE_LABELS_FA, key) ? VARIABLE_LABELS_FA[key as VariableKey] : key;
   const bars = result?.tornado[basis] ?? [];
   const warnings =
     result?.variables.flatMap((variable) =>
@@ -97,11 +138,11 @@ export function SensitivityPanel({ input, unit }: { input: ProjectInput; unit: R
       <div>
         <h3 className="text-lg font-bold text-ink">تحلیل حساسیت</h3>
         <p className="mt-1 text-sm leading-7 text-ink-3">
-          هر متغیر به‌تنهایی به اندازه هر گام تغییر می‌کند و کل مدل دوباره حساب می‌شود. نتیجه این
-          تحلیل ذخیره نمی‌شود.
+          هر متغیر به‌تنهایی به اندازه هر گام تغییر می‌کند و کل مدل دوباره حساب می‌شود.{' '}
+          {RELATIVE_NOTE} نتیجه این تحلیل ذخیره نمی‌شود.
         </p>
       </div>
-      <fieldset className="flex flex-wrap gap-x-6 gap-y-2">
+      <fieldset disabled={busy} className="flex flex-wrap gap-x-6 gap-y-2">
         <legend className="mb-2 text-sm font-semibold text-ink">متغیرها</legend>
         {available.map((key) => (
           <label key={key} className="flex items-center gap-2 text-sm text-ink">
@@ -109,13 +150,14 @@ export function SensitivityPanel({ input, unit }: { input: ProjectInput; unit: R
               type="checkbox"
               className="size-[18px] accent-primary"
               checked={chosen.includes(key)}
-              onChange={(event) =>
+              onChange={(event) => {
+                setResult(null);
                 setChosen((current) =>
                   event.target.checked
                     ? available.filter((k) => k === key || current.includes(k))
                     : current.filter((k) => k !== key),
-                )
-              }
+                );
+              }}
             />
             {VARIABLE_LABELS_FA[key]}
           </label>
@@ -126,21 +168,34 @@ export function SensitivityPanel({ input, unit }: { input: ProjectInput; unit: R
           id={stepsId}
           label="گام‌های تغییر (درصد)"
           required
-          hint="درصدها را با فاصله یا ویرگول جدا کنید؛ مثلاً ‎-20  -10  10  20"
+          hint="درصدها را با فاصله یا ویرگول جدا کنید. نمونه شیوه نوشتن: ‎-۲۰  -۱۰  ۱۰  ۲۰"
         >
           <TextInput
             id={stepsId}
             hasHint
             dir="ltr"
             autoComplete="off"
+            disabled={busy}
             value={steps}
-            onChange={(event) => setSteps(event.target.value)}
+            onChange={(event) => {
+              setSteps(event.target.value);
+              setResult(null);
+            }}
           />
         </FieldShell>
-        <Button size="xl" disabled={busy} onClick={() => void calculate()}>
-          {busy ? 'در حال محاسبه…' : 'محاسبه حساسیت'}
-        </Button>
+        {busy ? (
+          <Button variant="outline" size="xl" onClick={runner.stop}>
+            توقف محاسبه
+          </Button>
+        ) : (
+          <Button size="xl" onClick={() => void calculate()}>
+            محاسبه حساسیت
+          </Button>
+        )}
       </div>
+      <p role="status" className="min-h-6 text-sm text-ink-3">
+        {busy ? 'در حال محاسبه… برای هر متغیر و هر گام، کل مدل دوباره حساب می‌شود.' : ''}
+      </p>
       {error ? <ErrorMessage>{error}</ErrorMessage> : null}
       {result ? (
         <div className="flex flex-col gap-4">
@@ -159,7 +214,9 @@ export function SensitivityPanel({ input, unit }: { input: ProjectInput; unit: R
           </FieldShell>
           <TornadoChart
             title={`نمودار گردبادی حساسیت NPV ${BASIS_LABELS_FA[basis]}`}
-            description={`هر میله دامنه NPV را از کمترین تا بیشترین تغییر یک متغیر نشان می‌دهد؛ پهن‌ترین میله ${
+            description={`هر میله دامنه NPV را از کمترین تا بیشترین تغییر یک متغیر نشان می‌دهد${
+              unitLabel ? `، به ${unitLabel}` : ''
+            }؛ پهن‌ترین میله ${
               bars[0] ? `«${label(bars[0].key)}»` : ''
             } است. ارقام در جدول زیر نمودار آمده است.`}
             base={result.base[basis].npv}
@@ -176,6 +233,7 @@ export function SensitivityPanel({ input, unit }: { input: ProjectInput; unit: R
             <table className="w-full border-collapse text-sm">
               <caption className="border-b border-line bg-surface px-3 py-2 text-start text-[15px] font-bold text-ink">
                 حساسیت NPV و IRR {BASIS_LABELS_FA[basis]} به هر متغیر
+                <AmountNote unitLabel={unitLabel} />
               </caption>
               <thead>
                 <tr>
@@ -244,23 +302,27 @@ interface ScenarioDraft {
 }
 
 /** Named sets of changes (e.g. optimistic and pessimistic) compared with the base case. */
-export function ScenarioPanel({ input, unit }: { input: ProjectInput; unit: ReportingUnit }) {
+export function ScenarioPanel({ input, unit, unitLabel }: PanelProps) {
   const available = useMemo(() => variablesOf(input), [input]);
   const [scenarios, setScenarios] = useState<ScenarioDraft[]>([{ name: '', changes: {} }]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
   const [result, setResult] = useState<ScenarioResult | null>(null);
-  const nextSignal = useAbort();
+  const runner = useRunner();
 
   const update = (index: number, edit: (scenario: ScenarioDraft) => ScenarioDraft) => {
     setScenarios((current) => current.map((s, i) => (i === index ? edit(s) : s)));
     setResult(null);
   };
+  const fail = (message: string) => {
+    setError(message);
+    setResult(null);
+  };
 
   const calculate = async () => {
     const names = scenarios.map((s) => s.name.trim());
-    if (names.some((name) => name === '')) return setError('برای هر سناریو نامی بنویسید.');
-    if (new Set(names).size !== names.length) return setError('نام سناریوها نباید تکراری باشد.');
+    if (names.some((name) => name === '')) return fail('برای هر سناریو نامی بنویسید.');
+    if (new Set(names).size !== names.length) return fail('نام سناریوها نباید تکراری باشد.');
     const requests = [];
     for (const [index, scenario] of scenarios.entries()) {
       const changes = [];
@@ -269,26 +331,26 @@ export function ScenarioPanel({ input, unit }: { input: ProjectInput; unit: Repo
         if (typed === '') continue;
         const fraction = percentAsFraction(typed);
         if (fraction === null) {
-          return setError(
+          return fail(
             `در سناریوی «${names[index]}»، درصد تغییر «${VARIABLE_LABELS_FA[key]}» عدد معتبری نیست.`,
           );
         }
         if (fraction !== '0') changes.push(changeOf(key, fraction));
       }
       if (changes.length === 0) {
-        return setError(`سناریوی «${names[index]}» هیچ تغییری ندارد؛ دست‌کم یک درصد وارد کنید.`);
+        return fail(`سناریوی «${names[index]}» هیچ تغییری ندارد؛ دست‌کم یک درصد وارد کنید.`);
       }
       requests.push({ key: names[index] ?? '', changes });
     }
     setError(undefined);
+    setResult(null);
     setBusy(true);
-    const outcome = await runAnalysis(
-      { kind: 'scenarios', input, scenarios: requests },
-      nextSignal(),
-    );
+    const signal = runner.start();
+    const outcome = await runAnalysis({ kind: 'scenarios', input, scenarios: requests }, signal);
     setBusy(false);
+    if (signal.aborted) return;
     if (outcome.ok && outcome.result.kind === 'scenarios') setResult(outcome.result);
-    else if (!outcome.ok) setError(outcome.message);
+    else if (!outcome.ok) fail(outcome.message);
   };
 
   return (
@@ -297,7 +359,7 @@ export function ScenarioPanel({ input, unit }: { input: ProjectInput; unit: Repo
         <h3 className="text-lg font-bold text-ink">مقایسه سناریوها</h3>
         <p className="mt-1 text-sm leading-7 text-ink-3">
           هر سناریو مجموعه‌ای از تغییرهای درصدی نسبت به ورودی‌های همین اجراست (مثلاً خوش‌بینانه و
-          بدبینانه). خانه خالی یعنی بدون تغییر. سناریوها ذخیره نمی‌شوند.
+          بدبینانه). خانه خالی یعنی بدون تغییر. {RELATIVE_NOTE} سناریوها ذخیره نمی‌شوند.
         </p>
       </div>
       <div
@@ -320,9 +382,10 @@ export function ScenarioPanel({ input, unit }: { input: ProjectInput; unit: Repo
                     aria-label={`نام سناریوی ${toPersianDigits(index + 1)}`}
                     placeholder="نام سناریو"
                     maxLength={40}
+                    disabled={busy}
                     value={scenario.name}
                     onChange={(event) => update(index, (s) => ({ ...s, name: event.target.value }))}
-                    className="h-9 w-full rounded-control border border-line-strong bg-brand-700 px-2 text-sm font-normal text-ink"
+                    className={`${field} font-normal`}
                   />
                 </th>
               ))}
@@ -341,6 +404,7 @@ export function ScenarioPanel({ input, unit }: { input: ProjectInput; unit: Repo
                       inputMode="decimal"
                       dir="ltr"
                       autoComplete="off"
+                      disabled={busy}
                       aria-label={`${VARIABLE_LABELS_FA[key]}، سناریوی ${
                         scenario.name.trim() || toPersianDigits(index + 1)
                       }`}
@@ -351,7 +415,7 @@ export function ScenarioPanel({ input, unit }: { input: ProjectInput; unit: Repo
                           changes: { ...s.changes, [key]: event.target.value },
                         }))
                       }
-                      className="h-9 w-full rounded-control border border-line-strong bg-brand-700 px-2 text-right text-sm text-ink"
+                      className={`${field} text-right`}
                     />
                   </td>
                 ))}
@@ -361,13 +425,20 @@ export function ScenarioPanel({ input, unit }: { input: ProjectInput; unit: Repo
         </table>
       </div>
       <div className="flex flex-wrap gap-2">
-        <Button size="sm" disabled={busy} onClick={() => void calculate()}>
-          {busy ? 'در حال محاسبه…' : 'محاسبه سناریوها'}
-        </Button>
+        {busy ? (
+          <Button variant="outline" size="sm" onClick={runner.stop}>
+            توقف محاسبه
+          </Button>
+        ) : (
+          <Button size="sm" onClick={() => void calculate()}>
+            محاسبه سناریوها
+          </Button>
+        )}
         {scenarios.length < MAX_SCENARIOS ? (
           <Button
             variant="outline"
             size="sm"
+            disabled={busy}
             onClick={() => {
               setScenarios((current) => [...current, { name: '', changes: {} }]);
               setResult(null);
@@ -380,6 +451,7 @@ export function ScenarioPanel({ input, unit }: { input: ProjectInput; unit: Repo
           <Button
             variant="ghost"
             size="sm"
+            disabled={busy}
             onClick={() => {
               setScenarios((current) => current.slice(0, -1));
               setResult(null);
@@ -389,6 +461,9 @@ export function ScenarioPanel({ input, unit }: { input: ProjectInput; unit: Repo
           </Button>
         ) : null}
       </div>
+      <p role="status" className="min-h-6 text-sm text-ink-3">
+        {busy ? 'در حال محاسبه…' : ''}
+      </p>
       {error ? <ErrorMessage>{error}</ErrorMessage> : null}
       {result ? (
         <>
@@ -401,6 +476,7 @@ export function ScenarioPanel({ input, unit }: { input: ProjectInput; unit: Repo
             <table className="w-full border-collapse text-sm">
               <caption className="border-b border-line bg-surface px-3 py-2 text-start text-[15px] font-bold text-ink">
                 شاخص‌ها در حالت پایه و در هر سناریو
+                <AmountNote unitLabel={unitLabel} />
               </caption>
               <thead>
                 <tr>

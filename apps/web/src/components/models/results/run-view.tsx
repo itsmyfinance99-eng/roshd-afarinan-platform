@@ -19,9 +19,10 @@ import {
   REPORTING_UNITS,
   type ReportingUnit,
 } from '@roshd/validation';
-import { useId, useMemo, useState, type KeyboardEvent } from 'react';
+import { Component, useId, useMemo, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { apiFetch } from '@/lib/api-client';
 import { frameOfHorizon } from '@/lib/model-editor/frame';
+import { getIn, textAt } from '@/lib/model-editor/paths';
 import {
   balanceSheetTable,
   cashFlowTable,
@@ -30,6 +31,7 @@ import {
   incomeStatementTable,
   ratiosTable,
   tableColumns,
+  type StatementTable,
 } from '@/lib/model-editor/statements';
 import {
   BASIS_LABELS_FA,
@@ -73,6 +75,25 @@ function isModel(value: unknown): value is ProjectModel {
   return statements !== null && typeof statements === 'object';
 }
 
+const UNREADABLE =
+  'نتایج این اجرا با این نسخه از برنامه قابل نمایش نیست. از ورودی‌های مدل اجرای تازه‌ای ثبت کنید.';
+
+/**
+ * A stored run is never changed, so it may be older than this page: results with another shape
+ * end here with a plain message instead of a broken page or partial figures.
+ */
+class ResultsBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
+  override state = { failed: false };
+
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  override render() {
+    return this.state.failed ? <ErrorMessage>{UNREADABLE}</ErrorMessage> : this.props.children;
+  }
+}
+
 /**
  * A stored calculation run (ST-34.08): its indicators with the engine's warnings next to the
  * indicator they are about, the schedules as tables, the cumulative cash flow as a chart, and
@@ -95,24 +116,19 @@ export function RunView({
   const tabsId = useId();
   const unitId = useId();
 
+  // The tables need the horizon and the currency of the snapshot only; the analyses need the
+  // whole input as this version of the engine reads it.
   const input = useMemo(() => {
     const parsed = projectInputSchema.safeParse(run.input);
     return parsed.success ? parsed.data : null;
   }, [run.input]);
-  const frame = useMemo(() => frameOfHorizon(input?.horizon), [input]);
+  const frame = useMemo(() => frameOfHorizon(getIn(run.input, ['horizon'])), [run.input]);
   const model = isModel(run.results) ? run.results : null;
 
-  if (!input || !frame || !model) {
-    return (
-      <ErrorMessage>
-        نتایج این اجرا با این نسخه از برنامه قابل نمایش نیست. از ورودی‌های مدل اجرای تازه‌ای ثبت
-        کنید.
-      </ErrorMessage>
-    );
-  }
+  if (!frame || !model) return <ErrorMessage>{UNREADABLE}</ErrorMessage>;
 
   const { statements } = model;
-  const currency = input.localCurrency;
+  const currency = textAt(run.input, ['localCurrency']);
   const label = unitLabel(unit, currency);
   const placed = run.warnings.flatMap((warning) => {
     const place = warningPlace(warning);
@@ -129,12 +145,9 @@ export function RunView({
     const result = await apiFetch(`/financial-models/${modelId}/runs/${run.id}/approval`, {
       method: 'POST',
     });
-    if (result.ok) {
-      setApproval({ busy: false, done: true });
-      onChanged();
-    } else {
-      setApproval({ busy: false, error: result.message });
-    }
+    setApproval(result.ok ? { busy: false, done: true } : { busy: false, error: result.message });
+    // Also after a refusal: the run may have been approved by someone else meanwhile.
+    onChanged();
   };
 
   const moveTab = (event: KeyboardEvent<HTMLDivElement>) => {
@@ -158,13 +171,8 @@ export function RunView({
     document.getElementById(`${tabsId}-tab-${id}`)?.focus();
   };
 
-  const table = (which: ReturnType<typeof incomeStatementTable>) => (
-    <StatementTableView
-      table={which}
-      columns={tableColumns(frame, which.salvageColumn)}
-      unit={unit}
-      unitLabel={label}
-    />
+  const schedule = (build: () => StatementTable) => (
+    <Schedule build={build} frame={frame} unit={unit} unitLabel={label} />
   );
 
   return (
@@ -252,96 +260,161 @@ export function RunView({
         aria-labelledby={`${tabsId}-tab-${tab}`}
         className="flex flex-col gap-6"
       >
-        {tab === 'summary' ? (
-          <>
-            <h2 className="sr-only">خلاصه و شاخص‌ها</h2>
-            <div className="grid gap-4 md:grid-cols-2">
-              {BASES.map((basis) => (
-                <IndicatorCard
-                  key={basis}
-                  title={BASIS_LABELS_FA[basis]}
-                  unit={unit}
-                  unitLabel={label}
-                  values={{
-                    npv: statements[basis].npv,
-                    irr: statements[basis].irr,
-                    mirr: statements[basis].mirr,
-                    paybackMonths: statements[basis].payback?.months,
-                    dynamicPaybackMonths: statements[basis].dynamicPayback?.months,
-                    ...(basis === 'totalCapital'
-                      ? { npvRatio: statements.totalCapital.npvRatio?.ratio }
-                      : {}),
-                  }}
-                  rows={[
-                    'npv',
-                    'irr',
-                    'mirr',
-                    'payback',
-                    'dynamicPayback',
-                    ...(basis === 'totalCapital' ? (['npvRatio'] as const) : []),
-                  ]}
-                  warnings={placed.filter((warning) => warning.basis === basis)}
-                />
-              ))}
-            </div>
-            <OtherIndicators statements={statements} frame={frame} />
-            {general.length > 0 ? (
-              <Notice>
-                <p className="font-bold">هشدارهای محاسبه</p>
-                <ul className="list-disc ps-5">
-                  {general.map((warning) => (
-                    <li key={warning}>{warning}</li>
-                  ))}
-                </ul>
-              </Notice>
-            ) : null}
-            {defaults.length > 0 ? (
-              <p className="text-[13px] leading-7 text-ink-3">
-                پیش‌فرض‌های COMFAR که در این اجرا به کار رفت: {defaults.join('؛ ')}.
-              </p>
-            ) : null}
-            {BASES.map((basis) => (
-              <CumulativeChart
-                key={basis}
-                title={`نمودار جریان نقد تجمعی ${BASIS_LABELS_FA[basis]}`}
-                description={`جریان نقد خالص تجمعی و ارزش فعلی تجمعی ${BASIS_LABELS_FA[basis]} در هر دوره، به ${label}. ارقام این نمودار در جدول «${DISCOUNTED_TITLES_FA[basis]}» در بخش «جریان نقدی تنزیل‌شده» آمده است.`}
-                columns={tableColumns(frame, statements[basis].salvageColumn)}
-                series={[
-                  {
-                    label: `جریان نقد خالص تجمعی ${BASIS_LABELS_FA[basis]}`,
-                    values: statements[basis].cumulative,
-                  },
-                  {
-                    label: 'ارزش فعلی تجمعی',
-                    values: statements[basis].cumulativePresentValue,
-                    dashed: true,
-                  },
-                ]}
-                format={(value) => `${amountText(value, unit)} ${label}`}
-              />
-            ))}
-          </>
-        ) : null}
-        {tab === 'income' ? table(incomeStatementTable(statements)) : null}
-        {tab === 'cash' ? table(cashFlowTable(statements)) : null}
-        {tab === 'balance' ? table(balanceSheetTable(statements)) : null}
-        {tab === 'discounted'
-          ? BASES.map((basis) => (
-              <div key={basis}>{table(discountedCashFlowTable(statements, basis))}</div>
-            ))
-          : null}
-        {tab === 'ratios' ? table(ratiosTable(statements)) : null}
-        {tab === 'analysis' ? (
-          <>
-            <h2 className="sr-only">سناریو و حساسیت</h2>
-            <ScenarioPanel input={input} unit={unit} />
-            <div className="border-t border-line pt-6">
-              <SensitivityPanel input={input} unit={unit} />
-            </div>
-          </>
-        ) : null}
+        <ResultsBoundary key={tab}>
+          {tab === 'summary' ? (
+            <SummaryPart
+              statements={statements}
+              frame={frame}
+              unit={unit}
+              label={label}
+              placed={placed}
+              general={general}
+              defaults={defaults}
+            />
+          ) : null}
+          {tab === 'income' ? schedule(() => incomeStatementTable(statements)) : null}
+          {tab === 'cash' ? schedule(() => cashFlowTable(statements)) : null}
+          {tab === 'balance' ? schedule(() => balanceSheetTable(statements)) : null}
+          {tab === 'discounted'
+            ? BASES.map((basis) => (
+                <div key={basis}>{schedule(() => discountedCashFlowTable(statements, basis))}</div>
+              ))
+            : null}
+          {tab === 'ratios' ? schedule(() => ratiosTable(statements)) : null}
+        </ResultsBoundary>
+        {/* Kept on the page while another part is open: what was typed and calculated stays. */}
+        <div hidden={tab !== 'analysis'} className="flex flex-col gap-6">
+          <h2 className="sr-only">سناریو و حساسیت</h2>
+          {input ? (
+            <>
+              <ScenarioPanel input={input} unit={unit} unitLabel={label} />
+              <div className="border-t border-line pt-6">
+                <SensitivityPanel input={input} unit={unit} unitLabel={label} />
+              </div>
+            </>
+          ) : (
+            <Notice>
+              ورودی‌های این اجرا با این نسخه از برنامه خوانده نمی‌شود؛ سناریو و حساسیت برای آن در
+              دسترس نیست. از ورودی‌های مدل اجرای تازه‌ای ثبت کنید.
+            </Notice>
+          )}
+        </div>
       </div>
     </div>
+  );
+}
+
+type Frame = NonNullable<ReturnType<typeof frameOfHorizon>>;
+
+/** One schedule; it reads the stored result while it renders, inside `ResultsBoundary`. */
+function Schedule({
+  build,
+  frame,
+  unit,
+  unitLabel: label,
+}: {
+  build: () => StatementTable;
+  frame: Frame;
+  unit: ReportingUnit;
+  unitLabel: string;
+}) {
+  const table = build();
+  return (
+    <StatementTableView
+      table={table}
+      columns={tableColumns(frame, table.salvageColumn)}
+      unit={unit}
+      unitLabel={label}
+    />
+  );
+}
+
+function SummaryPart({
+  statements,
+  frame,
+  unit,
+  label,
+  placed,
+  general,
+  defaults,
+}: {
+  statements: ProjectModel['statements'];
+  frame: Frame;
+  unit: ReportingUnit;
+  label: string;
+  placed: { basis: Basis; indicator: IndicatorKey; text: string }[];
+  general: string[];
+  defaults: string[];
+}) {
+  return (
+    <>
+      <h2 className="sr-only">خلاصه و شاخص‌ها</h2>
+      <div className="grid gap-4 md:grid-cols-2">
+        {BASES.map((basis) => (
+          <IndicatorCard
+            key={basis}
+            title={BASIS_LABELS_FA[basis]}
+            unit={unit}
+            unitLabel={label}
+            values={{
+              npv: statements[basis].npv,
+              irr: statements[basis].irr,
+              mirr: statements[basis].mirr,
+              paybackMonths: statements[basis].payback?.months,
+              dynamicPaybackMonths: statements[basis].dynamicPayback?.months,
+              ...(basis === 'totalCapital'
+                ? { npvRatio: statements.totalCapital.npvRatio?.ratio }
+                : {}),
+            }}
+            rows={[
+              'npv',
+              'irr',
+              'mirr',
+              'payback',
+              'dynamicPayback',
+              ...(basis === 'totalCapital' ? (['npvRatio'] as const) : []),
+            ]}
+            warnings={placed.filter((warning) => warning.basis === basis)}
+          />
+        ))}
+      </div>
+      <OtherIndicators statements={statements} frame={frame} />
+      {general.length > 0 ? (
+        <Notice>
+          <p className="font-bold">هشدارهای محاسبه</p>
+          <ul className="list-disc ps-5">
+            {general.map((warning) => (
+              <li key={warning}>{warning}</li>
+            ))}
+          </ul>
+        </Notice>
+      ) : null}
+      {defaults.length > 0 ? (
+        <p className="text-[13px] leading-7 text-ink-3">
+          پیش‌فرض‌های COMFAR که در این اجرا به کار رفت: {defaults.join('؛ ')}.
+        </p>
+      ) : null}
+      {BASES.map((basis) => (
+        <CumulativeChart
+          key={basis}
+          title={`نمودار جریان نقد تجمعی ${BASIS_LABELS_FA[basis]}`}
+          description={`جریان نقد خالص تجمعی و ارزش فعلی تجمعی ${BASIS_LABELS_FA[basis]} در هر دوره، به ${label}. ارقام این نمودار در جدول زیر آن و در جدول «${DISCOUNTED_TITLES_FA[basis]}» آمده است.`}
+          columns={tableColumns(frame, statements[basis].salvageColumn)}
+          series={[
+            {
+              label: `جریان نقد خالص تجمعی ${BASIS_LABELS_FA[basis]}`,
+              values: statements[basis].cumulative,
+            },
+            {
+              label: 'ارزش فعلی تجمعی',
+              values: statements[basis].cumulativePresentValue,
+              dashed: true,
+            },
+          ]}
+          format={(value) => `${amountText(value, unit)} ${label}`}
+        />
+      ))}
+    </>
   );
 }
 
@@ -423,7 +496,8 @@ function OtherIndicators({
         </div>
       </dl>
       <p className="mt-3 text-[13px] text-ink-3">
-        «ندارد» یعنی آن شاخص برای این طرح قابل محاسبه نیست؛ دلیلش کنار همان شاخص آمده است.
+        «ندارد» یعنی آن شاخص برای این طرح قابل محاسبه نیست: یا دلیلش در هشدارها آمده است، یا طرح
+        چنین موردی (مثلاً تسهیلات بلندمدت) ندارد.
       </p>
     </section>
   );
