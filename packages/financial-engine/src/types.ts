@@ -1,4 +1,5 @@
 import type { DecimalString } from './decimal';
+import type { EngineMessageCode } from './messages';
 import type { depreciationSchedule, revaluedDepreciation } from './depreciation';
 import type {
   applyFactors,
@@ -48,7 +49,8 @@ export type Scenario = 'BASE' | 'OPTIMISTIC' | 'PESSIMISTIC' | (string & {});
  * renders a Persian message from it.
  */
 export interface CalculationWarning {
-  code: string;
+  /** Always has a Persian message in `ENGINE_MESSAGES_FA` (checked by the compiler). */
+  code: EngineMessageCode;
   /** Extra values for the message, e.g. { roots: "2" }. */
   params?: Record<string, string>;
 }

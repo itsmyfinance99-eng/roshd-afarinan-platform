@@ -140,7 +140,10 @@ export function financingSchedule(input: FinancingInput): CalculationResult<Fina
     // day on which interest is capitalised.
     const startAt =
       l.depreciation === undefined ? undefined : horizon.periods[l.depreciation.startPeriod];
-    const capitaliseUntil = l.loan.capitaliseUntilDay;
+    // Only when interest is actually capitalised; with a share of 0 the day has no effect.
+    const capitaliseUntil = toDecimal(l.loan.capitalisedShare).gt(0)
+      ? l.loan.capitaliseUntilDay
+      : undefined;
     if (
       startAt !== undefined &&
       capitaliseUntil !== undefined &&

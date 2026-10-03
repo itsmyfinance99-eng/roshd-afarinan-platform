@@ -1,5 +1,6 @@
 import { type Decimal, ONE, toDecimal, toDecimalString, type DecimalString } from './decimal';
 import { EngineInputError } from './errors';
+import type { EngineMessageCode } from './messages';
 import type { CalculationResult } from './types';
 import { MODEL_VERSION } from './version';
 
@@ -33,7 +34,7 @@ function rate(value: DecimalString, field: string): Decimal {
   return parsed;
 }
 
-function positive(value: DecimalString, code: string, field: string): Decimal {
+function positive(value: DecimalString, code: EngineMessageCode, field: string): Decimal {
   const parsed = toDecimal(value);
   if (!parsed.gt(0)) throw new EngineInputError(code, field);
   return parsed;
@@ -246,6 +247,7 @@ export function foreignLoanToLocal(
     const interest = amount(p.interest, `periods[${j}].interest`);
     const fees = amount(p.fees, `periods[${j}].fees`);
     const opening = localBalance ?? foreignBalance.times(er);
+    const foreignOpening = foreignBalance;
     foreignBalance =
       p.closingBalance === undefined
         ? foreignBalance.plus(d).minus(r).plus(ci)
@@ -254,7 +256,10 @@ export function foreignLoanToLocal(
       throw new EngineInputError('loan.negativeBalance', `periods[${j}].repayment`);
     }
     const closing = foreignBalance.times(er);
-    const flows = d.minus(r).plus(ci).times(er);
+    // ADJ = B_{j+1} − (B_j + D − R + CI) in local currency; the flows cancel, leaving the opening
+    // foreign balance restated at this period's rate. Computed that way, a constant rate books
+    // exactly 0, and a rounding gap between the schedule's closing balance and the period sums
+    // is not mistaken for an exchange gain or loss.
     localBalance = closing;
     return {
       beginningBalance: toDecimalString(opening),
@@ -264,7 +269,7 @@ export function foreignLoanToLocal(
       interest: toDecimalString(interest.times(er)),
       fees: toDecimalString(fees.times(er)),
       endingBalance: toDecimalString(closing),
-      exchangeAdjustment: toDecimalString(closing.minus(opening.plus(flows))),
+      exchangeAdjustment: toDecimalString(foreignOpening.times(er).minus(opening)),
     };
   });
   return done(value);
