@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { MESSAGES, optionalText, paginationQuerySchema, text } from './common';
 import {
   FINANCIAL_MODEL_MESSAGES,
+  REPORTING_UNITS,
   currencyCodeSchema,
   decimalStringSchema,
   horizonPeriods,
@@ -32,6 +33,11 @@ export const MAX_RESULTS_CHARS = 4_000_000;
 export const CALCULATIONS_PER_MINUTE = 10;
 /** Validation messages returned for one calculation request; the rest is summarised. */
 export const MAX_REPORTED_ISSUES = 50;
+/** File formats a calculation run can be downloaded in (ST-34.09). */
+export const CALCULATION_EXPORT_FORMATS = ['xlsx', 'pdf', 'html'] as const;
+export type CalculationExportFormat = (typeof CALCULATION_EXPORT_FORMATS)[number];
+/** Files of calculation runs one user may ask for per minute. */
+export const EXPORTS_PER_MINUTE = 10;
 
 const M = FINANCIAL_MODEL_MESSAGES;
 const M_TOO_LARGE =
@@ -401,3 +407,10 @@ export type ListFinancialModelsQuery = z.infer<typeof listFinancialModelsQuerySc
 
 export const listCalculationRunsQuerySchema = paginationQuerySchema;
 export type ListCalculationRunsQuery = z.infer<typeof listCalculationRunsQuerySchema>;
+
+/** Download of a run: the file format and the display unit of the amounts in local currency. */
+export const exportCalculationRunQuerySchema = z.object({
+  format: z.enum(CALCULATION_EXPORT_FORMATS, { error: 'قالب خروجی را انتخاب کنید.' }),
+  unit: z.enum(REPORTING_UNITS, { error: 'واحد نمایش را انتخاب کنید.' }).default('1'),
+});
+export type ExportCalculationRunQuery = z.infer<typeof exportCalculationRunQuerySchema>;

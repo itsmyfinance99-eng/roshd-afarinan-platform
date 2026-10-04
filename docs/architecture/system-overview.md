@@ -45,6 +45,8 @@ packages/
   eslint-config/  shared flat ESLint configs
   types/          shared TS types (envelope, roles, enums)
   validation/     shared Zod schemas (API contracts)
+  financial-engine/  COMFAR-compatible calculations (ADR-0009)
+  financial-report/  tables and report of a calculation run; xlsx, PDF and HTML (ADR-0011)
   ui/             shared React UI components + design tokens
 docs/             architecture, product, api, security, decisions, qa, backlog
 infra/            docker, nginx, scripts, ci

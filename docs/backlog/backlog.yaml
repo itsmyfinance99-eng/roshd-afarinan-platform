@@ -2135,6 +2135,7 @@ epics:
         sprint: S18
         points: 8
         priority: high
+        status: done
         area: [api]
         depends: [ST-34.06]
         story: 'به‌عنوان کارشناس می‌خواهم ورودی‌ها و نتایج یک اجرای محاسبه را به‌صورت فایل xlsx، PDF و HTML تحویل بگیرم.'

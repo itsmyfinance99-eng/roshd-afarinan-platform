@@ -1,23 +1,28 @@
-import { Controller, Delete, Get, HttpCode, Patch, Post, Put } from '@nestjs/common';
+import { Controller, Delete, Get, HttpCode, Patch, Post, Put, Res } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
   assignSchema,
   createFinancialModelSchema,
+  exportCalculationRunQuerySchema,
   idSchema,
   listCalculationRunsQuerySchema,
   listFinancialModelsQuerySchema,
   updateFinancialModelSchema,
   type AssignInput,
   type CreateFinancialModelInput,
+  type ExportCalculationRunQuery,
   type ListCalculationRunsQuery,
   type ListFinancialModelsQuery,
   type UpdateFinancialModelInput,
 } from '@roshd/validation';
+import type { Response } from 'express';
+import { RawResponse } from '../../common/http/envelope.interceptor';
 import { Meta, type RequestMeta } from '../../common/http/request-meta';
 import { ZodBody, ZodParam, ZodQuery } from '../../common/http/zod';
 import { RequirePermissions } from '../rbac/permissions.decorator';
 import { CurrentUser, type Principal } from '../rbac/principal';
 import { FinancialModelsService } from './financial-models.service';
+import { RunExportService } from './run-export.service';
 
 /**
  * Financial models and calculation runs (ST-34.06). Every route needs a signed-in user; the
@@ -26,7 +31,10 @@ import { FinancialModelsService } from './financial-models.service';
 @ApiTags('financial-model')
 @Controller('financial-models')
 export class FinancialModelsController {
-  constructor(private readonly models: FinancialModelsService) {}
+  constructor(
+    private readonly models: FinancialModelsService,
+    private readonly exports: RunExportService,
+  ) {}
 
   @Get()
   @ApiOperation({ summary: 'Your models; scope=assigned (expert) or scope=all (staff)' })
@@ -118,6 +126,32 @@ export class FinancialModelsController {
     @ZodParam('runId', idSchema) runId: string,
   ) {
     return this.models.getRun(id, runId, user);
+  }
+
+  @Get(':id/runs/:runId/export')
+  @RawResponse()
+  @ApiOperation({
+    summary: 'A run as a file: format=xlsx|pdf|html, unit of the amounts (audited)',
+  })
+  async exportRun(
+    @CurrentUser() user: Principal,
+    @ZodParam('id', idSchema) id: string,
+    @ZodParam('runId', idSchema) runId: string,
+    @ZodQuery(exportCalculationRunQuerySchema) query: ExportCalculationRunQuery,
+    @Meta() meta: RequestMeta,
+    @Res() res: Response,
+  ): Promise<void> {
+    const file = await this.exports.export(id, runId, query, user, meta);
+    res.setHeader('Content-Type', file.contentType);
+    res.setHeader('Content-Disposition', `attachment; filename="${file.fileName}"`);
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    // The HTML file is the user's own content: even opened from this origin it runs nothing.
+    res.setHeader(
+      'Content-Security-Policy',
+      "sandbox; default-src 'none'; style-src 'unsafe-inline'; font-src data:",
+    );
+    res.send(file.body);
   }
 
   @Post(':id/runs/:runId/approval')

@@ -10,7 +10,12 @@ import type { Basis } from './warnings';
  * are the engine's own decimal strings; only their display is rounded.
  */
 
-export type RowKind = 'amount' | 'percent' | 'ratio';
+/**
+ * How a value is shown: an amount in the display unit, a fraction as a percentage, a ratio, a
+ * physical quantity, or an input exactly as it was entered (`entered`; `enteredPercent` for a rate
+ * or share, which is stored as a fraction).
+ */
+export type RowKind = 'amount' | 'percent' | 'ratio' | 'quantity' | 'entered' | 'enteredPercent';
 
 export interface StatementRow {
   label: string;
@@ -36,9 +41,10 @@ export interface StatementTable {
 }
 
 type Statements = ProjectModel['statements'];
-type Line = readonly [label: string, values: (string | null)[], strong?: boolean];
+export type Line = readonly [label: string, values: (string | null)[], strong?: boolean];
 
-const amounts = (lines: Line[]): StatementRow[] =>
+/** Rows of amounts in local currency. */
+export const amounts = (lines: Line[]): StatementRow[] =>
   lines.map(([label, values, strong]) => ({
     label,
     values,
@@ -313,20 +319,43 @@ const UNIT_DIGITS: Record<ReportingUnit, number> = {
   '1000000000': 9,
 };
 
-/** An amount in the display unit: whole numbers in single units, one decimal otherwise. */
-export function formatAmount(value: string, unit: ReportingUnit): string {
-  const digits = UNIT_DIGITS[unit];
-  return formatDecimalFa(roundDecimal(shiftDecimal(value, -digits), digits === 0 ? 0 : 1));
+/** The number a cell shows, as a canonical decimal string; null where the line has no value. */
+export function cellNumber(
+  value: string | null | undefined,
+  kind: RowKind,
+  unit: ReportingUnit,
+): string | null {
+  if (value === null || value === undefined) return null;
+  switch (kind) {
+    case 'amount': {
+      // Whole numbers in single units, one decimal otherwise.
+      const digits = UNIT_DIGITS[unit];
+      return roundDecimal(shiftDecimal(value, -digits), digits === 0 ? 0 : 1);
+    }
+    case 'percent':
+      return roundDecimal(fractionToPercent(value), 2);
+    case 'ratio':
+    case 'quantity':
+      return roundDecimal(value, 2);
+    case 'entered':
+      return value;
+    case 'enteredPercent':
+      return fractionToPercent(value);
+  }
 }
 
-export const formatPercent = (value: string): string =>
-  formatDecimalFa(roundDecimal(fractionToPercent(value), 2));
+/** An amount in the display unit: whole numbers in single units, one decimal otherwise. */
+export const formatAmount = (value: string, unit: ReportingUnit): string =>
+  formatDecimalFa(cellNumber(value, 'amount', unit) ?? value);
 
-export const formatRatio = (value: string): string => formatDecimalFa(roundDecimal(value, 2));
+export const formatPercent = (value: string): string =>
+  formatDecimalFa(cellNumber(value, 'percent', '1') ?? value);
+
+export const formatRatio = (value: string): string =>
+  formatDecimalFa(cellNumber(value, 'ratio', '1') ?? value);
 
 /** The text of a cell; «—» where the line has no value in that period. */
 export function formatCell(value: string | null | undefined, kind: RowKind, unit: ReportingUnit) {
-  if (value === null || value === undefined) return '—';
-  if (kind === 'amount') return formatAmount(value, unit);
-  return kind === 'percent' ? formatPercent(value) : formatRatio(value);
+  const number = cellNumber(value, kind, unit);
+  return number === null ? '—' : formatDecimalFa(number);
 }

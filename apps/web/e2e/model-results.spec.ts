@@ -5,7 +5,7 @@ import { expect, type Page, type Route, test } from '@playwright/test';
 /**
  * Result views of a calculation run (ST-34.08): indicators with their warnings, the schedules as
  * tables, the cumulative cash flow chart, scenarios and sensitivity calculated in the browser,
- * and the approval of a run.
+ * the approval of a run, and its download as xlsx, PDF and HTML (ST-34.09).
  */
 
 const envelope = (data: unknown, total = 1) =>
@@ -495,6 +495,72 @@ test.describe('financial model results', () => {
     // Someone else approved it meanwhile: the page shows that and offers no approval any more.
     await expect(page.getByText(/تأییدشده در/)).toBeVisible();
     await expect(page.getByRole('button', { name: 'تأیید این اجرا' })).toHaveCount(0);
+  });
+
+  test('downloads the run as Excel, PDF and HTML in the unit of the page', async ({ page }) => {
+    await signIn(page);
+    await serveRun(page);
+    const asked: Record<string, string>[] = [];
+    await page.route('**/api/v1/financial-models/m1/runs/r1/export?**', (route) => {
+      const query = Object.fromEntries(new URL(route.request().url()).searchParams);
+      asked.push(query);
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/octet-stream',
+        headers: {
+          'Content-Disposition': `attachment; filename="financial-model-run-4.${query.format}"`,
+        },
+        body: 'file',
+      });
+    });
+    await page.goto('/dashboard/models/m1/runs/r1');
+    await expect(page.getByRole('heading', { name: 'دریافت خروجی این اجرا' })).toBeVisible();
+
+    const excel = page.waitForEvent('download');
+    await page.getByRole('button', { name: 'خروجی Excel' }).click();
+    expect((await excel).suggestedFilename()).toBe('financial-model-run-4.xlsx');
+    await expect(page.getByText('فایل Excel این اجرا آماده شد.')).toBeVisible();
+
+    // The files follow the display unit chosen on the page.
+    await page.getByLabel('واحد نمایش مبلغ‌ها').selectOption('1000000');
+    const pdf = page.waitForEvent('download');
+    await page.getByRole('button', { name: 'خروجی PDF' }).click();
+    expect((await pdf).suggestedFilename()).toBe('financial-model-run-4.pdf');
+    const html = page.waitForEvent('download');
+    await page.getByRole('button', { name: 'خروجی HTML' }).click();
+    expect((await html).suggestedFilename()).toBe('financial-model-run-4.html');
+    await expect(page.getByText('فایل HTML این اجرا آماده شد.')).toBeVisible();
+    expect(asked).toEqual([
+      { format: 'xlsx', unit: '1' },
+      { format: 'pdf', unit: '1000000' },
+      { format: 'html', unit: '1000000' },
+    ]);
+  });
+
+  test('says why a file could not be made and lets the user try again', async ({ page }) => {
+    await signIn(page);
+    await serveRun(page);
+    const message = 'این اجرا برای خروجی PDF بیش از حد بزرگ است؛ خروجی Excel یا HTML بگیرید.';
+    let release = () => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await page.route('**/api/v1/financial-models/m1/runs/r1/export?**', async (route) => {
+      await held;
+      await route.fulfill({
+        status: 400,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: { code: 'VALIDATION_FAILED', message, requestId: 't' } }),
+      });
+    });
+    await page.goto('/dashboard/models/m1/runs/r1');
+    await page.getByRole('button', { name: 'خروجی PDF' }).click();
+    // While a file is being made no second one can be asked for.
+    await expect(page.getByRole('button', { name: 'در حال آماده‌سازی…' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'خروجی Excel' })).toBeDisabled();
+    release();
+    await expect(page.getByText(message)).toBeVisible();
+    await expect(page.getByRole('button', { name: 'خروجی PDF' })).toBeEnabled();
   });
 
   test('has no serious accessibility violations in any part', async ({ page }) => {

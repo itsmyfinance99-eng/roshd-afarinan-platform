@@ -1,0 +1,8 @@
+{
+  "extends": "@roshd/tsconfig/library.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "outDir": "dist"
+  },
+  "include": ["src"]
+}

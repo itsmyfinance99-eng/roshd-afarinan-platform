@@ -23,7 +23,7 @@ pnpm + Turborepo monorepo · NestJS 11 API · Next.js 16 web · PostgreSQL 16 + 
 ```text
 apps/api        NestJS modular monolith (/api/v1, Swagger at /docs)
 apps/web        Next.js App Router (RTL, fa-IR)
-packages/*      shared tsconfig, eslint-config, types, validation, ui
+packages/*      shared tsconfig, eslint-config, types, validation, ui, financial-engine, financial-report
 docs/           architecture, product, api, security, decisions, qa, backlog
 design/         Claude Design handoff (visual reference)
 infra/          docker, scripts, ci

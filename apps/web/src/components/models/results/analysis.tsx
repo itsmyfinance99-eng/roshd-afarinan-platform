@@ -18,7 +18,7 @@ import {
   variablesOf,
   type VariableKey,
 } from '@/lib/model-editor/analysis-inputs';
-import { BASIS_LABELS_FA, type Basis } from '@/lib/model-editor/warnings';
+import { BASIS_LABELS_FA, type Basis } from '@roshd/financial-report/warnings';
 import { TornadoChart } from './charts';
 import {
   amountText,
@@ -27,7 +27,7 @@ import {
   indicatorText,
   percentText,
   type IndicatorRowKey,
-} from './format';
+} from '@roshd/financial-report/indicators';
 
 const MAX_SCENARIOS = 4;
 const BASES: Basis[] = ['totalCapital', 'equity'];

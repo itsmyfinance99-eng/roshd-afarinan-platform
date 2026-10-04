@@ -35,6 +35,7 @@
     "@prisma/adapter-pg": "^7.10.0",
     "@prisma/client": "^7.10.0",
     "@roshd/financial-engine": "workspace:*",
+    "@roshd/financial-report": "workspace:*",
     "@roshd/types": "workspace:*",
     "@roshd/validation": "workspace:*",
     "cookie-parser": "^1.4.7",
