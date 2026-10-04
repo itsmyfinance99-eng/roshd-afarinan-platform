@@ -820,6 +820,65 @@ describe('Financial models: files of a run (e2e)', () => {
     expect(audit.every((row) => row.actorId === owner.id)).toBe(true);
   });
 
+  it('calculates an expansion project from its starting balances and puts them in the files', async () => {
+    const owner = await registerUser(app);
+    // The enterprise already owns land of 300 and has cash of 50, payables of 20 and equity 200.
+    const expansion = {
+      ...inputs,
+      startingBalances: {
+        fixedAssets: [{ item: 'land', value: '۳۰۰' }],
+        materials: [],
+        workInProgress: [],
+        finishedProducts: [],
+        receivables: { value: '0', collectionDays: 0 },
+        payables: { value: '20', paymentDays: 30 },
+        cashInHand: '0',
+        shortTermDeposits: '0',
+        cashSurplus: '50',
+        loans: [],
+        equity: [{ equity: 'founders', value: '200' }],
+      },
+    };
+    const model = await http()
+      .post(base)
+      .set(auth(owner.token))
+      .send({ title: 'توسعه فولاد', inputs: expansion })
+      .expect(201);
+    const id = model.body.data.id as string;
+    const run = await http().post(`${base}/${id}/runs`).set(auth(owner.token)).expect(201);
+    const { statements } = run.body.data.results;
+    expect(run.body.data.input.startingBalances.fixedAssets[0].value).toBe('300');
+    expect(statements.startingBalance.assets.total).toBe('350');
+    // Assets 350 against payables 20 and equity 200: 130 of reserves.
+    expect(statements.startingBalance.liabilities.reserves).toBe('130');
+    expect(statements.totalCapital.startingBalance).toBe('330');
+    expect(statements.balanceSheet.assets.total).toEqual(statements.balanceSheet.liabilities.total);
+
+    const file = `${base}/${id}/runs/${run.body.data.id as string}/export`;
+    const html = await download(`${file}?format=html`, owner.token).expect(200);
+    const page = (html.body as Buffer).toString('utf8');
+    expect(page).toContain('پیش از طرح');
+    expect(page).toContain('ترازنامه آغازین شرکت موجود');
+    expect(page).toContain('توسعه یا بازسازی شرکت موجود');
+    const pdf = await download(`${file}?format=pdf`, owner.token).expect(200);
+    expect((pdf.body as Buffer).subarray(0, 5).toString('latin1')).toBe('%PDF-');
+    const xlsx = await download(`${file}?format=xlsx`, owner.token).expect(200);
+    expect((xlsx.body as Buffer).subarray(0, 2).toString('latin1')).toBe('PK');
+
+    // A balance of an item the model does not have is refused at its field, and no run is stored.
+    const broken = structuredClone(expansion);
+    broken.startingBalances.fixedAssets[0]!.item = 'crane';
+    await http()
+      .put(`${base}/${id}`)
+      .set(auth(owner.token))
+      .send({ title: 'توسعه فولاد', inputs: broken, version: 1 })
+      .expect(200);
+    const refused = await http().post(`${base}/${id}/runs`).set(auth(owner.token)).expect(400);
+    expect(JSON.stringify(refused.body.error.details)).toContain('startingBalances.fixedAssets');
+    const runs = await http().get(`${base}/${id}/runs`).set(auth(owner.token)).expect(200);
+    expect(runs.body.data).toHaveLength(1);
+  });
+
   it('gives the files only to those who may read the model (404 otherwise)', async () => {
     const owner = await registerUser(app);
     const other = await registerUser(app);

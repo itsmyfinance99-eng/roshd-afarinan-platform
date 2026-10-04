@@ -553,6 +553,60 @@ test.describe('financial model editor', () => {
     expect(versions).toEqual([3, 3, 3, 4]);
   });
 
+  test('enters the starting balances of an existing enterprise', async ({ page }) => {
+    await signIn(page);
+    const saves = await serveModel(page);
+    await page.goto('/dashboard/models/m1');
+    await openSection(page, 'ترازنامه آغازین');
+    const balances = () =>
+      (saves.at(-1)?.inputs as { startingBalances?: Record<string, unknown> } | undefined)
+        ?.startingBalances;
+
+    // A new project has none; an expansion asks for every balance and suggests no value.
+    await expect(page.getByLabel(/^مازاد نقد/)).toHaveCount(0);
+    await page.getByLabel('این طرح، توسعه یا بازسازی یک شرکت موجود است').check();
+    await expect(page.getByLabel(/^مازاد نقد/)).toHaveValue('');
+    await expect(page.getByRole('tab', { name: /ترازنامه آغازین/ })).toContainText('۷');
+
+    await page.getByLabel(/^حساب‌های دریافتنی/).fill('۵۰٬۰۰۰٬۰۰۰');
+    await page.getByLabel(/^وصول حساب‌های دریافتنی/).fill('۶۰');
+    await page.getByLabel(/^حساب‌های پرداختنی/).fill('0');
+    await page.getByLabel(/^پرداخت حساب‌های پرداختنی/).fill('0');
+    await page.getByLabel(/^وجه نقد در گردش/).fill('0');
+    await page.getByLabel(/^سپرده کوتاه‌مدت/).fill('0');
+    await page.getByLabel(/^مازاد نقد/).fill('۱۰۰۰۰۰۰۰');
+
+    await page.getByRole('button', { name: 'افزودن دارایی ثابت موجود' }).click();
+    await page.getByLabel('قلم سرمایه‌گذاری').selectOption('ساختمان');
+    await page.getByLabel(/^ارزش دفتری/).fill('300000000');
+    await page.getByLabel(/^ارزش دفتری/).blur();
+    await expect.poll(balances).toMatchObject({
+      fixedAssets: [{ item: 'ساختمان', value: '300000000' }],
+      receivables: { value: '50000000', collectionDays: 60 },
+      payables: { value: '0', paymentDays: 0 },
+      cashSurplus: '10000000',
+      loans: [],
+    });
+    await expect(page.getByRole('tab', { name: /ترازنامه آغازین/ })).not.toContainText('۷');
+    // The live calculation follows: the engine accepts the model with its starting balances.
+    await expect(page.getByText(/برای محاسبه هنوز/)).toHaveCount(0);
+
+    // Renaming the asset keeps its starting balance with it.
+    await openSection(page, 'سرمایه‌گذاری');
+    const name = page.getByLabel('نام قلم').nth(1);
+    await name.fill('سوله');
+    await name.blur();
+    await expect
+      .poll(() => balances()?.fixedAssets)
+      .toEqual([{ item: 'سوله', value: '300000000' }]);
+
+    // Leaving the expansion asks first and removes every balance.
+    await openSection(page, 'ترازنامه آغازین');
+    page.once('dialog', (dialog) => void dialog.accept());
+    await page.getByLabel('این طرح، توسعه یا بازسازی یک شرکت موجود است').uncheck();
+    await expect.poll(balances).toBeUndefined();
+  });
+
   test('has no serious accessibility violations in any section', async ({ page }) => {
     await signIn(page);
     await serveModel(page);
@@ -565,6 +619,7 @@ test.describe('financial model editor', () => {
       'تولید و فروش',
       'هزینه‌ها',
       'سرمایه در گردش',
+      'ترازنامه آغازین',
     ]) {
       await openSection(page, name);
       const results = await new AxeBuilder({ page })

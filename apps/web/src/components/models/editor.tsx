@@ -27,6 +27,7 @@ import { EditorProvider, type EditorApi } from './fields';
 import { FinancingSection } from './financing';
 import { InvestmentSection } from './investment';
 import { SalesSection } from './sales';
+import { StartingBalanceSection } from './starting-balance';
 import type { CalculationRunRef, FinancialModelDetail } from './types';
 import { WorkingCapitalSection } from './working-capital';
 
@@ -40,6 +41,7 @@ const PANELS: Record<SectionId, () => React.JSX.Element> = {
   sales: SalesSection,
   costs: CostsSection,
   workingCapital: WorkingCapitalSection,
+  startingBalance: StartingBalanceSection,
 };
 
 type SaveFailure = { kind: 'conflict' } | { kind: 'error'; message: string };
