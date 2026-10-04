@@ -24,7 +24,6 @@ import {
   CheckField,
   ChoiceField,
   FieldGrid,
-  ItemCard,
   itemTitle,
   MONTH_END,
   MONTH_START,
@@ -32,7 +31,6 @@ import {
   optionsOf,
   PerColumnField,
   SeriesGrid,
-  TextField,
   useEditor,
   WholeField,
 } from './fields';
@@ -188,12 +186,9 @@ function LoanCard({ index, name }: { index: number; name: string }) {
   const flows = listAt(draft, [...loan, 'flows']);
   const rates = listAt(draft, [...loan, 'rates']);
   return (
-    <ItemCard
-      title={itemTitle('تسهیلات', name, index)}
-      onRemove={() => change((current) => removeAt(current, LOANS, index))}
-    >
+    <NamedItemCard kind="loan" index={index} title={itemTitle('تسهیلات', name, index)}>
       <FieldGrid>
-        <TextField path={[...base, 'key']} label="نام تسهیلات" />
+        <NameField kind="loan" index={index} label="نام تسهیلات" />
         <CurrencyField path={[...base, 'currency']} />
         <OriginField path={[...base, 'origin']} />
         <ChoiceField
@@ -320,7 +315,7 @@ function LoanCard({ index, name }: { index: number; name: string }) {
         salvage={false}
         label="سود و کارمزد دوره ساخت مستهلک می‌شود"
       />
-    </ItemCard>
+    </NamedItemCard>
   );
 }
 

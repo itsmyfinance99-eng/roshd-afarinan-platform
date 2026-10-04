@@ -254,7 +254,12 @@ export function runReport(source: RunReportSource): ReportDocument {
   const tables = (id: string, name: string, build: () => StatementTable[], tableNote = note) =>
     part(id, name, () =>
       build().map((table) =>
-        tableBlock(table, tableColumns(frame, table.salvageColumn), unit, tableNote),
+        tableBlock(
+          table,
+          tableColumns(frame, table.salvageColumn, table.openingColumn),
+          unit,
+          tableNote,
+        ),
       ),
     );
 

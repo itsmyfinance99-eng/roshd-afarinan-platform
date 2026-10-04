@@ -9,8 +9,10 @@ import type { PlanningHorizon } from './horizon';
  * the capitalised interest of loans.
  *
  * - Depreciation starts on the first day of a production period chosen by the user (`startPeriod`).
- * - Everything acquired before that day is depreciated jointly from it; the first depreciation
- *   year runs to the next balance date (partial when the start is not right after one).
+ * - Everything acquired before that day, and the starting balance of an existing enterprise (its
+ *   effective date is the first day of the project, VII.N), is depreciated jointly from it; the
+ *   first depreciation year runs to the next balance date (partial when the start is not right
+ *   after one).
  * - Every later acquisition starts at the beginning of the financial year after the year in which
  *   it was acquired, with a full first year.
  * - Depreciation of a year is charged at its balance date, i.e. in the period that contains it;
@@ -32,7 +34,7 @@ export interface AssetDepreciation {
 export interface AssetBookValues {
   /** Depreciation charged in each period. */
   depreciation: DecimalString[];
-  /** Book value at the end of each period: acquisitions so far less depreciation so far. */
+  /** Book value at the end of each period: starting balance and acquisitions so far less depreciation so far. */
   bookValue: DecimalString[];
 }
 
@@ -44,13 +46,15 @@ function balanceYearAt(horizon: PlanningHorizon, month: number): number {
 /**
  * Depreciation and book value per period of an asset whose acquisitions `amounts` (local currency,
  * one per period, flows on the period's last day) are given. Without `conditions` the asset is not
- * depreciated (e.g. land): its book value is what was acquired.
+ * depreciated (e.g. land): its book value is what was acquired. `opening` is the book value of an
+ * existing asset on the day before the first period.
  */
 export function depreciateAcquisitions(
   horizon: PlanningHorizon,
   amounts: Decimal[],
   conditions: AssetDepreciation | undefined,
   field: string,
+  opening: Decimal = ZERO,
 ): AssetBookValues {
   const periods = horizon.periods;
   const charge = periods.map(() => ZERO);
@@ -63,7 +67,7 @@ export function depreciateAcquisitions(
     // Batches: everything before the start together, then each later acquisition on its own.
     const batches: { value: Decimal; year: number; firstYearMonths: number }[] = [];
     const startYear = balanceYearAt(horizon, startAt.startMonth + 1);
-    const joint = amounts.slice(0, start).reduce((sum, a) => sum.plus(a), ZERO);
+    const joint = amounts.slice(0, start).reduce((sum, a) => sum.plus(a), opening);
     const startBalance = horizon.balanceYears[startYear];
     if (startBalance !== undefined && !joint.isZero()) {
       batches.push({
@@ -107,7 +111,7 @@ export function depreciateAcquisitions(
       }
     }
   }
-  let acquired = ZERO;
+  let acquired = opening;
   let charged = ZERO;
   const bookValue = periods.map((_, j) => {
     acquired = acquired.plus(amounts[j] ?? ZERO);

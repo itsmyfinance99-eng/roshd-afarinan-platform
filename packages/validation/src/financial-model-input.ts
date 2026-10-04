@@ -284,6 +284,26 @@ const statementsSchema = z.object({
   automaticCashCoverage: z.boolean({ error: M.chooseYesNo }).optional(),
 });
 
+/**
+ * Starting balances of an existing enterprise (ST-34.11; the engine's `StartingBalances`): present
+ * for an expansion or rehabilitation project. Every amount is entered; "0" and an empty list are
+ * explicit.
+ */
+const settlementDays = whole(0, 36000);
+const startingBalancesSchema = z.object({
+  fixedAssets: list(z.object({ item: key, value: decimal })),
+  materials: list(z.object({ cost: key, value: decimal })),
+  workInProgress: list(z.object({ product: key, value: decimal }), 50),
+  finishedProducts: list(z.object({ product: key, quantity: decimal, price: decimal }), 50),
+  receivables: z.object({ value: decimal, collectionDays: settlementDays }),
+  payables: z.object({ value: decimal, paymentDays: settlementDays }),
+  cashInHand: decimal,
+  shortTermDeposits: decimal,
+  cashSurplus: decimal,
+  loans: list(z.object({ loan: key, balance: decimal }), 50),
+  equity: list(z.object({ equity: key, value: decimal }), 50),
+});
+
 /** Inputs that may carry a note: their path in the input, e.g. `exchangeRates.USD`. */
 export const MAX_INPUT_NOTES = 300;
 
@@ -327,6 +347,7 @@ const projectInputFieldsSchema = z.object({
     }),
   }),
   statements: statementsSchema,
+  startingBalances: startingBalancesSchema.optional(),
   notes: notesSchema.optional(),
 });
 

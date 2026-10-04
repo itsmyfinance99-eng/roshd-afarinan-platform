@@ -262,6 +262,55 @@ describe('projectInputSchema: horizon the engine refuses', () => {
   });
 });
 
+describe('projectInputSchema: starting balances', () => {
+  const balances = {
+    fixedAssets: [{ item: 'machinery', value: '۲۰۰٬۰۰۰٬۰۰۰' }],
+    materials: [{ cost: 'ore', value: '0' }],
+    workInProgress: [],
+    finishedProducts: [{ product: 'steel', quantity: '5', price: '5000000' }],
+    receivables: { value: '0', collectionDays: 0 },
+    payables: { value: '0', paymentDays: 90 },
+    cashInHand: '0',
+    shortTermDeposits: '0',
+    cashSurplus: '1000000',
+    loans: [],
+    equity: [{ equity: 'founders', value: '100000000' }],
+  };
+
+  it('passes the balances of an existing enterprise to the engine', () => {
+    const existing = clone();
+    existing.startingBalances = balances;
+    const parsed = projectInputSchema.parse(existing);
+    expect(parsed.startingBalances?.fixedAssets[0]?.value).toBe('200000000');
+    const engineInput: ProjectInput = parsed;
+    const { statements } = projectModel(engineInput).value;
+    // Machinery 200 m, five units at 5 m and 1 m of cash, against 100 m of equity.
+    expect(statements.startingBalance?.assets.total).toBe('226000000');
+    expect(statements.startingBalance?.liabilities.reserves).toBe('126000000');
+    // A new project has none.
+    expect(projectInputSchema.parse(input).startingBalances).toBeUndefined();
+  });
+
+  it('requires every balance and whole days', () => {
+    const issues = (change: (b: Loose) => void) => {
+      const existing = clone();
+      existing.startingBalances = JSON.parse(JSON.stringify(balances)) as Loose;
+      change(existing.startingBalances as Loose);
+      return (
+        projectInputSchema.safeParse(existing).error?.issues.map((i) => i.path.join('.')) ?? []
+      );
+    };
+    expect(issues((b) => delete b.cashSurplus)).toEqual(['startingBalances.cashSurplus']);
+    expect(issues((b) => delete b.loans)).toEqual(['startingBalances.loans']);
+    expect(issues((b) => (b.payables.paymentDays = 1.5))).toEqual([
+      'startingBalances.payables.paymentDays',
+    ]);
+    expect(issues((b) => (b.fixedAssets[0].value = 'x'))).toEqual([
+      'startingBalances.fixedAssets.0.value',
+    ]);
+  });
+});
+
 describe('financial model drafts', () => {
   it('refuses drafts that cannot be stored', () => {
     const draft = (inputs: unknown) =>

@@ -12,6 +12,7 @@ import {
 } from './asset-depreciation';
 import type { PlanningHorizon } from './horizon';
 import { checkOrigin, ratesFor, uniqueKeys, type Origin } from './investment';
+import { startingAmount, startingByKey, type FinancingStartingBalances } from './starting-balances';
 
 /**
  * Sources of finance (manual VII.R, XI.M, X.C.5; comfar-model-spec §4.8.2): equity contributions
@@ -54,6 +55,8 @@ export interface FinancingInput {
   exchangeRates: Record<CurrencyCode, DecimalString[]>;
   equity: EquityContribution[];
   loans: FinancingLoan[];
+  /** Existing loans and equity of an expansion or rehabilitation project. */
+  startingBalances?: FinancingStartingBalances;
 }
 
 export interface FinancingLoanSchedule {
@@ -68,11 +71,20 @@ export interface FinancingLoanSchedule {
   bookValue: DecimalString[];
   /** Day of the first repayment used (entered, or COMFAR's default). */
   firstRepaymentDay?: number;
+  /** Balance on the day before the first period, in local currency (expansion projects only). */
+  startingBalance?: DecimalString;
 }
 
 export interface FinancingSchedule {
   equity: {
-    items: { key: string; class: EquityClass; origin: Origin; amounts: DecimalString[] }[];
+    items: {
+      key: string;
+      class: EquityClass;
+      origin: Origin;
+      amounts: DecimalString[];
+      /** Equity held on the day before the first period (expansion projects only). */
+      startingBalance?: DecimalString;
+    }[];
     /** Every class is listed, zero when it has no contributions. */
     classes: Record<EquityClass, DecimalString[]>;
     byOrigin: { foreign: DecimalString[]; local: DecimalString[] };
@@ -88,6 +100,16 @@ export interface FinancingSchedule {
   interestBookValue: DecimalString[];
   /** Equity paid in plus loan disbursements (cash sources) per period. */
   totalSources: DecimalString[];
+  /**
+   * Long-term debt and equity of the existing enterprise on the day before the first period, in
+   * local currency (expansion projects only). A foreign loan is converted at the first period's
+   * exchange rate.
+   */
+  startingBalance?: {
+    debt: DecimalString;
+    equity: Record<EquityClass, DecimalString>;
+    totalEquity: DecimalString;
+  };
 }
 
 const LOAN_FIELDS = [
@@ -120,6 +142,23 @@ export function financingSchedule(input: FinancingInput): CalculationResult<Fina
     'loans',
   );
 
+  const startingEquity = startingByKey(
+    input.startingBalances?.equity,
+    'startingBalances.equity',
+    'equity',
+    (entry) => entry.equity,
+    (key) => input.equity.some((e) => e.key === key),
+    (entry, field) => startingAmount(entry.value, `${field}.value`),
+  );
+  const startingLoans = startingByKey(
+    input.startingBalances?.loans,
+    'startingBalances.loans',
+    'loan',
+    (entry) => entry.loan,
+    (key) => input.loans.some((l) => l.key === key),
+    (entry, field) => startingAmount(entry.balance, `${field}.balance`),
+  );
+
   const equity = input.equity.map((e, i) => {
     const field = `equity[${i}]`;
     if (!(EQUITY_CLASSES as readonly string[]).includes(e.class)) {
@@ -128,7 +167,11 @@ export function financingSchedule(input: FinancingInput): CalculationResult<Fina
     checkOrigin(e.origin, `${field}.origin`);
     const own = periodAmounts(e.amounts, length, `${field}.amounts`);
     const rates = ratesFor(e.currency, input, length, `${field}.currency`);
-    return { e, local: rates === undefined ? own : own.map((a, j) => a.times(rates[j] ?? ZERO)) };
+    return {
+      e,
+      local: rates === undefined ? own : own.map((a, j) => a.times(rates[j] ?? ZERO)),
+      opening: startingEquity.get(e.key),
+    };
   });
 
   const periodEndDays = horizon.periods.map((p) => p.endDay);
@@ -154,16 +197,19 @@ export function financingSchedule(input: FinancingInput): CalculationResult<Fina
         `${field}.depreciation.startPeriod`,
       );
     }
+    const opening = startingLoans.get(l.key);
+    const openingBalance = toDecimalString(opening ?? ZERO);
     const schedule = withField(`${field}.loan`, () =>
       loanSchedule({
         ...l.loan,
+        ...(opening === undefined ? {} : { openingBalance }),
         // Day indices start at 1; without a construction phase the default first repayment
         // follows the last disbursement alone.
         constructionEndDay: horizon.constructionEndDay > 0 ? horizon.constructionEndDay : 1,
         horizonEndDay: horizon.totalMonths * 30,
       }),
     );
-    const own = loanPeriods(schedule.value, periodEndDays);
+    const own = loanPeriods(schedule.value, periodEndDays, openingBalance);
     // The schedule and the period sums may both report the same thing (e.g. beyond the horizon).
     const codes = new Set<string>();
     for (const w of [...schedule.warnings, ...own.warnings]) {
@@ -186,7 +232,7 @@ export function financingSchedule(input: FinancingInput): CalculationResult<Fina
           }))
         : withField(field, () =>
             foreignLoanToLocal(
-              { openingBalance: '0', periods: own.value },
+              { openingBalance, periods: own.value },
               rates.map((v) => toDecimalString(v)),
             ),
           ).value;
@@ -213,6 +259,9 @@ export function financingSchedule(input: FinancingInput): CalculationResult<Fina
       ...(schedule.value.firstRepaymentDay === undefined
         ? {}
         : { firstRepaymentDay: schedule.value.firstRepaymentDay }),
+      ...(opening === undefined
+        ? {}
+        : { startingBalance: periods[0]?.beginningBalance ?? openingBalance }),
     };
   });
 
@@ -236,13 +285,18 @@ export function financingSchedule(input: FinancingInput): CalculationResult<Fina
     equity.map((e) => e.local),
     length,
   );
+  const startingEquityOf = (equityClass?: EquityClass) =>
+    equity
+      .filter((x) => equityClass === undefined || x.e.class === equityClass)
+      .reduce((s, x) => s.plus(x.opening ?? ZERO), ZERO);
   const value: FinancingSchedule = {
     equity: {
-      items: equity.map(({ e, local }) => ({
+      items: equity.map(({ e, local, opening }) => ({
         key: e.key,
         class: e.class,
         origin: e.origin,
         amounts: strings(local),
+        ...(opening === undefined ? {} : { startingBalance: toDecimalString(opening) }),
       })),
       classes: Object.fromEntries(
         EQUITY_CLASSES.map((c) => [
@@ -279,6 +333,17 @@ export function financingSchedule(input: FinancingInput): CalculationResult<Fina
     totalSources: equityTotal.map((e, j) =>
       toDecimalString(e.plus(loanTotals[j]?.disbursement ?? '0')),
     ),
+    ...(input.startingBalances === undefined
+      ? {}
+      : {
+          startingBalance: {
+            debt: toDecimalString(loans.reduce((s, l) => s.plus(l.startingBalance ?? '0'), ZERO)),
+            equity: Object.fromEntries(
+              EQUITY_CLASSES.map((c) => [c, toDecimalString(startingEquityOf(c))]),
+            ) as Record<EquityClass, DecimalString>,
+            totalEquity: toDecimalString(startingEquityOf()),
+          },
+        }),
   };
   return { value, modelVersion: MODEL_VERSION, warnings, defaultsUsed };
 }

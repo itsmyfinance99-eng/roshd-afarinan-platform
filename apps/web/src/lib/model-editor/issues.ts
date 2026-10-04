@@ -13,6 +13,7 @@ export const SECTIONS = [
   'sales',
   'costs',
   'workingCapital',
+  'startingBalance',
 ] as const;
 export type SectionId = (typeof SECTIONS)[number];
 
@@ -23,6 +24,7 @@ export const SECTION_LABELS_FA: Record<SectionId, string> = {
   sales: 'تولید و فروش',
   costs: 'هزینه‌ها',
   workingCapital: 'سرمایه در گردش',
+  startingBalance: 'ترازنامه آغازین',
 };
 
 export interface Issue {
@@ -40,6 +42,7 @@ function sectionOf(parts: string[]): SectionId {
   const [head, second] = parts;
   if (head === 'investment') return 'investment';
   if (head === 'financing') return 'financing';
+  if (head === 'startingBalances') return 'startingBalance';
   if (head === 'statements') {
     if (second === 'profitDistribution') return 'financing';
     if (second === 'assetSales' || second === 'allowances') return 'investment';
@@ -175,6 +178,21 @@ const FIELD_LABELS_FA: Record<string, string> = {
   breakEvenYear: 'سال تحلیل سربه‌سر',
   residualValueTiming: 'زمان بازگشت ارزش اسقاط',
   automaticCashCoverage: 'پوشش خودکار کسری نقد',
+  startingBalances: 'ترازنامه آغازین',
+  fixedAssets: 'دارایی‌های ثابت موجود',
+  materials: 'موجودی مواد',
+  workInProgress: 'کالای در جریان ساخت',
+  finishedProducts: 'کالای ساخته‌شده',
+  receivables: 'حساب‌های دریافتنی',
+  payables: 'حساب‌های پرداختنی',
+  collectionDays: 'روز وصول',
+  paymentDays: 'روز پرداخت',
+  cashInHand: 'وجه نقد در گردش',
+  shortTermDeposits: 'سپرده کوتاه‌مدت',
+  cashSurplus: 'مازاد نقد',
+  value: 'مبلغ',
+  balance: 'مانده',
+  cost: 'قلم هزینه',
   notes: 'منبع فرض‌ها',
   source: 'منبع',
   asOf: 'تاریخ اعتبار',
@@ -208,9 +226,14 @@ function labelOf(parts: string[], draft: Draft): string {
   parts.forEach((part, i) => {
     if (/^\d+$/.test(part)) {
       const node = getIn(draft, parts.slice(0, i + 1).map(asKey));
-      const name = textAt(node, ['key']) || textAt(node, ['equity']);
+      // A row is named by its own name; a row that has none by nature (dividend conditions, a
+      // sale of an asset, a starting balance) by the item it belongs to.
+      const referring = parts[0] === 'startingBalances' || parts[i - 1] === 'assetSales';
+      const name = ['key', 'equity', ...(referring ? ['item', 'cost', 'product', 'loan'] : [])]
+        .map((property) => textAt(node, [property]))
+        .find((text) => text !== '');
       const number = toPersianDigits(Number(part) + 1);
-      if (name !== '') words.push(`«${name}»`);
+      if (name !== undefined) words.push(`«${name}»`);
       else if (SERIES.has(parts[i - 1] ?? '') || SERIES.has(parts[i - 2] ?? '')) {
         words.push(`ستون ${number}`);
       } else words.push(`ردیف ${number}`);

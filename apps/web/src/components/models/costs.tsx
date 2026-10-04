@@ -22,12 +22,10 @@ import {
   CheckField,
   ChoiceField,
   FieldGrid,
-  ItemCard,
   itemTitle,
   NumberField,
   optionsOf,
   SeriesGrid,
-  TextField,
   useEditor,
 } from './fields';
 import { CurrencyField, EscalationFields, NamedItemCard, NameField, OriginField } from './parts';
@@ -155,12 +153,9 @@ function CostCard({
   const zeros = () => fit([], periods.length, '0');
 
   return (
-    <ItemCard
-      title={itemTitle('هزینه', name, index)}
-      onRemove={() => change((current) => removeAt(current, COSTS, index))}
-    >
+    <NamedItemCard kind="cost" index={index} title={itemTitle('هزینه', name, index)}>
       <FieldGrid>
-        <TextField path={[...base, 'key']} label="نام قلم هزینه" />
+        <NameField kind="cost" index={index} label="نام قلم هزینه" />
         <ChoiceField
           path={[...base, 'category']}
           label="دسته هزینه"
@@ -311,6 +306,6 @@ function CostCard({
           ]}
         />
       ) : null}
-    </ItemCard>
+    </NamedItemCard>
   );
 }

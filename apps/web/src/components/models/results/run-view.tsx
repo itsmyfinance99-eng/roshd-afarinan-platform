@@ -41,7 +41,6 @@ import {
   warningPlace,
   warningText,
   type Basis,
-  type IndicatorKey,
 } from '@roshd/financial-report/warnings';
 import type { CalculationRunDetail } from '../types';
 import { ScenarioPanel, SensitivityPanel } from './analysis';
@@ -49,13 +48,12 @@ import { CumulativeChart } from './charts';
 import { RunDownloads } from './downloads';
 import {
   amountText,
-  INDICATOR_LABELS_FA,
   indicatorText,
   percentText,
   unitLabel,
-  type IndicatorRowKey,
-  type IndicatorValues,
 } from '@roshd/financial-report/indicators';
+import { IncrementalPanel } from './incremental';
+import { IndicatorCard } from './indicator-card';
 import { StatementTableView } from './statement-table';
 
 const TABS = [
@@ -66,6 +64,7 @@ const TABS = [
   ['discounted', 'جریان نقدی تنزیل‌شده'],
   ['ratios', 'نسبت‌ها'],
   ['analysis', 'سناریو و حساسیت'],
+  ['incremental', 'تحلیل افزایشی'],
 ] as const;
 type TabId = (typeof TABS)[number][0];
 
@@ -110,6 +109,12 @@ export function RunView({
   onChanged: () => void;
 }) {
   const [tab, setTab] = useState<TabId>('summary');
+  // The incremental analysis loads lists of models and runs: only once its part is opened.
+  const [incrementalOpened, setIncrementalOpened] = useState(false);
+  const select = (id: TabId) => {
+    setTab(id);
+    if (id === 'incremental') setIncrementalOpened(true);
+  };
   const [unit, setUnit] = useState<ReportingUnit>('1');
   const [approval, setApproval] = useState<{ busy: boolean; error?: string; done?: boolean }>({
     busy: false,
@@ -160,7 +165,7 @@ export function RunView({
     if (next < 0) return;
     event.preventDefault();
     const id = ids[next] ?? 'summary';
-    setTab(id);
+    select(id);
     document.getElementById(`${tabsId}-tab-${id}`)?.focus();
   };
 
@@ -235,7 +240,7 @@ export function RunView({
             aria-selected={id === tab}
             aria-controls={`${tabsId}-panel`}
             tabIndex={id === tab ? 0 : -1}
-            onClick={() => setTab(id)}
+            onClick={() => select(id)}
             className={cn(
               'shrink-0 rounded-t-control border-b-2 px-4 py-2.5 text-sm font-bold whitespace-nowrap transition-colors',
               id === tab
@@ -292,6 +297,24 @@ export function RunView({
             </Notice>
           )}
         </div>
+        <div hidden={tab !== 'incremental'} className="flex flex-col gap-6">
+          {!incrementalOpened ? null : input ? (
+            <IncrementalPanel
+              modelId={modelId}
+              run={run}
+              model={model}
+              input={input}
+              frame={frame}
+              unit={unit}
+              unitLabel={label}
+            />
+          ) : (
+            <Notice>
+              ورودی‌های این اجرا با این نسخه از برنامه خوانده نمی‌شود؛ تحلیل افزایشی برای آن در
+              دسترس نیست. از ورودی‌های مدل اجرای تازه‌ای ثبت کنید.
+            </Notice>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -312,7 +335,7 @@ function Schedule({
   unitLabel: string;
 }) {
   const table = build();
-  const columns = tableColumns(frame, table.salvageColumn);
+  const columns = tableColumns(frame, table.salvageColumn, table.openingColumn);
   // A line that is not one value per column is not shown as if the rest were empty.
   for (const row of table.sections.flatMap((section) => section.rows)) {
     if (!Array.isArray(row.values) || row.values.length !== columns.length) {
@@ -416,49 +439,6 @@ function SummaryPart({
         />
       ))}
     </>
-  );
-}
-
-function IndicatorCard({
-  title,
-  values,
-  rows,
-  warnings,
-  unit,
-  unitLabel: label,
-}: {
-  title: string;
-  values: IndicatorValues;
-  rows: IndicatorRowKey[];
-  warnings: { indicator: IndicatorKey; text: string }[];
-  unit: ReportingUnit;
-  unitLabel: string;
-}) {
-  return (
-    <section className="rounded-card bg-surface p-4">
-      <h3 className="mb-3 text-[15px] font-bold text-ink">{title}</h3>
-      <dl className="flex flex-col gap-2 text-sm">
-        {rows.map((row) => {
-          const notes = unique(
-            warnings.filter((warning) => warning.indicator === row).map((w) => w.text),
-          );
-          return (
-            <div key={row} className="grid grid-cols-[1fr_auto] items-baseline gap-x-4">
-              <dt className="text-ink-3">{INDICATOR_LABELS_FA[row]}</dt>
-              <dd className="font-bold text-ink">
-                {indicatorText(row, values, unit)}
-                {row === 'npv' && label ? ` ${label}` : ''}
-              </dd>
-              {notes.map((note) => (
-                <dd key={note} className="col-span-2 mt-1 text-[13px] leading-6 text-notice-fg">
-                  {note}
-                </dd>
-              ))}
-            </div>
-          );
-        })}
-      </dl>
-    </section>
   );
 }
 

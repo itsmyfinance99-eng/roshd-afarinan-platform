@@ -2161,6 +2161,7 @@ epics:
         sprint: S17
         points: 8
         priority: high
+        status: done
         area: [api, web]
         depends: [ST-34.04]
         story: 'به‌عنوان کارشناس می‌خواهم طرح توسعه یک شرکت موجود را با ترازنامه آغازین ارزیابی کنم و فقط اثر افزایشی طرح را بسنجم.'

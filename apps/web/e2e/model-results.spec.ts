@@ -563,9 +563,159 @@ test.describe('financial model results', () => {
     await expect(page.getByRole('button', { name: 'خروجی PDF' })).toBeEnabled();
   });
 
+  test('shows the starting balances of an expansion project', async ({ page }) => {
+    await signIn(page);
+    // The same project as the expansion of an enterprise that already owns a building.
+    const expansion: ProjectInput = {
+      ...input,
+      investment: {
+        items: [
+          ...input.investment.items,
+          {
+            key: 'ساختمان موجود',
+            group: 'BUILDINGS',
+            currency: 'IRR',
+            origin: 'LOCAL',
+            amounts: at({}),
+          },
+        ],
+      },
+      startingBalances: {
+        fixedAssets: [{ item: 'ساختمان موجود', value: '300000000' }],
+        materials: [],
+        workInProgress: [],
+        finishedProducts: [],
+        receivables: { value: '50000000', collectionDays: 60 },
+        payables: { value: '20000000', paymentDays: 30 },
+        cashInHand: '0',
+        shortTermDeposits: '0',
+        cashSurplus: '10000000',
+        loans: [],
+        equity: [{ equity: 'مؤسسان', value: '200000000' }],
+      },
+    };
+    const outcome = projectModel(expansion);
+    await serveRun(
+      page,
+      run({
+        input: expansion,
+        results: outcome.value,
+        warnings: outcome.warnings,
+        defaultsUsed: outcome.defaultsUsed,
+      }),
+    );
+    await page.goto('/dashboard/models/m1/runs/r1');
+    await page.getByLabel('واحد نمایش مبلغ‌ها').selectOption('1000000');
+
+    await openTab(page, 'ترازنامه');
+    const sheet = page.getByRole('region', { name: 'ترازنامه پیش‌بینی‌شده' });
+    await expect(sheet.getByRole('columnheader').nth(1)).toHaveText(/مانده آغازین.*پیش از طرح/);
+    // Building 300, receivables 50 and cash 10 against payables 20 and equity 200: reserves 140.
+    await expect(
+      sheet
+        .getByRole('row', { name: /^جمع دارایی‌ها ۳/ })
+        .getByRole('cell')
+        .first(),
+    ).toHaveText('۳۶۰');
+    await expect(
+      sheet
+        .getByRole('row', { name: /^سود انباشته/ })
+        .getByRole('cell')
+        .first(),
+    ).toHaveText('۱۴۰');
+
+    await openTab(page, 'جریان نقدی تنزیل‌شده');
+    const discounted = page.getByRole('region', { name: 'جریان نقدی تنزیل‌شده کل سرمایه' });
+    // Fixed and current assets less current liabilities: 300 + 60 − 20.
+    await expect(
+      discounted
+        .getByRole('row', { name: /^مانده آغازین/ })
+        .getByRole('cell')
+        .first(),
+    ).toHaveText('۳۴۰');
+    await expect(
+      discounted
+        .getByRole('row', { name: /^جریان نقد خالص تجمعی/ })
+        .getByRole('cell')
+        .first(),
+    ).toHaveText('-۳۴۰');
+  });
+
+  test('calculates the incremental effect against a run without the project', async ({ page }) => {
+    await signIn(page);
+    await serveRun(page);
+    // Without the project the enterprise sells 80 units a year instead of 100.
+    const [product] = input.operations.products;
+    const without = projectModel({
+      ...input,
+      operations: {
+        ...input.operations,
+        products: product
+          ? [
+              {
+                ...product,
+                sales: product.sales.map((line) => ({
+                  ...line,
+                  quantities: at({ 1: '80', 2: '80', 3: '80' }),
+                })),
+              },
+            ]
+          : [],
+      },
+    });
+    const { input: _input, results: _results, ...summary } = run();
+    await page.route(/\/api\/v1\/financial-models\?/, (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: envelope([], 0) }),
+    );
+    await page.route(/\/api\/v1\/financial-models\/m1\/runs\?/, (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: envelope([summary, { ...summary, id: 'r0', number: 3 }], 2),
+      }),
+    );
+    await page.route('**/api/v1/financial-models/m1/runs/r0', (route) =>
+      json(route, run({ id: 'r0', number: 3, results: without.value })),
+    );
+    await page.goto('/dashboard/models/m1/runs/r1');
+    await openTab(page, 'تحلیل افزایشی');
+
+    const choice = page.getByLabel('اجرای حالت «بدون طرح»');
+    // The run on screen is not offered as its own base case.
+    await expect(choice.locator('option')).toHaveText(['انتخاب کنید', 'اجرای شماره ۳']);
+    const calculate = page.getByRole('button', { name: 'محاسبه تحلیل افزایشی' });
+    await expect(calculate).toBeDisabled();
+    await choice.selectOption('r0');
+    await calculate.click();
+
+    await expect(page.getByRole('heading', { name: 'اثر طرح بر کل سرمایه' })).toBeVisible();
+    await expect(page.getByText('همین مدل، اجرای شماره ۳')).toBeVisible();
+    await page.getByLabel('واحد نمایش مبلغ‌ها').selectOption('1000000');
+    const table = page.getByRole('region', {
+      name: 'تحلیل افزایشی: جریان نقدی تنزیل‌شده کل سرمایه',
+    });
+    // 20 units more: 200 of sales less 80 of ore and a quarter of tax, 90 a year; the
+    // receivables of a tenth of the yearly cost of 80 are built up first and return at the end.
+    await expect(
+      table.getByRole('row', { name: /^جریان نقد خالص افزایشی ۰/ }).getByRole('cell'),
+    ).toHaveText(['۰', '۸۲', '۹۰', '۹۰', '۸']);
+    // No investment is made, so the difference has no rate of return: the page says why.
+    await expect(page.getByText('جریان نقدی تغییر علامت ندارد').first()).toBeVisible();
+    await expect(
+      page.getByRole('region', { name: /تحلیل افزایشی: جریان نقد برای برنامه‌ریزی مالی/ }),
+    ).toBeVisible();
+
+    // Another choice removes the result that belonged to the first one.
+    await choice.selectOption('');
+    await expect(page.getByRole('heading', { name: 'اثر طرح بر کل سرمایه' })).toHaveCount(0);
+  });
+
   test('has no serious accessibility violations in any part', async ({ page }) => {
     await signIn(page);
     await serveRun(page);
+    await page.route(/\/api\/v1\/financial-models(\/m1\/runs)?\?/, (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: envelope([], 0) }),
+    );
     await page.goto('/dashboard/models/m1/runs/r1');
     await expect(page.getByRole('heading', { name: 'کل سرمایه' })).toBeVisible();
     for (const name of [
@@ -576,6 +726,7 @@ test.describe('financial model results', () => {
       'جریان نقدی تنزیل‌شده',
       'نسبت‌ها',
       'سناریو و حساسیت',
+      'تحلیل افزایشی',
     ]) {
       await page.getByRole('tab', { name, exact: true }).click();
       const results = await new AxeBuilder({ page })

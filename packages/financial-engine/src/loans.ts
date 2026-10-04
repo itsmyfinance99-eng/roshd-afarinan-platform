@@ -66,6 +66,11 @@ export interface LoanInput {
   /** Last day of the planning horizon; required for profile loans. */
   horizonEndDay?: number;
   fees?: LoanFees;
+  /**
+   * Balance of an existing loan on the day before day 1 (expansion and rehabilitation projects,
+   * XI.M). Interest accrues on it from day 1; such a loan needs no disbursement.
+   */
+  openingBalance?: DecimalString;
 }
 
 export type LoanEventKind =
@@ -157,7 +162,12 @@ export function loanSchedule(input: LoanInput): CalculationResult<LoanSchedule> 
   if (![1, 3, 6, 12].includes(input.repaymentMonths)) {
     throw new EngineInputError('loan.repaymentMonths', 'repaymentMonths');
   }
-  if (input.flows.length === 0) throw new EngineInputError('loan.noDisbursement', 'flows');
+  const opening = toDecimal(input.openingBalance ?? '0');
+  if (opening.isNegative()) throw new EngineInputError('amount.negative', 'openingBalance');
+  const existing = opening.gt(0);
+  if (input.flows.length === 0 && !existing) {
+    throw new EngineInputError('loan.noDisbursement', 'flows');
+  }
   const flows = input.flows
     .map((f, i) => {
       wholeDay(f.day, `flows[${i}].day`);
@@ -165,12 +175,15 @@ export function loanSchedule(input: LoanInput): CalculationResult<LoanSchedule> 
     })
     // By day; on one day disbursements come before repayments, so the day nets out.
     .sort((a, b) => a.day - b.day || b.amount.cmp(a.amount));
-  const firstDay = flows[0]?.day ?? 1;
+  // An existing loan is outstanding from the day before day 1.
+  const firstDay = existing ? 0 : (flows[0]?.day ?? 1);
   const totalDisbursed = flows.reduce(
     (sum, f) => (f.amount.gt(0) ? sum.plus(f.amount) : sum),
     ZERO,
   );
-  if (!totalDisbursed.gt(0)) throw new EngineInputError('loan.noDisbursement', 'flows');
+  if (!totalDisbursed.gt(0) && !existing) {
+    throw new EngineInputError('loan.noDisbursement', 'flows');
+  }
 
   // Rates
   if (input.rates.length === 0) throw new EngineInputError('loan.rateMissing', 'rates');
@@ -301,7 +314,7 @@ export function loanSchedule(input: LoanInput): CalculationResult<LoanSchedule> 
 
   // Walk the timeline
   let rate = rates.filter((r) => r.fromDay - 1 < firstDay).at(-1)?.rate ?? ZERO;
-  let balance = ZERO;
+  let balance = opening;
   let drawn = ZERO;
   let interest = ZERO;
   let guaranteeFee = ZERO;
@@ -458,11 +471,13 @@ const PERIOD_FIELDS: Record<LoanEventKind, keyof LoanPeriod> = {
  * Sums a schedule into project periods (flows on the last day of a period belong to it).
  * `periodEndDays` are the last day indices of the periods, ascending. Events after the last period
  * are left out with a warning. Events of one day must stay in the schedule's order (as
- * `loanSchedule` returns them); events of different days may come in any order.
+ * `loanSchedule` returns them); events of different days may come in any order. `openingBalance`
+ * is the balance of an existing loan before the first period.
  */
 export function loanPeriods(
   schedule: Pick<LoanSchedule, 'events'>,
   periodEndDays: number[],
+  openingBalance: DecimalString = '0',
 ): CalculationResult<LoanPeriod[]> {
   if (periodEndDays.length === 0) throw new EngineInputError('series.empty', 'periodEndDays');
   periodEndDays.forEach((d, i) => {
@@ -496,7 +511,7 @@ export function loanPeriods(
     target[field] = target[field].plus(e.amount);
     target.closing = toDecimal(e.balance);
   }
-  let balance = ZERO;
+  let balance = toDecimal(openingBalance);
   const value = sums.map((s): LoanPeriod => {
     const opening = balance;
     balance = s.closing ?? balance;

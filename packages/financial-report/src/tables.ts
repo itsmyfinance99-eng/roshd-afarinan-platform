@@ -1,4 +1,4 @@
-import type { ProjectModel } from '@roshd/financial-engine';
+import type { IncrementalAnalysis, ProjectModel } from '@roshd/financial-engine';
 import { EQUITY_CLASS_LABELS_FA, type ReportingUnit } from '@roshd/validation';
 import type { Column, Frame } from './frame';
 import { formatDecimalFa, fractionToPercent, roundDecimal, shiftDecimal } from './numbers';
@@ -38,6 +38,11 @@ export interface StatementTable {
   sections: StatementSection[];
   /** The table has one more column than the horizon: the year in which residual values return. */
   salvageColumn?: boolean;
+  /**
+   * The table starts with one more column: the day before the first period, with the starting
+   * balances of an existing enterprise (expansion and rehabilitation projects).
+   */
+  openingColumn?: boolean;
 }
 
 type Statements = ProjectModel['statements'];
@@ -86,11 +91,31 @@ export function incomeStatementTable(statements: Statements): StatementTable {
   };
 }
 
-export function cashFlowTable(statements: Statements): StatementTable {
-  const c = statements.cashFlow;
+export function cashFlowTable(
+  statements: Pick<Statements, 'cashFlow'> & Partial<Pick<Statements, 'startingBalance'>>,
+): StatementTable {
+  const flow = statements.cashFlow;
+  // An existing enterprise starts with its cash surplus: the first column, the day before the
+  // project, holds it, so that the cumulative lines can be followed.
+  const start = statements.startingBalance?.assets.cashSurplus;
+  const lead = <T>(values: T[], first: string | null = null): (T | string | null)[] =>
+    start === undefined ? values : [first, ...values];
+  const rows = (group: Record<string, string[]>) =>
+    Object.fromEntries(Object.entries(group).map(([key, values]) => [key, lead(values)]));
+  const c = {
+    inflows: rows(flow.inflows) as Record<keyof typeof flow.inflows, (string | null)[]>,
+    outflows: rows(flow.outflows) as Record<keyof typeof flow.outflows, (string | null)[]>,
+    surplus: lead(flow.surplus),
+    cumulativeSurplus: lead(flow.cumulativeSurplus, start),
+    automaticEquity: lead(flow.automaticEquity),
+    automaticOverdraft: lead(flow.automaticOverdraft),
+    automaticOverdraftBalance: lead(flow.automaticOverdraftBalance),
+    cashBalance: lead(flow.cashBalance, start),
+  };
   return {
     id: 'cash-flow',
     title: 'جریان نقد برای برنامه‌ریزی مالی',
+    ...(start === undefined ? {} : { openingColumn: true }),
     sections: [
       {
         title: 'ورودی‌های نقد',
@@ -137,54 +162,80 @@ export function cashFlowTable(statements: Statements): StatementTable {
 
 export function balanceSheetTable(statements: Statements): StatementTable {
   const { assets, liabilities, netWorth } = statements.balanceSheet;
+  // An existing enterprise: its balance sheet on the day before the project is the first column.
+  // A run stored before starting balances existed has none.
+  const start = statements.startingBalance;
+  const opening = (values: string[], value: string | undefined): string[] =>
+    start === undefined ? values : [value ?? '0', ...values];
   const classes = Object.entries(EQUITY_CLASS_LABELS_FA).flatMap(([key, label]): Line[] => {
     const values = (liabilities.equity as Record<string, string[] | undefined>)[key];
-    return values === undefined ? [] : [[`آورده: ${label}`, values]];
+    const first = (start?.liabilities.equity as Record<string, string | undefined> | undefined)?.[
+      key
+    ];
+    return values === undefined ? [] : [[`آورده: ${label}`, opening(values, first)]];
   });
   return {
     id: 'balance',
     title: 'ترازنامه پیش‌بینی‌شده',
+    ...(start === undefined ? {} : { openingColumn: true }),
     sections: [
       {
         title: 'دارایی‌ها',
         rows: amounts([
-          ['مازاد نقد', assets.cashSurplus],
-          ['موجودی مواد', assets.materials],
-          ['کالای در جریان ساخت', assets.workInProgress],
-          ['کالای ساخته‌شده', assets.finishedProducts],
-          ['حساب‌های دریافتنی', assets.receivables],
-          ['وجه نقد در گردش', assets.cashInHand],
-          ['سپرده کوتاه‌مدت', assets.shortTermDeposits],
-          ['جمع دارایی‌های جاری', assets.currentAssets, true],
-          ['سرمایه‌گذاری ثابت (ارزش دفتری)', assets.fixedInvestment],
-          ['هزینه‌های قبل از بهره‌برداری', assets.preProduction],
-          ['سود و کارمزد دوره ساخت', assets.preProductionInterest],
-          ['معافیت‌های استهلاک (کسر می‌شود)', assets.depreciationAllowances],
-          ['جمع دارایی‌های ثابت', assets.fixedAssets, true],
-          ['زیان انباشته', assets.accumulatedLosses],
-          ['زیان تسعیر ارز', assets.exchangeLosses],
-          ['جمع دارایی‌ها', assets.total, true],
+          ['مازاد نقد', opening(assets.cashSurplus, start?.assets.cashSurplus)],
+          ['موجودی مواد', opening(assets.materials, start?.assets.materials)],
+          ['کالای در جریان ساخت', opening(assets.workInProgress, start?.assets.workInProgress)],
+          ['کالای ساخته‌شده', opening(assets.finishedProducts, start?.assets.finishedProducts)],
+          ['حساب‌های دریافتنی', opening(assets.receivables, start?.assets.receivables)],
+          ['وجه نقد در گردش', opening(assets.cashInHand, start?.assets.cashInHand)],
+          ['سپرده کوتاه‌مدت', opening(assets.shortTermDeposits, start?.assets.shortTermDeposits)],
+          ['جمع دارایی‌های جاری', opening(assets.currentAssets, start?.assets.currentAssets), true],
+          [
+            'سرمایه‌گذاری ثابت (ارزش دفتری)',
+            opening(assets.fixedInvestment, start?.assets.fixedInvestment),
+          ],
+          [
+            'هزینه‌های قبل از بهره‌برداری',
+            opening(assets.preProduction, start?.assets.preProduction),
+          ],
+          ['سود و کارمزد دوره ساخت', opening(assets.preProductionInterest, undefined)],
+          ['معافیت‌های استهلاک (کسر می‌شود)', opening(assets.depreciationAllowances, undefined)],
+          ['جمع دارایی‌های ثابت', opening(assets.fixedAssets, start?.assets.fixedAssets), true],
+          ['زیان انباشته', opening(assets.accumulatedLosses, start?.assets.accumulatedLosses)],
+          ['زیان تسعیر ارز', opening(assets.exchangeLosses, undefined)],
+          ['جمع دارایی‌ها', opening(assets.total, start?.assets.total), true],
         ]),
       },
       {
         title: 'بدهی‌ها و حقوق صاحبان سهام',
         rows: amounts([
-          ['حساب‌های پرداختنی', liabilities.accountsPayable],
-          ['اضافه‌برداشت خودکار', liabilities.automaticOverdraft],
-          ['جمع بدهی‌های جاری', liabilities.currentLiabilities, true],
-          ['بدهی بلندمدت', liabilities.longTermDebt],
+          [
+            'حساب‌های پرداختنی',
+            opening(liabilities.accountsPayable, start?.liabilities.accountsPayable),
+          ],
+          ['اضافه‌برداشت خودکار', opening(liabilities.automaticOverdraft, undefined)],
+          [
+            'جمع بدهی‌های جاری',
+            opening(liabilities.currentLiabilities, start?.liabilities.currentLiabilities),
+            true,
+          ],
+          ['بدهی بلندمدت', opening(liabilities.longTermDebt, start?.liabilities.longTermDebt)],
           ...classes,
-          ['آورده خودکار (پوشش کسری دوره ساخت)', liabilities.automaticEquity],
-          ['جمع آورده', liabilities.totalEquity, true],
-          ['سود انباشته', liabilities.reserves],
-          ['سود تسعیر ارز', liabilities.exchangeGains],
-          ['جمع بدهی‌ها و حقوق صاحبان سهام', liabilities.total, true],
+          ['آورده خودکار (پوشش کسری دوره ساخت)', opening(liabilities.automaticEquity, undefined)],
+          ['جمع آورده', opening(liabilities.totalEquity, start?.liabilities.totalEquity), true],
+          ['سود انباشته', opening(liabilities.reserves, start?.liabilities.reserves)],
+          ['سود تسعیر ارز', opening(liabilities.exchangeGains, undefined)],
+          [
+            'جمع بدهی‌ها و حقوق صاحبان سهام',
+            opening(liabilities.total, start?.liabilities.total),
+            true,
+          ],
         ]),
       },
       {
         // Not a part of the totals above: equity plus retained profit, less exchange losses.
         title: 'ارزش ویژه',
-        rows: amounts([['ارزش ویژه', netWorth, true]]),
+        rows: amounts([['ارزش ویژه', opening(netWorth, start?.netWorth), true]]),
       },
     ],
   };
@@ -195,32 +246,143 @@ export const DISCOUNTED_TITLES_FA: Record<Basis, string> = {
   equity: 'جریان نقدی تنزیل‌شده آورده',
 };
 
-export function discountedCashFlowTable(statements: Statements, basis: Basis): StatementTable {
+type Flow = Statements[Basis];
+
+const isZero = (value: string) => /^-?0*\.?0*$/.test(value);
+const negated = (value: string) =>
+  isZero(value) ? '0' : value.startsWith('-') ? value.slice(1) : `-${value}`;
+
+/** What a starting balance charges a discounted cash flow with; null when there is none. */
+function startingCharge(flow: Flow): { amount: string; present: string } | null {
+  const amount = flow.startingBalance;
+  // A balance of zero charges nothing, and a run stored before starting balances has none.
+  if (amount === undefined || isZero(amount)) return null;
+  return { amount, present: flow.startingBalancePresentValue ?? amount };
+}
+
+export const STARTING_BALANCE_LABELS_FA: Record<Basis, string> = {
+  totalCapital: 'مانده آغازین (دارایی‌های ثابت و جاری منهای بدهی‌های جاری)',
+  equity: 'مانده آغازین (آورده موجود)',
+};
+
+export function discountedCashFlowTable(
+  statements: Pick<Statements, Basis>,
+  basis: Basis,
+  title = DISCOUNTED_TITLES_FA[basis],
+): StatementTable {
   const flow = statements[basis];
   // Inflows and outflows are per period; the residual value returns in the last column — the
-  // year after production, or the last period itself.
+  // year after production, or the last period itself. The starting balance of an existing
+  // enterprise is charged in a first column of its own, the day before the project.
   const last = flow.net.length - 1;
+  const charge = startingCharge(flow);
+  const column = (first: string | null, values: (string | null)[]) =>
+    charge === null ? values : [first, ...values];
   const perPeriod = (values: string[]) => flow.net.map((_, j) => values[j] ?? null);
   return {
     id: `discounted-${basis}`,
-    title: DISCOUNTED_TITLES_FA[basis],
+    title,
     salvageColumn: flow.salvageColumn,
+    ...(charge === null ? {} : { openingColumn: true }),
     sections: [
       {
         rows: amounts([
-          ['ورودی نقد', perPeriod(flow.inflow)],
-          ['خروجی نقد', perPeriod(flow.outflow)],
+          ...(charge === null
+            ? []
+            : [
+                [
+                  STARTING_BALANCE_LABELS_FA[basis],
+                  column(
+                    charge.amount,
+                    flow.net.map(() => null),
+                  ),
+                ] satisfies Line,
+              ]),
+          ['ورودی نقد', column(null, perPeriod(flow.inflow))],
+          ['خروجی نقد', column(null, perPeriod(flow.outflow))],
           [
             'ارزش باقی‌مانده (دارایی‌ها و سرمایه در گردش)',
-            flow.net.map((_, j) => (j === last ? flow.residualValue : null)),
+            column(
+              null,
+              flow.net.map((_, j) => (j === last ? flow.residualValue : null)),
+            ),
           ],
-          ['جریان نقد خالص', flow.net, true],
-          ['جریان نقد خالص تجمعی', flow.cumulative],
-          ['ارزش فعلی جریان نقد خالص', flow.presentValue],
-          ['ارزش فعلی تجمعی', flow.cumulativePresentValue, true],
+          ['جریان نقد خالص', column(charge && negated(charge.amount), flow.net), true],
+          ['جریان نقد خالص تجمعی', column(charge && negated(charge.amount), flow.cumulative)],
+          [
+            'ارزش فعلی جریان نقد خالص',
+            column(charge && negated(charge.present), flow.presentValue),
+          ],
+          [
+            'ارزش فعلی تجمعی',
+            column(charge && negated(charge.present), flow.cumulativePresentValue),
+            true,
+          ],
         ]),
       },
     ],
+  };
+}
+
+/**
+ * Incremental analysis (ST-34.11; manual XIV): for the cash flow of the total capital or of the
+ * equity, the net flow with the project, without it, and their difference with its cumulative and
+ * present values. The indicators of the difference are shown beside the table by the page.
+ */
+export function incrementalFlowTable(
+  analysis: IncrementalAnalysis,
+  withProject: Pick<Statements, Basis>,
+  withoutProject: Pick<Statements, Basis>,
+  basis: Basis,
+): StatementTable {
+  const flow = analysis[basis];
+  const charge = startingCharge(flow);
+  const column = (first: string | null, values: (string | null)[]) =>
+    charge === null ? values : [first, ...values];
+  // The cases are shown without their own starting balances; the difference carries what is left.
+  const perPeriod = (values: string[]) => flow.net.map((_, j) => values[j] ?? null);
+  return {
+    id: `incremental-${basis}`,
+    title: `تحلیل افزایشی: ${DISCOUNTED_TITLES_FA[basis]}`,
+    salvageColumn: flow.salvageColumn,
+    ...(charge === null ? {} : { openingColumn: true }),
+    sections: [
+      {
+        title: 'جریان نقد خالص دو حالت',
+        rows: amounts([
+          ['با طرح', column(null, perPeriod(withProject[basis].net))],
+          ['بدون طرح', column(null, perPeriod(withoutProject[basis].net))],
+        ]),
+      },
+      {
+        title: 'اثر طرح (با طرح منهای بدون طرح)',
+        rows: amounts([
+          ['جریان نقد خالص افزایشی', column(charge && negated(charge.amount), flow.net), true],
+          [
+            'جریان نقد خالص افزایشی تجمعی',
+            column(charge && negated(charge.amount), flow.cumulative),
+          ],
+          [
+            'ارزش فعلی جریان نقد افزایشی',
+            column(charge && negated(charge.present), flow.presentValue),
+          ],
+          [
+            'ارزش فعلی تجمعی',
+            column(charge && negated(charge.present), flow.cumulativePresentValue),
+            true,
+          ],
+        ]),
+      },
+    ],
+  };
+}
+
+/** The cash flow for financial planning of the difference, line by line. */
+export function incrementalCashFlowTable(analysis: IncrementalAnalysis): StatementTable {
+  return {
+    ...cashFlowTable(analysis),
+    id: 'incremental-cash-flow',
+    title: 'تحلیل افزایشی: جریان نقد برای برنامه‌ریزی مالی (با طرح منهای بدون طرح)',
   };
 }
 
@@ -305,11 +467,16 @@ function debtServiceSection(
   };
 }
 
-/** The columns of a table: the periods, and the year after production when values return there. */
-export function tableColumns(frame: Frame, salvageColumn = false): Column[] {
-  return salvageColumn
-    ? [...frame.periods, { label: 'پس از تولید', group: 'ارزش باقی‌مانده' }]
-    : frame.periods;
+/**
+ * The columns of a table: the periods, the year after production when values return there, and
+ * the day before the project when the table starts with the starting balances.
+ */
+export function tableColumns(frame: Frame, salvageColumn = false, openingColumn = false): Column[] {
+  return [
+    ...(openingColumn ? [{ label: 'پیش از طرح', group: 'مانده آغازین' }] : []),
+    ...frame.periods,
+    ...(salvageColumn ? [{ label: 'پس از تولید', group: 'ارزش باقی‌مانده' }] : []),
+  ];
 }
 
 const UNIT_DIGITS: Record<ReportingUnit, number> = {

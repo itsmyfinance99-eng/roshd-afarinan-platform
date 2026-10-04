@@ -45,16 +45,56 @@ export function withStructure(inputs: unknown): Draft {
   ensure(['statements', 'tax', 'brackets'], [], true);
   ensure(['statements', 'profitDistribution', 'shareholders'], [], true);
   ensure(['statements', 'discounting'], {}, false);
+  // Starting balances exist for an expansion project only.
+  if (getIn(draft, ['startingBalances']) !== undefined) {
+    ensure(['startingBalances'], emptyStartingBalances(), false);
+    for (const list of STARTING_LISTS) ensure(['startingBalances', list], [], true);
+    ensure(['startingBalances', 'receivables'], {}, false);
+    ensure(['startingBalances', 'payables'], {}, false);
+  }
   return draft;
 }
 
-export type NamedKind = 'investment' | 'equity' | 'product' | 'costCentre';
+const STARTING_LISTS = [
+  'fixedAssets',
+  'materials',
+  'workInProgress',
+  'finishedProducts',
+  'loans',
+  'equity',
+] as const;
+
+/** The starting balances of an existing enterprise without any value: all are to be entered. */
+export function emptyStartingBalances(): Draft {
+  return {
+    ...Object.fromEntries(STARTING_LISTS.map((list) => [list, []])),
+    receivables: {},
+    payables: {},
+  };
+}
+
+export type NamedKind = 'investment' | 'equity' | 'product' | 'costCentre' | 'cost' | 'loan';
 
 const LISTS: Record<NamedKind, Path> = {
   investment: ['investment', 'items'],
   equity: ['financing', 'equity'],
   product: ['operations', 'products'],
   costCentre: ['operations', 'costCentres'],
+  cost: ['operations', 'costs'],
+  loan: ['financing', 'loans'],
+};
+
+/** Starting balances that belong to a named item: the list and the property holding its name. */
+const STARTING: Record<NamedKind, readonly (readonly [list: string, property: string])[]> = {
+  investment: [['fixedAssets', 'item']],
+  equity: [['equity', 'equity']],
+  product: [
+    ['workInProgress', 'product'],
+    ['finishedProducts', 'product'],
+  ],
+  costCentre: [],
+  cost: [['materials', 'cost']],
+  loan: [['loans', 'loan']],
 };
 
 const SHAREHOLDERS: Path = ['statements', 'profitDistribution', 'shareholders'];
@@ -101,6 +141,9 @@ export function renameItem(draft: Draft, kind: NamedKind, index: number, name: s
   if (old === name || otherNames(draft, kind, index).includes(old)) return next;
   const swap = (item: Draft, property: string) =>
     item[property] === old ? { ...item, [property]: name } : item;
+  for (const [list, property] of STARTING[kind]) {
+    next = mapList(next, ['startingBalances', list], (balance) => swap(balance, property));
+  }
   if (kind === 'equity') next = mapList(next, SHAREHOLDERS, (h) => swap(h, 'equity'));
   if (kind === 'investment') next = mapList(next, ASSET_SALES, (s) => swap(s, 'item'));
   if (kind === 'costCentre') next = mapList(next, COSTS, (c) => swap(c, 'costCentre'));
@@ -131,16 +174,20 @@ export function removalNote(draft: Draft, kind: NamedKind, index: number): strin
   if (otherNames(draft, kind, index).includes(name)) return '';
   const count = (path: Path, property: string) =>
     listAt(draft, path).filter((item) => getIn(item, [property]) === name).length;
+  const notes: string[] = [];
   if (kind === 'product' && count(COSTS, 'product') > 0) {
-    return 'هزینه‌های مستقیم این محصول هم حذف می‌شوند.';
+    notes.push('هزینه‌های مستقیم این محصول هم حذف می‌شوند.');
   }
   if (kind === 'equity' && count(SHAREHOLDERS, 'equity') > 0) {
-    return 'شرایط سود سهام این آورده هم حذف می‌شود.';
+    notes.push('شرایط سود سهام این آورده هم حذف می‌شود.');
   }
   if (kind === 'investment' && count(ASSET_SALES, 'item') > 0) {
-    return 'فروش این قلم هم حذف می‌شود.';
+    notes.push('فروش این قلم هم حذف می‌شود.');
   }
-  return '';
+  if (STARTING[kind].some(([list, property]) => count(['startingBalances', list], property) > 0)) {
+    notes.push('مانده آغازین آن هم حذف می‌شود.');
+  }
+  return notes.join(' ');
 }
 
 /** Removes item `index` of a named list and everything that refers to it. */
@@ -150,6 +197,9 @@ export function removeItem(draft: Draft, kind: NamedKind, index: number): Draft 
   let next = removeAt(draft, LISTS[kind], index);
   if (shared) return next;
   const refers = (property: string) => (item: unknown) => getIn(item, [property]) !== name;
+  for (const [list, property] of STARTING[kind]) {
+    next = filterList(next, ['startingBalances', list], refers(property));
+  }
   if (kind === 'equity') next = filterList(next, SHAREHOLDERS, refers('equity'));
   if (kind === 'investment') next = filterList(next, ASSET_SALES, refers('item'));
   if (kind === 'costCentre') {
@@ -160,8 +210,16 @@ export function removeItem(draft: Draft, kind: NamedKind, index: number): Draft 
     });
   }
   if (kind === 'product') {
-    // The direct costs of a product have no meaning without it.
+    // The direct costs of a product have no meaning without it, nor has their starting stock.
+    const direct = listAt(next, COSTS)
+      .filter((cost) => getIn(cost, ['product']) === name)
+      .map((cost) => textAt(cost, ['key']));
     next = filterList(next, COSTS, refers('product'));
+    const kept = listAt(next, COSTS).map((cost) => textAt(cost, ['key']));
+    next = filterList(next, ['startingBalances', 'materials'], (balance) => {
+      const cost = textAt(balance, ['cost']);
+      return !direct.includes(cost) || kept.includes(cost);
+    });
     next = mapList(next, COSTS, (cost) => {
       const shares = getIn(cost, ['allocation', 'shares']);
       return shares !== null && typeof shares === 'object' && Object.hasOwn(shares, name)
