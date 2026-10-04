@@ -17,6 +17,8 @@ export interface ProgrammeInput {
   /** First and last period (inclusive) in which the product is produced. */
   firstPeriod: number;
   lastPeriod: number;
+  /** `SB`: stock of an existing enterprise on the day before the first period. */
+  openingStock?: Decimal;
 }
 
 export interface Programme {
@@ -33,6 +35,7 @@ export interface Programme {
  *   `C = max(X, RS)`; `P = S − B + C`. The last stock is liquidated in the scrap year.
  * - Sales ending before production ends: `RS_j = min(S_j / c, Σ_{i>j} S_i)`; when `S < B` nothing
  *   is produced (`C = B − S`), otherwise `C = RS` and `P = S + RS − B`.
+ * - A starting balance is the stock brought forward into the first period (`C_0 = B_1 = SB`).
  * - Outside the production interval sales come from stock only; selling more than the stock is
  *   refused (COMFAR cuts the sales silently).
  */
@@ -50,7 +53,7 @@ export function productionProgramme(
   const broughtForward: Decimal[] = [];
   const produced: Decimal[] = [];
   const carried: Decimal[] = [];
-  let stock = ZERO;
+  let stock = input.openingStock ?? ZERO;
   sales.forEach((sold, j) => {
     let end: Decimal;
     if (j < firstPeriod || j > lastPeriod) {

@@ -210,8 +210,16 @@ export {
   type IncomeStatement,
   type ResidualValueTiming,
   type ShareholderDividends,
+  type StartingBalanceSheet,
   type StatementsInput,
 } from './model/statements';
+export type { StartingBalances } from './model/starting-balances';
+export {
+  incrementalAnalysis,
+  type IncrementalAnalysis,
+  type IncrementalCase,
+  type IncrementalInput,
+} from './model/incremental';
 export { projectModel, type ProjectInput, type ProjectModel } from './model/project';
 export {
   applyChanges,

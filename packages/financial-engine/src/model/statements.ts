@@ -1,40 +1,32 @@
-import {
-  ONE,
-  ZERO,
-  toDecimal,
-  toDecimalString,
-  type Decimal,
-  type DecimalString,
-} from '../decimal';
+import { ZERO, toDecimal, toDecimalString, type Decimal, type DecimalString } from '../decimal';
 import { EngineInputError } from '../errors';
 import {
   breakEven,
   debtServiceCoverage,
-  discountedPaybackPeriod,
   npvRatio,
-  paybackPeriod,
   type BreakEvenValue,
   type DebtServiceCoverageValue,
   type NpvRatioValue,
-  type PaybackValue,
 } from '../indicators';
-import { irr, mirr } from '../irr';
-import {
-  DEFAULT_DISCOUNT_REFERENCE,
-  npv,
-  periodDiscountFactors,
-  type DiscountReference,
-  type TimedSeries,
-} from '../time-value';
+import type { DiscountReference } from '../time-value';
 import type { CalculationResult, CalculationWarning, DefaultUsed } from '../types';
 import { MODEL_VERSION } from '../version';
 import { periodAmounts, withField } from './asset-depreciation';
+import {
+  discountedFlow,
+  type DiscountedCashFlow,
+  type DiscountedFlow,
+  type IndicatorScope,
+} from './discounted-flow';
 import { distributeProfit, type DividendShareholder } from './dividends';
 import { EQUITY_CLASSES, type EquityClass, type FinancingSchedule } from './financing';
 import type { PlanningHorizon } from './horizon';
 import { uniqueKeys, type InvestmentSchedule } from './investment';
 import type { OperationsSchedule } from './operations';
+import { startingAmount } from './starting-balances';
 import { incomeTax, perYear, type PerYear, type TaxConditions, type TaxYear } from './tax';
+
+export type { DiscountedCashFlow } from './discounted-flow';
 
 /**
  * Projected financial statements and indicators (manual X.C.6–7, XI.F, XI.I, XI.N, XI.P–R;
@@ -109,7 +101,13 @@ export interface StatementsInput {
    * How much of the discounted cash flows to compute: everything (when absent), the NPV only, or
    * the NPV and IRR. Searches that run the model many times (goal seek) ask for what they need.
    */
-  indicatorScope?: 'ALL' | 'NPV' | 'NPV_AND_IRR';
+  indicatorScope?: IndicatorScope;
+  /**
+   * Cash surplus of an existing enterprise on the day before the first period (expansion and
+   * rehabilitation projects): the opening balance of the cash flow. The other starting balances
+   * come with the investment, financing and operations schedules.
+   */
+  startingCash?: DecimalString;
 }
 
 export interface IncomeStatement {
@@ -222,24 +220,37 @@ export interface BalanceSheet {
   netWorth: DecimalString[];
 }
 
-export interface DiscountedCashFlow {
-  /**
-   * One column per project period, plus the year after production when residual values return
-   * there (`salvageColumn`). Otherwise the residual value is in the last period's net flow.
-   */
-  salvageColumn: boolean;
-  inflow: DecimalString[];
-  outflow: DecimalString[];
-  residualValue: DecimalString;
-  net: DecimalString[];
-  cumulative: DecimalString[];
-  presentValue: DecimalString[];
-  cumulativePresentValue: DecimalString[];
-  npv: DecimalString;
-  irr?: DecimalString;
-  mirr?: DecimalString;
-  payback?: PaybackValue;
-  dynamicPayback?: PaybackValue;
+/**
+ * The balance sheet of an existing enterprise on the day before the first period (VII.T). The
+ * entered balances need not balance: the difference is reserves (retained profit) when positive
+ * and accumulated losses when negative, so both sides are equal.
+ */
+export interface StartingBalanceSheet {
+  assets: {
+    cashSurplus: DecimalString;
+    materials: DecimalString;
+    workInProgress: DecimalString;
+    finishedProducts: DecimalString;
+    receivables: DecimalString;
+    cashInHand: DecimalString;
+    shortTermDeposits: DecimalString;
+    currentAssets: DecimalString;
+    fixedInvestment: DecimalString;
+    preProduction: DecimalString;
+    fixedAssets: DecimalString;
+    accumulatedLosses: DecimalString;
+    total: DecimalString;
+  };
+  liabilities: {
+    accountsPayable: DecimalString;
+    currentLiabilities: DecimalString;
+    longTermDebt: DecimalString;
+    equity: Record<EquityClass, DecimalString>;
+    totalEquity: DecimalString;
+    reserves: DecimalString;
+    total: DecimalString;
+  };
+  netWorth: DecimalString;
 }
 
 export interface FinancialStatements {
@@ -258,6 +269,8 @@ export interface FinancialStatements {
   };
   cashFlow: CashFlowForPlanning;
   balanceSheet: BalanceSheet;
+  /** Expansion and rehabilitation projects only. */
+  startingBalance?: StartingBalanceSheet;
   totalCapital: DiscountedCashFlow & {
     /** Fixed investment + pre-production expenditures + increase of net working capital. */
     investment: DecimalString[];
@@ -293,7 +306,8 @@ const cumulative = (row: Row) => {
   let sum = ZERO;
   return row.map((v) => (sum = sum.plus(v)));
 };
-const increase = (row: Row) => row.map((v, j) => v.minus(j === 0 ? ZERO : at(row, j - 1)));
+const increase = (row: Row, opening: Decimal = ZERO) =>
+  row.map((v, j) => v.minus(j === 0 ? opening : at(row, j - 1)));
 const ratio = (numerator: Decimal, denominator: Decimal) =>
   denominator.isZero() ? null : toDecimalString(numerator.div(denominator));
 
@@ -303,7 +317,8 @@ function yearIndex(value: number, years: number, field: string): void {
   }
 }
 
-function discountRates(
+/** One annual discount rate per project period, from one rate or a rate path. */
+export function discountRates(
   value: DecimalString | DecimalString[],
   periods: number,
   field: string,
@@ -427,6 +442,32 @@ export function financialStatements(
     financing.preProductionInterest,
     'financing.preProductionInterest',
   );
+
+  // Starting balances of an existing enterprise (VII.T); all zero for a new project.
+  const expansion =
+    input.startingCash !== undefined ||
+    investment.startingBalance !== undefined ||
+    financing.startingBalance !== undefined ||
+    wc.starting !== undefined;
+  const openingOf = (value: DecimalString | undefined) => toDecimal(value ?? '0');
+  const opening = {
+    cash: startingAmount(input.startingCash ?? '0', 'startingCash'),
+    fixedInvestment: openingOf(investment.startingBalance?.fixed),
+    preProduction: openingOf(investment.startingBalance?.preProduction),
+    currentAssets: openingOf(wc.starting?.opening.currentAssets),
+    payables: openingOf(wc.starting?.opening.currentLiabilities),
+    debt: openingOf(financing.startingBalance?.debt),
+    equity: openingOf(financing.startingBalance?.totalEquity),
+    subsidies: openingOf(financing.startingBalance?.equity.SUBSIDY),
+  };
+  const openingFixedAssets = opening.fixedInvestment.plus(opening.preProduction);
+  // Assets less liabilities and equity: reserves when positive, accumulated losses when negative.
+  const openingReserves = openingFixedAssets
+    .plus(opening.currentAssets)
+    .plus(opening.cash)
+    .minus(opening.payables)
+    .minus(opening.debt)
+    .minus(opening.equity);
 
   // Sale of assets (XI.I): the item stops being depreciated and leaves the books at the sale.
   const sales = input.assetSales ?? [];
@@ -577,7 +618,10 @@ export function financialStatements(
     return {
       key: s.equity,
       jointVenture: equity.class === 'JOINT_VENTURE',
-      accumulated: cumulative(row(equity.amounts, `financing.equity.items.${equity.key}`)),
+      // Preferred dividends are paid on the equity held, the starting balance included.
+      accumulated: cumulative(row(equity.amounts, `financing.equity.items.${equity.key}`)).map(
+        (v) => v.plus(openingOf(equity.startingBalance)),
+      ),
       preferredRate: perYear(s.preferredRate, years, `${field}.preferredRate`, notNegative),
       preferredAmount: perYear(s.preferredAmount, years, `${field}.preferredAmount`, notNegative),
       ordinaryShare: perYear(s.ordinaryShare, years, `${field}.ordinaryShare`, share),
@@ -620,8 +664,8 @@ export function financialStatements(
 
   // Cash flow for financial planning (X.C.6), before the automatic coverage of deficits.
   const loansIn = add(disbursement, capitalised);
-  const payablesIncrease = increase(payables);
-  const currentAssetsIncrease = increase(currentAssets);
+  const payablesIncrease = increase(payables, opening.payables);
+  const currentAssetsIncrease = increase(currentAssets, opening.currentAssets);
   const financialOutflow = add(interestPaid, capitalised, fees);
   const operatingCosts = row(sold.operatingCosts, 'operations.costs.sold.operatingCosts');
   const leasingCosts = row(sold.leasing, 'operations.costs.sold.leasing');
@@ -652,7 +696,7 @@ export function financialStatements(
   const overdraftBalance: Row = [];
   const cash: Row = [];
   const deficitPeriods: number[] = [];
-  let balance = ZERO;
+  let balance = opening.cash;
   let overdraft = ZERO;
   surplus.forEach((s, j) => {
     balance = balance.plus(s);
@@ -685,10 +729,10 @@ export function financialStatements(
 
   // Projected balance sheet (X.C.6).
   const wcRow = (values: DecimalString[]) => row(values, 'operations.workingCapital');
-  const equityToDate = cumulative(equityPaid);
+  const equityToDate = cumulative(equityPaid).map((v) => v.plus(opening.equity));
   const automaticEquityToDate = cumulative(automaticEquity);
   const totalEquity = add(equityToDate, automaticEquityToDate);
-  const retainedToDate = cumulative(retainedProfit);
+  const retainedToDate = cumulative(retainedProfit).map((v) => v.plus(openingReserves));
   const exchangeToDate = cumulative(loan('exchangeAdjustment'));
   const allCurrentAssets = add(cash, currentAssets);
   const currentLiabilities = add(payables, overdraftBalance);
@@ -706,6 +750,42 @@ export function financialStatements(
     negative(exchangeToDate),
   );
   const netWorth = minus(add(totalEquity, retainedToDate), exchangeToDate);
+  const startingBalanceSheet = (): StartingBalanceSheet => {
+    const start = wc.starting?.opening;
+    const currentAssetsAtStart = opening.currentAssets.plus(opening.cash);
+    const losses = openingReserves.isNegative() ? openingReserves.neg() : ZERO;
+    const reserves = openingReserves.gt(0) ? openingReserves : ZERO;
+    const text = toDecimalString;
+    return {
+      assets: {
+        cashSurplus: text(opening.cash),
+        materials: start?.materials ?? '0',
+        workInProgress: start?.workInProgress ?? '0',
+        finishedProducts: start?.finishedProducts ?? '0',
+        receivables: start?.receivables ?? '0',
+        cashInHand: start?.cashInHand ?? '0',
+        shortTermDeposits: start?.shortTermDeposits ?? '0',
+        currentAssets: text(currentAssetsAtStart),
+        fixedInvestment: text(opening.fixedInvestment),
+        preProduction: text(opening.preProduction),
+        fixedAssets: text(openingFixedAssets),
+        accumulatedLosses: text(losses),
+        total: text(currentAssetsAtStart.plus(openingFixedAssets).plus(losses)),
+      },
+      liabilities: {
+        accountsPayable: text(opening.payables),
+        currentLiabilities: text(opening.payables),
+        longTermDebt: text(opening.debt),
+        equity: Object.fromEntries(
+          EQUITY_CLASSES.map((c) => [c, text(openingOf(financing.startingBalance?.equity[c]))]),
+        ) as Record<EquityClass, DecimalString>,
+        totalEquity: text(opening.equity),
+        reserves: text(reserves),
+        total: text(opening.payables.plus(opening.debt).plus(opening.equity).plus(reserves)),
+      },
+      netWorth: text(opening.equity.plus(openingReserves)),
+    };
+  };
 
   // Discounted cash flows (XI.F). Residual values return in the year after production (COMFAR
   // default) or on the last day of production.
@@ -727,70 +807,35 @@ export function financialStatements(
     outflows: Row,
     residual: Decimal,
     rates: DecimalString[],
-  ): { result: DiscountedCashFlow; series: TimedSeries; rates: DecimalString[] } => {
-    const net = minus(inflows, outflows);
-    const amounts = salvageColumn
-      ? [...net, residual]
-      : net.map((v, j) => (j === last ? v.plus(residual) : v));
-    const series: TimedSeries = {
-      periodMonths: salvageColumn ? [...months, 12] : months,
-      amounts: strings(amounts),
-    };
-    // The year after production is discounted at the rate of the last period.
-    const path = salvageColumn ? [...rates, rates[last] ?? '0'] : rates;
-    const options = { annualRate: path, ...(reference === undefined ? {} : { reference }) };
-    const factors = periodDiscountFactors(series.periodMonths, options);
-    const present = amounts.map((v, j) => v.div(factors[j] ?? ONE));
-    const collect = <T>(calculation: CalculationResult<T>): T => {
-      for (const w of calculation.warnings) warnings.push({ ...w, params: { ...w.params, basis } });
-      for (const d of calculation.defaultsUsed) {
-        if (d.key === 'discounting.referenceDate') {
-          if (!defaultsUsed.some((x) => x.key === d.key)) defaultsUsed.push(d);
-        } else defaultsUsed.push({ ...d, item: basis });
-      }
-      return calculation.value;
-    };
-    const totalMonths = series.periodMonths.reduce((s, m) => s + m, 0);
-    const referenceMonth =
-      (reference ?? DEFAULT_DISCOUNT_REFERENCE) === 'START_OF_FIRST_PERIOD' ? 0 : 12;
-    const rateOfReturn = scope === 'NPV' ? undefined : collect(irr(series));
-    let modified: DecimalString | undefined;
-    if (scope !== 'ALL') {
-      // Left out on request.
-    } else if (totalMonths > referenceMonth) {
-      modified = collect(
-        mirr(series, {
-          ...(reference === undefined ? {} : { reference }),
-          ...(input.discounting.reinvestmentRate === undefined
-            ? {}
-            : { reinvestmentRate: input.discounting.reinvestmentRate }),
-          ...(input.discounting.borrowingRate === undefined
-            ? {}
-            : { borrowingRate: input.discounting.borrowingRate }),
-        }),
-      );
-    } else {
-      warnings.push({ code: 'mirr.horizonTooShort', params: { basis } });
-    }
-    const payback = scope === 'ALL' ? collect(paybackPeriod(series)) : undefined;
-    const dynamicPayback =
-      scope === 'ALL' ? collect(discountedPaybackPeriod(series, { annualRate: path })) : undefined;
-    const result: DiscountedCashFlow = {
+    startingBalance: Decimal,
+  ): DiscountedFlow & { result: DiscountedCashFlow } => {
+    const calculated = discountedFlow({
+      basis,
+      net: minus(inflows, outflows),
+      residual,
+      ...(expansion ? { startingBalance } : {}),
+      months,
+      rates,
       salvageColumn,
-      inflow: strings(inflows),
-      outflow: strings(outflows),
-      residualValue: toDecimalString(residual),
-      net: strings(amounts),
-      cumulative: strings(cumulative(amounts)),
-      presentValue: strings(present),
-      cumulativePresentValue: strings(cumulative(present)),
-      npv: collect(npv(series, options)),
-      ...(rateOfReturn === undefined ? {} : { irr: rateOfReturn }),
-      ...(modified === undefined ? {} : { mirr: modified }),
-      ...(payback === undefined ? {} : { payback }),
-      ...(dynamicPayback === undefined ? {} : { dynamicPayback }),
+      ...(reference === undefined ? {} : { reference }),
+      ...(input.discounting.reinvestmentRate === undefined
+        ? {}
+        : { reinvestmentRate: input.discounting.reinvestmentRate }),
+      ...(input.discounting.borrowingRate === undefined
+        ? {}
+        : { borrowingRate: input.discounting.borrowingRate }),
+      scope,
+    });
+    warnings.push(...calculated.warnings);
+    for (const d of calculated.defaultsUsed) {
+      if (d.key !== 'discounting.referenceDate' || !defaultsUsed.some((x) => x.key === d.key)) {
+        defaultsUsed.push(d);
+      }
+    }
+    return {
+      ...calculated,
+      result: { ...calculated.result, inflow: strings(inflows), outflow: strings(outflows) },
     };
-    return { result, series, rates: path };
   };
 
   // Total capital: the planning cash flow without any financial transaction.
@@ -801,9 +846,13 @@ export function financialStatements(
     add(totalInvestment, operatingCosts, leasingCosts, marketingCosts, tax),
     residualTotalCapital,
     totalCapitalRates,
+    // XI.F: fixed assets plus current assets less current liabilities of the starting balance.
+    openingFixedAssets.plus(opening.currentAssets).plus(opening.cash).minus(opening.payables),
   );
   const investmentColumns = salvageColumn ? [...totalInvestment, ZERO] : totalInvestment;
-  const npvr = npvRatio(totalCapital.series, strings(investmentColumns), {
+  // The starting balance is not an investment of the project: its column counts as zero.
+  const npvrColumns = totalCapital.openingColumn ? [ZERO, ...investmentColumns] : investmentColumns;
+  const npvr = npvRatio(totalCapital.series, strings(npvrColumns), {
     annualRate: totalCapital.rates,
     ...(reference === undefined ? {} : { reference }),
   });
@@ -818,6 +867,8 @@ export function financialStatements(
     minus(equityPaid, subsidies),
     residualEquity,
     equityRates,
+    // XI.F: the starting equity (subsidies are not equity capital, as for the paid-in equity).
+    opening.equity.minus(opening.subsidies),
   );
 
   // Break-even of every production period (X.C.6); the selected year defaults to the reference year.
@@ -872,13 +923,19 @@ export function financialStatements(
       ).value
     : null;
 
-  const equityCapital = cumulative(minus(equityPaid, subsidies));
+  const equityCapital = cumulative(minus(equityPaid, subsidies)).map((v) =>
+    v.plus(opening.equity).minus(opening.subsidies),
+  );
   const perPeriod = (numerator: Row, denominator: Row) =>
     numerator.map((v, j) => ratio(v, at(denominator, j)));
   const equityClasses = Object.fromEntries(
     EQUITY_CLASSES.map((c) => [
       c,
-      strings(cumulative(row(financing.equity.classes[c], `financing.equity.classes.${c}`))),
+      strings(
+        cumulative(row(financing.equity.classes[c], `financing.equity.classes.${c}`)).map((v) =>
+          v.plus(openingOf(financing.startingBalance?.equity[c])),
+        ),
+      ),
     ]),
   ) as Record<EquityClass, DecimalString[]>;
 
@@ -939,7 +996,7 @@ export function financialStatements(
         total: strings(outflow),
       },
       surplus: strings(surplus),
-      cumulativeSurplus: strings(cumulative(surplus)),
+      cumulativeSurplus: strings(cumulative(surplus).map((v) => v.plus(opening.cash))),
       automaticEquity: strings(automaticEquity),
       automaticOverdraft: strings(overdraftFlow),
       automaticOverdraftBalance: strings(overdraftBalance),
@@ -978,6 +1035,7 @@ export function financialStatements(
       },
       netWorth: strings(netWorth),
     },
+    ...(expansion ? { startingBalance: startingBalanceSheet() } : {}),
     totalCapital: {
       ...totalCapital.result,
       investment: strings(investmentColumns),

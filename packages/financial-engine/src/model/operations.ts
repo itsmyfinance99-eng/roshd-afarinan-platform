@@ -14,6 +14,13 @@ import { periodAmounts } from './asset-depreciation';
 import { checkOrigin, ratesFor, uniqueKeys, type Origin } from './investment';
 import { checkInflation, currentPriceFactors, type PriceContext, type PricedItem } from './prices';
 import { productionProgramme } from './sales-programme';
+import {
+  outstanding,
+  settlementDays,
+  startingAmount,
+  startingByKey,
+  type OperationsStartingBalances,
+} from './starting-balances';
 import { coverageDays, workingCapitalValues, type Coverage } from './working-capital';
 
 /**
@@ -184,6 +191,8 @@ export interface OperationsInput extends PriceContext {
     depositShare: DecimalString;
     depositRate: DecimalString;
   };
+  /** Current assets and liabilities of an existing enterprise (expansion projects). */
+  startingBalances?: OperationsStartingBalances;
 }
 
 export interface CostBreakdown {
@@ -273,6 +282,30 @@ export interface WorkingCapitalSchedule {
   };
   /** Net working capital at the end of production, liquidated in the scrap year. */
   liquidation: DecimalString;
+  /**
+   * Starting balances of an existing enterprise (expansion projects only). Receivables and
+   * payables of the starting balance are not part of the requirement algorithm (XI.K): they are
+   * collected and paid on the entered day, and until then they are part of `totals.receivables`
+   * and `totals.currentLiabilities`. Starting short-term deposits stay in `cash.deposits` to the
+   * end. `opening` is the position on the day before the first period, against which the first
+   * period's increase is measured.
+   */
+  starting?: {
+    receivables: DecimalString[];
+    payables: DecimalString[];
+    deposits: DecimalString;
+    opening: {
+      materials: DecimalString;
+      workInProgress: DecimalString;
+      finishedProducts: DecimalString;
+      receivables: DecimalString;
+      cashInHand: DecimalString;
+      shortTermDeposits: DecimalString;
+      currentAssets: DecimalString;
+      currentLiabilities: DecimalString;
+      netWorkingCapital: DecimalString;
+    };
+  };
 }
 
 export interface OperationsSchedule {
@@ -488,6 +521,69 @@ export function operationsSchedule(input: OperationsInput): CalculationResult<Op
     'costCentres',
   );
 
+  // Starting balances of an existing enterprise (VII.T), by the item they belong to.
+  const sb = input.startingBalances;
+  const hasProduct = (key: string) => input.products.some((p) => p.key === key);
+  const startingStock = startingByKey(
+    sb?.finishedProducts,
+    'startingBalances.finishedProducts',
+    'product',
+    (entry) => entry.product,
+    hasProduct,
+    (entry, field) => ({
+      quantity: startingAmount(entry.quantity, `${field}.quantity`),
+      price: startingAmount(entry.price, `${field}.price`),
+    }),
+  );
+  const startingWorkInProgress = startingByKey(
+    sb?.workInProgress,
+    'startingBalances.workInProgress',
+    'product',
+    (entry) => entry.product,
+    hasProduct,
+    (entry, field) => startingAmount(entry.value, `${field}.value`),
+  );
+  const startingMaterials = startingByKey(
+    sb?.materials,
+    'startingBalances.materials',
+    'cost',
+    (entry) => entry.cost,
+    (key) => input.costs.some((c) => c.key === key),
+    (entry, field) => {
+      const item = input.costs.find((c) => c.key === entry.cost);
+      if (item !== undefined && !MATERIALS.has(item.category)) {
+        throw new EngineInputError('startingBalance.materialItem', `${field}.cost`);
+      }
+      return startingAmount(entry.value, `${field}.value`);
+    },
+  );
+  const periodEndDays = periods.map((p) => p.endDay);
+  const startingReceivables = outstanding(
+    sb === undefined
+      ? ZERO
+      : startingAmount(sb.receivables.value, 'startingBalances.receivables.value'),
+    sb === undefined
+      ? 0
+      : settlementDays(
+          sb.receivables.collectionDays,
+          'startingBalances.receivables.collectionDays',
+        ),
+    periodEndDays,
+  );
+  const startingPayables = outstanding(
+    sb === undefined ? ZERO : startingAmount(sb.payables.value, 'startingBalances.payables.value'),
+    sb === undefined
+      ? 0
+      : settlementDays(sb.payables.paymentDays, 'startingBalances.payables.paymentDays'),
+    periodEndDays,
+  );
+  const startingCashInHand =
+    sb === undefined ? ZERO : startingAmount(sb.cashInHand, 'startingBalances.cashInHand');
+  const startingDeposits =
+    sb === undefined
+      ? ZERO
+      : startingAmount(sb.shortTermDeposits, 'startingBalances.shortTermDeposits');
+
   // Sales and production programme (XI.L) and sales revenue (X.C.4) of every product.
   const products = input.products.map((product, i): ParsedProduct => {
     const field = `products[${i}]`;
@@ -573,6 +669,9 @@ export function operationsSchedule(input: OperationsInput): CalculationResult<Op
         coverageDays: coverageDays(product.finishedGoodsCoverage, `${field}.finishedGoodsCoverage`),
         firstPeriod,
         lastPeriod,
+        ...(startingStock.has(product.key)
+          ? { openingStock: startingStock.get(product.key)?.quantity ?? ZERO }
+          : {}),
       },
       // The first sales line that sells in the period.
       (j) => {
@@ -862,13 +961,14 @@ export function operationsSchedule(input: OperationsInput): CalculationResult<Op
     production: production[j] === true,
   }));
   // Only material stocks carry a value over; every other item equals its requirement.
-  const values = (bases: Decimal[], days: Decimal, purchases?: Decimal[]) =>
+  const values = (bases: Decimal[], days: Decimal, purchases?: Decimal[], opening?: Decimal) =>
     workingCapitalValues({
       bases,
       periods: wcPeriods,
       days,
       stock: purchases !== undefined,
       ...(purchases === undefined ? {} : { purchases }),
+      ...(opening === undefined ? {} : { opening }),
     });
   /** `value × part / whole`, 0 when the whole is 0. */
   const portion = (value: Decimal, part: Decimal, whole: Decimal) =>
@@ -882,14 +982,27 @@ export function operationsSchedule(input: OperationsInput): CalculationResult<Op
 
   const materials = costs
     .filter((c) => c.stockDays !== undefined)
-    .map((c) => ({ cost: c, values: values(produced(c), c.stockDays ?? ZERO, c.initialStock) }));
+    .map((c) => ({
+      cost: c,
+      values: values(
+        produced(c),
+        c.stockDays ?? ZERO,
+        c.initialStock,
+        startingMaterials.get(c.item.key),
+      ),
+    }));
   const payables = costs.map((c) => ({ cost: c, values: values(produced(c), c.payablesDays) }));
 
   const workInProgress = products.map((product) => {
     const own = cellsOf(product);
     const basis = sumCells(own, false, length, inSet(FACTORY));
     const foreignBasis = sumCells(own, false, length, foreignOnly(inSet(FACTORY)));
-    const total = values(basis, product.workInProgressDays);
+    const total = values(
+      basis,
+      product.workInProgressDays,
+      undefined,
+      startingWorkInProgress.get(product.product.key),
+    );
     return {
       product,
       values: total,
@@ -904,7 +1017,12 @@ export function operationsSchedule(input: OperationsInput): CalculationResult<Op
     const operating = (foreign: boolean) =>
       sumCells(own, true, length, foreign ? foreignOnly(inSet(OPERATING)) : inSet(OPERATING));
     const basis = [operating(false), operating(true)] as const;
-    let previous = [ZERO, ZERO] as const;
+    // A starting balance is valued at its entered price until a period with sales revalues it.
+    const opening = startingStock.get(product.product.key);
+    let previous: readonly [Decimal, Decimal] = [
+      opening === undefined ? ZERO : opening.quantity.times(opening.price),
+      ZERO,
+    ];
     const rows = periods.map((_, j) => {
       const stock = at(product.carried, j);
       const quantity = at(product.sold, j);
@@ -944,9 +1062,12 @@ export function operationsSchedule(input: OperationsInput): CalculationResult<Op
 
   const cashFilter: CellFilter = (item) =>
     OPERATING.has(item.category) && !MATERIALS.has(item.category);
+  // The starting balances are in local currency, so the cash-in-hand is part of the local cash.
   const cashLocal = values(
     sumCells(itemCells, false, length, (item) => item.origin === 'LOCAL' && cashFilter(item)),
     coverageDays(input.cash.localCoverage, 'cash.localCoverage'),
+    undefined,
+    sb === undefined ? undefined : startingCashInHand,
   );
   const cashForeign = values(
     sumCells(itemCells, false, length, foreignOnly(cashFilter)),
@@ -954,8 +1075,13 @@ export function operationsSchedule(input: OperationsInput): CalculationResult<Op
   );
   const depositShare = scalar(input.cash.depositShare, 'cash.depositShare', share);
   const depositRate = scalar(input.cash.depositRate, 'cash.depositRate', rate);
-  const cash = cashLocal.map((v, j) => v.plus(at(cashForeign, j)));
-  const deposits = cash.map((v) => v.times(depositShare));
+  const required = cashLocal.map((v, j) => v.plus(at(cashForeign, j)));
+  // Deposits made from the cash requirement earn interest (XI.O); the deposits of the starting
+  // balance are added to them and stay to the end. Before production the cash is the starting
+  // balance, all of it in hand.
+  const earning = required.map((v, j) => (production[j] === true ? v.times(depositShare) : ZERO));
+  const deposits = earning.map((v) => v.plus(startingDeposits));
+  const cash = required.map((v) => v.plus(startingDeposits));
 
   const total = (rows: { values: Decimal[] }[]) =>
     sumRows(
@@ -967,8 +1093,27 @@ export function operationsSchedule(input: OperationsInput): CalculationResult<Op
   const materialsTotal = total(materials);
   const workInProgressTotal = total(workInProgress);
   const finishedTotal = total(finishedProducts);
-  const receivablesTotal = total(receivables);
-  const payablesTotal = total(payables);
+  const receivablesTotal = sumRows([total(receivables), startingReceivables], length);
+  const payablesTotal = sumRows([total(payables), startingPayables], length);
+  const openingOf = (entries: Map<string, Decimal>) =>
+    [...entries.values()].reduce((s, v) => s.plus(v), ZERO);
+  const openingMaterials = openingOf(startingMaterials);
+  const openingWorkInProgress = openingOf(startingWorkInProgress);
+  const openingFinished = [...startingStock.values()].reduce(
+    (s, v) => s.plus(v.quantity.times(v.price)),
+    ZERO,
+  );
+  const openingReceivables =
+    sb === undefined ? ZERO : startingAmount(sb.receivables.value, 'startingBalances.receivables');
+  const openingPayables =
+    sb === undefined ? ZERO : startingAmount(sb.payables.value, 'startingBalances.payables');
+  const openingAssets = openingMaterials
+    .plus(openingWorkInProgress)
+    .plus(openingFinished)
+    .plus(openingReceivables)
+    .plus(startingCashInHand)
+    .plus(startingDeposits);
+  const openingNet = openingAssets.minus(openingPayables);
   const inventory = sumRows([materialsTotal, workInProgressTotal, finishedTotal], length);
   const currentAssets = sumRows([inventory, receivablesTotal, cash], length);
   const net = currentAssets.map((v, j) => v.minus(at(payablesTotal, j)));
@@ -1110,14 +1255,34 @@ export function operationsSchedule(input: OperationsInput): CalculationResult<Op
         currentAssets: strings(currentAssets),
         currentLiabilities: strings(payablesTotal),
         netWorkingCapital: strings(net),
-        increase: strings(net.map((v, j) => v.minus(j === 0 ? ZERO : at(net, j - 1)))),
+        increase: strings(net.map((v, j) => v.minus(j === 0 ? openingNet : at(net, j - 1)))),
         foreign: strings(foreign),
         local: strings(net.map((v, j) => v.minus(at(foreign, j)))),
       },
       liquidation: toDecimalString(at(net, length - 1)),
+      ...(sb === undefined
+        ? {}
+        : {
+            starting: {
+              receivables: strings(startingReceivables),
+              payables: strings(startingPayables),
+              deposits: toDecimalString(startingDeposits),
+              opening: {
+                materials: toDecimalString(openingMaterials),
+                workInProgress: toDecimalString(openingWorkInProgress),
+                finishedProducts: toDecimalString(openingFinished),
+                receivables: toDecimalString(openingReceivables),
+                cashInHand: toDecimalString(startingCashInHand),
+                shortTermDeposits: toDecimalString(startingDeposits),
+                currentAssets: toDecimalString(openingAssets),
+                currentLiabilities: toDecimalString(openingPayables),
+                netWorkingCapital: toDecimalString(openingNet),
+              },
+            },
+          }),
     },
     depositInterest: strings(
-      deposits.map((v, j) =>
+      earning.map((v, j) =>
         production[j] === true
           ? v
               .times(depositRate)

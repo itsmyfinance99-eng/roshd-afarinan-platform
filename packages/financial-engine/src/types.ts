@@ -25,6 +25,7 @@ import type {
 import type { irr, mirr } from './irr';
 import type { loanPeriods, loanSchedule, sumLoanPeriods } from './loans';
 import type { financingSchedule } from './model/financing';
+import type { incrementalAnalysis } from './model/incremental';
 import type { planHorizon } from './model/horizon';
 import type { investmentSchedule } from './model/investment';
 import type { operationsSchedule } from './model/operations';
@@ -133,6 +134,7 @@ export interface FinancialCalculator {
   sensitivityAnalysis: typeof sensitivityAnalysis;
   goalSeek: typeof goalSeek;
   criticalValues: typeof criticalValues;
+  incrementalAnalysis: typeof incrementalAnalysis;
 }
 
 export interface SensitivityRequest {

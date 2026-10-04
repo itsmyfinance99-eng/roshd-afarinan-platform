@@ -1,4 +1,4 @@
-import type { DecimalString } from '../decimal';
+import { toDecimalString, type DecimalString } from '../decimal';
 import type { CalculationResult, CalculationWarning, CurrencyCode, DefaultUsed } from '../types';
 import { MODEL_VERSION } from '../version';
 import { EngineInputError } from '../errors';
@@ -11,6 +11,7 @@ import {
 import { planHorizon, type HorizonInput, type PlanningHorizon } from './horizon';
 import { investmentSchedule, type InvestmentItem, type InvestmentSchedule } from './investment';
 import { operationsSchedule, type OperationsInput, type OperationsSchedule } from './operations';
+import { startingAmount, type StartingBalances } from './starting-balances';
 import { financialStatements, type FinancialStatements, type StatementsInput } from './statements';
 
 /**
@@ -30,7 +31,15 @@ export interface ProjectInput {
   investment: { items: InvestmentItem[] };
   financing: { equity: EquityContribution[]; loans: FinancingLoan[] };
   operations: Pick<OperationsInput, 'products' | 'costs' | 'costCentres' | 'cash'>;
-  statements: Omit<StatementsInput, 'horizon' | 'investment' | 'financing' | 'operations'>;
+  statements: Omit<
+    StatementsInput,
+    'horizon' | 'investment' | 'financing' | 'operations' | 'startingCash'
+  >;
+  /**
+   * Starting balances of an existing enterprise: present for an expansion or rehabilitation
+   * project (manual VII.T), absent for a new project.
+   */
+  startingBalances?: StartingBalances;
 }
 
 export interface ProjectModel {
@@ -42,7 +51,7 @@ export interface ProjectModel {
 }
 
 /** Inputs shared by every schedule: an error in them keeps its own path. */
-const SHARED = /^(exchangeRates|inflation|localCurrency)\b/;
+const SHARED = /^(exchangeRates|inflation|localCurrency|startingBalances)\b/;
 
 /** Runs `fn`, prefixing the field of an input error with the section of the input it belongs to. */
 function withField<T>(section: string, fn: () => T): T {
@@ -72,9 +81,15 @@ export function projectModel(input: ProjectInput): CalculationResult<ProjectMode
     exchangeRates: input.exchangeRates,
     ...(input.inflation === undefined ? {} : { inflation: input.inflation }),
   };
+  const balances = input.startingBalances;
+  const starting = balances === undefined ? {} : { startingBalances: balances };
+  const startingCash =
+    balances === undefined
+      ? undefined
+      : toDecimalString(startingAmount(balances.cashSurplus, 'startingBalances.cashSurplus'));
   const investment = collect(
     withField('investment', () =>
-      investmentSchedule({ ...context, items: input.investment.items }),
+      investmentSchedule({ ...context, items: input.investment.items, ...starting }),
     ),
   );
   const financing = collect(
@@ -84,15 +99,25 @@ export function projectModel(input: ProjectInput): CalculationResult<ProjectMode
         localCurrency: input.localCurrency,
         exchangeRates: input.exchangeRates,
         ...input.financing,
+        ...starting,
       }),
     ),
   );
   const operations = collect(
-    withField('operations', () => operationsSchedule({ ...context, ...input.operations })),
+    withField('operations', () =>
+      operationsSchedule({ ...context, ...input.operations, ...starting }),
+    ),
   );
   const statements = collect(
     withField('statements', () =>
-      financialStatements({ horizon, investment, financing, operations, ...input.statements }),
+      financialStatements({
+        horizon,
+        investment,
+        financing,
+        operations,
+        ...input.statements,
+        ...(startingCash === undefined ? {} : { startingCash }),
+      }),
     ),
   );
   return {

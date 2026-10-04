@@ -24,6 +24,7 @@ import { irr, mirr } from './irr';
 import { loanPeriods, loanSchedule, sumLoanPeriods } from './loans';
 import { financingSchedule } from './model/financing';
 import { planHorizon } from './model/horizon';
+import { incrementalAnalysis } from './model/incremental';
 import { investmentSchedule } from './model/investment';
 import { operationsSchedule } from './model/operations';
 import { projectModel } from './model/project';
@@ -78,4 +79,5 @@ export const financialCalculator: FinancialCalculator = {
   sensitivityAnalysis,
   goalSeek,
   criticalValues,
+  incrementalAnalysis,
 };

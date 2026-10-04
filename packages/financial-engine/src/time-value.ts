@@ -27,6 +27,17 @@ function assertMonths(months: number, field: string): void {
   }
 }
 
+/**
+ * Period lengths of a series: whole positive months. The first one alone may be 0: an amount on
+ * the day before the first period (the starting balance of an existing enterprise, XI.F).
+ */
+function assertPeriodMonths(periodMonths: number[]): void {
+  periodMonths.forEach((m, i) => {
+    if (i === 0 && m === 0 && periodMonths.length > 1) return;
+    assertMonths(m, `periodMonths[${i}]`);
+  });
+}
+
 /** `(1 + annualRate)^(months/12)`; `months` may be negative (compounding) or fractional. */
 export function discountFactor(annualRate: DecimalString, months: DecimalString): DecimalString {
   const rate = toDecimal(annualRate);
@@ -72,7 +83,10 @@ export function realFromNominal(
 }
 
 export interface TimedSeries {
-  /** Length of each period in months, e.g. a construction phase of quarters then years. */
+  /**
+   * Length of each period in months, e.g. a construction phase of quarters then years. A first
+   * length of 0 places the first amount on the day before the first period.
+   */
   periodMonths: number[];
   /** Net amount of each period, paid on the period's last day. Same length as `periodMonths`. */
   amounts: DecimalString[];
@@ -90,7 +104,10 @@ export interface DiscountingOptions {
   salvageValue?: DecimalString;
 }
 
-/** Checks a series' shape: at least one period, one amount per period, whole positive months. */
+/**
+ * Checks a series' shape: at least one period, one amount per period, whole positive months (the
+ * first may be 0, see {@link TimedSeries}).
+ */
 export function assertTimedSeries(series: TimedSeries): void {
   if (series.amounts.length !== series.periodMonths.length) {
     throw new EngineInputError('series.lengthMismatch', 'amounts', {
@@ -99,7 +116,7 @@ export function assertTimedSeries(series: TimedSeries): void {
     });
   }
   if (series.amounts.length === 0) throw new EngineInputError('series.empty', 'amounts');
-  series.periodMonths.forEach((m, i) => assertMonths(m, `periodMonths[${i}]`));
+  assertPeriodMonths(series.periodMonths);
 }
 
 function ratePerPeriod(annualRate: DecimalString | DecimalString[], periods: number): Decimal[] {
@@ -130,7 +147,7 @@ export function periodDiscountFactors(
   periodMonths: number[],
   options: Pick<DiscountingOptions, 'annualRate' | 'reference'>,
 ): Decimal[] {
-  periodMonths.forEach((m, i) => assertMonths(m, `periodMonths[${i}]`));
+  assertPeriodMonths(periodMonths);
   const rates = ratePerPeriod(options.annualRate, periodMonths.length);
   const cumulative: Decimal[] = [];
   let factor = ONE;

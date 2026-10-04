@@ -136,6 +136,14 @@ function general(input: ProjectInputData, frame: Frame): PairsBlock[] {
         { label: 'سال‌های تولید', value: digits(horizon.productionYears) },
         { label: 'ارز محلی', value: code(input.localCurrency) },
         {
+          label: 'نوع طرح',
+          value: text(
+            input.startingBalances === undefined
+              ? 'طرح جدید'
+              : 'توسعه یا بازسازی شرکت موجود (با ترازنامه آغازین)',
+          ),
+        },
+        {
           label: 'محاسبه با تورم (قیمت‌های جاری)',
           value: yesNo(input.inflation !== undefined),
         },
@@ -650,6 +658,80 @@ function pricesAndNotes(input: ProjectInputData, frame: Frame): ReportBlock[] {
   ];
 }
 
+/** The balances of an existing enterprise on the day before the project (expansion projects). */
+function startingBalances(input: ProjectInputData): ReportBlock[] {
+  const balances = input.startingBalances;
+  if (balances === undefined) return [];
+  const days = (value: number) => text(`روز ${toPersianDigits(value)} از شروع طرح`);
+  const loanCurrency = (key: string) =>
+    input.financing.loans.find((loan) => loan.key === key)?.currency ?? '';
+  return [
+    {
+      kind: 'pairs',
+      title: 'ترازنامه آغازین شرکت موجود (به پول محلی، روز پیش از شروع طرح)',
+      rows: [
+        { label: 'حساب‌های دریافتنی', value: entered(balances.receivables.value) },
+        { label: 'زمان وصول حساب‌های دریافتنی', value: days(balances.receivables.collectionDays) },
+        { label: 'حساب‌های پرداختنی', value: entered(balances.payables.value) },
+        { label: 'زمان پرداخت حساب‌های پرداختنی', value: days(balances.payables.paymentDays) },
+        { label: 'وجه نقد در گردش', value: entered(balances.cashInHand) },
+        { label: 'سپرده کوتاه‌مدت', value: entered(balances.shortTermDeposits) },
+        { label: 'مازاد نقد', value: entered(balances.cashSurplus) },
+      ],
+    },
+    ...grid(
+      'مانده آغازین دارایی‌های ثابت',
+      ['قلم سرمایه‌گذاری', 'ارزش دفتری (پول محلی)'],
+      balances.fixedAssets.map((asset) => [text(asset.item), entered(asset.value)]),
+    ),
+    ...grid(
+      'مانده آغازین موجودی‌ها',
+      ['نوع', 'قلم', 'مقدار', 'قیمت واحد (پول محلی)', 'ارزش (پول محلی)'],
+      [
+        ...balances.materials.map((stock) => [
+          text('مواد'),
+          text(stock.cost),
+          NONE,
+          NONE,
+          entered(stock.value),
+        ]),
+        ...balances.workInProgress.map((stock) => [
+          text('کالای در جریان ساخت'),
+          text(stock.product),
+          NONE,
+          NONE,
+          entered(stock.value),
+        ]),
+        ...balances.finishedProducts.map((stock) => [
+          text('کالای ساخته‌شده'),
+          text(stock.product),
+          entered(stock.quantity),
+          entered(stock.price),
+          NONE,
+        ]),
+      ],
+    ),
+    ...grid(
+      'مانده آغازین تسهیلات و آورده',
+      ['نوع', 'نام', 'مانده', 'ارز'],
+      [
+        ...balances.loans.map((loan) => [
+          text('تسهیلات'),
+          text(loan.loan),
+          entered(loan.balance),
+          code(loanCurrency(loan.loan)),
+        ]),
+        ...balances.equity.map((equity) => [
+          text('آورده'),
+          text(equity.equity),
+          entered(equity.value),
+          code(input.localCurrency),
+        ]),
+      ],
+    ),
+  ];
+}
+
 /** Every input of the run, section by section as in the editor. */
 export function inputBlocks(input: ProjectInputData, frame: Frame): ReportBlock[] {
   return [
@@ -658,6 +740,7 @@ export function inputBlocks(input: ProjectInputData, frame: Frame): ReportBlock[
     ...investment(input, frame),
     ...financing(input, frame),
     ...operations(input, frame),
+    ...startingBalances(input),
     ...pricesAndNotes(input, frame),
   ];
 }

@@ -104,7 +104,7 @@ export function investmentCostsTable(
 }
 
 export function workingCapitalTable(operations: Operations): StatementTable {
-  const { totals, cash } = operations.workingCapital;
+  const { totals, cash, starting } = operations.workingCapital;
   return {
     id: 'working-capital',
     title: 'سرمایه در گردش خالص',
@@ -117,6 +117,10 @@ export function workingCapitalTable(operations: Operations): StatementTable {
           ['کالای ساخته‌شده', totals.finishedProducts],
           ['جمع موجودی‌ها', totals.inventory, true],
           ['حساب‌های دریافتنی', totals.receivables],
+          // Of an existing enterprise: collected on the entered day, not a requirement.
+          ...(starting === undefined
+            ? []
+            : [['از آن: دریافتنی‌های آغازین وصول‌نشده', starting.receivables] satisfies Line]),
           ['وجه نقد در گردش', cash.inHand],
           ['سپرده کوتاه‌مدت', cash.deposits],
           ['جمع وجه نقد مورد نیاز', totals.cash, true],
@@ -127,6 +131,9 @@ export function workingCapitalTable(operations: Operations): StatementTable {
         title: 'بدهی‌های جاری و سرمایه در گردش',
         rows: amounts([
           ['حساب‌های پرداختنی', totals.currentLiabilities],
+          ...(starting === undefined
+            ? []
+            : [['از آن: پرداختنی‌های آغازین پرداخت‌نشده', starting.payables] satisfies Line]),
           ['سرمایه در گردش خالص', totals.netWorkingCapital, true],
           ['افزایش سرمایه در گردش خالص', totals.increase],
           ['سرمایه در گردش خالص: منشأ خارجی', totals.foreign],

@@ -47,14 +47,17 @@ export interface WorkingCapitalItemInput {
   purchases?: Decimal[];
   /** A stock: what is left of the previous value is kept when it is above the requirement. */
   stock: boolean;
+  /** Starting balance of an existing enterprise: the value on the day before the first period. */
+  opening?: Decimal;
 }
 
 /**
- * Value of an item at the end of each period: in construction the stock bought so far; in
- * production `RV_j = B_j / c_j`, and for a stock `X_j = WCV_{j−1} − B_j`, `WCV_j = max(X_j, RV_j)`.
+ * Value of an item at the end of each period: in construction the starting balance and the stock
+ * bought so far; in production `RV_j = B_j / c_j`, and for a stock `X_j = WCV_{j−1} − B_j`,
+ * `WCV_j = max(X_j, RV_j)`.
  */
 export function workingCapitalValues(input: WorkingCapitalItemInput): Decimal[] {
-  let value = ZERO;
+  let value = input.opening ?? ZERO;
   return input.periods.map((p, j) => {
     const basis = input.bases[j] ?? ZERO;
     if (p.production) {

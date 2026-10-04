@@ -9,6 +9,11 @@ import {
 } from './asset-depreciation';
 import type { PlanningHorizon } from './horizon';
 import { checkInflation, currentPriceFactors, type PricedItem } from './prices';
+import {
+  startingAmount,
+  startingByKey,
+  type InvestmentStartingBalances,
+} from './starting-balances';
 
 export { ratesFor } from './rates';
 
@@ -58,6 +63,8 @@ export interface InvestmentInput {
   /** Inflation per currency and project year; absent = constant prices (as in `PriceContext`). */
   inflation?: Record<CurrencyCode, DecimalString[]>;
   items: InvestmentItem[];
+  /** Existing assets of an expansion or rehabilitation project (book values, local currency). */
+  startingBalances?: InvestmentStartingBalances;
 }
 
 export interface InvestmentItemSchedule {
@@ -68,6 +75,8 @@ export interface InvestmentItemSchedule {
   amounts: DecimalString[];
   depreciation: DecimalString[];
   bookValue: DecimalString[];
+  /** Book value on the day before the first period (expansion projects only). */
+  startingBalance?: DecimalString;
 }
 
 export interface OriginSplit {
@@ -91,6 +100,8 @@ export interface InvestmentSchedule {
   depreciation: { fixed: DecimalString[]; preProduction: DecimalString[]; total: DecimalString[] };
   /** Book value at the end of each period. */
   bookValue: { fixed: DecimalString[]; preProduction: DecimalString[]; total: DecimalString[] };
+  /** Book value of the existing assets on the day before the first period (expansion projects). */
+  startingBalance?: { fixed: DecimalString; preProduction: DecimalString; total: DecimalString };
 }
 
 const ORIGINS: readonly string[] = ['LOCAL', 'FOREIGN'];
@@ -124,6 +135,14 @@ export function investmentSchedule(input: InvestmentInput): CalculationResult<In
     input.items.map((i) => i.key),
     'items',
   );
+  const starting = startingByKey(
+    input.startingBalances?.fixedAssets,
+    'startingBalances.fixedAssets',
+    'item',
+    (entry) => entry.item,
+    (key) => input.items.some((item) => item.key === key),
+    (entry, field) => startingAmount(entry.value, `${field}.value`),
+  );
   const parsed = input.items.map((item, i) => {
     const field = `items[${i}]`;
     if (!(INVESTMENT_GROUPS as readonly string[]).includes(item.group)) {
@@ -138,8 +157,9 @@ export function investmentSchedule(input: InvestmentInput): CalculationResult<In
       local,
       item.depreciation,
       `${field}.depreciation`,
+      starting.get(item.key),
     );
-    return { item, local, book };
+    return { item, local, book, opening: starting.get(item.key) };
   });
 
   const where = (test: (item: InvestmentItem) => boolean) => parsed.filter((p) => test(p.item));
@@ -155,6 +175,8 @@ export function investmentSchedule(input: InvestmentInput): CalculationResult<In
       length,
     );
 
+  const openingOf = (rows: typeof parsed) => rows.reduce((s, r) => s.plus(r.opening ?? ZERO), ZERO);
+
   const fixed = where(isFixed);
   const pre = where((item) => !isFixed(item));
   const groups = Object.fromEntries(
@@ -166,13 +188,14 @@ export function investmentSchedule(input: InvestmentInput): CalculationResult<In
   });
 
   const value: InvestmentSchedule = {
-    items: parsed.map(({ item, local, book }) => ({
+    items: parsed.map(({ item, local, book, opening }) => ({
       key: item.key,
       group: item.group,
       origin: item.origin,
       amounts: strings(local),
       depreciation: book.depreciation,
       bookValue: book.bookValue,
+      ...(opening === undefined ? {} : { startingBalance: toDecimalString(opening) }),
     })),
     groups,
     fixedInvestment: strings(total(fixed)),
@@ -190,6 +213,15 @@ export function investmentSchedule(input: InvestmentInput): CalculationResult<In
       preProduction: strings(totalOf(pre, 'bookValue')),
       total: strings(totalOf(parsed, 'bookValue')),
     },
+    ...(input.startingBalances === undefined
+      ? {}
+      : {
+          startingBalance: {
+            fixed: toDecimalString(openingOf(fixed)),
+            preProduction: toDecimalString(openingOf(pre)),
+            total: toDecimalString(openingOf(parsed)),
+          },
+        }),
   };
   return { value, modelVersion: MODEL_VERSION, warnings: [], defaultsUsed: [] };
 }
