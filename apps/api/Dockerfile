@@ -32,11 +32,13 @@ RUN pnpm --filter @roshd/api deploy --legacy /out-migrate
 # @prisma/dev eagerly, so pruning either breaks `prisma migrate deploy` outright.
 #
 # Entries are pnpm store directory names, so a scope is spelled with "+" and globs are allowed.
+# @swc is listed package by package: @swc/helpers is a runtime dependency of fontkit, which
+# PDFKit uses to write the PDF of a calculation run (ST-34.09), and must stay.
 # CI starts the runtime image and calls /health/live, and runs the migration job against a fresh
 # database, so a wrong entry here breaks the build instead of production (ST-27.06).
 FROM build AS prune
-ARG RUNTIME_DROP="prisma @prisma+studio-core @prisma+engines @prisma+dev @prisma+config typescript effect @electric-sql+pglite elkjs react react-dom scheduler @types+* esbuild @esbuild+* rollup @rollup+* rolldown @rolldown+* vite @vitejs+* vitest @vitest+* eslint @eslint+* @typescript-eslint+* turbo @turbo+* @swc+* unplugin-swc @nestjs+cli @nestjs+testing supertest pino-pretty tsx"
-ARG MIGRATE_DROP="vitest @vitest+* eslint @eslint+* @typescript-eslint+* supertest @nestjs+cli @nestjs+testing @swc+* unplugin-swc pino-pretty turbo @turbo+* rolldown @rolldown+* vite @vitejs+* rollup @rollup+* playwright @playwright+* swagger-ui-dist"
+ARG RUNTIME_DROP="prisma @prisma+studio-core @prisma+engines @prisma+dev @prisma+config typescript effect @electric-sql+pglite elkjs react react-dom scheduler @types+* esbuild @esbuild+* rollup @rollup+* rolldown @rolldown+* vite @vitejs+* vitest @vitest+* eslint @eslint+* @typescript-eslint+* turbo @turbo+* @swc+core @swc+core-* @swc+cli @swc+counter @swc+types unplugin-swc @nestjs+cli @nestjs+testing supertest pino-pretty tsx"
+ARG MIGRATE_DROP="vitest @vitest+* eslint @eslint+* @typescript-eslint+* supertest @nestjs+cli @nestjs+testing @swc+core @swc+core-* @swc+cli @swc+counter @swc+types unplugin-swc pino-pretty turbo @turbo+* rolldown @rolldown+* vite @vitejs+* rollup @rollup+* playwright @playwright+* swagger-ui-dist"
 RUN set -eu; cd /out/node_modules/.pnpm; for name in ${RUNTIME_DROP}; do rm -rf ${name}@*; done; rm -rf /out/node_modules/prisma /out/node_modules/typescript /out/node_modules/tsx
 RUN set -eu; cd /out-migrate/node_modules/.pnpm; for name in ${MIGRATE_DROP}; do rm -rf ${name}@*; done
 

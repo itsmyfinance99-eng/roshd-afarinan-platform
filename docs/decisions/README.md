@@ -12,5 +12,6 @@
 | [0008](ADR-0008-lms-and-commerce.md)             | LMS and commerce (Phase 2)                   | Proposed |
 | [0009](ADR-0009-financial-engine.md)             | Financial engine and project financial model | Accepted |
 | [0010](ADR-0010-feasibility-platform.md)         | Feasibility platform                         | Proposed |
+| [0011](ADR-0011-run-exports.md)                  | Exports of a calculation run                 | Accepted |
 
 New ADR: copy [template.md](template.md) and name it `ADR-NNNN-short-title.md`.

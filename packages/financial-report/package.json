@@ -1,0 +1,69 @@
+{
+  "name": "@roshd/financial-report",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The schedules of a calculation run as tables and as a report document (comfar-model-spec §5): one source for the result pages and the xlsx, PDF and HTML exports.",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./frame": {
+      "types": "./dist/frame.d.ts",
+      "default": "./dist/frame.js"
+    },
+    "./numbers": {
+      "types": "./dist/numbers.d.ts",
+      "default": "./dist/numbers.js"
+    },
+    "./tables": {
+      "types": "./dist/tables.d.ts",
+      "default": "./dist/tables.js"
+    },
+    "./warnings": {
+      "types": "./dist/warnings.d.ts",
+      "default": "./dist/warnings.js"
+    },
+    "./indicators": {
+      "types": "./dist/indicators.d.ts",
+      "default": "./dist/indicators.js"
+    },
+    "./fonts": {
+      "types": "./dist/fonts.d.ts",
+      "default": "./dist/fonts.js"
+    },
+    "./render": {
+      "types": "./dist/render/index.d.ts",
+      "default": "./dist/render/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "fonts"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsc -p tsconfig.build.json --watch --preserveWatchOutput",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@roshd/eslint-config": "workspace:*",
+    "@roshd/tsconfig": "workspace:*",
+    "@types/node": "^24.13.6",
+    "@types/pdfkit": "^0.17.6",
+    "eslint": "^9.39.5",
+    "typescript": "~5.9.3",
+    "vitest": "^4.1.11"
+  },
+  "dependencies": {
+    "@roshd/financial-engine": "workspace:*",
+    "@roshd/validation": "workspace:*",
+    "bidi-js": "^1.1.0",
+    "fflate": "^0.8.3",
+    "pdfkit": "^0.20.2"
+  }
+}

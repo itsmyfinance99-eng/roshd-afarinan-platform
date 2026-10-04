@@ -17,6 +17,7 @@
     "@fontsource-variable/vazirmatn": "^5.3.0",
     "@hookform/resolvers": "^5.9.1",
     "@roshd/financial-engine": "workspace:*",
+    "@roshd/financial-report": "workspace:*",
     "@roshd/types": "workspace:*",
     "@roshd/ui": "workspace:*",
     "@roshd/validation": "workspace:*",

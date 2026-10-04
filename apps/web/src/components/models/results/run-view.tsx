@@ -32,7 +32,7 @@ import {
   ratiosTable,
   tableColumns,
   type StatementTable,
-} from '@/lib/model-editor/statements';
+} from '@roshd/financial-report/tables';
 import {
   BASIS_LABELS_FA,
   defaultText,
@@ -42,10 +42,11 @@ import {
   warningText,
   type Basis,
   type IndicatorKey,
-} from '@/lib/model-editor/warnings';
+} from '@roshd/financial-report/warnings';
 import type { CalculationRunDetail } from '../types';
 import { ScenarioPanel, SensitivityPanel } from './analysis';
 import { CumulativeChart } from './charts';
+import { RunDownloads } from './downloads';
 import {
   amountText,
   INDICATOR_LABELS_FA,
@@ -54,7 +55,7 @@ import {
   unitLabel,
   type IndicatorRowKey,
   type IndicatorValues,
-} from './format';
+} from '@roshd/financial-report/indicators';
 import { StatementTableView } from './statement-table';
 
 const TABS = [
@@ -217,6 +218,7 @@ export function RunView({
       </div>
       {approval.error ? <ErrorMessage>{approval.error}</ErrorMessage> : null}
       {approval.done ? <SuccessMessage>این اجرا تأیید و قفل شد.</SuccessMessage> : null}
+      <RunDownloads modelId={modelId} runId={run.id} unit={unit} />
 
       <div
         role="tablist"

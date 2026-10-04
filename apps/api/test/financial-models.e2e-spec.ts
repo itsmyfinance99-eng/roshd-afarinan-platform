@@ -9,6 +9,11 @@ import {
   CalculationTimeoutError,
 } from '../src/modules/financial-engine/ports/calculation-runner';
 import { inputHash } from '../src/modules/financial-model/domain/input-hash';
+import {
+  RenderBusyError,
+  RenderTimeoutError,
+  RUN_REPORT_RENDERER,
+} from '../src/modules/financial-model/ports/run-report-renderer';
 import { createTestApp, registerUser } from './helpers';
 
 // One construction year and three production years. Machinery 1 000 (200 a year) and land 200;
@@ -734,5 +739,268 @@ describe('Financial models: limits of the calculation worker (e2e)', () => {
     await http().post(runs).set(auth(owner.token)).expect(503);
     const list = await http().get(runs).set(auth(owner.token)).expect(200);
     expect(list.body.meta.total).toBe(0);
+  });
+});
+
+describe('Financial models: files of a run (e2e)', () => {
+  let app: INestApplication;
+  const http = () => request(app.getHttpServer());
+  const auth = (token: string) => ({ Authorization: `Bearer ${token}` });
+  const base = '/api/v1/financial-models';
+
+  /** A model of the user with one stored run; the path of the run's file. */
+  const modelWithRun = async (token: string, title = 'طرح فولاد') => {
+    const model = await http().post(base).set(auth(token)).send({ title, inputs }).expect(201);
+    const id = model.body.data.id as string;
+    const run = await http().post(`${base}/${id}/runs`).set(auth(token)).expect(201);
+    const runId = run.body.data.id as string;
+    return { id, runId, file: `${base}/${id}/runs/${runId}/export` };
+  };
+  const download = (path: string, token: string) =>
+    http()
+      .get(path)
+      .set(auth(token))
+      .buffer(true)
+      .parse((res, done) => {
+        const chunks: Buffer[] = [];
+        res.on('data', (chunk: Buffer) => chunks.push(chunk));
+        res.on('end', () => done(null, Buffer.concat(chunks)));
+      });
+
+  beforeAll(async () => {
+    app = await createTestApp();
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  it('gives the run as xlsx, PDF and HTML and records every download', async () => {
+    const owner = await registerUser(app);
+    const { id, runId, file } = await modelWithRun(owner.token);
+
+    const xlsx = await download(`${file}?format=xlsx`, owner.token).expect(200);
+    expect(xlsx.headers['content-type']).toBe(
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    expect(xlsx.headers['content-disposition']).toBe(
+      'attachment; filename="financial-model-run-1.xlsx"',
+    );
+    expect(xlsx.headers['cache-control']).toBe('private, no-store');
+    expect(xlsx.headers['x-content-type-options']).toBe('nosniff');
+    expect((xlsx.body as Buffer).subarray(0, 2).toString('latin1')).toBe('PK');
+
+    const pdf = await download(`${file}?format=pdf&unit=1000`, owner.token).expect(200);
+    expect(pdf.headers['content-type']).toBe('application/pdf');
+    expect((pdf.body as Buffer).subarray(0, 5).toString('latin1')).toBe('%PDF-');
+
+    const html = await download(`${file}?format=html&unit=1000`, owner.token).expect(200);
+    expect(html.headers['content-type']).toBe('text/html; charset=utf-8');
+    expect(html.headers['content-security-policy']).toContain('sandbox');
+    const page = (html.body as Buffer).toString('utf8');
+    expect(page).toContain('<html lang="fa" dir="rtl">');
+    expect(page).toContain('طرح فولاد');
+    expect(page).toContain('<h2>ترازنامه</h2>');
+    // Machinery of 1 000 and land of 200 in thousands, with Persian digits.
+    expect(page).toContain('<span class="n">۱٫۲</span>');
+    // The same total in single units in the default unit.
+    const units = await download(`${file}?format=html`, owner.token).expect(200);
+    expect((units.body as Buffer).toString('utf8')).toContain('<span class="n">۱٬۲۰۰</span>');
+
+    const audit = await app.get(PrismaService).auditLog.findMany({
+      where: { action: 'calculation_run.exported', entityId: runId },
+      orderBy: { createdAt: 'asc' },
+    });
+    expect(audit.map((row) => row.metadata)).toEqual([
+      { modelId: id, number: 1, format: 'xlsx', unit: '1' },
+      { modelId: id, number: 1, format: 'pdf', unit: '1000' },
+      { modelId: id, number: 1, format: 'html', unit: '1000' },
+      { modelId: id, number: 1, format: 'html', unit: '1' },
+    ]);
+    expect(audit.every((row) => row.actorId === owner.id)).toBe(true);
+  });
+
+  it('gives the files only to those who may read the model (404 otherwise)', async () => {
+    const owner = await registerUser(app);
+    const other = await registerUser(app);
+    const expert = await registerUser(app, ['expert']);
+    const admin = await registerUser(app, ['admin']);
+    const { id, runId, file } = await modelWithRun(owner.token);
+    const foreign = await modelWithRun(other.token);
+
+    await http().get(`${file}?format=html`).expect(401);
+    await http().get(`${file}?format=html`).set(auth(other.token)).expect(404);
+    // An expert who is not assigned does not see the model, whatever their role.
+    await http().get(`${file}?format=pdf`).set(auth(expert.token)).expect(404);
+    // A run of another model is not reachable through one's own model.
+    await http()
+      .get(`${base}/${foreign.id}/runs/${runId}/export?format=html`)
+      .set(auth(other.token))
+      .expect(404);
+    const refused = await app.get(PrismaService).auditLog.count({
+      where: { action: 'calculation_run.exported', entityId: runId },
+    });
+    expect(refused).toBe(0);
+
+    await http()
+      .patch(`${base}/${id}/assignee`)
+      .set(auth(admin.token))
+      .send({ assigneeId: expert.id })
+      .expect(200);
+    await http().get(`${file}?format=html`).set(auth(expert.token)).expect(200);
+    await http().get(`${file}?format=xlsx`).set(auth(admin.token)).expect(200);
+  });
+
+  it('validates the format and the unit', async () => {
+    const owner = await registerUser(app);
+    const { id, file } = await modelWithRun(owner.token);
+    const missing = await http().get(file).set(auth(owner.token)).expect(400);
+    expect(missing.body.error.details).toEqual([
+      { path: 'format', message: 'قالب خروجی را انتخاب کنید.' },
+    ]);
+    await http().get(`${file}?format=csv`).set(auth(owner.token)).expect(400);
+    await http().get(`${file}?format=pdf&unit=7`).set(auth(owner.token)).expect(400);
+    await http()
+      .get(`${base}/${id}/runs/not-a-uuid/export?format=pdf`)
+      .set(auth(owner.token))
+      .expect(400);
+    await http()
+      .get(`${base}/${id}/runs/00000000-0000-4000-8000-000000000000/export?format=pdf`)
+      .set(auth(owner.token))
+      .expect(404);
+  });
+
+  it('never lets a name of the user become markup or a formula', async () => {
+    const owner = await registerUser(app);
+    const hostile = structuredClone(inputs);
+    const [item] = hostile.investment.items;
+    if (item) item.key = '=HYPERLINK("http://x")<script>alert(1)</script>';
+    const model = await http()
+      .post(base)
+      .set(auth(owner.token))
+      .send({ title: '<img src=x onerror=alert(2)>', inputs: hostile })
+      .expect(201);
+    const id = model.body.data.id as string;
+    const run = await http().post(`${base}/${id}/runs`).set(auth(owner.token)).expect(201);
+    const file = `${base}/${id}/runs/${run.body.data.id as string}/export`;
+
+    const html = await download(`${file}?format=html`, owner.token).expect(200);
+    const page = (html.body as Buffer).toString('utf8');
+    expect(page).not.toMatch(/<script|<img/i);
+    expect(page).toContain('&lt;img src=x onerror=alert(2)&gt;');
+    expect(page).toContain('=HYPERLINK(&quot;http://x&quot;)&lt;script&gt;alert(1)&lt;/script&gt;');
+    // The workbook and the PDF are written from the same texts without failing.
+    await download(`${file}?format=xlsx`, owner.token).expect(200);
+    await download(`${file}?format=pdf`, owner.token).expect(200);
+  });
+});
+
+describe('Financial models: limits of the report worker (e2e)', () => {
+  let app: INestApplication;
+  let failure: Error | undefined;
+  let held: Promise<Buffer> | undefined;
+  /** Told when a request reaches the renderer. */
+  let called: () => void = () => undefined;
+  const http = () => request(app.getHttpServer());
+  const auth = (token: string) => ({ Authorization: `Bearer ${token}` });
+
+  beforeAll(async () => {
+    // A renderer that answers at once, waits, or fails the way the worker does.
+    app = await createTestApp(
+      [],
+      [
+        {
+          token: RUN_REPORT_RENDERER,
+          value: {
+            render: () => {
+              called();
+              return (
+                held ?? (failure ? Promise.reject(failure) : Promise.resolve(Buffer.from('x')))
+              );
+            },
+          },
+        },
+      ],
+    );
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  it('reports a slow file and a full queue, and bounds the downloads of a user', async () => {
+    const owner = await registerUser(app);
+    const created = await http()
+      .post('/api/v1/financial-models')
+      .set(auth(owner.token))
+      .send({ title: 'طرح فولاد', inputs })
+      .expect(201);
+    const id = created.body.data.id as string;
+    const run = await http()
+      .post(`/api/v1/financial-models/${id}/runs`)
+      .set(auth(owner.token))
+      .expect(201);
+    const runId = run.body.data.id as string;
+    const file = `/api/v1/financial-models/${id}/runs/${runId}/export?format=pdf`;
+
+    failure = new RenderTimeoutError();
+    const slow = await http().get(file).set(auth(owner.token)).expect(400);
+    expect(slow.body.error.details).toEqual([
+      { path: 'format', message: expect.stringContaining('Excel یا HTML') },
+    ]);
+    // Only a PDF can be too large for its format; another format is asked to be tried again.
+    const html = file.replace('format=pdf', 'format=html');
+    await http().get(html).set(auth(owner.token)).expect(503);
+    failure = new RenderBusyError();
+    const busy = await http().get(file).set(auth(owner.token)).expect(503);
+    expect(busy.body.error.code).toBe('SERVICE_UNAVAILABLE');
+    // A file that was not made is not in the audit log.
+    const prisma = app.get(PrismaService);
+    const where = { action: 'calculation_run.exported', entityId: runId };
+    expect(await prisma.auditLog.count({ where })).toBe(0);
+
+    // Every request counts, the refused ones too: seven more pass, the eleventh is turned away.
+    failure = undefined;
+    for (let i = 0; i < 7; i++) await http().get(file).set(auth(owner.token)).expect(200);
+    const limited = await http().get(file).set(auth(owner.token)).expect(429);
+    expect(limited.body.error.code).toBe('RATE_LIMITED');
+    expect(await prisma.auditLog.count({ where })).toBe(7);
+  });
+
+  it('writes one file of a user at a time', async () => {
+    const owner = await registerUser(app);
+    const created = await http()
+      .post('/api/v1/financial-models')
+      .set(auth(owner.token))
+      .send({ title: 'طرح فولاد', inputs })
+      .expect(201);
+    const id = created.body.data.id as string;
+    const run = await http()
+      .post(`/api/v1/financial-models/${id}/runs`)
+      .set(auth(owner.token))
+      .expect(201);
+    const file = `/api/v1/financial-models/${id}/runs/${run.body.data.id as string}/export?format=pdf`;
+
+    failure = undefined;
+    let release: (file: Buffer) => void = () => undefined;
+    held = new Promise<Buffer>((resolve) => {
+      release = resolve;
+    });
+    const reached = new Promise<void>((resolve) => {
+      called = resolve;
+    });
+    const first = http()
+      .get(file)
+      .set(auth(owner.token))
+      .then((res) => res.status);
+    // The first file is in the making once its request reached the renderer.
+    await reached;
+    const second = await http().get(file).set(auth(owner.token)).expect(429);
+    expect(second.body.error.code).toBe('RATE_LIMITED');
+    release(Buffer.from('x'));
+    expect(await first).toBe(200);
+    // The user is free again afterwards.
+    held = undefined;
+    await http().get(file).set(auth(owner.token)).expect(200);
   });
 });

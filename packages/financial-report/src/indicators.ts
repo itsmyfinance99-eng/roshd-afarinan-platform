@@ -1,6 +1,6 @@
 import { REPORTING_UNIT_LABELS_FA, toPersianDigits, type ReportingUnit } from '@roshd/validation';
-import { formatDecimalFa, fractionToPercent, roundDecimal } from '@/lib/model-editor/numbers';
-import { formatAmount } from '@/lib/model-editor/statements';
+import { formatDecimalFa, fractionToPercent, roundDecimal } from './numbers';
+import { formatAmount } from './tables';
 
 /** Texts of the indicators of a run, shared by the summary, the scenarios and the sensitivity. */
 
@@ -22,10 +22,10 @@ export function unitLabel(unit: ReportingUnit, currency: string): string {
 export const percentText = (value: string | undefined): string =>
   value === undefined
     ? 'ندارد'
-    : `⁦${formatDecimalFa(roundDecimal(fractionToPercent(value), 2))}⁩ درصد`;
+    : `\u2066${formatDecimalFa(roundDecimal(fractionToPercent(value), 2))}\u2069 درصد`;
 
 export const amountText = (value: string, unit: ReportingUnit): string =>
-  `⁦${formatAmount(value, unit)}⁩`;
+  `\u2066${formatAmount(value, unit)}\u2069`;
 
 /** Months from the start of the project as years and months. */
 export function durationText(months: string | undefined): string {
@@ -71,7 +71,7 @@ export function indicatorText(
     case 'npvRatio':
       return values.npvRatio === undefined
         ? 'ندارد'
-        : `⁦${formatDecimalFa(roundDecimal(values.npvRatio, 3))}⁩`;
+        : `\u2066${formatDecimalFa(roundDecimal(values.npvRatio, 3))}\u2069`;
   }
 }
 
@@ -80,5 +80,5 @@ export function changeText(fraction: string): string {
   // A step is shown as it was entered: rounding would turn a small change into «۰٪».
   const percent = fractionToPercent(fraction);
   const sign = percent.startsWith('-') ? '' : '+';
-  return `⁦${sign}${formatDecimalFa(percent)}٪⁩`;
+  return `\u2066${sign}${formatDecimalFa(percent)}٪\u2069`;
 }

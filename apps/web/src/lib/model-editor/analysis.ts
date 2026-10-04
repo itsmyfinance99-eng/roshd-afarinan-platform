@@ -8,7 +8,7 @@ import {
   type TornadoBar,
 } from '@roshd/financial-engine';
 import { failure } from './summary';
-import { unique, warningText, type Basis } from './warnings';
+import { unique, warningText, type Basis } from '@roshd/financial-report/warnings';
 
 /**
  * Scenarios and one-variable sensitivity of a stored run (ST-34.08), calculated in the browser by

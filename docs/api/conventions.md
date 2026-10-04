@@ -17,8 +17,10 @@ Success:
 
 `meta.page`, `meta.pageSize` and `meta.total` appear only on paginated list endpoints.
 
-File responses are the only exception (`@RawResponse()`): signed file downloads and CSV exports
-(`GET /service-requests/export`) return the file itself. Their errors still use the error envelope.
+File responses are the only exception (`@RawResponse()`): signed file downloads, CSV exports
+(`GET /service-requests/export`) and the files of a calculation run
+(`GET /financial-models/:id/runs/:runId/export`, xlsx / PDF / HTML) return the file itself. Their
+errors still use the error envelope.
 CSV exports are UTF-8 with a BOM (so Excel shows Persian correctly), use CRLF line endings, neutralise
 spreadsheet formulas in user text and interpret `from`/`to` as inclusive days in Iran time.
 

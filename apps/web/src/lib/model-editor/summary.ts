@@ -5,7 +5,7 @@ import {
   type DiscountedCashFlow,
   type ProjectInput,
 } from '@roshd/financial-engine';
-import { defaultText, unique, warningText } from './warnings';
+import { defaultText, unique, warningText } from '@roshd/financial-report/warnings';
 
 /**
  * The live calculation of the editor (ST-34.07): the engine itself — the same package the API

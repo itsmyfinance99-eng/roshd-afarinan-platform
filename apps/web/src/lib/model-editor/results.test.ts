@@ -18,8 +18,8 @@ import {
   incomeStatementTable,
   ratiosTable,
   tableColumns,
-} from './statements';
-import { defaultText, warningPlace, warningText } from './warnings';
+} from '@roshd/financial-report/tables';
+import { defaultText, warningPlace, warningText } from '@roshd/financial-report/warnings';
 
 const RESIDUAL = 'ارزش باقی‌مانده (دارایی‌ها و سرمایه در گردش)';
 const at = (values: Record<number, string>) => ['0', '0', '0', '0'].map((z, j) => values[j] ?? z);

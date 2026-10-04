@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { engineMessageFa, isEngineInputError } from '@roshd/financial-engine';
 import type { CalculationResult, ProjectModel } from '@roshd/financial-engine';
+import type { RunReportSource } from '@roshd/financial-report';
 import {
   CALCULATIONS_PER_MINUTE,
   FINANCIAL_MODEL_INPUT_VERSION,
@@ -385,6 +386,37 @@ export class FinancialModelsService {
     });
     if (!run) throw new NotFoundError();
     return this.runView(run, relation, principal);
+  }
+
+  /**
+   * What the report of a run is written from (ST-34.09): the run as it was stored, with the
+   * title of its model. Like every read, only for the owner, the assigned expert and staff.
+   */
+  async runForReport(
+    modelId: string,
+    runId: string,
+    principal: Principal,
+  ): Promise<Omit<RunReportSource, 'unit'>> {
+    await this.visible(modelId, principal);
+    const run = await this.prisma.calculationRun.findFirst({
+      where: { id: runId, modelId },
+      select: {
+        number: true,
+        modelVersion: true,
+        engineVersion: true,
+        inputHash: true,
+        createdAt: true,
+        approvedAt: true,
+        input: true,
+        results: true,
+        warnings: true,
+        defaultsUsed: true,
+        model: { select: { title: true } },
+      },
+    });
+    if (!run) throw new NotFoundError();
+    const { model, input, results, warnings, defaultsUsed, ...facts } = run;
+    return { modelTitle: model.title, run: facts, input, results, warnings, defaultsUsed };
   }
 
   /**

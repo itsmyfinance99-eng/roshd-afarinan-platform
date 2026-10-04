@@ -4,7 +4,7 @@ import { cn } from '@roshd/ui';
 import type { ReportingUnit } from '@roshd/validation';
 import { Fragment } from 'react';
 import type { Column } from '@/lib/model-editor/frame';
-import { formatCell, type StatementTable } from '@/lib/model-editor/statements';
+import { formatCell, type StatementTable } from '@roshd/financial-report/tables';
 
 /**
  * A schedule of a calculation run as a read-only table: one column per period, the line names
