@@ -899,6 +899,8 @@ describe('Financial models: limits of the report worker (e2e)', () => {
   let app: INestApplication;
   let failure: Error | undefined;
   let held: Promise<Buffer> | undefined;
+  /** Told when a request reaches the renderer. */
+  let called: () => void = () => undefined;
   const http = () => request(app.getHttpServer());
   const auth = (token: string) => ({ Authorization: `Bearer ${token}` });
 
@@ -910,8 +912,12 @@ describe('Financial models: limits of the report worker (e2e)', () => {
         {
           token: RUN_REPORT_RENDERER,
           value: {
-            render: () =>
-              held ?? (failure ? Promise.reject(failure) : Promise.resolve(Buffer.from('x'))),
+            render: () => {
+              called();
+              return (
+                held ?? (failure ? Promise.reject(failure) : Promise.resolve(Buffer.from('x')))
+              );
+            },
           },
         },
       ],
@@ -980,12 +986,15 @@ describe('Financial models: limits of the report worker (e2e)', () => {
     held = new Promise<Buffer>((resolve) => {
       release = resolve;
     });
+    const reached = new Promise<void>((resolve) => {
+      called = resolve;
+    });
     const first = http()
       .get(file)
       .set(auth(owner.token))
       .then((res) => res.status);
     // The first file is in the making once its request reached the renderer.
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    await reached;
     const second = await http().get(file).set(auth(owner.token)).expect(429);
     expect(second.body.error.code).toBe('RATE_LIMITED');
     release(Buffer.from('x'));

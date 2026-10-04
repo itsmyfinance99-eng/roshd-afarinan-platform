@@ -34,8 +34,6 @@ RUN pnpm --filter @roshd/api deploy --legacy /out-migrate
 # Entries are pnpm store directory names, so a scope is spelled with "+" and globs are allowed.
 # @swc is listed package by package: @swc/helpers is a runtime dependency of fontkit, which
 # PDFKit uses to write the PDF of a calculation run (ST-34.09), and must stay.
-# @swc is listed package by package: @swc/helpers is a runtime dependency of fontkit, which
-# PDFKit uses to write the PDF of a calculation run (ST-34.09), and must stay.
 # CI starts the runtime image and calls /health/live, and runs the migration job against a fresh
 # database, so a wrong entry here breaks the build instead of production (ST-27.06).
 FROM build AS prune
