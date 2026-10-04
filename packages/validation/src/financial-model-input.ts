@@ -155,6 +155,8 @@ const equitySchema = z.object({
   currency: currencyCodeSchema,
   origin,
   amounts: series,
+  /** Equity paid out again (ST-34.12); none when absent. */
+  refunds: series.optional(),
 });
 
 const dayIndex = whole(1, 36000);
@@ -267,6 +269,8 @@ const statementsSchema = z.object({
         preferredAmount: perPeriod,
         ordinaryShare: perPeriod,
         repatriatedShare: decimal,
+        /** Share of the net worth at the end of the project (ST-34.12). */
+        netWorthShare: decimal.optional(),
       }),
       50,
     ),

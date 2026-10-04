@@ -14,6 +14,7 @@ import {
   toPersianDigits,
 } from '@roshd/ui';
 import {
+  EQUITY_CLASS_LABELS_FA,
   projectInputSchema,
   REPORTING_UNIT_LABELS_FA,
   REPORTING_UNITS,
@@ -30,12 +31,14 @@ import {
   DISCOUNTED_TITLES_FA,
   incomeStatementTable,
   ratiosTable,
+  shareholderFlowTable,
   tableColumns,
   type StatementTable,
 } from '@roshd/financial-report/tables';
 import {
   BASIS_LABELS_FA,
   defaultText,
+  indicatorOfWarning,
   unique,
   warningMessage,
   warningPlace,
@@ -273,11 +276,16 @@ export function RunView({
           {tab === 'income' ? schedule(() => incomeStatementTable(statements)) : null}
           {tab === 'cash' ? schedule(() => cashFlowTable(statements)) : null}
           {tab === 'balance' ? schedule(() => balanceSheetTable(statements)) : null}
-          {tab === 'discounted'
-            ? BASES.map((basis) => (
+          {tab === 'discounted' ? (
+            <>
+              {BASES.map((basis) => (
                 <div key={basis}>{schedule(() => discountedCashFlowTable(statements, basis))}</div>
-              ))
-            : null}
+              ))}
+              {(statements.shareholders ?? []).map((flow, index) => (
+                <div key={index}>{schedule(() => shareholderFlowTable(flow, index))}</div>
+              ))}
+            </>
+          ) : null}
           {tab === 'ratios' ? schedule(() => ratiosTable(statements)) : null}
         </ResultsBoundary>
         {/* Kept on the page while another part is open: what was typed and calculated stays. */}
@@ -402,6 +410,39 @@ function SummaryPart({
           />
         ))}
       </div>
+      {statements.shareholders && statements.shareholders.length > 0 ? (
+        <section aria-labelledby="shareholder-returns" className="flex flex-col gap-3">
+          <h3 id="shareholder-returns" className="text-[15px] font-bold text-ink">
+            بازده هر سهامدار یا شریک
+          </h3>
+          <p className="text-[13px] leading-6 text-ink-3">
+            دریافتی هر سهامدار (سود سهام و بازپرداخت آورده) در برابر آورده‌ای که پرداخته است،
+            به‌علاوه سهم او از ارزش ویژه پایان طرح؛ با نرخ تنزیل آورده.
+          </p>
+          <div className="grid gap-4 md:grid-cols-2">
+            {statements.shareholders.map((flow) => (
+              <IndicatorCard
+                key={flow.equity}
+                title={`${EQUITY_CLASS_LABELS_FA[flow.class] ?? 'سهامدار'} «${flow.equity}»`}
+                unit={unit}
+                unitLabel={label}
+                values={{
+                  npv: flow.npv,
+                  irr: flow.irr,
+                  mirr: flow.mirr,
+                  paybackMonths: flow.payback?.months,
+                  dynamicPaybackMonths: flow.dynamicPayback?.months,
+                }}
+                rows={['npv', 'irr', 'mirr', 'payback', 'dynamicPayback']}
+                warnings={flow.warnings.flatMap((warning) => {
+                  const indicator = indicatorOfWarning(warning);
+                  return indicator ? [{ indicator, text: warningMessage(warning) }] : [];
+                })}
+              />
+            ))}
+          </div>
+        </section>
+      ) : null}
       <OtherIndicators statements={statements} frame={frame} />
       {general.length > 0 ? (
         <Notice>

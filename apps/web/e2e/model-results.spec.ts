@@ -641,6 +641,94 @@ test.describe('financial model results', () => {
     ).toHaveText('-۳۴۰');
   });
 
+  test('shows the cash flow and the return of every partner', async ({ page }) => {
+    await signIn(page);
+    // Two partners: the founders pay 700 m, a foreign partner 300 m; half of the profit is paid
+    // out by these shares, the partner gets 100 m of its equity back in the last year, and the
+    // net worth at the end is shared 70 to 30.
+    const holder = (equity: string, share: string) => ({
+      equity,
+      preferredRate: '0',
+      preferredAmount: '0',
+      ordinaryShare: share,
+      repatriatedShare: '0',
+      netWorthShare: share,
+    });
+    const venture: ProjectInput = {
+      ...input,
+      financing: {
+        equity: [
+          { ...input.financing.equity[0]!, class: 'JOINT_VENTURE' },
+          {
+            key: 'شریک خارجی',
+            class: 'JOINT_VENTURE',
+            currency: 'IRR',
+            origin: 'FOREIGN',
+            amounts: at({ 0: '300000000' }),
+            refunds: at({ 3: '100000000' }),
+          },
+        ],
+        loans: [],
+      },
+      statements: {
+        ...input.statements,
+        profitDistribution: {
+          retainedShare: '0.5',
+          shareholders: [holder('مؤسسان', '0.7'), holder('شریک خارجی', '0.3')],
+        },
+      },
+    };
+    const outcome = projectModel(venture);
+    await serveRun(
+      page,
+      run({
+        input: venture,
+        results: outcome.value,
+        warnings: outcome.warnings,
+        defaultsUsed: outcome.defaultsUsed,
+      }),
+    );
+    await page.goto('/dashboard/models/m1/runs/r1');
+    await expect(page.getByRole('heading', { name: 'بازده هر سهامدار یا شریک' })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: 'شریک سرمایه‌گذاری مشترک «شریک خارجی»' }),
+    ).toBeVisible();
+    await page.getByLabel('واحد نمایش مبلغ‌ها').selectOption('1000000');
+
+    await page.getByRole('tab', { name: 'جریان نقد', exact: true }).click();
+    const cash = page.getByRole('region', { name: 'جریان نقد برای برنامه‌ریزی مالی' });
+    await expect(cash.getByRole('row', { name: /^بازپرداخت آورده/ }).getByRole('cell')).toHaveText([
+      '۰',
+      '۰',
+      '۰',
+      '۱۰۰',
+    ]);
+
+    await openTab(page, 'جریان نقدی تنزیل‌شده');
+    const partner = page.getByRole('region', {
+      name: /جریان نقدی تنزیل‌شده سهامدار «.?شریک خارجی.?»/,
+    });
+    await expect(
+      partner
+        .getByRole('row', { name: /^آورده پرداختی/ })
+        .getByRole('cell')
+        .first(),
+    ).toHaveText('۳۰۰');
+    await expect(
+      partner
+        .getByRole('row', { name: /^بازپرداخت آورده/ })
+        .getByRole('cell')
+        .nth(3),
+    ).toHaveText('۱۰۰');
+    // The share of the net worth returns in the year after production.
+    await expect(
+      partner
+        .getByRole('row', { name: /^سهم از ارزش ویژه پایان طرح/ })
+        .getByRole('cell')
+        .last(),
+    ).not.toHaveText('—');
+  });
+
   test('calculates the incremental effect against a run without the project', async ({ page }) => {
     await signIn(page);
     await serveRun(page);

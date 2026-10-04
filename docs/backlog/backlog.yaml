@@ -2173,6 +2173,7 @@ epics:
         sprint: S17
         points: 5
         priority: medium
+        status: done
         area: [api, web]
         depends: [ST-34.04]
         story: 'به‌عنوان کارشناس می‌خواهم سهم آورده و بازده هر شریک را جدا ببینم.'

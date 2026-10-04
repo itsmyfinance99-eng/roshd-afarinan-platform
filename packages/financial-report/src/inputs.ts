@@ -283,11 +283,12 @@ function rates(input: ProjectInputData, frame: Frame): ReportBlock[] {
       },
     ]),
     ...grid(
-      'سهم خروجی سود از کشور',
-      ['آورده', 'سهمی از سود که از کشور خارج می‌شود (درصد)'],
+      'سهم خروجی سود از کشور و سهم از ارزش ویژه پایان طرح',
+      ['آورده', 'سهمی از سود که از کشور خارج می‌شود (درصد)', 'سهم از ارزش ویژه پایان طرح (درصد)'],
       profitDistribution.shareholders.map((holder) => [
         text(holder.equity),
         percent(holder.repatriatedShare),
+        percent(holder.netWorthShare),
       ]),
     ),
   ];
@@ -389,6 +390,20 @@ function financing(input: ProjectInputData, frame: Frame): ReportBlock[] {
         {
           rows: equity.map((item) =>
             series(`${isolate(item.key)} (${isolate(item.currency)})`, item.amounts),
+          ),
+        },
+      ],
+      'به ارز هر آورده',
+    ),
+    ...table(
+      'بازپرداخت آورده در هر دوره',
+      frame.periods,
+      [
+        {
+          rows: equity.flatMap((item) =>
+            item.refunds === undefined
+              ? []
+              : [series(`${isolate(item.key)} (${isolate(item.currency)})`, item.refunds)],
           ),
         },
       ],

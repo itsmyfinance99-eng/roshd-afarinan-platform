@@ -62,6 +62,12 @@ export interface ShareholderDividends {
   ordinaryShare: PerYear;
   /** Share of the dividends that leaves the country. */
   repatriatedShare: DecimalString;
+  /**
+   * Share of the net worth this shareholder receives after the last production period (VII.R.4).
+   * Entered for every shareholder or for none; with it the cash flow of each shareholder is
+   * produced (XI.F).
+   */
+  netWorthShare?: DecimalString;
 }
 
 export interface StatementsInput {
@@ -166,6 +172,8 @@ export interface CashFlowForPlanning {
     financialCosts: DecimalString[];
     loanRepayments: DecimalString[];
     dividends: DecimalString[];
+    /** Equity paid out again (capital refund). */
+    equityRefunds: DecimalString[];
     total: DecimalString[];
   };
   /** Inflows less outflows, before the automatic coverage (COMFAR's surplus/deficit line). */
@@ -253,6 +261,22 @@ export interface StartingBalanceSheet {
   netWorth: DecimalString;
 }
 
+/**
+ * The cash flow of one shareholder (XI.F, X.C.6 «partner capital invested»): dividends and
+ * refunds of equity against the equity paid in, the starting equity on the day before the project
+ * and the share of the net worth after the last production period.
+ */
+export interface ShareholderCashFlow extends DiscountedCashFlow {
+  /** Key of the equity contribution. */
+  equity: string;
+  class: EquityClass;
+  /** Preferred and ordinary dividends per period. */
+  dividends: DecimalString[];
+  refunds: DecimalString[];
+  /** Warnings about this flow's indicators (no IRR, no payback …). */
+  warnings: CalculationWarning[];
+}
+
 export interface FinancialStatements {
   incomeStatement: IncomeStatement;
   /** Tax computation of every financial year of production. */
@@ -271,6 +295,11 @@ export interface FinancialStatements {
   balanceSheet: BalanceSheet;
   /** Expansion and rehabilitation projects only. */
   startingBalance?: StartingBalanceSheet;
+  /**
+   * The cash flow of every shareholder, when the distribution of the net worth was entered. The
+   * residual value is the shareholder's part of the net worth of the last balance sheet.
+   */
+  shareholders?: ShareholderCashFlow[];
   totalCapital: DiscountedCashFlow & {
     /** Fixed investment + pre-production expenditures + increase of net working capital. */
     investment: DecimalString[];
@@ -423,6 +452,7 @@ export function financialStatements(
   const fixedInvestment = row(investment.fixedInvestment, 'investment.fixedInvestment');
   const preProduction = row(investment.preProduction, 'investment.preProduction');
   const equityPaid = row(financing.equity.total, 'financing.equity.total');
+  const equityRefunds = row(financing.equity.refunds.total, 'financing.equity.refunds.total');
   const loanRows = financing.loanTotals;
   if (loanRows.length !== length) {
     throw new EngineInputError('series.lengthMismatch', 'financing.loanTotals', {
@@ -615,12 +645,25 @@ export function financialStatements(
     }
     const repatriated = toDecimal(s.repatriatedShare);
     share(repatriated, `${field}.repatriatedShare`);
+    const netWorthShare = s.netWorthShare === undefined ? undefined : toDecimal(s.netWorthShare);
+    if (netWorthShare !== undefined) share(netWorthShare, `${field}.netWorthShare`);
+    const paid = row(equity.amounts, `financing.equity.items.${equity.key}`);
+    const refunded =
+      equity.refunds === undefined
+        ? zeros
+        : row(equity.refunds, `financing.equity.items.${equity.key}.refunds`);
     return {
       key: s.equity,
+      class: equity.class,
       jointVenture: equity.class === 'JOINT_VENTURE',
-      // Preferred dividends are paid on the equity held, the starting balance included.
-      accumulated: cumulative(row(equity.amounts, `financing.equity.items.${equity.key}`)).map(
-        (v) => v.plus(openingOf(equity.startingBalance)),
+      paid,
+      refunded,
+      startingEquity: openingOf(equity.startingBalance),
+      netWorthShare,
+      // Preferred dividends are paid on the equity held: the starting balance included, refunds
+      // deducted.
+      accumulated: cumulative(minus(paid, refunded)).map((v) =>
+        v.plus(openingOf(equity.startingBalance)),
       ),
       preferredRate: perYear(s.preferredRate, years, `${field}.preferredRate`, notNegative),
       preferredAmount: perYear(s.preferredAmount, years, `${field}.preferredAmount`, notNegative),
@@ -682,6 +725,7 @@ export function financialStatements(
     financialOutflow,
     repayment,
     dividends,
+    equityRefunds,
   );
   const surplus = minus(inflow, outflow);
 
@@ -729,7 +773,9 @@ export function financialStatements(
 
   // Projected balance sheet (X.C.6).
   const wcRow = (values: DecimalString[]) => row(values, 'operations.workingCapital');
-  const equityToDate = cumulative(equityPaid).map((v) => v.plus(opening.equity));
+  const equityToDate = cumulative(minus(equityPaid, equityRefunds)).map((v) =>
+    v.plus(opening.equity),
+  );
   const automaticEquityToDate = cumulative(automaticEquity);
   const totalEquity = add(equityToDate, automaticEquityToDate);
   const retainedToDate = cumulative(retainedProfit).map((v) => v.plus(openingReserves));
@@ -867,11 +913,12 @@ export function financialStatements(
   for (const w of npvr.warnings)
     warnings.push({ ...w, params: { ...w.params, basis: 'totalCapital' } });
 
-  // Equity: the surplus with dividends added back, against the equity paid in (net of subsidies).
+  // Equity: the surplus with dividends added back, against the net equity contribution — equity
+  // paid in (net of subsidies) less equity refunded (X.C.6).
   const subsidies = row(financing.equity.classes.SUBSIDY, 'financing.equity.classes.SUBSIDY');
   const equity = flow(
     'equity',
-    add(surplus, dividends),
+    add(surplus, dividends, equityRefunds),
     minus(equityPaid, subsidies),
     residualEquity,
     equityRates,
@@ -931,18 +978,74 @@ export function financialStatements(
       ).value
     : null;
 
-  const equityCapital = cumulative(minus(equityPaid, subsidies)).map((v) =>
+  const equityCapital = cumulative(minus(minus(equityPaid, subsidies), equityRefunds)).map((v) =>
     v.plus(opening.equity).minus(opening.subsidies),
   );
+
+  // Cash flow of every shareholder (XI.F): −E_SB − equity paid in + refunds + dividends, and the
+  // shareholder's part of the net worth when residual values return.
+  const withShare = shareholders.filter((h) => h.netWorthShare !== undefined);
+  if (withShare.length > 0) {
+    if (withShare.length !== shareholders.length) {
+      const missing = shareholders.findIndex((h) => h.netWorthShare === undefined);
+      throw new EngineInputError(
+        'shareholders.netWorthShareRequired',
+        `profitDistribution.shareholders[${missing}].netWorthShare`,
+      );
+    }
+    const total = withShare.reduce((s, h) => s.plus(h.netWorthShare ?? ZERO), ZERO);
+    if (!total.eq(1)) {
+      throw new EngineInputError('shareholders.netWorthShares', 'profitDistribution.shareholders');
+    }
+  }
+  const finalNetWorth = at(netWorth, last);
+  const shareholderFlows = withShare.map((h): ShareholderCashFlow => {
+    const received = add(h.preferred, h.ordinary);
+    const inflows = add(received, h.refunded);
+    const calculated = discountedFlow({
+      basis: 'equity',
+      net: minus(inflows, h.paid),
+      residual: finalNetWorth.times(h.netWorthShare ?? ZERO),
+      ...(expansion ? { startingBalance: h.startingEquity } : {}),
+      months,
+      rates: equityRates,
+      salvageColumn,
+      ...(reference === undefined ? {} : { reference }),
+      ...(input.discounting.reinvestmentRate === undefined
+        ? {}
+        : { reinvestmentRate: input.discounting.reinvestmentRate }),
+      ...(input.discounting.borrowingRate === undefined
+        ? {}
+        : { borrowingRate: input.discounting.borrowingRate }),
+      scope,
+    });
+    return {
+      equity: h.key,
+      class: h.class,
+      ...calculated.result,
+      inflow: strings(inflows),
+      outflow: strings(h.paid),
+      dividends: strings(received),
+      refunds: strings(h.refunded),
+      // The warnings name the shareholder instead of a basis of the project.
+      warnings: calculated.warnings.map((w) => {
+        const { basis: _basis, ...params } = w.params ?? {};
+        return { code: w.code, params: { ...params, item: h.key } };
+      }),
+    };
+  });
   const perPeriod = (numerator: Row, denominator: Row) =>
     numerator.map((v, j) => ratio(v, at(denominator, j)));
   const equityClasses = Object.fromEntries(
     EQUITY_CLASSES.map((c) => [
       c,
       strings(
-        cumulative(row(financing.equity.classes[c], `financing.equity.classes.${c}`)).map((v) =>
-          v.plus(openingOf(financing.startingBalance?.equity[c])),
-        ),
+        cumulative(
+          minus(
+            row(financing.equity.classes[c], `financing.equity.classes.${c}`),
+            row(financing.equity.refunds.classes[c], `financing.equity.refunds.classes.${c}`),
+          ),
+        ).map((v) => v.plus(openingOf(financing.startingBalance?.equity[c]))),
       ),
     ]),
   ) as Record<EquityClass, DecimalString[]>;
@@ -1001,6 +1104,7 @@ export function financialStatements(
         financialCosts: strings(financialOutflow),
         loanRepayments: strings(repayment),
         dividends: strings(dividends),
+        equityRefunds: strings(equityRefunds),
         total: strings(outflow),
       },
       surplus: strings(surplus),
@@ -1044,6 +1148,7 @@ export function financialStatements(
       netWorth: strings(netWorth),
     },
     ...(expansion ? { startingBalance: startingBalanceSheet() } : {}),
+    ...(shareholderFlows.length > 0 ? { shareholders: shareholderFlows } : {}),
     totalCapital: {
       ...totalCapital.result,
       investment: strings(investmentColumns),

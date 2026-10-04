@@ -49,13 +49,17 @@ export function warningText(warning: Warning): string {
   return isBasis(basis) ? `${BASIS_LABELS_FA[basis]}: ${text}` : text;
 }
 
+/** The indicator a warning is about, whatever cash flow it belongs to. */
+export function indicatorOfWarning(warning: Warning): IndicatorKey | null {
+  const family = warning.code.split('.')[0] ?? '';
+  return Object.hasOwn(INDICATOR_OF_CODE, family) ? (INDICATOR_OF_CODE[family] ?? null) : null;
+}
+
 /** Where a warning is shown: next to an indicator of a basis, or with the general ones. */
 export function warningPlace(warning: Warning): { basis: Basis; indicator: IndicatorKey } | null {
   const basis = warning.params?.basis;
-  const family = warning.code.split('.')[0] ?? '';
-  if (!isBasis(basis) || !Object.hasOwn(INDICATOR_OF_CODE, family)) return null;
-  const indicator = INDICATOR_OF_CODE[family];
-  return indicator === undefined ? null : { basis, indicator };
+  const indicator = indicatorOfWarning(warning);
+  return !isBasis(basis) || indicator === null ? null : { basis, indicator };
 }
 
 export function defaultText(used: DefaultUsed): string {

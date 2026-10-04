@@ -168,6 +168,8 @@ const FIELD_LABELS_FA: Record<string, string> = {
   preferredAmount: 'مبلغ سود ممتاز',
   ordinaryShare: 'سهم از سود عادی',
   repatriatedShare: 'سهم خروجی از کشور',
+  netWorthShare: 'سهم از ارزش ویژه پایان طرح',
+  refunds: 'بازپرداخت آورده',
   discounting: 'تنزیل',
   totalCapitalRate: 'نرخ تنزیل کل سرمایه',
   equityRate: 'نرخ تنزیل آورده',
@@ -203,6 +205,7 @@ const SILENT = new Set(['items', 'operations', 'statements', 'investment', 'fina
 /** Series whose numbered values are columns of a table (the others are rows of a list). */
 const SERIES = new Set([
   'amounts',
+  'refunds',
   'quantities',
   'capacityShares',
   'prices',

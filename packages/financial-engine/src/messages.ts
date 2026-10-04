@@ -108,6 +108,11 @@ export const ENGINE_MESSAGES_FA = {
   'dividends.subsidy': 'به یارانه و کمک بلاعوض سود سهام تعلق نمی‌گیرد.',
   'dividends.ordinaryShares':
     'در سال {year} بهره‌برداری، جمع سهم سهامداران از سود قابل تقسیم باید ۱۰۰ درصد باشد.',
+  'financing.subsidyRefund': 'یارانه و کمک بلاعوض بازپرداخت نمی‌شود.',
+  'financing.refundExceedsEquity': 'بازپرداخت آورده تا این دوره از آورده پرداخت‌شده بیشتر می‌شود.',
+  'shareholders.netWorthShareRequired':
+    'سهم از ارزش ویژه پایان طرح را برای همه سهامداران وارد کنید یا برای هیچ‌کدام.',
+  'shareholders.netWorthShares': 'جمع سهم سهامداران از ارزش ویژه پایان طرح باید ۱۰۰ درصد باشد.',
 
   'startingBalance.unknownItem': 'قلمی که این مانده آغازین به آن تعلق دارد تعریف نشده است.',
   'startingBalance.days':
