@@ -2122,6 +2122,7 @@ epics:
         sprint: S16
         points: 8
         priority: high
+        status: done
         area: [web, ui]
         depends: [ST-34.07, ST-34.05]
         story: 'به‌عنوان کاربر می‌خواهم صورت‌های مالی، شاخص‌ها، سناریوها و حساسیت را خوانا و قابل مقایسه ببینم.'

@@ -533,6 +533,39 @@ describe('Financial models (e2e)', () => {
       .expect(201);
     const approval = (runId: string) => `${base}/${model.id}/runs/${runId}/approval`;
 
+    // Every run tells the caller whether they may approve it; its creator is never shown.
+    expect(byAdmin.body.data.canApprove).toBe(false);
+    expect(byAdmin.body.data.createdById).toBeUndefined();
+    const flags = async (token: string) => {
+      const list = await http().get(`${base}/${model.id}/runs`).set(auth(token)).expect(200);
+      return Object.fromEntries(
+        (list.body.data as { id: string; canApprove: boolean; createdById?: string }[]).map(
+          (run) => {
+            expect(run.createdById).toBeUndefined();
+            return [run.id, run.canApprove];
+          },
+        ),
+      );
+    };
+    expect(await flags(admin.token)).toEqual({
+      [byAdmin.body.data.id]: false,
+      [byExpert.body.data.id]: true,
+    });
+    expect(await flags(expert.token)).toEqual({
+      [byAdmin.body.data.id]: true,
+      [byExpert.body.data.id]: false,
+    });
+    // The owner never approves a run of their own model.
+    expect(await flags(owner.token)).toEqual({
+      [byAdmin.body.data.id]: false,
+      [byExpert.body.data.id]: false,
+    });
+    const detail = await http()
+      .get(`${base}/${model.id}/runs/${byAdmin.body.data.id}`)
+      .set(auth(expert.token))
+      .expect(200);
+    expect(detail.body.data.canApprove).toBe(true);
+
     // Whoever calculated a run cannot approve it, staff included.
     const own = await http()
       .post(approval(byAdmin.body.data.id))
@@ -553,6 +586,9 @@ describe('Financial models (e2e)', () => {
         data: { approvedAt: new Date(), approvedById: admin.id },
       }),
     ).rejects.toThrow(/other than its creator/);
+    // An approved run cannot be approved again by anyone.
+    expect(await flags(expert.token)).toMatchObject({ [byAdmin.body.data.id]: false });
+    expect(await flags(admin.token)).toMatchObject({ [byExpert.body.data.id]: false });
     // An unknown run is still a 404.
     await http()
       .post(approval('01999999-9999-7999-8999-999999999999'))

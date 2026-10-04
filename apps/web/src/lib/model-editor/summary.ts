@@ -2,17 +2,15 @@ import {
   engineMessageFa,
   isEngineInputError,
   projectModel,
-  type CalculationWarning,
-  type DefaultUsed,
   type DiscountedCashFlow,
   type ProjectInput,
 } from '@roshd/financial-engine';
-import { ENGINE_DEFAULT_LABELS_FA } from '@roshd/validation';
+import { defaultText, unique, warningText } from './warnings';
 
 /**
  * The live calculation of the editor (ST-34.07): the engine itself — the same package the API
  * runs — on the inputs as they are typed, reduced to what the editor shows. The full statements
- * are the subject of the result views (ST-34.08) and of a stored run.
+ * are shown from a stored run (ST-34.08).
  */
 
 export interface Indicators {
@@ -37,8 +35,6 @@ export interface Summary {
 export type Outcome =
   { ok: true; summary: Summary } | { ok: false; field?: string; message: string };
 
-const BASIS_FA: Record<string, string> = { totalCapital: 'کل سرمایه', equity: 'آورده' };
-
 function indicators(flow: DiscountedCashFlow): Indicators {
   return {
     npv: flow.npv,
@@ -51,19 +47,12 @@ function indicators(flow: DiscountedCashFlow): Indicators {
   };
 }
 
-function warningText(warning: CalculationWarning): string {
-  const text = engineMessageFa(warning.code, warning.params);
-  const basis = warning.params?.basis ?? '';
-  return Object.hasOwn(BASIS_FA, basis) ? `${BASIS_FA[basis]}: ${text}` : text;
-}
-
-function defaultText(used: DefaultUsed): string {
-  const label = ENGINE_DEFAULT_LABELS_FA[used.key] ?? used.key;
-  if (used.item === undefined) return label;
-  // The item is a basis of the discounted cash flows or the name of an input (a loan).
-  // (a loan may be named anything, also «equity»: only the conventions of the flows have a basis)
-  const basis = used.key !== 'loan.firstRepaymentDate' && Object.hasOwn(BASIS_FA, used.item);
-  return `${label} (${basis ? BASIS_FA[used.item] : `«${used.item}»`})`;
+/** What a refused input or an unexpected failure looks like to the caller. */
+export function failure(error: unknown): { ok: false; field?: string; message: string } {
+  if (isEngineInputError(error)) {
+    return { ok: false, field: error.field, message: engineMessageFa(error.code, error.params) };
+  }
+  return { ok: false, message: 'محاسبه با خطای پیش‌بینی‌نشده متوقف شد.' };
 }
 
 /** Runs the model; an input the engine refuses comes back with its field and Persian message. */
@@ -77,18 +66,11 @@ export function calculate(input: ProjectInput): Outcome {
         engineVersion: result.modelVersion,
         totalCapital: indicators(totalCapital),
         equity: indicators(equity),
-        warnings: [...new Set(result.warnings.map(warningText))],
-        defaults: [...new Set(result.defaultsUsed.map(defaultText))],
+        warnings: unique(result.warnings.map(warningText)),
+        defaults: unique(result.defaultsUsed.map(defaultText)),
       },
     };
   } catch (error) {
-    if (isEngineInputError(error)) {
-      return {
-        ok: false,
-        field: error.field,
-        message: engineMessageFa(error.code, error.params),
-      };
-    }
-    return { ok: false, message: 'محاسبه با خطای پیش‌بینی‌نشده متوقف شد.' };
+    return failure(error);
   }
 }
