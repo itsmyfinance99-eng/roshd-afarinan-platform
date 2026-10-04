@@ -168,6 +168,26 @@ describe('report of a run', () => {
     expect(blocks(odd, 'summary')).toEqual([{ kind: 'text', text: UNREADABLE_PART }]);
   });
 
+  it('keeps the other inputs when one series does not fit the horizon', () => {
+    // The engine never reads the rate of a currency no item uses, so its length is unchecked.
+    const input = stored(sampleInput);
+    input.exchangeRates.EUR = ['1'];
+    const inputs = blocks(runReport(source({ input })), 'inputs');
+    expect(inputs.filter((block) => block.kind === 'text')).toEqual([
+      { kind: 'text', text: expect.stringContaining('نرخ ارز') },
+    ]);
+    expect(inputs.length).toBeGreaterThan(10);
+  });
+
+  it('rounds the ratios of the summary like the page of the run', () => {
+    const results = stored(outcome.value);
+    const minimum = results.statements.debtService?.minimum;
+    expect(minimum).toBeDefined();
+    if (minimum) minimum.ratio = '1.23456';
+    const summary = blocks(runReport(source({ results })), 'summary');
+    expect(JSON.stringify(summary)).toContain('"number":"1.235"');
+  });
+
   it('names an approved run', () => {
     const approved = runReport(
       source({ run: { ...source().run, approvedAt: '2026-09-12T08:00:00Z' } }),

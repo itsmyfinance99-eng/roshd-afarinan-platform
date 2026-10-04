@@ -898,18 +898,20 @@ describe('Financial models: files of a run (e2e)', () => {
 describe('Financial models: limits of the report worker (e2e)', () => {
   let app: INestApplication;
   let failure: Error | undefined;
+  let held: Promise<Buffer> | undefined;
   const http = () => request(app.getHttpServer());
   const auth = (token: string) => ({ Authorization: `Bearer ${token}` });
 
   beforeAll(async () => {
-    // A renderer that answers at once, or fails the way the worker does.
+    // A renderer that answers at once, waits, or fails the way the worker does.
     app = await createTestApp(
       [],
       [
         {
           token: RUN_REPORT_RENDERER,
           value: {
-            render: () => (failure ? Promise.reject(failure) : Promise.resolve(Buffer.from('x'))),
+            render: () =>
+              held ?? (failure ? Promise.reject(failure) : Promise.resolve(Buffer.from('x'))),
           },
         },
       ],
@@ -940,6 +942,9 @@ describe('Financial models: limits of the report worker (e2e)', () => {
     expect(slow.body.error.details).toEqual([
       { path: 'format', message: expect.stringContaining('Excel یا HTML') },
     ]);
+    // Only a PDF can be too large for its format; another format is asked to be tried again.
+    const html = file.replace('format=pdf', 'format=html');
+    await http().get(html).set(auth(owner.token)).expect(503);
     failure = new RenderBusyError();
     const busy = await http().get(file).set(auth(owner.token)).expect(503);
     expect(busy.body.error.code).toBe('SERVICE_UNAVAILABLE');
@@ -948,11 +953,45 @@ describe('Financial models: limits of the report worker (e2e)', () => {
     const where = { action: 'calculation_run.exported', entityId: runId };
     expect(await prisma.auditLog.count({ where })).toBe(0);
 
-    // Every request counts, the refused ones too: eight more pass, the eleventh is turned away.
+    // Every request counts, the refused ones too: seven more pass, the eleventh is turned away.
     failure = undefined;
-    for (let i = 0; i < 8; i++) await http().get(file).set(auth(owner.token)).expect(200);
+    for (let i = 0; i < 7; i++) await http().get(file).set(auth(owner.token)).expect(200);
     const limited = await http().get(file).set(auth(owner.token)).expect(429);
     expect(limited.body.error.code).toBe('RATE_LIMITED');
-    expect(await prisma.auditLog.count({ where })).toBe(8);
+    expect(await prisma.auditLog.count({ where })).toBe(7);
+  });
+
+  it('writes one file of a user at a time', async () => {
+    const owner = await registerUser(app);
+    const created = await http()
+      .post('/api/v1/financial-models')
+      .set(auth(owner.token))
+      .send({ title: 'طرح فولاد', inputs })
+      .expect(201);
+    const id = created.body.data.id as string;
+    const run = await http()
+      .post(`/api/v1/financial-models/${id}/runs`)
+      .set(auth(owner.token))
+      .expect(201);
+    const file = `/api/v1/financial-models/${id}/runs/${run.body.data.id as string}/export?format=pdf`;
+
+    failure = undefined;
+    let release: (file: Buffer) => void = () => undefined;
+    held = new Promise<Buffer>((resolve) => {
+      release = resolve;
+    });
+    const first = http()
+      .get(file)
+      .set(auth(owner.token))
+      .then((res) => res.status);
+    // The first file is in the making once its request reached the renderer.
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    const second = await http().get(file).set(auth(owner.token)).expect(429);
+    expect(second.body.error.code).toBe('RATE_LIMITED');
+    release(Buffer.from('x'));
+    expect(await first).toBe(200);
+    // The user is free again afterwards.
+    held = undefined;
+    await http().get(file).set(auth(owner.token)).expect(200);
   });
 });

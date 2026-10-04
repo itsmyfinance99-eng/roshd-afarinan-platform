@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { projectModel } from '@roshd/financial-engine';
 import type { ReportDocument } from '../document';
 import { reportFonts } from '../fonts';
+import { reportHtml } from '../html';
 import { runReport, type RunReportSource } from '../report';
 import { sampleInput } from '../testing/sample-input';
 import { strFromU8, unzipSync } from 'fflate';
@@ -85,6 +86,30 @@ describe('xlsx of a report', () => {
     // 454 500 in thousands, one decimal: the same figure as in the HTML and the PDF.
     expect(investment).toMatch(/<c r="B\d+" s="\d+"><v>454\.5<\/v><\/c>/);
     expect(files['xl/styles.xml']).toContain('formatCode="[$-3000429]#,##0.0"');
+  });
+
+  it('holds the figures of the document, and so does the HTML', () => {
+    const values = report.parts.flatMap((part) =>
+      part.blocks.flatMap((block) =>
+        block.kind === 'table'
+          ? block.sections.flatMap((section) => section.rows.flatMap((row) => row.values))
+          : block.kind === 'grid'
+            ? block.rows.flat()
+            : block.kind === 'pairs'
+              ? block.rows.map((row) => row.value)
+              : [],
+      ),
+    );
+    const numbers = values.flatMap((value) => (value.number === undefined ? [] : [value]));
+    expect(numbers.length).toBeGreaterThan(1000);
+    const cells = Object.entries(files)
+      .filter(([path]) => path.startsWith('xl/worksheets/'))
+      .flatMap(([, xml]) => [...xml.matchAll(/<v>([^<]+)<\/v>/g)].map((match) => match[1]));
+    expect([...cells].sort()).toEqual(numbers.map((value) => value.number).sort());
+    const spans = [...reportHtml(report).matchAll(/<span class="n">([^<]+)<\/span>/g)];
+    expect(spans.map((match) => match[1]).sort()).toEqual(
+      numbers.map((value) => value.text).sort(),
+    );
   });
 
   it('never writes a formula', () => {

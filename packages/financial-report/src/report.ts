@@ -101,6 +101,12 @@ function isModel(value: unknown): value is ProjectModel {
   return isRecord(value) && isRecord(value.statements);
 }
 
+/** A ratio of the summary, with three decimals. */
+function ratioValue(value: string): ReportValue {
+  const rounded = roundDecimal(value, 3);
+  return { text: formatDecimalFa(rounded), number: rounded };
+}
+
 /** What was stored with the run as a list of records; anything else is a shape we do not know. */
 function records<T>(value: unknown, isItem: (item: Record<string, unknown>) => boolean): T[] {
   if (!Array.isArray(value)) throw new Error('not a list');
@@ -111,11 +117,16 @@ function records<T>(value: unknown, isItem: (item: Record<string, unknown>) => b
 }
 
 /** A part of the report; stored data of an unknown shape ends in a plain message. */
-function part(id: string, title: string, build: () => ReportBlock[]): ReportPart {
+function part(
+  id: string,
+  title: string,
+  build: () => ReportBlock[],
+  unreadable = UNREADABLE_PART,
+): ReportPart {
   try {
     return { id, title, blocks: build() };
   } catch {
-    return { id, title, blocks: [{ kind: 'text', text: UNREADABLE_PART }] };
+    return { id, title, blocks: [{ kind: 'text', text: unreadable }] };
   }
 }
 
@@ -163,11 +174,10 @@ function indicators(
     ['dynamicPayback', INDICATOR_LABELS_FA.dynamicPayback, duration(flow.dynamicPayback?.months)],
   ];
   if (basis === 'totalCapital') {
-    const rounded = ratio === undefined ? undefined : roundDecimal(ratio, 3);
     rows.push([
       'npvRatio',
       INDICATOR_LABELS_FA.npvRatio,
-      rounded === undefined ? NOT_AVAILABLE : { text: formatDecimalFa(rounded), number: rounded },
+      ratio === undefined ? NOT_AVAILABLE : ratioValue(ratio),
     ]);
   }
   return {
@@ -205,7 +215,8 @@ function otherIndicators(statements: ProjectModel['statements'], frame: Frame): 
       },
       {
         label: `کمترین نسبت پوشش خدمت بدهی${period ? ` (${period.group} ${period.label})` : ''}`,
-        value: minimum ? numberValue(minimum.ratio, 'ratio', '1') : NOT_AVAILABLE,
+        // Three decimals, like the page of the run.
+        value: minimum ? ratioValue(minimum.ratio) : NOT_AVAILABLE,
       },
     ],
   };
@@ -289,12 +300,16 @@ export function runReport(source: RunReportSource): ReportDocument {
           },
         ];
       }),
-      part('inputs', 'فرض‌ها و ورودی‌ها', () => {
-        const parsed = projectInputSchema.safeParse(source.input);
-        return parsed.success
-          ? inputBlocks(parsed.data, frame)
-          : [{ kind: 'text', text: UNREADABLE_INPUT }];
-      }),
+      part(
+        'inputs',
+        'فرض‌ها و ورودی‌ها',
+        () => {
+          const parsed = projectInputSchema.safeParse(source.input);
+          if (!parsed.success) throw new Error('unreadable input');
+          return inputBlocks(parsed.data, frame);
+        },
+        UNREADABLE_INPUT,
+      ),
       tables('investment', 'هزینه‌های سرمایه‌گذاری', () => [
         investmentCostsTable(investment, financing, operations),
         workingCapitalTable(operations),

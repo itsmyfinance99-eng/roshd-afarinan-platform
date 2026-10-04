@@ -10,14 +10,15 @@ import {
   type RunReportRenderer,
 } from '../ports/run-report-renderer';
 
-/** Longest one file may take before its worker is stopped. */
+/** Longest one file may take in its worker before it is stopped (waiting in the queue not counted). */
 export const RENDER_TIMEOUT_MS = 30_000;
 /** Files in the queue, the one being written included; more are turned away. */
 export const RENDER_QUEUE_LIMIT = 4;
 
 /**
  * The worker: loads the report package (plain CommonJS, no framework) and writes one file. The
- * bytes are handed over without copying.
+ * bytes are copied once into a buffer of their own (never a slice of Node's buffer pool), which
+ * is then transferred to the request thread.
  */
 const WORKER_SOURCE = `
 const { parentPort, workerData } = require('node:worker_threads');
@@ -101,8 +102,10 @@ export class WorkerRunReportRenderer implements RunReportRenderer, OnModuleInit,
       );
       worker.once('message', (message: WorkerMessage) => {
         settle(() => {
-          if (message.ok) resolve(Buffer.from(message.bytes));
-          else reject(new Error(`rendering failed: ${message.message ?? 'unknown error'}`));
+          if (message.ok) {
+            const { buffer, byteOffset, byteLength } = message.bytes;
+            resolve(Buffer.from(buffer, byteOffset, byteLength));
+          } else reject(new Error(`rendering failed: ${message.message ?? 'unknown error'}`));
         });
       });
       worker.once('error', (error: Error & { code?: string }) =>

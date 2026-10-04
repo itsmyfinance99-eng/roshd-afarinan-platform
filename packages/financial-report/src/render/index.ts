@@ -11,12 +11,6 @@ import { reportXlsx } from './xlsx';
  * this in a worker thread, because a large report takes seconds of CPU.
  */
 
-export const EXPORT_CONTENT_TYPES: Record<CalculationExportFormat, string> = {
-  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  pdf: 'application/pdf',
-  html: 'text/html; charset=utf-8',
-};
-
 /** The report of a run in one of the formats. `generated` is the time written into the file. */
 export async function renderRunReport(
   source: RunReportSource,

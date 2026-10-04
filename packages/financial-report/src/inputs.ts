@@ -84,9 +84,16 @@ const table = (
   note?: string,
 ): ReportBlock[] => {
   const filled = sections.filter((section) => section.rows.length > 0);
-  return filled.length === 0
-    ? []
-    : [tableBlock({ id: '', title, sections: filled }, columns, UNIT, note)];
+  if (filled.length === 0) return [];
+  try {
+    return [tableBlock({ id: '', title, sections: filled }, columns, UNIT, note)];
+  } catch {
+    // A series the engine never read (a rate of a currency no item uses) may have any length:
+    // that table says so and the other inputs stay.
+    return [
+      { kind: 'text', text: `جدول «${title}» با افق این اجرا هم‌خوان نیست و نمایش داده نشد.` },
+    ];
+  }
 };
 
 const NOTE_LABELS: Record<string, string> = {

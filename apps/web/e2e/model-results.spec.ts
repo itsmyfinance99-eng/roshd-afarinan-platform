@@ -556,7 +556,7 @@ test.describe('financial model results', () => {
     await page.goto('/dashboard/models/m1/runs/r1');
     await page.getByRole('button', { name: 'خروجی PDF' }).click();
     // While a file is being made no second one can be asked for.
-    await expect(page.getByRole('button', { name: 'در حال آماده‌سازی…' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'در حال آماده‌سازی PDF…' })).toBeDisabled();
     await expect(page.getByRole('button', { name: 'خروجی Excel' })).toBeDisabled();
     release();
     await expect(page.getByText(message)).toBeVisible();

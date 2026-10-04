@@ -1,8 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { EXPORT_CONTENT_TYPES } from '@roshd/financial-report/render';
 import {
+  CALCULATION_EXPORT_CONTENT_TYPES,
   EXPORTS_PER_MINUTE,
-  type CalculationExportFormat,
   type ExportCalculationRunQuery,
 } from '@roshd/validation';
 import {
@@ -66,7 +65,14 @@ export class RunExportService {
       body = await this.renderer.render({ ...run, unit: query.unit }, query.format);
     } catch (error) {
       if (error instanceof RenderTimeoutError) {
-        const message = this.tooLarge(query.format);
+        // Only the PDF is slow enough for a model to be too large for it; the caller can choose
+        // another format. For the other formats it is the server that did not manage.
+        if (query.format !== 'pdf') {
+          throw new ServiceUnavailableError(
+            'ساخت این خروجی بیش از زمان مجاز طول کشید. چند لحظه دیگر دوباره تلاش کنید.',
+          );
+        }
+        const message = 'این اجرا برای خروجی PDF بیش از حد بزرگ است؛ خروجی Excel یا HTML بگیرید.';
         throw new ValidationFailedError([{ path: 'format', message }], message);
       }
       if (error instanceof RenderBusyError) {
@@ -88,15 +94,9 @@ export class RunExportService {
     });
     return {
       fileName: `financial-model-run-${run.run.number}.${query.format}`,
-      contentType: EXPORT_CONTENT_TYPES[query.format],
+      contentType: CALCULATION_EXPORT_CONTENT_TYPES[query.format],
       body,
     };
-  }
-
-  private tooLarge(format: CalculationExportFormat): string {
-    return format === 'pdf'
-      ? 'این اجرا برای خروجی PDF بیش از حد بزرگ است؛ خروجی Excel یا HTML بگیرید.'
-      : 'ساخت این خروجی بیش از زمان مجاز طول کشید؛ دوباره تلاش کنید.';
   }
 
   /** At most EXPORTS_PER_MINUTE downloads per user and API process. */

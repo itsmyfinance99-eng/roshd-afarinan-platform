@@ -36,6 +36,11 @@ export const MAX_REPORTED_ISSUES = 50;
 /** File formats a calculation run can be downloaded in (ST-34.09). */
 export const CALCULATION_EXPORT_FORMATS = ['xlsx', 'pdf', 'html'] as const;
 export type CalculationExportFormat = (typeof CALCULATION_EXPORT_FORMATS)[number];
+export const CALCULATION_EXPORT_CONTENT_TYPES: Record<CalculationExportFormat, string> = {
+  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  pdf: 'application/pdf',
+  html: 'text/html; charset=utf-8',
+};
 /** Files of calculation runs one user may ask for per minute. */
 export const EXPORTS_PER_MINUTE = 10;
 

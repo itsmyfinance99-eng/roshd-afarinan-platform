@@ -58,7 +58,7 @@ export function RunDownloads({
             disabled={busy !== null}
             onClick={() => void download(format, name)}
           >
-            {busy === format ? 'در حال آماده‌سازی…' : `خروجی ${name}`}
+            {busy === format ? `در حال آماده‌سازی ${name}…` : `خروجی ${name}`}
           </Button>
         ))}
       </div>
