@@ -195,6 +195,21 @@ describe('starting balances in the editor', () => {
     const withoutProduct = removeItem(draft, 'product', 0);
     expect(getIn(withoutProduct, ['startingBalances', 'finishedProducts'])).toEqual([]);
     expect(getIn(withoutProduct, ['startingBalances', 'workInProgress'])).toEqual([]);
+    // Its direct costs go with it, and so does their starting stock.
+    expect(getIn(withoutProduct, ['operations', 'costs'])).toEqual([]);
+    expect(getIn(withoutProduct, ['startingBalances', 'materials'])).toEqual([]);
+  });
+
+  it('names a row by the item it belongs to only where the row has no name of its own', () => {
+    // A cost item without a name yet is a numbered row, not its product.
+    const unnamed = setIn(existing(), ['operations', 'costs', 0, 'key'], '');
+    expect(describeIssue('operations.costs.0.key', 'پیام', unnamed).label).toBe(
+      'هزینه‌ها › ردیف ۱ › نام',
+    );
+    const sold = setIn(existing(), ['statements', 'assetSales'], [{ item: 'machinery' }]);
+    expect(describeIssue('statements.assetSales.0.period', 'پیام', sold).label).toBe(
+      'فروش دارایی › «machinery» › دوره',
+    );
   });
 
   it('names the place of a refused starting balance', () => {

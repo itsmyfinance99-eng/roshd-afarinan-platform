@@ -91,11 +91,31 @@ export function incomeStatementTable(statements: Statements): StatementTable {
   };
 }
 
-export function cashFlowTable(statements: Pick<Statements, 'cashFlow'>): StatementTable {
-  const c = statements.cashFlow;
+export function cashFlowTable(
+  statements: Pick<Statements, 'cashFlow'> & Partial<Pick<Statements, 'startingBalance'>>,
+): StatementTable {
+  const flow = statements.cashFlow;
+  // An existing enterprise starts with its cash surplus: the first column, the day before the
+  // project, holds it, so that the cumulative lines can be followed.
+  const start = statements.startingBalance?.assets.cashSurplus;
+  const lead = <T>(values: T[], first: string | null = null): (T | string | null)[] =>
+    start === undefined ? values : [first, ...values];
+  const rows = (group: Record<string, string[]>) =>
+    Object.fromEntries(Object.entries(group).map(([key, values]) => [key, lead(values)]));
+  const c = {
+    inflows: rows(flow.inflows) as Record<keyof typeof flow.inflows, (string | null)[]>,
+    outflows: rows(flow.outflows) as Record<keyof typeof flow.outflows, (string | null)[]>,
+    surplus: lead(flow.surplus),
+    cumulativeSurplus: lead(flow.cumulativeSurplus, start),
+    automaticEquity: lead(flow.automaticEquity),
+    automaticOverdraft: lead(flow.automaticOverdraft),
+    automaticOverdraftBalance: lead(flow.automaticOverdraftBalance),
+    cashBalance: lead(flow.cashBalance, start),
+  };
   return {
     id: 'cash-flow',
     title: 'جریان نقد برای برنامه‌ریزی مالی',
+    ...(start === undefined ? {} : { openingColumn: true }),
     sections: [
       {
         title: 'ورودی‌های نقد',

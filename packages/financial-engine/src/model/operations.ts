@@ -1077,11 +1077,17 @@ export function operationsSchedule(input: OperationsInput): CalculationResult<Op
   const depositRate = scalar(input.cash.depositRate, 'cash.depositRate', rate);
   const required = cashLocal.map((v, j) => v.plus(at(cashForeign, j)));
   // Deposits made from the cash requirement earn interest (XI.O); the deposits of the starting
-  // balance are added to them and stay to the end. Before production the cash is the starting
-  // balance, all of it in hand.
+  // balance are added to them and stay to the end. The cash-in-hand of a production period is the
+  // requirement less all deposits (VII.Q), never below zero; before production it is the starting
+  // balance as entered.
   const earning = required.map((v, j) => (production[j] === true ? v.times(depositShare) : ZERO));
   const deposits = earning.map((v) => v.plus(startingDeposits));
-  const cash = required.map((v) => v.plus(startingDeposits));
+  const inHand = required.map((v, j) => {
+    if (production[j] !== true) return v;
+    const left = v.minus(at(deposits, j));
+    return left.gt(0) ? left : ZERO;
+  });
+  const cash = inHand.map((v, j) => v.plus(at(deposits, j)));
 
   const total = (rows: { values: Decimal[] }[]) =>
     sumRows(
@@ -1238,7 +1244,7 @@ export function operationsSchedule(input: OperationsInput): CalculationResult<Op
         local: strings(cashLocal),
         foreign: strings(cashForeign),
         deposits: strings(deposits),
-        inHand: strings(cash.map((v, j) => v.minus(at(deposits, j)))),
+        inHand: strings(inHand),
       },
       payables: payables.map((p) => ({
         key: p.cost.item.key,

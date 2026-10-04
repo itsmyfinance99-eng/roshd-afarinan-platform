@@ -210,8 +210,16 @@ export function removeItem(draft: Draft, kind: NamedKind, index: number): Draft 
     });
   }
   if (kind === 'product') {
-    // The direct costs of a product have no meaning without it.
+    // The direct costs of a product have no meaning without it, nor has their starting stock.
+    const direct = listAt(next, COSTS)
+      .filter((cost) => getIn(cost, ['product']) === name)
+      .map((cost) => textAt(cost, ['key']));
     next = filterList(next, COSTS, refers('product'));
+    const kept = listAt(next, COSTS).map((cost) => textAt(cost, ['key']));
+    next = filterList(next, ['startingBalances', 'materials'], (balance) => {
+      const cost = textAt(balance, ['cost']);
+      return !direct.includes(cost) || kept.includes(cost);
+    });
     next = mapList(next, COSTS, (cost) => {
       const shares = getIn(cost, ['allocation', 'shares']);
       return shares !== null && typeof shares === 'object' && Object.hasOwn(shares, name)

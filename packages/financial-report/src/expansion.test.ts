@@ -94,6 +94,28 @@ describe('report of an expansion project', () => {
     expect(rowOf(balance, 'سود و کارمزد دوره ساخت')?.values[0]?.number).toBe('0');
   });
 
+  it('starts the cash flow with the cash surplus of the enterprise', () => {
+    const [cashFlow] = tablesOf(document, 'cash-flow');
+    expect(cashFlow?.columns[0]?.label).toBe('پیش از طرح');
+    expect(rowOf(cashFlow, 'مازاد (کسری) تجمعی')?.values[0]?.number).toBe('1500');
+    expect(rowOf(cashFlow, 'مانده نقد پایان دوره')?.values[0]?.number).toBe('1500');
+    expect(rowOf(cashFlow, 'جمع ورودی‌ها')?.values[0]).toEqual({ text: '—' });
+    // The first period continues from it.
+    const { cashFlow: flow } = outcome.value.statements;
+    expect(Number(flow.cumulativeSurplus[0])).toBe(1500 + Number(flow.surplus[0]));
+  });
+
+  it('keeps the balance sheet balanced through construction, start-up and production', () => {
+    // The sample has two construction years, start-up quarters, a foreign loan with capitalised
+    // interest, the sale of an asset and allowances.
+    const { assets, liabilities } = outcome.value.statements.balanceSheet;
+    expect(assets.total).toHaveLength(10);
+    assets.total.forEach((total, j) => {
+      const gap = Math.abs(Number(total) - Number(liabilities.total[j]));
+      expect(gap, `period ${j + 1}`).toBeLessThan(1e-9 * Math.abs(Number(total)));
+    });
+  });
+
   it('charges the discounted cash flows with the starting balance in a column of its own', () => {
     const [totalCapital, equity] = tablesOf(document, 'discounted');
     // The day before the project, ten periods and the year after production.

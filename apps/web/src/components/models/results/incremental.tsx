@@ -6,6 +6,7 @@ import type { ReportingUnit } from '@roshd/validation';
 import { useId, useState } from 'react';
 import { apiFetch } from '@/lib/api-client';
 import type { Frame } from '@/lib/model-editor/frame';
+import { textAt } from '@/lib/model-editor/paths';
 import type { IncrementalOutcome } from '@/lib/model-editor/incremental';
 import { useApi } from '@/lib/use-api';
 import {
@@ -105,6 +106,17 @@ export function IncrementalPanel({
         status: 'error',
         message:
           'نتایج اجرای «بدون طرح» با این نسخه از برنامه خوانده نمی‌شود. از ورودی‌های آن مدل اجرای تازه‌ای ثبت کنید.',
+      });
+      return;
+    }
+    // Amounts of two currencies cannot be subtracted.
+    const currency = textAt(response.data.input, ['localCurrency']);
+    if (currency !== input.localCurrency) {
+      setResult({
+        status: 'error',
+        message: `پول محلی دو اجرا یکی نیست (این اجرا ${input.localCurrency} و اجرای «بدون طرح» ${
+          currency || 'نامشخص'
+        })؛ تحلیل افزایشی فقط برای دو اجرا با یک پول محلی معنا دارد.`,
       });
       return;
     }
@@ -218,6 +230,9 @@ export function IncrementalPanel({
         </Notice>
       ) : null}
       {result.status === 'error' ? <ErrorMessage>{result.message}</ErrorMessage> : null}
+      {mine.state.status === 'error' ? (
+        <Notice>فهرست مدل‌های دیگر شما بارگذاری نشد؛ فقط اجراهای همین مدل در دسترس است.</Notice>
+      ) : null}
 
       {result.status === 'done' ? (
         <div aria-live="polite" className="flex flex-col gap-6">

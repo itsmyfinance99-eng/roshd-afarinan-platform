@@ -840,18 +840,26 @@ export function financialStatements(
 
   // Total capital: the planning cash flow without any financial transaction.
   const totalInvestment = add(fixedInvestment, preProduction, workingCapitalIncrease);
+  // XI.F: fixed assets plus current assets less current liabilities of the starting balance.
+  const totalCapitalCharge = openingFixedAssets
+    .plus(opening.currentAssets)
+    .plus(opening.cash)
+    .minus(opening.payables);
   const totalCapital = flow(
     'totalCapital',
     add(revenue, depositInterest, proceeds),
     add(totalInvestment, operatingCosts, leasingCosts, marketingCosts, tax),
     residualTotalCapital,
     totalCapitalRates,
-    // XI.F: fixed assets plus current assets less current liabilities of the starting balance.
-    openingFixedAssets.plus(opening.currentAssets).plus(opening.cash).minus(opening.payables),
+    totalCapitalCharge,
   );
   const investmentColumns = salvageColumn ? [...totalInvestment, ZERO] : totalInvestment;
-  // The starting balance is not an investment of the project: its column counts as zero.
-  const npvrColumns = totalCapital.openingColumn ? [ZERO, ...investmentColumns] : investmentColumns;
+  // The starting balance the flow is charged with is capital committed like the investments: the
+  // current assets it holds return as negative increases of working capital in later periods, so
+  // leaving it out would net the investment down (our rule, OQ-39).
+  const npvrColumns = totalCapital.openingColumn
+    ? [totalCapitalCharge, ...investmentColumns]
+    : investmentColumns;
   const npvr = npvRatio(totalCapital.series, strings(npvrColumns), {
     annualRate: totalCapital.rates,
     ...(reference === undefined ? {} : { reference }),

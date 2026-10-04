@@ -123,7 +123,7 @@ export function workingCapitalTable(operations: Operations): StatementTable {
             : [['از آن: دریافتنی‌های آغازین وصول‌نشده', starting.receivables] satisfies Line]),
           ['وجه نقد در گردش', cash.inHand],
           ['سپرده کوتاه‌مدت', cash.deposits],
-          ['جمع وجه نقد مورد نیاز', totals.cash, true],
+          ['جمع وجه نقد و سپرده', totals.cash, true],
           ['جمع دارایی‌های جاری', totals.currentAssets, true],
         ]),
       },

@@ -348,6 +348,46 @@ describe('starting balances of an existing enterprise', () => {
     close(totalCapital.payback?.months, new Decimal(24).plus(new Decimal(15).div(471).times(12)));
   });
 
+  it('counts the charge of the starting balance as investment in the NPV ratio', () => {
+    const ratio = statements.totalCapital.npvRatio;
+    // 1 170 a year before the reference, 280 of current assets freed, 70 of payables paid.
+    const invested = new Decimal(1287).minus(280).plus(new Decimal(70).div('1.1'));
+    close(ratio?.presentValueOfInvestment, invested);
+    close(ratio?.ratio, toDecimal(statements.totalCapital.npv).div(invested));
+    expect(numbers(statements.totalCapital.investment)).toEqual([-280, 70, 0, 0]);
+  });
+
+  it('takes all deposits out of the cash-in-hand of a production period (VII.Q)', () => {
+    // Office costs of 100 a year with 36 days of cash: a requirement of 10, half of it deposited.
+    const withCash = (shortTermDeposits: string) =>
+      projectModel({
+        ...existing,
+        operations: {
+          ...existing.operations,
+          cash: {
+            localCoverage: { days: '36' },
+            foreignCoverage: none,
+            depositShare: '0.5',
+            depositRate: '0.2',
+          },
+        },
+        startingBalances: { ...balances, shortTermDeposits },
+      }).value;
+    const small = withCash('2').operations;
+    expect(numbers(small.workingCapital.cash.deposits)).toEqual([7, 7, 7]);
+    expect(numbers(small.workingCapital.cash.inHand)).toEqual([3, 3, 3]);
+    expect(numbers(small.workingCapital.totals.cash)).toEqual([10, 10, 10]);
+    // Interest on the deposits made from the requirement only: 5 at 20 %.
+    expect(numbers(small.depositInterest)).toEqual([1, 1, 1]);
+    // Deposits above the requirement leave nothing in hand; they stay to the end.
+    const large = withCash('20');
+    expect(numbers(large.operations.workingCapital.cash.deposits)).toEqual([25, 25, 25]);
+    expect(numbers(large.operations.workingCapital.cash.inHand)).toEqual([0, 0, 0]);
+    expect(numbers(large.operations.workingCapital.totals.cash)).toEqual([25, 25, 25]);
+    const sheet = large.statements.balanceSheet;
+    expect(sheet.assets.total).toEqual(sheet.liabilities.total);
+  });
+
   it('discounts the starting balance at its own date when the reference is the start', () => {
     const result = projectModel({
       ...existing,

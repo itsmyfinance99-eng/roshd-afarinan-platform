@@ -226,8 +226,10 @@ function labelOf(parts: string[], draft: Draft): string {
   parts.forEach((part, i) => {
     if (/^\d+$/.test(part)) {
       const node = getIn(draft, parts.slice(0, i + 1).map(asKey));
-      // A row is named by its own name, or by the item it belongs to.
-      const name = ['key', 'equity', 'item', 'cost', 'product', 'loan']
+      // A row is named by its own name; a row that has none by nature (dividend conditions, a
+      // sale of an asset, a starting balance) by the item it belongs to.
+      const referring = parts[0] === 'startingBalances' || parts[i - 1] === 'assetSales';
+      const name = ['key', 'equity', ...(referring ? ['item', 'cost', 'product', 'loan'] : [])]
         .map((property) => textAt(node, [property]))
         .find((text) => text !== '');
       const number = toPersianDigits(Number(part) + 1);
