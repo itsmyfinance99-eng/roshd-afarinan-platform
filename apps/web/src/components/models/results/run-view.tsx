@@ -423,7 +423,12 @@ function SummaryPart({
             {statements.shareholders.map((flow) => (
               <IndicatorCard
                 key={flow.equity}
-                title={`${EQUITY_CLASS_LABELS_FA[flow.class] ?? 'سهامدار'} «${flow.equity}»`}
+                nested
+                title={
+                  <>
+                    {EQUITY_CLASS_LABELS_FA[flow.class] ?? 'سهامدار'} «<bdi>{flow.equity}</bdi>»
+                  </>
+                }
                 unit={unit}
                 unitLabel={label}
                 values={{

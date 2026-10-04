@@ -1,4 +1,5 @@
 import type { ReportingUnit } from '@roshd/validation';
+import type { ReactNode } from 'react';
 import {
   INDICATOR_LABELS_FA,
   indicatorText,
@@ -15,17 +16,21 @@ export function IndicatorCard({
   warnings,
   unit,
   unitLabel: label,
+  nested = false,
 }: {
-  title: string;
+  title: ReactNode;
+  /** The card stands under a heading of the cards' usual level. */
+  nested?: boolean;
   values: IndicatorValues;
   rows: IndicatorRowKey[];
   warnings: { indicator: IndicatorKey; text: string }[];
   unit: ReportingUnit;
   unitLabel: string;
 }) {
+  const Heading = nested ? 'h4' : 'h3';
   return (
     <section className="rounded-card bg-surface p-4">
-      <h3 className="mb-3 text-[15px] font-bold text-ink">{title}</h3>
+      <Heading className="mb-3 text-[15px] font-bold text-ink">{title}</Heading>
       <dl className="flex flex-col gap-2 text-sm">
         {rows.map((row) => {
           const notes = unique(

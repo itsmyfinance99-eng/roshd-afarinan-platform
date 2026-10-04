@@ -678,6 +678,23 @@ describe('incrementalAnalysis', () => {
     expect(result.equity.startingBalance).toBe('500');
   });
 
+  it('keeps a line only one case has', () => {
+    // A run stored before refunds of equity existed has no such line.
+    const { equityRefunds: _, ...outflows } = project.statements.cashFlow.outflows;
+    const old = {
+      ...project,
+      statements: {
+        ...project.statements,
+        cashFlow: { ...project.statements.cashFlow, outflows },
+      },
+    } as typeof project;
+    const refunds = (withProject: typeof project, withoutProject: typeof project) =>
+      incrementalAnalysis({ withProject, withoutProject, discounting }).value.cashFlow.outflows
+        .equityRefunds;
+    expect(numbers(refunds(old, base))).toEqual([0, 0, 0]);
+    expect(numbers(refunds(base, old))).toEqual([0, 0, 0]);
+  });
+
   it('refuses two cases with different horizons or another discount option', () => {
     const longer = projectModel({
       ...existing,

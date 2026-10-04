@@ -224,6 +224,170 @@ describe('joint-venture partners', () => {
     expect(numbers(paid?.ordinary ?? [])).toEqual([0, 36, 36]);
   });
 
+  it('takes a foreign refund off the equity at the value it was paid in at', () => {
+    // B pays 40 dollars at 10 and gets 30 of them back at 20: 600 of cash for 300 of equity.
+    const foreign: ProjectInput = {
+      ...venture,
+      exchangeRates: { USD: ['10', '10', '20'] },
+      financing: {
+        loans: [],
+        equity: [
+          { ...venture.financing.equity[0]!, refunds: at({}) },
+          {
+            ...venture.financing.equity[1]!,
+            currency: 'USD',
+            amounts: at({ 0: '40' }),
+            refunds: at({ 2: '30' }),
+          },
+        ],
+      },
+      statements: {
+        ...venture.statements,
+        profitDistribution: {
+          retainedShare: '0',
+          shareholders: [
+            holder('A', '0.6', '0.5'),
+            { ...holder('B', '0.4', '0.5'), preferredRate: '0.1' },
+          ],
+        },
+      },
+    };
+    const result = projectModel(foreign).value;
+    const { balanceSheet, cashFlow, dividends } = result.statements;
+    expect(result.financing.equity.items[1]?.refunds).toEqual(['0', '0', '600']);
+    expect(result.financing.equity.items[1]?.refundsAtCost).toEqual(['0', '0', '300']);
+    expect(numbers(cashFlow.outflows.equityRefunds)).toEqual([0, 0, 600]);
+    // The equity falls by what was paid in for those 30 dollars; the rest is an exchange loss.
+    expect(numbers(balanceSheet.liabilities.equity.JOINT_VENTURE)).toEqual([1000, 1000, 700]);
+    expect(numbers(balanceSheet.assets.exchangeLosses)).toEqual([0, 0, 300]);
+    expect(balanceSheet.assets.total).toEqual(balanceSheet.liabilities.total);
+    // Preferred dividends on the 400 and then on the 100 still held, never on a negative amount.
+    expect(numbers(dividends.shareholders[1]?.preferred ?? [])).toEqual([0, 40, 10]);
+    expect(numbers(dividends.shareholders[1]?.ordinary ?? [])).toEqual([0, 24, 36]);
+    // The partner itself receives the cash.
+    expect(numbers(result.statements.shareholders?.[1]?.refunds ?? [])).toEqual([0, 0, 600]);
+    // All 40 dollars back: the whole 400 leaves the books, whatever the rate.
+    const all = projectModel({
+      ...foreign,
+      financing: {
+        loans: [],
+        equity: [
+          foreign.financing.equity[0]!,
+          { ...foreign.financing.equity[1]!, refunds: at({ 2: '40' }) },
+        ],
+      },
+    }).value;
+    expect(all.financing.equity.items[1]?.refundsAtCost).toEqual(['0', '0', '400']);
+    expect(numbers(all.statements.balanceSheet.liabilities.equity.JOINT_VENTURE)).toEqual([
+      1000, 1000, 600,
+    ]);
+    fails(
+      () =>
+        projectModel({
+          ...foreign,
+          financing: {
+            loans: [],
+            equity: [
+              foreign.financing.equity[0]!,
+              { ...foreign.financing.equity[1]!, refunds: at({ 2: '41' }) },
+            ],
+          },
+        }),
+      'financing.refundExceedsEquity',
+      'financing.equity[1].refunds[2]',
+    );
+  });
+
+  it('charges a partner of an existing enterprise with its starting equity', () => {
+    const existing: ProjectInput = {
+      ...venture,
+      startingBalances: {
+        fixedAssets: [],
+        materials: [],
+        workInProgress: [],
+        finishedProducts: [],
+        receivables: { value: '0', collectionDays: 0 },
+        payables: { value: '0', paymentDays: 0 },
+        cashInHand: '0',
+        shortTermDeposits: '0',
+        cashSurplus: '300',
+        loans: [],
+        equity: [{ equity: 'A', value: '300' }],
+      },
+    };
+    const [a, b] = projectModel(existing).value.statements.shareholders ?? [];
+    expect(a?.startingBalance).toBe('300');
+    // 300 before the project, 600 paid in; the cash of 300 stays to the end: half of 1 100.
+    expect(numbers(a?.cumulative ?? [])).toEqual([-900, -840, -580, -30]);
+    expect(a?.residualValue).toBe('550');
+    expect(b?.startingBalance).toBe('0');
+  });
+
+  it('says so when the net worth holds equity no listed shareholder paid', () => {
+    // B pays 100 less than the machinery needs: automatic equity covers it.
+    const short = projectModel({
+      ...venture,
+      financing: {
+        loans: [],
+        equity: [
+          venture.financing.equity[0]!,
+          { ...venture.financing.equity[1]!, amounts: at({ 0: '300' }) },
+        ],
+      },
+    });
+    expect(short.warnings).toEqual(
+      expect.arrayContaining([{ code: 'shareholders.automaticEquity', params: { amount: '100' } }]),
+    );
+    // A third contribution without dividend conditions and without a share.
+    const silent = projectModel({
+      ...venture,
+      financing: {
+        loans: [],
+        equity: [
+          ...venture.financing.equity,
+          {
+            key: 'C',
+            class: 'ORDINARY',
+            currency: 'IRR',
+            origin: 'LOCAL',
+            amounts: at({ 0: '50' }),
+          },
+        ],
+      },
+    });
+    expect(silent.warnings).toEqual([
+      { code: 'shareholders.contributionWithoutShare', params: { items: 'C' } },
+    ]);
+    // Without the distribution of the net worth neither is said: no partner flow is shown.
+    expect(
+      projectModel({
+        ...withHolders([holder('A', '0.6'), holder('B', '0.4')]),
+        financing: {
+          loans: [],
+          equity: [
+            ...venture.financing.equity,
+            {
+              key: 'C',
+              class: 'ORDINARY',
+              currency: 'IRR',
+              origin: 'LOCAL',
+              amounts: at({ 0: '50' }),
+            },
+          ],
+        },
+      }).warnings,
+    ).toEqual([]);
+  });
+
+  it('returns the share of the net worth on the last day when residual values return there', () => {
+    const [a] =
+      projectModel({
+        ...venture,
+        statements: { ...venture.statements, residualValueTiming: 'END_OF_PRODUCTION' },
+      }).value.statements.shareholders ?? [];
+    expect(numbers(a?.net ?? [])).toEqual([-600, 60, 660]);
+  });
+
   it('names the partner in the warnings of its own flow', () => {
     // A partner who pays nothing in has no investment to pay back.
     const free: ProjectInput = {

@@ -129,7 +129,8 @@ export function FinancingSection() {
                   />
                 </FieldGrid>
               ) : null}
-              {textAt(item, ['class']) !== 'SUBSIDY' ? (
+              {/* Offered for equity; kept for a refund entered before the kind became a grant. */}
+              {textAt(item, ['class']) !== 'SUBSIDY' || getIn(item, ['refunds']) !== undefined ? (
                 <CheckField
                   label="بخشی از این آورده در طول طرح بازپرداخت می‌شود"
                   checked={getIn(item, ['refunds']) !== undefined}

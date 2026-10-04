@@ -453,6 +453,12 @@ export function financialStatements(
   const preProduction = row(investment.preProduction, 'investment.preProduction');
   const equityPaid = row(financing.equity.total, 'financing.equity.total');
   const equityRefunds = row(financing.equity.refunds.total, 'financing.equity.refunds.total');
+  // What the refunds take off the equity: its paid-in value (a foreign contribution refunded at
+  // another rate leaves an exchange difference).
+  const refundsAtCost = row(
+    financing.equity.refunds.atCost.total,
+    'financing.equity.refunds.atCost.total',
+  );
   const loanRows = financing.loanTotals;
   if (loanRows.length !== length) {
     throw new EngineInputError('series.lengthMismatch', 'financing.loanTotals', {
@@ -652,6 +658,10 @@ export function financialStatements(
       equity.refunds === undefined
         ? zeros
         : row(equity.refunds, `financing.equity.items.${equity.key}.refunds`);
+    const refundedAtCost =
+      equity.refundsAtCost === undefined
+        ? zeros
+        : row(equity.refundsAtCost, `financing.equity.items.${equity.key}.refundsAtCost`);
     return {
       key: s.equity,
       class: equity.class,
@@ -662,7 +672,7 @@ export function financialStatements(
       netWorthShare,
       // Preferred dividends are paid on the equity held: the starting balance included, refunds
       // deducted.
-      accumulated: cumulative(minus(paid, refunded)).map((v) =>
+      accumulated: cumulative(minus(paid, refundedAtCost)).map((v) =>
         v.plus(openingOf(equity.startingBalance)),
       ),
       preferredRate: perYear(s.preferredRate, years, `${field}.preferredRate`, notNegative),
@@ -773,13 +783,17 @@ export function financialStatements(
 
   // Projected balance sheet (X.C.6).
   const wcRow = (values: DecimalString[]) => row(values, 'operations.workingCapital');
-  const equityToDate = cumulative(minus(equityPaid, equityRefunds)).map((v) =>
+  const equityToDate = cumulative(minus(equityPaid, refundsAtCost)).map((v) =>
     v.plus(opening.equity),
   );
   const automaticEquityToDate = cumulative(automaticEquity);
   const totalEquity = add(equityToDate, automaticEquityToDate);
   const retainedToDate = cumulative(retainedProfit).map((v) => v.plus(openingReserves));
-  const exchangeToDate = cumulative(loan('exchangeAdjustment'));
+  // Exchange adjustment of foreign loans, and of foreign equity refunded at another rate than
+  // it was paid in at (cash paid less the equity taken off the books).
+  const exchangeToDate = cumulative(
+    add(loan('exchangeAdjustment'), minus(equityRefunds, refundsAtCost)),
+  );
   const allCurrentAssets = add(cash, currentAssets);
   const currentLiabilities = add(payables, overdraftBalance);
   const totalAssets = add(
@@ -978,7 +992,7 @@ export function financialStatements(
       ).value
     : null;
 
-  const equityCapital = cumulative(minus(minus(equityPaid, subsidies), equityRefunds)).map((v) =>
+  const equityCapital = cumulative(minus(minus(equityPaid, subsidies), refundsAtCost)).map((v) =>
     v.plus(opening.equity).minus(opening.subsidies),
   );
 
@@ -996,6 +1010,26 @@ export function financialStatements(
     const total = withShare.reduce((s, h) => s.plus(h.netWorthShare ?? ZERO), ZERO);
     if (!total.eq(1)) {
       throw new EngineInputError('shareholders.netWorthShares', 'profitDistribution.shareholders');
+    }
+  }
+  if (withShare.length > 0) {
+    // The net worth is shared among the listed shareholders only: what distorts their returns is
+    // said, never hidden.
+    const unlisted = financing.equity.items
+      .filter((e) => e.class !== 'SUBSIDY' && !shareholders.some((h) => h.key === e.key))
+      .map((e) => e.key);
+    if (unlisted.length > 0) {
+      warnings.push({
+        code: 'shareholders.contributionWithoutShare',
+        params: { items: unlisted.join('، ') },
+      });
+    }
+    const automatic = at(automaticEquityToDate, last);
+    if (!automatic.isZero()) {
+      warnings.push({
+        code: 'shareholders.automaticEquity',
+        params: { amount: toDecimalString(automatic) },
+      });
     }
   }
   const finalNetWorth = at(netWorth, last);
@@ -1043,7 +1077,10 @@ export function financialStatements(
         cumulative(
           minus(
             row(financing.equity.classes[c], `financing.equity.classes.${c}`),
-            row(financing.equity.refunds.classes[c], `financing.equity.refunds.classes.${c}`),
+            row(
+              financing.equity.refunds.atCost.classes[c],
+              `financing.equity.refunds.atCost.classes.${c}`,
+            ),
           ),
         ).map((v) => v.plus(openingOf(financing.startingBalance?.equity[c]))),
       ),
