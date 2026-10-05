@@ -13,7 +13,7 @@ import { MODEL_VERSION } from '../version';
 import type { FinancingSchedule } from './financing';
 import type { PlanningHorizon } from './horizon';
 import { uniqueKeys, type InvestmentSchedule, type Origin } from './investment';
-import type { CostCategory, OperationsSchedule } from './operations';
+import { MATERIALS, type CostCategory, type OperationsSchedule } from './operations';
 import { discountRates, type FinancialStatements } from './statements';
 
 /**
@@ -43,8 +43,9 @@ export interface EconomicCostAdjustment {
   /** Wages only; required for the labour category. Other wages count as skilled (X.D.1). */
   skill?: LabourSkill;
   /**
-   * Indirect taxes and duties included in the financial value, as a fraction of it; a negative
-   * fraction is a subsidy on the input. Materials and wages only; none when absent.
+   * Indirect taxes and duties included in the financial value, as a fraction of it (at most 1); a
+   * negative fraction is a subsidy on the input, of any size. Materials and wages only; none when
+   * absent.
    */
   taxesIncluded?: DecimalString;
   /**
@@ -155,17 +156,9 @@ export interface ValueAddedSchedule {
 type Row = Decimal[];
 const at = (row: Row | undefined, j: number) => row?.[j] ?? ZERO;
 
-const MATERIAL_CATEGORIES: ReadonlySet<CostCategory> = new Set([
-  'RAW_MATERIALS',
-  'FACTORY_SUPPLIES',
-  'UTILITIES',
-  'ENERGY',
-  'SPARE_PARTS',
-]);
-
 /** The natures a category may have; a category with one nature needs no entry. */
 function naturesOf(category: CostCategory): readonly InputNature[] {
-  if (MATERIAL_CATEGORIES.has(category)) return ['MATERIALS'];
+  if (MATERIALS.has(category)) return ['MATERIALS'];
   if (category === 'LABOUR' || category === 'LABOUR_OVERHEADS') return ['WAGES'];
   if (category === 'LEASING') return ['OTHER'];
   if (category === 'DIRECT_MARKETING' || category === 'MARKETING_OVERHEADS') {
@@ -190,7 +183,7 @@ function adjustment(
   let tax = ZERO;
   if (entry.taxesIncluded !== undefined) {
     tax = toDecimal(entry.taxesIncluded);
-    if (tax.lte(-1) || tax.gt(1)) {
+    if (tax.gt(1)) {
       throw new EngineInputError('economic.taxesIncluded', `${field}.taxesIncluded`);
     }
   }
@@ -319,7 +312,11 @@ export function valueAdded(input: ValueAddedInput): CalculationResult<ValueAdded
       nature = entry.nature;
     }
     if (nature === undefined) {
-      throw new EngineInputError('economic.natureRequired', field, { item: cost.key });
+      throw new EngineInputError(
+        'economic.natureRequired',
+        found === undefined ? field : `${field}.nature`,
+        { item: cost.key },
+      );
     }
     if (entry?.skill !== undefined) {
       if (nature !== 'WAGES') {
@@ -329,7 +326,11 @@ export function valueAdded(input: ValueAddedInput): CalculationResult<ValueAdded
         throw new EngineInputError('economic.skillRequired', `${field}.skill`, { item: cost.key });
       }
     } else if (cost.category === 'LABOUR') {
-      throw new EngineInputError('economic.skillRequired', field, { item: cost.key });
+      throw new EngineInputError(
+        'economic.skillRequired',
+        found === undefined ? field : `${field}.skill`,
+        { item: cost.key },
+      );
     }
     if (nature !== 'MATERIALS' && entry?.valueAddedIncluded !== undefined) {
       throw new EngineInputError('economic.notApplicable', `${field}.valueAddedIncluded`);

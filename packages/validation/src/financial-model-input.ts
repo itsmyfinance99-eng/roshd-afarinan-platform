@@ -387,7 +387,7 @@ const projectInputFieldsSchema = z.object({
 /**
  * Rough size of a calculation: project periods × everything computed per period — input lines
  * (investment items, equity, loans, sales lines, cost items), products, cost centres and a fixed
- * part for the statements — plus the allocation of every indirect cost to every product.
+ * part for the statements and for the economic schedules — plus the allocation of every indirect cost to every product.
  */
 export function calculationSize(input: z.infer<typeof projectInputFieldsSchema>): number {
   const { products, costs, costCentres } = input.operations;
@@ -399,7 +399,12 @@ export function calculationSize(input: z.infer<typeof projectInputFieldsSchema>)
     products.reduce((sum, product) => sum + product.sales.length, 0);
   const indirect = costs.filter((cost) => cost.product === undefined).length;
   const perPeriod =
-    lines + products.length + (costCentres?.length ?? 0) + 20 + (indirect * products.length) / 10;
+    lines +
+    products.length +
+    (costCentres?.length ?? 0) +
+    20 +
+    (input.economic === undefined ? 0 : 40) +
+    (indirect * products.length) / 10;
   return Math.ceil(horizonPeriods(input.horizon) * perPeriod);
 }
 

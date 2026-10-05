@@ -468,6 +468,205 @@ describe('value added of a project', () => {
   });
 });
 
+describe('value added: adjustments and special cases', () => {
+  it('takes a third round of value added and subsidies of any size on inputs', () => {
+    const { value } = projectModel(
+      withEconomic({
+        costs: [
+          ...economic.costs.filter((c) => c.item !== 'power' && c.item !== 'workers'),
+          // The enterprise pays 60 for power worth 150: a subsidy of 150 % of what it pays.
+          { item: 'power', taxesIncluded: '-1.5' },
+          { item: 'workers', skill: 'UNSKILLED', taxesIncluded: '-0.1' },
+        ],
+        investment: [
+          { item: 'machinery', taxesIncluded: '0.1' },
+          { item: 'building', valueAddedIncluded: ['0.5', '0.2', '0.5'] },
+          { item: 'studies', taxesIncluded: '-0.1' },
+        ],
+      }),
+    );
+    const schedule = value.economic?.valueAdded;
+    // Machinery 810, building 600 × 0.5 × 0.8 × 0.5, studies 300 (a subsidy is not deducted), land.
+    expectLine(schedule?.investment.fixedAndPreProduction, ['1330', '0', '0', '0']);
+    expectLine(schedule?.materialInput, ['0', '412.5', '412.5', '412.5']);
+    // Studies 30; then power 90 and workers 20 a year.
+    expectLine(schedule?.government.inputSubsidies, ['30', '110', '110', '110']);
+    // The workers keep their 200: the tax of 10 is gone from the indirect taxes.
+    expectLine(schedule?.distribution.unskilledLabour, ['0', '200', '200', '200']);
+    expectLine(schedule?.distribution.domesticWages, ['0', '440', '440', '440']);
+    expectLine(schedule?.government.indirectTaxes, ['90', '55.72', '55.72', '56.37']);
+    expectLine(schedule?.distribution.government, ['-40', '49.72', '49.72', '55.37']);
+    expectLine(schedule?.netNationalValueAdded, ['-1330', '1493.74', '1493.74', '1616.04']);
+  });
+
+  it('does not charge a grant from abroad to the government', () => {
+    const { value } = projectModel({
+      ...mill,
+      financing: {
+        ...mill.financing,
+        equity: mill.financing.equity.map((e) =>
+          e.key === 'grant' ? { ...e, origin: 'FOREIGN' as const } : e,
+        ),
+      },
+    });
+    const schedule = value.economic?.valueAdded;
+    expectLine(schedule?.government.grants, ['0', '0', '0', '0']);
+    expectLine(schedule?.distribution.government, ['90', '157.72', '157.72', '163.37']);
+  });
+
+  it('counts interest of the construction phase once, as interest', () => {
+    // The foreign loan is drawn half a year earlier: 2.5 dollars of interest fall due at the end
+    // of construction and are added to the loan.
+    const early = projectModel({
+      ...mill,
+      financing: {
+        ...mill.financing,
+        loans: mill.financing.loans.map((l) =>
+          l.key === 'export-credit'
+            ? {
+                ...l,
+                loan: {
+                  ...l.loan,
+                  flows: [
+                    { day: 180, amount: '50' },
+                    { day: 1080, amount: '-26.25' },
+                    { day: 1440, amount: '-26.25' },
+                  ],
+                  capitalisedShare: '1',
+                  capitaliseUntilDay: 360,
+                },
+              }
+            : l,
+        ),
+      },
+    }).value;
+    expect(early.financing.loans[0]?.periods.map((p) => Number(p.capitalisedInterest))).toEqual([
+      25, 0, 0, 0,
+    ]);
+    const schedule = early.economic?.valueAdded;
+    // 25 capitalised, then 10 % of 525, 525 and 262.5.
+    expectLine(schedule?.repatriated.interest, ['25', '52.5', '52.5', '26.25']);
+    expectLine(schedule?.investment.total, ['1450', '0', '0', '0']);
+  });
+
+  it('measures the first increase of the inventory from the stock of an existing enterprise', () => {
+    const expansion = projectModel({
+      ...mill,
+      operations: {
+        ...mill.operations,
+        costs: mill.operations.costs.map((c) =>
+          c.key === 'ore' ? { ...c, stockCoverage: { days: '36' } } : c,
+        ),
+      },
+      startingBalances: {
+        fixedAssets: [],
+        materials: [{ cost: 'ore', value: '50' }],
+        workInProgress: [],
+        finishedProducts: [],
+        receivables: { value: '0', collectionDays: 0 },
+        payables: { value: '0', paymentDays: 0 },
+        cashInHand: '0',
+        shortTermDeposits: '0',
+        cashSurplus: '0',
+        loans: [],
+        equity: [],
+      },
+    }).value;
+    const working = expansion.operations.workingCapital;
+    expect(working.starting?.opening.materials).toBe('50');
+    const inventory = working.totals.inventory;
+    // The stock of 50 is there before the project starts: holding it is no investment.
+    expect(Number(inventory[0])).toBe(50);
+    const increase = inventory.map((v, j) =>
+      new Decimal(v).minus(j === 0 ? '50' : (inventory[j - 1] ?? '0')).toString(),
+    );
+    expect(increase[0]).toBe('0');
+    expectLine(expansion.economic?.valueAdded.investment.inventoryIncrease, increase);
+  });
+
+  it('discounts periods shorter than a year by their months', () => {
+    // Construction in two half-years: the land is bought in the first, the rest in the second.
+    const first = <T>(values: T[], value: T) => [value, ...values];
+    const later = (values: string[]) => first(values, '0');
+    const written5 = { ...written, startPeriod: 2 };
+    const halves: ProjectInput = {
+      ...mill,
+      horizon: { ...mill.horizon, construction: { periods: 2, periodMonths: 6 } },
+      exchangeRates: { USD: first(mill.exchangeRates.USD ?? [], '10') },
+      investment: {
+        items: mill.investment.items.map((i) => ({
+          ...i,
+          amounts: i.key === 'land' ? ['100', '0', '0', '0', '0'] : later(i.amounts),
+          ...(i.depreciation === undefined ? {} : { depreciation: written5 }),
+        })),
+      },
+      financing: {
+        equity: mill.financing.equity.map((e) => ({
+          ...e,
+          amounts: e.key === 'home' ? ['100', '700', '0', '0', '0'] : later(e.amounts),
+        })),
+        loans: mill.financing.loans,
+      },
+      operations: {
+        ...mill.operations,
+        products: mill.operations.products.map((p) => ({
+          ...p,
+          sales: p.sales.map((l) => ({ ...l, quantities: later(l.quantities ?? []) })),
+        })),
+        costs: mill.operations.costs.map((c) =>
+          c.adjustments === undefined
+            ? c
+            : {
+                ...c,
+                adjustments: {
+                  quantities: later(c.adjustments.quantities),
+                  prices: first(c.adjustments.prices, '70'),
+                  variableShares: later(c.adjustments.variableShares),
+                },
+              },
+        ),
+      },
+      statements: {
+        ...mill.statements,
+        assetSales: [{ item: 'land', period: 4, proceeds: '100' }],
+      },
+    };
+    const { value, warnings } = projectModel(halves);
+    expect(warnings).toEqual([]);
+    const nnva = value.economic?.valueAdded.netNationalValueAdded;
+    const expected = ['-100', '-1350', '1493.74', '1493.74', '1616.04'];
+    expected.forEach((v, j) => close(nnva?.values[j], v));
+    // The reference is the end of the first year: the first half-year is half a year before it.
+    const present = new Decimal('-100')
+      .times(new Decimal('1.08').pow('0.5'))
+      .minus(1350)
+      .plus(new Decimal('1493.74').div('1.08'))
+      .plus(new Decimal('1493.74').div(new Decimal('1.08').pow(2)))
+      .plus(new Decimal('1616.04').div(new Decimal('1.08').pow(3)));
+    close(nnva?.presentValue, present);
+  });
+
+  it('leaves out the test per unit of investment and the shares of a period without value added', () => {
+    const whole = ['1'];
+    const { value, warnings } = projectModel(
+      withEconomic({
+        investment: ['machinery', 'building', 'studies', 'land'].map((item) => ({
+          item,
+          valueAddedIncluded: whole,
+        })),
+      }),
+    );
+    const schedule = value.economic?.valueAdded;
+    expectLine(schedule?.investment.total, ['0', '0', '0', '0']);
+    expect(schedule?.efficiency.perInvestment).toBeUndefined();
+    expect(schedule?.efficiency.absolute).toBeDefined();
+    expect(warnings.map((w) => w.code)).toEqual(['valueAdded.noInvestment']);
+    // Nothing is produced or invested in the construction year.
+    expect(schedule?.distribution.shares.domesticWages.values[0]).toBeNull();
+    expect(schedule?.distribution.shares.others.values[0]).toBeNull();
+  });
+});
+
 describe('economic input the engine refuses', () => {
   it('needs a nature for overheads and marketing costs', () => {
     fails(
@@ -482,7 +681,7 @@ describe('economic input the engine refuses', () => {
     fails(
       () => projectModel(withCosts({ item: 'sales-staff' })),
       'economic.natureRequired',
-      'economic.costs[8]',
+      'economic.costs[8].nature',
       { item: 'sales-staff' },
     );
   });
@@ -514,7 +713,7 @@ describe('economic input the engine refuses', () => {
     fails(
       () => projectModel(withCosts({ item: 'workers' })),
       'economic.skillRequired',
-      'economic.costs[8]',
+      'economic.costs[8].skill',
       { item: 'workers' },
     );
     fails(
@@ -554,11 +753,6 @@ describe('economic input the engine refuses', () => {
   it('checks the taxes and the value added included', () => {
     fails(
       () => projectModel(withCosts({ item: 'ore', taxesIncluded: '1.01' })),
-      'economic.taxesIncluded',
-      'economic.costs[8].taxesIncluded',
-    );
-    fails(
-      () => projectModel(withCosts({ item: 'ore', taxesIncluded: '-1' })),
       'economic.taxesIncluded',
       'economic.costs[8].taxesIncluded',
     );

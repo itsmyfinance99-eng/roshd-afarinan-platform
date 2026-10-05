@@ -75,7 +75,7 @@ export type AllocationKey = (typeof ALLOCATION_KEYS)[number];
 
 export type Market = 'LOCAL' | 'EXPORT';
 
-const MATERIALS: ReadonlySet<CostCategory> = new Set([
+export const MATERIALS: ReadonlySet<CostCategory> = new Set([
   'RAW_MATERIALS',
   'FACTORY_SUPPLIES',
   'UTILITIES',
