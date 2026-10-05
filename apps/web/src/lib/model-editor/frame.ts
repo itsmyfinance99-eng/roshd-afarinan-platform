@@ -123,7 +123,10 @@ export function resizeDraft(draft: Draft, frame: Frame, previous?: Frame | null)
     optionalYears([...item, 'escalation'], years);
     periodIndex([...item, 'depreciation', 'startPeriod'], 'start');
   });
-  each(['financing', 'equity'], (item) => periodSeries([...item, 'amounts'], '0'));
+  each(['financing', 'equity'], (item) => {
+    periodSeries([...item, 'amounts'], '0');
+    periodSeries([...item, 'refunds'], '0', false);
+  });
   each(['financing', 'loans'], (loan) =>
     periodIndex([...loan, 'depreciation', 'startPeriod'], 'start'),
   );

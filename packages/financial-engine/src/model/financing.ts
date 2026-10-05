@@ -33,6 +33,11 @@ export interface EquityContribution {
   origin: Origin;
   /** Paid-in amounts per project period in the contribution's currency. */
   amounts: DecimalString[];
+  /**
+   * Equity paid out again (capital refund, VII.R.1) per project period in the contribution's
+   * currency, as positive amounts; none when absent. Not for subsidies and grants.
+   */
+  refunds?: DecimalString[];
 }
 
 export interface FinancingLoan {
@@ -82,6 +87,10 @@ export interface FinancingSchedule {
       class: EquityClass;
       origin: Origin;
       amounts: DecimalString[];
+      /** Equity refunded per period, in local currency (only when refunds were entered). */
+      refunds?: DecimalString[];
+      /** The same refunds at the local value the equity was paid in at (see `refunds.atCost`). */
+      refundsAtCost?: DecimalString[];
       /** Equity held on the day before the first period (expansion projects only). */
       startingBalance?: DecimalString;
     }[];
@@ -89,6 +98,17 @@ export interface FinancingSchedule {
     classes: Record<EquityClass, DecimalString[]>;
     byOrigin: { foreign: DecimalString[]; local: DecimalString[] };
     total: DecimalString[];
+    /**
+     * Equity refunded per period, by class and in total (zero without refunds): the cash paid at
+     * the period's exchange rate, and `atCost` the equity it takes off the books — the average
+     * local value that equity was paid in at. They differ only for a contribution in a foreign
+     * currency whose rate has moved; the difference is an exchange loss or gain.
+     */
+    refunds: {
+      classes: Record<EquityClass, DecimalString[]>;
+      total: DecimalString[];
+      atCost: { classes: Record<EquityClass, DecimalString[]>; total: DecimalString[] };
+    };
   };
   loans: FinancingLoanSchedule[];
   /** All loans together, per period, in local currency. */
@@ -167,11 +187,45 @@ export function financingSchedule(input: FinancingInput): CalculationResult<Fina
     checkOrigin(e.origin, `${field}.origin`);
     const own = periodAmounts(e.amounts, length, `${field}.amounts`);
     const rates = ratesFor(e.currency, input, length, `${field}.currency`);
-    return {
-      e,
-      local: rates === undefined ? own : own.map((a, j) => a.times(rates[j] ?? ZERO)),
-      opening: startingEquity.get(e.key),
-    };
+    const toLocal = (values: Decimal[]) =>
+      rates === undefined ? values : values.map((a, j) => a.times(rates[j] ?? ZERO));
+    const opening = startingEquity.get(e.key);
+    const local = toLocal(own);
+    let refunds: Decimal[] | undefined;
+    let refundsAtCost: Decimal[] | undefined;
+    if (e.refunds !== undefined) {
+      const paidOut = periodAmounts(e.refunds, length, `${field}.refunds`);
+      // The equity held never turns negative (VII.R.1). It is counted in the contribution's own
+      // currency; a starting balance is in local currency and is converted at the first rate.
+      const rate = rates?.[0];
+      let held = opening === undefined ? ZERO : rate === undefined ? opening : opening.div(rate);
+      // What is held, at the local value it was paid in at (the starting balance as entered).
+      let heldAtCost = opening ?? ZERO;
+      refundsAtCost = paidOut.map((refund, j) => {
+        held = held.plus(own[j] ?? ZERO);
+        heldAtCost = heldAtCost.plus(local[j] ?? ZERO);
+        if (refund.isZero()) return ZERO;
+        if (e.class === 'SUBSIDY') {
+          throw new EngineInputError('financing.subsidyRefund', `${field}.refunds[${j}]`);
+        }
+        if (refund.gt(held)) {
+          throw new EngineInputError('financing.refundExceedsEquity', `${field}.refunds[${j}]`);
+        }
+        // A refund takes equity off the books at its average paid-in value; what is paid for it
+        // at the period's rate may differ (an exchange difference, shown by the statements).
+        const atCost =
+          rates === undefined
+            ? refund
+            : refund.eq(held)
+              ? heldAtCost
+              : heldAtCost.times(refund).div(held);
+        held = held.minus(refund);
+        heldAtCost = heldAtCost.minus(atCost);
+        return atCost;
+      });
+      refunds = toLocal(paidOut);
+    }
+    return { e, local, opening, refunds, refundsAtCost };
   });
 
   const periodEndDays = horizon.periods.map((p) => p.endDay);
@@ -285,17 +339,26 @@ export function financingSchedule(input: FinancingInput): CalculationResult<Fina
     equity.map((e) => e.local),
     length,
   );
+  const refundsOf = (equityClass?: EquityClass, atCost = false) =>
+    sumRows(
+      equity
+        .filter((x) => equityClass === undefined || x.e.class === equityClass)
+        .map((x) => (atCost ? x.refundsAtCost : x.refunds) ?? []),
+      length,
+    );
   const startingEquityOf = (equityClass?: EquityClass) =>
     equity
       .filter((x) => equityClass === undefined || x.e.class === equityClass)
       .reduce((s, x) => s.plus(x.opening ?? ZERO), ZERO);
   const value: FinancingSchedule = {
     equity: {
-      items: equity.map(({ e, local, opening }) => ({
+      items: equity.map(({ e, local, opening, refunds, refundsAtCost }) => ({
         key: e.key,
         class: e.class,
         origin: e.origin,
         amounts: strings(local),
+        ...(refunds === undefined ? {} : { refunds: strings(refunds) }),
+        ...(refundsAtCost === undefined ? {} : { refundsAtCost: strings(refundsAtCost) }),
         ...(opening === undefined ? {} : { startingBalance: toDecimalString(opening) }),
       })),
       classes: Object.fromEntries(
@@ -324,6 +387,18 @@ export function financingSchedule(input: FinancingInput): CalculationResult<Fina
         ),
       },
       total: strings(equityTotal),
+      refunds: {
+        classes: Object.fromEntries(
+          EQUITY_CLASSES.map((c) => [c, strings(refundsOf(c))]),
+        ) as Record<EquityClass, DecimalString[]>,
+        total: strings(refundsOf()),
+        atCost: {
+          classes: Object.fromEntries(
+            EQUITY_CLASSES.map((c) => [c, strings(refundsOf(c, true))]),
+          ) as Record<EquityClass, DecimalString[]>,
+          total: strings(refundsOf(undefined, true)),
+        },
+      },
     },
     loans,
     loanTotals,

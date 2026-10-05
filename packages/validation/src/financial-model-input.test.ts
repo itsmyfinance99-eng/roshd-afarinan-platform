@@ -262,6 +262,36 @@ describe('projectInputSchema: horizon the engine refuses', () => {
   });
 });
 
+describe('projectInputSchema: shareholders', () => {
+  it('passes refunds of equity and shares of the net worth to the engine', () => {
+    const venture = clone();
+    venture.financing.equity[0].refunds = ['0', '0', '0', '۱۰۰٬۰۰۰٬۰۰۰'];
+    venture.statements.profitDistribution = {
+      retainedShare: '0.5',
+      shareholders: [
+        {
+          equity: 'founders',
+          preferredRate: '0',
+          preferredAmount: '0',
+          ordinaryShare: '1',
+          repatriatedShare: '0',
+          netWorthShare: '1',
+        },
+      ],
+    };
+    const parsed = projectInputSchema.parse(venture);
+    expect(parsed.financing.equity[0]?.refunds?.[3]).toBe('100000000');
+    const engineInput: ProjectInput = parsed;
+    const { statements } = projectModel(engineInput).value;
+    expect(statements.cashFlow.outflows.equityRefunds[3]).toBe('100000000');
+    expect(statements.shareholders?.[0]?.equity).toBe('founders');
+    // Without them a model is as before.
+    const plain = projectInputSchema.parse(input);
+    expect(plain.financing.equity[0]?.refunds).toBeUndefined();
+    expect(projectModel(plain).value.statements.shareholders).toBeUndefined();
+  });
+});
+
 describe('projectInputSchema: starting balances', () => {
   const balances = {
     fixedAssets: [{ item: 'machinery', value: '۲۰۰٬۰۰۰٬۰۰۰' }],

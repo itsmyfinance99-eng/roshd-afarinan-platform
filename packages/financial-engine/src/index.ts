@@ -209,6 +209,7 @@ export {
   type FinancialStatements,
   type IncomeStatement,
   type ResidualValueTiming,
+  type ShareholderCashFlow,
   type ShareholderDividends,
   type StartingBalanceSheet,
   type StatementsInput,

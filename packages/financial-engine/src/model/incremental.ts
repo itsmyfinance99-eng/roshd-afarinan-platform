@@ -58,8 +58,20 @@ function difference<T>(a: T, b: T): T {
       return x.map((v, j) => toDecimalString(toDecimal(v).minus(other[j] ?? '0')));
     }
     const other = Array.isArray(y) ? {} : y;
+    // A line only one case has (a run stored before the line existed) counts as zero in the other.
+    const keys = [...new Set([...Object.keys(x), ...Object.keys(other)])];
     return Object.fromEntries(
-      Object.entries(x).map(([key, value]) => [key, walk(value, other[key] ?? [])]),
+      keys.map((key) => {
+        const mine = x[key];
+        const theirs = other[key];
+        if (mine !== undefined) return [key, walk(mine, theirs ?? [])];
+        return [
+          key,
+          Array.isArray(theirs)
+            ? theirs.map((v) => toDecimalString(toDecimal(v).neg()))
+            : walk({}, theirs ?? {}),
+        ];
+      }),
     );
   };
   return walk(a as Lines, b as Lines) as T;

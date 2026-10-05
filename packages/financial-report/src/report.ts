@@ -28,6 +28,7 @@ import {
   discountedCashFlowTable,
   incomeStatementTable,
   ratiosTable,
+  shareholderFlowTables,
   tableColumns,
   type StatementTable,
 } from './tables';
@@ -35,6 +36,7 @@ import {
   BASIS_LABELS_FA,
   defaultText,
   unique,
+  indicatorOfWarning,
   warningMessage,
   warningPlace,
   warningText,
@@ -196,6 +198,38 @@ function indicators(
   };
 }
 
+/** The indicators of one shareholder's cash flow, each with the engine's warnings about it. */
+function shareholderIndicators(
+  flow: NonNullable<ProjectModel['statements']['shareholders']>[number],
+  unit: ReportingUnit,
+  amounts: string,
+): PairsBlock {
+  const percent = (value: string | undefined): ReportValue =>
+    value === undefined ? NOT_AVAILABLE : numberValue(value, 'percent', unit);
+  const duration = (months: string | undefined): ReportValue =>
+    months === undefined ? NOT_AVAILABLE : text(durationText(months));
+  const rows: [IndicatorRowKey, string, ReportValue][] = [
+    ['npv', `${INDICATOR_LABELS_FA.npv}، ${amounts}`, numberValue(flow.npv, 'amount', unit)],
+    ['irr', `${INDICATOR_LABELS_FA.irr}، درصد`, percent(flow.irr)],
+    ['mirr', `${INDICATOR_LABELS_FA.mirr}، درصد`, percent(flow.mirr)],
+    ['payback', INDICATOR_LABELS_FA.payback, duration(flow.payback?.months)],
+    ['dynamicPayback', INDICATOR_LABELS_FA.dynamicPayback, duration(flow.dynamicPayback?.months)],
+  ];
+  const warnings = records<Warning>(flow.warnings, (w) => typeof w.code === 'string');
+  return {
+    kind: 'pairs',
+    title: `شاخص‌های سهامدار «${isolate(flow.equity)}»`,
+    rows: rows.map(([key, label, value]) => {
+      const notes = unique(
+        warnings.flatMap((warning) =>
+          indicatorOfWarning(warning) === key ? [warningMessage(warning)] : [],
+        ),
+      );
+      return { label, value, ...(notes.length > 0 ? { notes } : {}) };
+    }),
+  };
+}
+
 function otherIndicators(statements: ProjectModel['statements'], frame: Frame): PairsBlock {
   const { breakEven, debtService } = statements;
   const year = frame.productionYears[breakEven.selectedYear];
@@ -280,6 +314,9 @@ export function runReport(source: RunReportSource): ReportDocument {
         return [
           facts,
           ...BASES.map((basis) => indicators(statements, basis, unit, amounts, warnings)),
+          ...(statements.shareholders ?? []).map((flow) =>
+            shareholderIndicators(flow, unit, amounts),
+          ),
           otherIndicators(statements, frame),
           ...(general.length > 0
             ? [{ kind: 'list' as const, title: 'هشدارهای محاسبه', items: general }]
@@ -328,9 +365,10 @@ export function runReport(source: RunReportSource): ReportDocument {
       ),
       tables('financing', 'منابع تأمین مالی', () => financingTables(financing)),
       tables('cash-flow', 'جریان نقد', () => [cashFlowTable(statements)]),
-      tables('discounted', 'جریان نقدی تنزیل‌شده', () =>
-        BASES.map((basis) => discountedCashFlowTable(statements, basis)),
-      ),
+      tables('discounted', 'جریان نقدی تنزیل‌شده', () => [
+        ...BASES.map((basis) => discountedCashFlowTable(statements, basis)),
+        ...shareholderFlowTables(statements),
+      ]),
       tables('income', 'سود و زیان', () => [incomeStatementTable(statements)]),
       tables('balance', 'ترازنامه', () => [balanceSheetTable(statements)]),
       tables('ratios', 'نسبت‌ها', () => [ratiosTable(statements)], note),

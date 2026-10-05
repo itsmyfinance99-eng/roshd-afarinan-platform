@@ -553,6 +553,45 @@ test.describe('financial model editor', () => {
     expect(versions).toEqual([3, 3, 3, 4]);
   });
 
+  test('enters a refund of equity and the share of the net worth of a shareholder', async ({
+    page,
+  }) => {
+    await signIn(page);
+    const saves = await serveModel(page);
+    await page.goto('/dashboard/models/m1');
+    await openSection(page, 'تأمین مالی');
+    const equity = () =>
+      (saves.at(-1)?.inputs.financing.equity[0] as { refunds?: string[] } | undefined)?.refunds;
+
+    await expect(page.getByRole('region', { name: 'بازپرداخت آورده در هر دوره' })).toHaveCount(0);
+    await page.getByLabel('بخشی از این آورده در طول طرح بازپرداخت می‌شود').check();
+    await expect.poll(equity).toEqual(['0', '0', '0', '0']);
+    const grid = page.getByRole('region', { name: 'بازپرداخت آورده در هر دوره' });
+    await expect(grid).toBeVisible();
+    const cell = grid.getByRole('textbox').nth(3);
+    await cell.fill('۱۰۰٬۰۰۰٬۰۰۰');
+    await cell.blur();
+    await expect.poll(equity).toEqual(['0', '0', '0', '100000000']);
+
+    // The share of the net worth is optional; it is stored as a fraction.
+    await page.getByLabel('این آورده سود سهام می‌گیرد').check();
+    const share = page.getByLabel(/^سهم از ارزش ویژه پایان طرح/);
+    await share.fill('۱۰۰');
+    await share.blur();
+    await expect
+      .poll(
+        () =>
+          (
+            saves.at(-1)?.inputs.statements.profitDistribution.shareholders[0] as
+              { netWorthShare?: string } | undefined
+          )?.netWorthShare,
+      )
+      .toBe('1');
+
+    await page.getByLabel('بخشی از این آورده در طول طرح بازپرداخت می‌شود').uncheck();
+    await expect.poll(equity).toBeUndefined();
+  });
+
   test('enters the starting balances of an existing enterprise', async ({ page }) => {
     await signIn(page);
     const saves = await serveModel(page);

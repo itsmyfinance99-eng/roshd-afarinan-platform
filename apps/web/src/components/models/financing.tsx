@@ -49,6 +49,9 @@ export function FinancingSection() {
   const periods = frame?.periods ?? [];
   const years = frame?.productionYears ?? [];
   const local = textAt(draft, ['localCurrency']);
+  const refunded = equity
+    .map((item, index) => ({ item, index }))
+    .filter(({ item }) => getIn(item, ['refunds']) !== undefined);
 
   return (
     <div className="flex flex-col gap-6">
@@ -117,7 +120,30 @@ export function FinancingSection() {
                     label="سهمی از سود که از کشور خارج می‌شود"
                     percent
                   />
+                  <NumberField
+                    path={[...holderPath, 'netWorthShare']}
+                    label="سهم از ارزش ویژه پایان طرح"
+                    percent
+                    required={false}
+                    hint="برای دیدن جریان نقدی و بازده هر سهامدار یا شریک، برای همه سهامداران وارد کنید؛ جمع باید ۱۰۰ درصد باشد."
+                  />
                 </FieldGrid>
+              ) : null}
+              {/* Offered for equity; kept for a refund entered before the kind became a grant. */}
+              {textAt(item, ['class']) !== 'SUBSIDY' || getIn(item, ['refunds']) !== undefined ? (
+                <CheckField
+                  label="بخشی از این آورده در طول طرح بازپرداخت می‌شود"
+                  checked={getIn(item, ['refunds']) !== undefined}
+                  onChange={(checked) =>
+                    change((current) =>
+                      setIn(
+                        current,
+                        [...EQUITY, index, 'refunds'],
+                        checked ? fit([], periods.length, '0') : undefined,
+                      ),
+                    )
+                  }
+                />
               ) : null}
             </NamedItemCard>
           );
@@ -145,6 +171,27 @@ export function FinancingSection() {
           }))}
         />
       </Block>
+
+      {refunded.length > 0 ? (
+        <Block
+          title="بازپرداخت آورده"
+          hint="مبلغی که در هر دوره به سهامدار برمی‌گردد، به‌صورت عدد مثبت و به ارز همان آورده. جمع بازپرداخت از آورده پرداخت‌شده بیشتر نمی‌شود."
+        >
+          <SeriesGrid
+            caption="بازپرداخت آورده در هر دوره"
+            unit="به ارز هر آورده"
+            columns={periods}
+            rows={refunded.map(({ item, index }) => ({
+              id: String(index),
+              label: `${textAt(item, ['key']) || itemTitle('آورده', '', index)}${
+                textAt(item, ['currency']) ? ` (${textAt(item, ['currency'])})` : ''
+              }`,
+              path: [...EQUITY, index, 'refunds'],
+              empty: '0',
+            }))}
+          />
+        </Block>
+      ) : null}
 
       <Block title="تقسیم سود">
         <FieldGrid>

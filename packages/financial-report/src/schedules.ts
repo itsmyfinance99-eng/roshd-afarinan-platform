@@ -320,6 +320,11 @@ export function financingTables(financing: Financing): StatementTable[] {
           rows: amounts([
             ...lines(EQUITY_CLASS_LABELS_FA, financing.equity.classes, classes),
             ['جمع آورده و کمک‌ها', financing.equity.total, true],
+            // A run stored before refunds of equity existed has no such line.
+            ...((financing.equity.refunds as typeof financing.equity.refunds | undefined) ===
+            undefined
+              ? []
+              : [['بازپرداخت آورده', financing.equity.refunds.total] satisfies Line]),
             ['آورده: منشأ خارجی', financing.equity.byOrigin.foreign],
             ['آورده: منشأ داخلی', financing.equity.byOrigin.local],
           ]),

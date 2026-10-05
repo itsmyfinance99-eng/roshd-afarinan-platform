@@ -104,7 +104,10 @@ export function cashFlowTable(
     Object.fromEntries(Object.entries(group).map(([key, values]) => [key, lead(values)]));
   const c = {
     inflows: rows(flow.inflows) as Record<keyof typeof flow.inflows, (string | null)[]>,
-    outflows: rows(flow.outflows) as Record<keyof typeof flow.outflows, (string | null)[]>,
+    outflows: rows(flow.outflows) as Record<
+      Exclude<keyof typeof flow.outflows, 'equityRefunds'>,
+      (string | null)[]
+    > & { equityRefunds?: (string | null)[] },
     surplus: lead(flow.surplus),
     cumulativeSurplus: lead(flow.cumulativeSurplus, start),
     automaticEquity: lead(flow.automaticEquity),
@@ -142,6 +145,10 @@ export function cashFlowTable(
           ['هزینه‌های مالی', c.outflows.financialCosts],
           ['بازپرداخت تسهیلات', c.outflows.loanRepayments],
           ['سود سهام', c.outflows.dividends],
+          // A run stored before refunds of equity existed has no such line.
+          ...(c.outflows.equityRefunds === undefined
+            ? []
+            : [['بازپرداخت آورده', c.outflows.equityRefunds] satisfies Line]),
           ['جمع خروجی‌ها', c.outflows.total, true],
         ]),
       },
@@ -253,7 +260,9 @@ const negated = (value: string) =>
   isZero(value) ? '0' : value.startsWith('-') ? value.slice(1) : `-${value}`;
 
 /** What a starting balance charges a discounted cash flow with; null when there is none. */
-function startingCharge(flow: Flow): { amount: string; present: string } | null {
+function startingCharge(
+  flow: Pick<Flow, 'startingBalance' | 'startingBalancePresentValue'>,
+): { amount: string; present: string } | null {
   const amount = flow.startingBalance;
   // A balance of zero charges nothing, and a run stored before starting balances has none.
   if (amount === undefined || isZero(amount)) return null;
@@ -323,6 +332,70 @@ export function discountedCashFlowTable(
     ],
   };
 }
+
+type ShareholderFlow = NonNullable<Statements['shareholders']>[number];
+
+/**
+ * The cash flow of one shareholder (ST-34.12; manual XI.F, X.C.6 «partner capital invested»):
+ * dividends and refunds of equity against the equity paid in, the starting equity on the day
+ * before the project and the shareholder's part of the net worth at the end.
+ */
+export function shareholderFlowTable(flow: ShareholderFlow, index: number): StatementTable {
+  const last = flow.net.length - 1;
+  const charge = startingCharge(flow);
+  const column = (first: string | null, values: (string | null)[]) =>
+    charge === null ? values : [first, ...values];
+  const perPeriod = (values: string[]) => flow.net.map((_, j) => values[j] ?? null);
+  return {
+    id: `shareholder-${index + 1}`,
+    title: `جریان نقدی تنزیل‌شده سهامدار «\u2068${flow.equity}\u2069»`,
+    salvageColumn: flow.salvageColumn,
+    ...(charge === null ? {} : { openingColumn: true }),
+    sections: [
+      {
+        rows: amounts([
+          ...(charge === null
+            ? []
+            : [
+                [
+                  STARTING_BALANCE_LABELS_FA.equity,
+                  column(
+                    charge.amount,
+                    flow.net.map(() => null),
+                  ),
+                ] satisfies Line,
+              ]),
+          ['سود سهام دریافتی', column(null, perPeriod(flow.dividends))],
+          ['بازپرداخت آورده', column(null, perPeriod(flow.refunds))],
+          ['جمع دریافتی‌ها', column(null, perPeriod(flow.inflow)), true],
+          ['آورده پرداختی', column(null, perPeriod(flow.outflow))],
+          [
+            'سهم از ارزش ویژه پایان طرح',
+            column(
+              null,
+              flow.net.map((_, j) => (j === last ? flow.residualValue : null)),
+            ),
+          ],
+          ['جریان نقد خالص', column(charge && negated(charge.amount), flow.net), true],
+          ['جریان نقد خالص تجمعی', column(charge && negated(charge.amount), flow.cumulative)],
+          [
+            'ارزش فعلی جریان نقد خالص',
+            column(charge && negated(charge.present), flow.presentValue),
+          ],
+          [
+            'ارزش فعلی تجمعی',
+            column(charge && negated(charge.present), flow.cumulativePresentValue),
+            true,
+          ],
+        ]),
+      },
+    ],
+  };
+}
+
+/** The tables of every shareholder; none when the run has no shareholder flows. */
+export const shareholderFlowTables = (statements: Pick<Statements, 'shareholders'>) =>
+  (statements.shareholders ?? []).map(shareholderFlowTable);
 
 /**
  * Incremental analysis (ST-34.11; manual XIV): for the cash flow of the total capital or of the
