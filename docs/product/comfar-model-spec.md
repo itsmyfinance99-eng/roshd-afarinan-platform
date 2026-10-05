@@ -379,7 +379,23 @@ All values in a user-chosen numeraire; every parameter user-entered.
 - **Employment:** direct employment by group from the labour inputs; indirect employment user-entered; investment per job.
 - **Cost-benefit:** items classified and converted from financial to economic value (remove taxes/duties/subsidies, adjust market prices, foreign-exchange adjustment via shadow exchange rate, indirect effects), conversion to the numeraire, economic NPV and IRR at the economic discount rate.
 
-Details of chapter XII are read again when ST-37.01–37.04 start.
+Details of chapter XII are read again when ST-37.02–37.04 start.
+
+### 6.1 Value added (VIII.F–I, X.D.1, XII.A; ST-37.01, `packages/financial-engine/src/model/value-added.ts`)
+
+The economic analysis is an optional section of the project input (`economic`); with it `projectModel` adds `economic.valueAdded` to its result and changes nothing in the financial schedules. Every line is given per project period, as a grand total and as a present value at the economic rate of discount (one rate or a path; required, no default), measured from the reference date of the financial statements. Amounts are in local currency: foreign items are converted at the official exchange rate of their period, as in the financial schedules. The conversion to a foreign numeraire and the accounting unit belong to ST-37.04 and the display.
+
+- **Nature of a cost item.** COMFAR splits overheads into "materials and services" and "salaries, wages and social costs"; our cost items carry it as an economic adjustment. Raw materials, factory supplies, utilities, energy and spare parts are materials; labour and labour overheads are wages; leasing is other. Factory and administrative overheads must be marked as materials or wages, marketing costs as wages or other; there is no default.
+- **Skill.** Every item of the labour category is marked skilled or unskilled. Other wage items may be marked; unmarked they count as skilled, since COMFAR takes skilled labour as domestic wages less unskilled labour.
+- **Taxes and duties included** (`t`, a fraction of the financial value; materials, wages and investment items): the value enters the schedule net of them, `value × (1 − t)`, and `value × t` goes to the government. A negative `t` is a subsidy on the input: the value stays as it is and `value × |t|` moves from the government to the others (XII.A.1).
+- **Value added included** (materials and investment items, up to three rounds `v₁…v₃`): the part deducted as an intermediate input is the rest `(1 − v₁)(1 − v₂)(1 − v₃)` of the value net of taxes. Each round is a fraction of what the earlier rounds left (our reading of the formula of VIII.H.2, whose printed third round does not add up; OQ-39).
+- **Value of output** `O + OI`: gross sales revenue (sales tax included, subsidies not) and other income (the proceeds of assets sold; interest on short-term deposits is not part of it).
+- **Material input** `M`: materials and services of the products sold, adjusted. **GDVA** `= O + OI − M`.
+- **Investment** `I`: fixed investment and pre-production expenditures net of interest, item by item and adjusted, plus the increase of the total inventory (not adjusted: it is not an item of its own). **NDVA** `= GDVA − I`.
+- **Repatriated payments** `R`: wages of foreign origin (net of taxes included), the repatriated part of the dividends net of the additional tax on foreign dividends, interest, capitalised interest and fees of loans of foreign origin, and other costs of foreign origin (leasing and marketing costs that are not wages). **NNVA** `= NDVA − R`.
+- **Distribution:** domestic wages (skilled and unskilled, net of taxes included); dividends paid at home net of the additional tax on local dividends plus the costs of finance of local loans; government = income tax paid + sales tax + taxes and duties included + taxes on dividends − subsidies on sales − local subsidies and grants received as finance − subsidies on inputs; others = the rest. Each part is also given as a share of the NNVA (null where the NNVA is zero).
+- **Efficiency tests at present value:** absolute `PV(NNVA) / PV(domestic wages)` (passed at 1 or more) and relative `PV(NNVA) / PV(investment)` and `PV(NNVA) / PV(skilled labour)`. A test whose denominator is not positive is left out with a warning. COMFAR's test per unit of labour "including skilled labour" equals the absolute test under our reading and is not repeated; the test per unit of foreign exchange comes with the net foreign-exchange effect (ST-37.02).
+- **Not offered yet:** the yearly columns of COMFAR's schedule (ours has the project periods, like every other schedule), the two charts, the editor and the result views (ST-37.05) and the export.
 
 ## 7. Sensitivity and incremental analysis (XIII, XIV)
 

@@ -223,6 +223,20 @@ export {
 } from './model/incremental';
 export { projectModel, type ProjectInput, type ProjectModel } from './model/project';
 export {
+  INPUT_NATURES,
+  LABOUR_SKILLS,
+  valueAdded,
+  type EconomicCostAdjustment,
+  type EconomicInput,
+  type EconomicInvestmentAdjustment,
+  type EconomicLine,
+  type EconomicShareLine,
+  type InputNature,
+  type LabourSkill,
+  type ValueAddedInput,
+  type ValueAddedSchedule,
+} from './model/value-added';
+export {
   applyChanges,
   criticalValues,
   goalSeek,
