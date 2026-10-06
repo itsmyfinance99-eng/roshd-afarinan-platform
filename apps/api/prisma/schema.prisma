@@ -877,6 +877,7 @@ model FeasibilityProject {
   @@index([ownerId, updatedAt])
   @@index([status, updatedAt])
   @@index([updatedAt])
+  @@index([templateVersionId])
   @@map("feasibility_projects")
 }
 

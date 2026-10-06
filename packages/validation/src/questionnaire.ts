@@ -192,19 +192,27 @@ export type RequiredDocument = z.infer<typeof requiredDocumentSchema>;
 
 type Issue = { path: (string | number)[]; message: string };
 
-/** What a definition must satisfy beyond the shape of its parts. */
-function definitionIssues(definition: {
-  sections: QuestionnaireSection[];
-  documents: RequiredDocument[];
-}): Issue[] {
+function repeated(
+  issues: Issue[],
+  keys: string[],
+  path: (i: number) => (string | number)[],
+  message: string,
+): void {
+  const seen = new Set<string>();
+  keys.forEach((key, i) => {
+    if (seen.has(key)) issues.push({ path: path(i), message });
+    seen.add(key);
+  });
+}
+
+/**
+ * What one question must satisfy beyond its shape: no repeated options, units or columns, and no
+ * range that nothing fits into. A question nobody can answer would block a submission for good.
+ */
+export function questionIssues(question: Question, path: (string | number)[] = []): Issue[] {
   const issues: Issue[] = [];
-  const unique = (keys: string[], path: (i: number) => (string | number)[], message: string) => {
-    const seen = new Set<string>();
-    keys.forEach((key, i) => {
-      if (seen.has(key)) issues.push({ path: path(i), message });
-      seen.add(key);
-    });
-  };
+  const unique = (keys: string[], at: (i: number) => (string | number)[], message: string) =>
+    repeated(issues, keys, at, message);
   const rules = (
     rule: { type: string } & Record<string, unknown>,
     path: (string | number)[],
@@ -250,6 +258,27 @@ function definitionIssues(definition: {
     }
   };
 
+  rules(question, path);
+  if (question.type === 'table') {
+    unique(
+      question.columns.map((c) => c.key),
+      (i) => [...path, 'columns', i, 'key'],
+      M.duplicateKey,
+    );
+    question.columns.forEach((column, c) => rules(column, [...path, 'columns', c]));
+  }
+  return issues;
+}
+
+/** What a definition must satisfy beyond the shape of its parts. */
+function definitionIssues(definition: {
+  sections: QuestionnaireSection[];
+  documents: RequiredDocument[];
+}): Issue[] {
+  const issues: Issue[] = [];
+  const unique = (keys: string[], at: (i: number) => (string | number)[], message: string) =>
+    repeated(issues, keys, at, message);
+
   unique(
     definition.sections.map((s) => s.key),
     (i) => ['sections', i, 'key'],
@@ -267,15 +296,7 @@ function definitionIssues(definition: {
       if (question.key.startsWith(PROJECT_ITEM_KEY_PREFIX)) {
         issues.push({ path: [...path, 'key'], message: M.reservedKey });
       }
-      rules(question, path);
-      if (question.type === 'table') {
-        unique(
-          question.columns.map((c) => c.key),
-          (i) => [...path, 'columns', i, 'key'],
-          M.duplicateKey,
-        );
-        question.columns.forEach((column, c) => rules(column, [...path, 'columns', c]));
-      }
+      issues.push(...questionIssues(question, path));
     });
   });
   if (total > L.questions) {
@@ -361,8 +382,13 @@ export function compareDecimals(a: string, b: string): number {
   return fx === fy ? 0 : sign * (fx < fy ? -1 : 1);
 }
 
+/** Characters the database cannot store in a text: NUL and halves of a surrogate pair. */
+const LONE_SURROGATE = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/;
+const unstorable = (value: string): boolean =>
+  value.includes('\u0000') || LONE_SURROGATE.test(value);
+
 function parseText(value: unknown, max: number): Parsed<string> {
-  if (typeof value !== 'string') return fail(M.text);
+  if (typeof value !== 'string' || unstorable(value)) return fail(M.text);
   const normal = normalizePersianText(value);
   if (normal === '') return { ok: true, value: null };
   if (normal.length > max) return fail(MESSAGES.tooLong(max));
@@ -370,7 +396,7 @@ function parseText(value: unknown, max: number): Parsed<string> {
 }
 
 function parseLongText(value: unknown, max: number): Parsed<string> {
-  if (typeof value !== 'string') return fail(M.text);
+  if (typeof value !== 'string' || unstorable(value)) return fail(M.text);
   // Line breaks are part of a long answer, so only its ends are trimmed.
   const trimmed = value.replace(/\r\n?/g, '\n').trim();
   if (trimmed === '') return { ok: true, value: null };
@@ -500,13 +526,14 @@ export function validateAnswer(
     case 'file': {
       if (empty(value)) return done({ ok: true, value: null });
       if (!Array.isArray(value)) return at(M.files);
-      const ids = [...new Set(value as unknown[])];
-      if (!ids.every((id) => typeof id === 'string' && UUID.test(id))) return at(M.files);
+      if (!value.every((id) => typeof id === 'string' && UUID.test(id))) return at(M.files);
+      // The same file is the same file however its id is written.
+      const ids = [...new Set((value as string[]).map((id) => id.toLowerCase()))];
       const max = question.maxFiles ?? L.files;
       if (ids.length > max) return at(M.maxFiles(max));
       return done({
         ok: true,
-        value: ids.length ? (ids as string[]).map((id) => id.toLowerCase()) : null,
+        value: ids.length ? ids : null,
       });
     }
     case 'table': {
@@ -524,7 +551,11 @@ export function validateAnswer(
         const row: TableRow = {};
         let filled = false;
         for (const column of question.columns) {
-          const cell = parseCell((raw as Record<string, unknown>)[column.key], column);
+          // Own properties only: a column may be called like something every object inherits.
+          const given = Object.hasOwn(raw, column.key)
+            ? (raw as Record<string, unknown>)[column.key]
+            : undefined;
+          const cell = parseCell(given, column);
           const path = `${question.key}.${r}.${column.key}`;
           if (!cell.ok) {
             issues.push({ path, message: cell.message });

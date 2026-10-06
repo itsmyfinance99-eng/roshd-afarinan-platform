@@ -99,3 +99,37 @@ describe('the questionnaire of a project', () => {
     }
   });
 });
+
+describe('a question of one project', () => {
+  const add = (question: Record<string, unknown>) =>
+    addProjectQuestionnaireItemSchema.safeParse({ kind: 'QUESTION', question });
+  const options = [
+    { value: 'a', label: 'A' },
+    { value: 'b', label: 'B' },
+  ];
+
+  it('is as consistent as a question of a template, so that it can be answered', () => {
+    const column = { key: 'a', label: 'L' };
+    for (const impossible of [
+      { type: 'number', label: 'L', min: '10', max: '1' },
+      { type: 'number', label: 'L', unit: 'kg', units: ['kg', 't'] },
+      { type: 'date', label: 'L', min: '2030-01-01', max: '2020-01-01' },
+      { type: 'multiple_choice', label: 'L', options, minSelected: 5 },
+      { type: 'single_choice', label: 'L', options: [options[0], options[0]] },
+      { type: 'table', label: 'L', columns: [{ ...column, type: 'text' }], minRows: 5, maxRows: 1 },
+      {
+        type: 'table',
+        label: 'L',
+        columns: [
+          { ...column, type: 'text' },
+          { ...column, type: 'number' },
+        ],
+      },
+    ]) {
+      expect(add(impossible).success, JSON.stringify(impossible)).toBe(false);
+    }
+    const reversed = add({ type: 'number', label: 'L', min: '10', max: '1' });
+    expect(reversed.error?.issues.map((issue) => issue.path.join('.'))).toEqual(['question.max']);
+    expect(add({ type: 'number', label: 'L', min: '1', max: '10' }).success).toBe(true);
+  });
+});

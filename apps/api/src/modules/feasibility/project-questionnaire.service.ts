@@ -44,6 +44,8 @@ const STAFF_ITEM_STATUSES: readonly FeasibilityStatus[] = [
   'NEEDS_MORE_INFO',
 ];
 const MAX_KEY_ATTEMPTS = 5;
+/** A whole questionnaire saved at once is hundreds of rows; the default of 5 s is for a few. */
+const SAVE_TIMEOUT = { timeout: 20_000 };
 const LOCKED_ANSWERS =
   'پاسخ‌ها پس از ارسال پروژه قفل می‌شوند و فقط با درخواست اطلاعات تکمیلی باز می‌شوند.';
 
@@ -222,7 +224,7 @@ export class ProjectQuestionnaireService {
           update: { value: stored, updatedById: principal.userId },
         });
       }
-    });
+    }, SAVE_TIMEOUT);
     return this.get(id, principal);
   }
 
@@ -250,7 +252,10 @@ export class ProjectQuestionnaireService {
         created = await this.prisma.$transaction(async (tx) => {
           const status = await this.projects.lock(tx, id);
           this.assertItemsOpen(capacity, status);
-          const count = await tx.projectQuestionnaireItem.count({ where: { projectId: id } });
+          // Each side has its own share, so neither can use up the other's.
+          const count = await tx.projectQuestionnaireItem.count({
+            where: { projectId: id, origin: capacity },
+          });
           if (count >= MAX_PROJECT_QUESTIONNAIRE_ITEMS) {
             throw new ConflictError('حداکثر تعداد موارد اختصاصی این پروژه پر شده است.');
           }
@@ -312,7 +317,7 @@ export class ProjectQuestionnaireService {
       const status = await this.projects.lock(tx, id);
       const item = await tx.projectQuestionnaireItem.findFirst({
         where: { id: itemId, projectId: id },
-        select: { key: true, kind: true, origin: true },
+        select: { key: true, kind: true, origin: true, definition: true },
       });
       if (!item) throw new NotFoundError();
       if (item.origin !== capacity) {
@@ -324,15 +329,26 @@ export class ProjectQuestionnaireService {
       }
       this.assertItemsOpen(capacity, status);
       await tx.projectQuestionnaireItem.delete({ where: { id: itemId } });
+      const answers = await tx.questionnaireAnswer.findMany({
+        where: { projectId: id, questionKey: item.key },
+        select: { value: true },
+      });
       await tx.questionnaireAnswer.deleteMany({ where: { projectId: id, questionKey: item.key } });
-      return item;
+      return { ...item, answer: answers[0]?.value ?? null };
     });
     await this.audit.record({
       action: 'feasibility_project.questionnaire_item_removed',
       actorId: principal.userId,
       entityType: 'feasibility_project',
       entityId: id,
-      metadata: { itemId, kind: removed.kind, origin: removed.origin },
+      // What was removed stays readable here: the item and an answer it had are gone otherwise.
+      metadata: {
+        itemId,
+        kind: removed.kind,
+        origin: removed.origin,
+        definition: removed.definition,
+        answer: removed.answer,
+      },
       meta,
     });
     return this.get(id, principal);

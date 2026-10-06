@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { paginationQuerySchema, text } from './common';
 import {
   PROJECT_ITEM_KEY_PREFIX,
+  questionIssues,
   QUESTIONNAIRE_LIMITS,
   questionnaireDefinitionSchema,
   questionnaireKeySchema,
@@ -51,7 +52,7 @@ export type ListQuestionnaireTemplatesQuery = z.infer<typeof listQuestionnaireTe
 
 export const questionnaireVersionNumberSchema = z.coerce.number().int().min(1).max(100_000);
 
-/** Items one project may have beside its template. */
+/** Items each side (the applicant, the staff) may add to one project beside its template. */
 export const MAX_PROJECT_QUESTIONNAIRE_ITEMS = 50;
 export const PROJECT_NOTE_MAX = 2000;
 
@@ -68,7 +69,7 @@ export const saveQuestionnaireAnswersSchema = z.object({
     .refine(
       (answers) =>
         Object.keys(answers).length <=
-        QUESTIONNAIRE_LIMITS.questions + MAX_PROJECT_QUESTIONNAIRE_ITEMS,
+        QUESTIONNAIRE_LIMITS.questions + 2 * MAX_PROJECT_QUESTIONNAIRE_ITEMS,
       { error: 'تعداد پاسخ‌ها بیش از اندازه است.' },
     ),
 });
@@ -94,7 +95,14 @@ const keyless = (value: unknown): unknown =>
 
 /** A question, a document to hand in or a note that belongs to one project only (OQ-36). */
 export const addProjectQuestionnaireItemSchema = z.discriminatedUnion('kind', [
-  z.object({ kind: z.literal('QUESTION'), question: z.preprocess(keyless, questionSchema) }),
+  z
+    .object({ kind: z.literal('QUESTION'), question: z.preprocess(keyless, questionSchema) })
+    // The same consistency a question of a template has, so that it can be answered.
+    .superRefine(({ question }, ctx) => {
+      for (const issue of questionIssues(question, ['question'])) {
+        ctx.addIssue({ code: 'custom', path: issue.path, message: issue.message });
+      }
+    }),
   z.object({
     kind: z.literal('DOCUMENT'),
     document: z.preprocess(keyless, requiredDocumentSchema),

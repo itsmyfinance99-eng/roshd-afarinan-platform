@@ -572,6 +572,12 @@ describe('Questionnaires (e2e)', () => {
         400,
       );
       await addItem(owner, project.id, { kind: 'NOTE', text: '' }).expect(400);
+      // A question nobody could answer would block the submission for good.
+      const impossible = await addItem(owner, project.id, {
+        kind: 'QUESTION',
+        question: { type: 'number', label: 'ظرفیت', min: '10', max: '1', required: true },
+      }).expect(400);
+      expect(paths(impossible.body)).toEqual(['question.max']);
       await addItem(owner, project.id, { kind: 'OTHER', text: 'x' }).expect(400);
 
       const byStaff = await addItem(officer, project.id, {
@@ -623,6 +629,19 @@ describe('Questionnaires (e2e)', () => {
       expect(removed.body.data.items.map((item: { id: string }) => item.id)).not.toContain(mine.id);
       expect(removed.body.data.answers).toEqual({});
       expect(await audits(project.id, 'feasibility_project.questionnaire_item_removed')).toBe(1);
+      // What went is still readable in the audit log.
+      const record = await prisma().auditLog.findFirstOrThrow({
+        where: {
+          entityId: project.id,
+          action: 'feasibility_project.questionnaire_item_removed',
+        },
+      });
+      expect(record.metadata).toMatchObject({
+        itemId: mine.id,
+        origin: 'applicant',
+        answer: 'شرکت نمونه',
+        definition: { kind: 'QUESTION', question: { label: 'نام شریک خارجی' } },
+      });
       await removeItem(owner, project.id, mine.id).expect(404);
 
       await answer(owner, project.id, { [theirs.key]: '۱۲.۵' }).expect(200);
@@ -641,7 +660,7 @@ describe('Questionnaires (e2e)', () => {
       expect((await questionnaire(officer, project.id)).body.data.access.addItems).toBe(false);
     });
 
-    it('caps the items of one project', async () => {
+    it('caps the items each side adds to one project', async () => {
       const owner = await registerUser(app);
       const project = await createProject(owner);
       await prisma().projectQuestionnaireItem.createMany({
@@ -654,6 +673,18 @@ describe('Questionnaires (e2e)', () => {
         })),
       });
       await addItem(owner, project.id, { kind: 'NOTE', text: 'یکی دیگر' }).expect(409);
+      // The applicant's share is full; the staff still have theirs.
+      await addItem(officer, project.id, { kind: 'NOTE', text: 'توضیح کارشناس' }).expect(201);
+      await prisma().projectQuestionnaireItem.createMany({
+        data: Array.from({ length: 49 }, (_, i) => ({
+          projectId: project.id,
+          kind: 'NOTE' as const,
+          key: `item_staff${String(i).padStart(2, '0')}`,
+          definition: { kind: 'NOTE', text: 'توضیح' },
+          origin: 'staff' as const,
+        })),
+      });
+      await addItem(officer, project.id, { kind: 'NOTE', text: 'یکی دیگر' }).expect(409);
     });
   });
 });

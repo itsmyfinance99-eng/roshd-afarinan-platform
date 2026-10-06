@@ -357,3 +357,39 @@ describe('answers', () => {
     expect(proto.ok).toBe(false);
   });
 });
+
+describe('answers the database could not keep or would keep twice', () => {
+  it('refuses text with a NUL character or half a surrogate pair', () => {
+    const short: Question = { key: 'q', type: 'text', label: 'L' };
+    const long: Question = { key: 'q', type: 'long_text', label: 'L' };
+    for (const question of [short, long]) {
+      expect(validateAnswer(question, 'a\u0000b').ok).toBe(false);
+      expect(validateAnswer(question, 'a\ud83db').ok).toBe(false);
+      expect(validateAnswer(question, 'a\ud83d\ude00b').ok).toBe(true);
+    }
+  });
+
+  it('reads a cell from the row itself, whatever its column is called', () => {
+    const table: Question = {
+      key: 't',
+      type: 'table',
+      label: 'L',
+      columns: [
+        { key: 'constructor', type: 'text', label: 'C' },
+        { key: 'name', type: 'text', label: 'N' },
+      ],
+    };
+    expect(validateAnswer(table, [{ name: 'x' }])).toEqual({
+      ok: true,
+      value: [{ constructor: null, name: 'x' }],
+    });
+  });
+
+  it('counts a file once however its id is written', () => {
+    const file: Question = { key: 'f', type: 'file', label: 'L', maxFiles: 1 };
+    expect(validateAnswer(file, [FILE_B, FILE_B.toLowerCase()])).toEqual({
+      ok: true,
+      value: [FILE_B.toLowerCase()],
+    });
+  });
+});
