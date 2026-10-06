@@ -13,7 +13,9 @@ import { investmentSchedule, type InvestmentItem, type InvestmentSchedule } from
 import { operationsSchedule, type OperationsInput, type OperationsSchedule } from './operations';
 import { startingAmount, type StartingBalances } from './starting-balances';
 import { financialStatements, type FinancialStatements, type StatementsInput } from './statements';
-import { valueAdded, type EconomicInput, type ValueAddedSchedule } from './value-added';
+import type { EconomicInput } from './economic';
+import { foreignExchangeEffect, type ForeignExchangeSchedule } from './foreign-exchange';
+import { valueAdded, type ValueAddedSchedule } from './value-added';
 
 /**
  * The whole financial model of a project in one call (comfar-model-spec §4): the planning
@@ -55,7 +57,7 @@ export interface ProjectModel {
   operations: OperationsSchedule;
   statements: FinancialStatements;
   /** Only with an `economic` input. */
-  economic?: { valueAdded: ValueAddedSchedule };
+  economic?: { valueAdded: ValueAddedSchedule; foreignExchange: ForeignExchangeSchedule };
 }
 
 /** Inputs shared by every schedule: an error in them keeps its own path. */
@@ -130,24 +132,30 @@ export function projectModel(input: ProjectInput): CalculationResult<ProjectMode
   );
   const reference = input.statements.discounting.reference;
   const economicInput = input.economic;
-  const economic =
-    economicInput === undefined
-      ? undefined
-      : {
-          valueAdded: collect(
-            withField('economic', () =>
-              valueAdded({
-                horizon,
-                investment,
-                financing,
-                operations,
-                statements,
-                economic: economicInput,
-                ...(reference === undefined ? {} : { reference }),
-              }),
-            ),
-          ),
-        };
+  let economic: ProjectModel['economic'];
+  if (economicInput !== undefined) {
+    const schedules = {
+      horizon,
+      investment,
+      financing,
+      operations,
+      statements,
+      economic: economicInput,
+      ...(reference === undefined ? {} : { reference }),
+    };
+    const added = collect(withField('economic', () => valueAdded(schedules)));
+    const foreignExchange = collect(
+      withField('economic', () =>
+        foreignExchangeEffect({
+          ...schedules,
+          localCurrency: input.localCurrency,
+          exchangeRates: input.exchangeRates,
+          netNationalValueAdded: added.netNationalValueAdded.presentValue,
+        }),
+      ),
+    );
+    economic = { valueAdded: added, foreignExchange };
+  }
   return {
     value: {
       horizon,

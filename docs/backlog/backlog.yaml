@@ -2445,6 +2445,7 @@ epics:
         sprint: S17
         points: 3
         priority: high
+        status: done
         area: [api]
         depends: [ST-34.04]
         story: 'به‌عنوان کارشناس می‌خواهم ارزآوری یا ارزبری خالص طرح را ببینم.'

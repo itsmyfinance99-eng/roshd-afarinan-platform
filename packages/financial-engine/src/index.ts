@@ -225,17 +225,27 @@ export { projectModel, type ProjectInput, type ProjectModel } from './model/proj
 export {
   INPUT_NATURES,
   LABOUR_SKILLS,
-  valueAdded,
+  TRADE_CATEGORIES,
   type EconomicCostAdjustment,
   type EconomicInput,
   type EconomicInvestmentAdjustment,
   type EconomicLine,
+  type EconomicScheduleInput,
   type EconomicShareLine,
+  type IndirectForeignExchangeInput,
+  type IndirectForeignExchangeItem,
   type InputNature,
   type LabourSkill,
-  type ValueAddedInput,
-  type ValueAddedSchedule,
-} from './model/value-added';
+  type TradableInput,
+  type TradableOutput,
+  type TradeCategory,
+} from './model/economic';
+export { valueAdded, type ValueAddedSchedule } from './model/value-added';
+export {
+  foreignExchangeEffect,
+  type ForeignExchangeInput,
+  type ForeignExchangeSchedule,
+} from './model/foreign-exchange';
 export {
   applyChanges,
   criticalValues,

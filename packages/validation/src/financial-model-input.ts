@@ -311,6 +311,8 @@ const startingBalancesSchema = z.object({
 /** What a cost item is in the value-added schedule, and the skill of labour (ST-37.01). */
 export const INPUT_NATURE_VALUES = ['MATERIALS', 'WAGES', 'OTHER'] as const;
 export const LABOUR_SKILL_VALUES = ['SKILLED', 'UNSKILLED'] as const;
+/** How a local item would be traded without the project (ST-37.02). */
+export const TRADE_CATEGORY_VALUES = ['IMPORTABLE', 'EXPORTABLE'] as const;
 
 /**
  * Economic analysis (ST-37.01; the engine's `EconomicInput`): present when the user asks for it.
@@ -322,6 +324,23 @@ const economicAdjustment = {
   taxesIncluded: decimal.optional(),
   valueAddedIncluded: list(decimal, 3).optional(),
 };
+const tradable = {
+  trade: choice(TRADE_CATEGORY_VALUES),
+  share: decimal,
+  borderPriceFactor: decimal,
+};
+const indirectForeignExchangeItem = z.object({
+  key,
+  currency: currencyCodeSchema,
+  amounts: series,
+});
+/** Indirect effects on the balance of payments (ST-37.02); every list is entered, empty or not. */
+const indirectForeignExchangeSchema = z.object({
+  outputs: list(z.object({ product: key, line: key, ...tradable })),
+  inputs: list(z.object({ item: key, ...tradable })),
+  otherInflows: list(indirectForeignExchangeItem, 50),
+  otherOutflows: list(indirectForeignExchangeItem, 50),
+});
 const economicSchema = z.object({
   discountRate: perPeriod,
   costs: list(
@@ -333,6 +352,7 @@ const economicSchema = z.object({
   ),
   investment: list(z.object(economicAdjustment)),
   dividendTax: z.object({ local: decimal, foreign: decimal }),
+  indirectForeignExchange: indirectForeignExchangeSchema.optional(),
 });
 
 /** Inputs that may carry a note: their path in the input, e.g. `exchangeRates.USD`. */
@@ -383,11 +403,11 @@ const projectInputFieldsSchema = z.object({
   notes: notesSchema.optional(),
 });
 
-/** Complete input of a calculation: the engine's `ProjectInput`, bounded in size. */
 /**
  * Rough size of a calculation: project periods × everything computed per period — input lines
  * (investment items, equity, loans, sales lines, cost items), products, cost centres and a fixed
- * part for the statements, and the lines of the economic schedules when they are asked for — plus the allocation of every indirect cost to every product.
+ * part for the statements, and the lines of the economic schedules when they are asked for — plus
+ * the allocation of every indirect cost to every product.
  */
 export function calculationSize(input: z.infer<typeof projectInputFieldsSchema>): number {
   const { products, costs, costCentres } = input.operations;
@@ -398,16 +418,28 @@ export function calculationSize(input: z.infer<typeof projectInputFieldsSchema>)
     costs.length +
     products.reduce((sum, product) => sum + product.sales.length, 0);
   const indirect = costs.filter((cost) => cost.product === undefined).length;
+  const tradables = input.economic?.indirectForeignExchange;
+  const economic =
+    input.economic === undefined
+      ? 0
+      : 70 +
+        (tradables === undefined
+          ? 0
+          : tradables.outputs.length +
+            tradables.inputs.length +
+            tradables.otherInflows.length +
+            tradables.otherOutflows.length);
   const perPeriod =
     lines +
     products.length +
     (costCentres?.length ?? 0) +
     20 +
-    (input.economic === undefined ? 0 : 40) +
+    economic +
     (indirect * products.length) / 10;
   return Math.ceil(horizonPeriods(input.horizon) * perPeriod);
 }
 
+/** Complete input of a calculation: the engine's `ProjectInput`, bounded in size. */
 export const projectInputSchema = projectInputFieldsSchema.superRefine((input, ctx) => {
   // The periods can only be counted on a horizon that passed its own checks (reported above).
   if (!horizonSchema.safeParse(input.horizon).success) return;

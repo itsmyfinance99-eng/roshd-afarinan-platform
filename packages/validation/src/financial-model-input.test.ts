@@ -6,6 +6,7 @@ import {
   INPUT_NATURES,
   INVESTMENT_GROUPS,
   LABOUR_SKILLS,
+  TRADE_CATEGORIES,
   projectModel,
   type DepreciationMethod,
   type ProjectInput,
@@ -20,6 +21,7 @@ import {
   INPUT_NATURE_VALUES,
   INVESTMENT_GROUP_VALUES,
   LABOUR_SKILL_VALUES,
+  TRADE_CATEGORY_VALUES,
   createFinancialModelSchema,
   calculationSize,
   projectInputSchema,
@@ -138,6 +140,7 @@ describe('projectInputSchema', () => {
     expect([...ALLOCATION_KEY_VALUES, 'SHARES']).toEqual(ALLOCATION_KEYS);
     expect(INPUT_NATURE_VALUES).toEqual(INPUT_NATURES);
     expect(LABOUR_SKILL_VALUES).toEqual(LABOUR_SKILLS);
+    expect(TRADE_CATEGORY_VALUES).toEqual(TRADE_CATEGORIES);
     const methods: readonly DepreciationMethod[] = DEPRECIATION_METHOD_VALUES;
     expect(methods).toHaveLength(4);
   });
@@ -322,7 +325,56 @@ describe('projectInputSchema: economic analysis', () => {
     const plain = projectInputSchema.parse(input);
     const periods = projectModel(plain).value.horizon.periods.length;
     const withEconomic = projectInputSchema.parse({ ...clone(), economic });
-    expect(calculationSize(withEconomic) - calculationSize(plain)).toBe(40 * periods);
+    expect(calculationSize(withEconomic) - calculationSize(plain)).toBe(70 * periods);
+  });
+
+  it('passes the indirect effects on foreign exchange to the engine', () => {
+    const indirectForeignExchange = {
+      outputs: [
+        {
+          product: 'steel',
+          line: 'home',
+          trade: 'IMPORTABLE',
+          share: '۰٫۵',
+          borderPriceFactor: '1',
+        },
+      ],
+      inputs: [{ item: 'ore', trade: 'EXPORTABLE', share: '1', borderPriceFactor: '0.5' }],
+      otherInflows: [],
+      otherOutflows: [],
+    };
+    const parsed = projectInputSchema.parse({
+      ...clone(),
+      economic: { ...economic, indirectForeignExchange },
+    });
+    expect(parsed.economic?.indirectForeignExchange?.outputs[0]?.share).toBe('0.5');
+    // The two entered items count in the size of the calculation, per period.
+    const bare = projectInputSchema.parse({ ...clone(), economic });
+    const periods = projectModel(bare).value.horizon.periods.length;
+    expect(calculationSize(parsed) - calculationSize(bare)).toBe(2 * periods);
+    const engineInput: ProjectInput = parsed;
+    const { value } = projectModel(engineInput);
+    // Half of the sales at home of 1 000 000 000 a year replace imports.
+    expect(value.economic?.foreignExchange.indirect.inflows.importableOutputs.values[1]).toBe(
+      '500000000',
+    );
+    const issues = projectInputSchema
+      .safeParse({
+        ...clone(),
+        economic: {
+          ...economic,
+          indirectForeignExchange: {
+            ...indirectForeignExchange,
+            inputs: [{ item: 'ore', trade: 'IMPORTED', share: '1', borderPriceFactor: '1' }],
+            otherInflows: undefined,
+          },
+        },
+      })
+      .error?.issues.map((i) => i.path.join('.'));
+    expect(issues).toEqual([
+      'economic.indirectForeignExchange.inputs.0.trade',
+      'economic.indirectForeignExchange.otherInflows',
+    ]);
   });
 
   it('reports malformed parts at their field', () => {

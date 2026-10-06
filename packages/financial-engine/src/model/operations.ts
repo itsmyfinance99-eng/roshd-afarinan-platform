@@ -304,6 +304,11 @@ export interface WorkingCapitalSchedule {
       currentAssets: DecimalString;
       currentLiabilities: DecimalString;
       netWorkingCapital: DecimalString;
+      /**
+       * Part of the net working capital that is of foreign origin: the stocks of materials of
+       * foreign origin. Every other starting balance counts as local.
+       */
+      foreign: DecimalString;
     };
   };
 }
@@ -1122,6 +1127,10 @@ export function operationsSchedule(input: OperationsInput): CalculationResult<Op
     .plus(startingCashInHand)
     .plus(startingDeposits);
   const openingNet = openingAssets.minus(openingPayables);
+  const openingForeign = costs.reduce(
+    (s, c) => (c.item.origin === 'FOREIGN' ? s.plus(startingMaterials.get(c.item.key) ?? ZERO) : s),
+    ZERO,
+  );
   const inventory = sumRows([materialsTotal, workInProgressTotal, finishedTotal], length);
   const currentAssets = sumRows([inventory, receivablesTotal, cash], length);
   const net = currentAssets.map((v, j) => v.minus(at(payablesTotal, j)));
@@ -1286,6 +1295,7 @@ export function operationsSchedule(input: OperationsInput): CalculationResult<Op
                 currentAssets: toDecimalString(openingAssets),
                 currentLiabilities: toDecimalString(openingPayables),
                 netWorkingCapital: toDecimalString(openingNet),
+                foreign: toDecimalString(openingForeign),
               },
             },
           }),
