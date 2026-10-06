@@ -14,6 +14,7 @@ import { operationsSchedule, type OperationsInput, type OperationsSchedule } fro
 import { startingAmount, type StartingBalances } from './starting-balances';
 import { financialStatements, type FinancialStatements, type StatementsInput } from './statements';
 import type { EconomicInput } from './economic';
+import { employmentEffect, type EmploymentSchedule } from './employment';
 import { foreignExchangeEffect, type ForeignExchangeSchedule } from './foreign-exchange';
 import { valueAdded, type ValueAddedSchedule } from './value-added';
 
@@ -57,7 +58,12 @@ export interface ProjectModel {
   operations: OperationsSchedule;
   statements: FinancialStatements;
   /** Only with an `economic` input. */
-  economic?: { valueAdded: ValueAddedSchedule; foreignExchange: ForeignExchangeSchedule };
+  economic?: {
+    valueAdded: ValueAddedSchedule;
+    foreignExchange: ForeignExchangeSchedule;
+    /** Only when the employment was entered. */
+    employment?: EmploymentSchedule;
+  };
 }
 
 /** Inputs shared by every schedule: an error in them keeps its own path. */
@@ -154,7 +160,24 @@ export function projectModel(input: ProjectInput): CalculationResult<ProjectMode
         }),
       ),
     );
-    economic = { valueAdded: added, foreignExchange };
+    const entered = economicInput.employment;
+    const employment =
+      entered === undefined
+        ? undefined
+        : collect(
+            withField('economic', () =>
+              employmentEffect({
+                ...schedules,
+                employment: entered,
+                referenceYear: input.statements.referenceYear,
+              }),
+            ),
+          );
+    economic = {
+      valueAdded: added,
+      foreignExchange,
+      ...(employment === undefined ? {} : { employment }),
+    };
   }
   return {
     value: {

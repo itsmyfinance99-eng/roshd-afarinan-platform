@@ -341,7 +341,7 @@ describe('projectInputSchema: economic analysis', () => {
       ],
       inputs: [{ item: 'ore', trade: 'EXPORTABLE', share: '1', borderPriceFactor: '0.5' }],
       otherInflows: [{ key: 'visitors', currency: 'usd', amounts: ['0', '1', '1', '1'] }],
-      otherOutflows: [],
+      otherOutflows: [{ key: 'fuel', currency: 'IRR', amounts: ['0', '5', '5', '5'] }],
     };
     const parsed = projectInputSchema.parse({
       ...clone(),
@@ -349,17 +349,21 @@ describe('projectInputSchema: economic analysis', () => {
     });
     expect(parsed.economic?.indirectForeignExchange?.outputs[0]?.share).toBe('0.5');
     expect(parsed.economic?.indirectForeignExchange?.otherInflows[0]?.currency).toBe('USD');
-    // The tradable output, the tradable input and the entered inflow count in the size of the
-    // calculation, per period.
+    // The tradable output, the tradable input and the entered inflow and outflow count in the
+    // size of the calculation, per period.
     const bare = projectInputSchema.parse({ ...clone(), economic });
     const periods = projectModel(bare).value.horizon.periods.length;
-    expect(calculationSize(parsed) - calculationSize(bare)).toBe(3 * periods);
+    expect(calculationSize(parsed) - calculationSize(bare)).toBe(4 * periods);
     const engineInput: ProjectInput = parsed;
     const { value } = projectModel(engineInput);
     // Half of the sales at home of 1 000 000 000 a year replace imports.
     expect(value.economic?.foreignExchange.indirect.inflows.importableOutputs.values[1]).toBe(
       '500000000',
     );
+    // One dollar is 600 000: the entered inflow is converted at the rate of its period.
+    const { indirect } = value.economic?.foreignExchange ?? {};
+    expect(indirect?.inflows.others.values).toEqual(['0', '600000', '600000', '600000']);
+    expect(indirect?.outflows.others.values).toEqual(['0', '5', '5', '5']);
     const issues = projectInputSchema
       .safeParse({
         ...clone(),
@@ -376,6 +380,56 @@ describe('projectInputSchema: economic analysis', () => {
     expect(issues).toEqual([
       'economic.indirectForeignExchange.inputs.0.trade',
       'economic.indirectForeignExchange.otherInflows',
+    ]);
+  });
+
+  it('passes the employment to the engine', () => {
+    // A crew of 40 unskilled workers joins the model; suppliers and users employ 10 of each skill.
+    const staffed = () => {
+      const model = clone();
+      model.operations.costs.push({
+        key: 'crew',
+        category: 'LABOUR',
+        product: 'steel',
+        currency: 'IRR',
+        origin: 'LOCAL',
+        standard: { mode: 'PER_UNIT', quantity: '0', price: '0', fixedCost: '1000000' },
+        payablesCoverage: { days: '0' },
+      });
+      return model;
+    };
+    const crew = { item: 'crew', skill: 'UNSKILLED', workers: '۴۰' };
+    const group = { workers: '۱۰', wageBill: '0' };
+    const indirect = { unskilled: group, skilled: group, investment: '0' };
+    const employment = { inputSupplying: indirect, outputUsing: indirect };
+    const costs = [...economic.costs, crew];
+    const parsed = projectInputSchema.parse({
+      ...staffed(),
+      economic: { ...economic, costs, employment },
+    });
+    expect(parsed.economic?.costs[1]?.workers).toBe('40');
+    expect(parsed.economic?.employment?.outputUsing.skilled.workers).toBe('10');
+    const engineInput: ProjectInput = parsed;
+    const schedule = projectModel(engineInput).value.economic?.employment;
+    expect(schedule?.direct.jobs).toEqual({ unskilled: '40', skilled: '0', total: '40' });
+    expect(schedule?.total.jobs).toEqual({ unskilled: '60', skilled: '20', total: '80' });
+    // Without the employment around the project there is no employment schedule.
+    const bare = projectInputSchema.parse({ ...staffed(), economic: { ...economic, costs } });
+    expect(projectModel(bare).value.economic?.employment).toBeUndefined();
+    const issues = projectInputSchema
+      .safeParse({
+        ...staffed(),
+        economic: {
+          ...economic,
+          costs: [...economic.costs, { ...crew, workers: 'many' }],
+          employment: { inputSupplying: { ...indirect, investment: undefined } },
+        },
+      })
+      .error?.issues.map((i) => i.path.join('.'));
+    expect(issues).toEqual([
+      'economic.costs.1.workers',
+      'economic.employment.inputSupplying.investment',
+      'economic.employment.outputUsing',
     ]);
   });
 

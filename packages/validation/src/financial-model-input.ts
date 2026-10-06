@@ -341,6 +341,20 @@ const indirectForeignExchangeSchema = z.object({
   otherInflows: list(indirectForeignExchangeItem, 50),
   otherOutflows: list(indirectForeignExchangeItem, 50),
 });
+const employmentGroup = z.object({ workers: decimal, wageBill: decimal });
+const indirectEmployment = z.object({
+  unskilled: employmentGroup,
+  skilled: employmentGroup,
+  investment: decimal,
+});
+/**
+ * Employment around the project in the reference year (ST-37.03); "0" is explicit. The jobs within
+ * the project are the `workers` of its wage items.
+ */
+const employmentSchema = z.object({
+  inputSupplying: indirectEmployment,
+  outputUsing: indirectEmployment,
+});
 const economicSchema = z.object({
   discountRate: perPeriod,
   costs: list(
@@ -348,11 +362,13 @@ const economicSchema = z.object({
       ...economicAdjustment,
       nature: choice(INPUT_NATURE_VALUES).optional(),
       skill: choice(LABOUR_SKILL_VALUES).optional(),
+      workers: decimal.optional(),
     }),
   ),
   investment: list(z.object(economicAdjustment)),
   dividendTax: z.object({ local: decimal, foreign: decimal }),
   indirectForeignExchange: indirectForeignExchangeSchema.optional(),
+  employment: employmentSchema.optional(),
 });
 
 /** Inputs that may carry a note: their path in the input, e.g. `exchangeRates.USD`. */
