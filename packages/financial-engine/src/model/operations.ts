@@ -75,7 +75,7 @@ export type AllocationKey = (typeof ALLOCATION_KEYS)[number];
 
 export type Market = 'LOCAL' | 'EXPORT';
 
-const MATERIALS: ReadonlySet<CostCategory> = new Set([
+export const MATERIALS: ReadonlySet<CostCategory> = new Set([
   'RAW_MATERIALS',
   'FACTORY_SUPPLIES',
   'UTILITIES',
@@ -321,6 +321,8 @@ export interface OperationsSchedule {
       fixed: DecimalString[];
       variable: DecimalString[];
       total: DecimalString[];
+      /** Cost of the products sold: the fixed costs and the variable costs of the quantity sold. */
+      sold: DecimalString[];
       /** Initial stock bought in construction periods. */
       initialStock: DecimalString[];
     }[];
@@ -1186,6 +1188,7 @@ export function operationsSchedule(input: OperationsInput): CalculationResult<Op
         fixed: strings(c.fixed),
         variable: strings(c.variableProduced),
         total: strings(produced(c)),
+        sold: strings(c.fixed.map((v, j) => v.plus(at(c.variableSold, j)))),
         initialStock: strings(c.initialStock),
       })),
       produced: breakdown(itemCells, false, length),

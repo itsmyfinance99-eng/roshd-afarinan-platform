@@ -308,6 +308,33 @@ const startingBalancesSchema = z.object({
   equity: list(z.object({ equity: key, value: decimal }), 50),
 });
 
+/** What a cost item is in the value-added schedule, and the skill of labour (ST-37.01). */
+export const INPUT_NATURE_VALUES = ['MATERIALS', 'WAGES', 'OTHER'] as const;
+export const LABOUR_SKILL_VALUES = ['SKILLED', 'UNSKILLED'] as const;
+
+/**
+ * Economic analysis (ST-37.01; the engine's `EconomicInput`): present when the user asks for it.
+ * The rate of discount and the taxes on dividends are entered ("0" is explicit); an item without
+ * an adjustment keeps its financial value.
+ */
+const economicAdjustment = {
+  item: key,
+  taxesIncluded: decimal.optional(),
+  valueAddedIncluded: list(decimal, 3).optional(),
+};
+const economicSchema = z.object({
+  discountRate: perPeriod,
+  costs: list(
+    z.object({
+      ...economicAdjustment,
+      nature: choice(INPUT_NATURE_VALUES).optional(),
+      skill: choice(LABOUR_SKILL_VALUES).optional(),
+    }),
+  ),
+  investment: list(z.object(economicAdjustment)),
+  dividendTax: z.object({ local: decimal, foreign: decimal }),
+});
+
 /** Inputs that may carry a note: their path in the input, e.g. `exchangeRates.USD`. */
 export const MAX_INPUT_NOTES = 300;
 
@@ -352,6 +379,7 @@ const projectInputFieldsSchema = z.object({
   }),
   statements: statementsSchema,
   startingBalances: startingBalancesSchema.optional(),
+  economic: economicSchema.optional(),
   notes: notesSchema.optional(),
 });
 
@@ -359,7 +387,7 @@ const projectInputFieldsSchema = z.object({
 /**
  * Rough size of a calculation: project periods × everything computed per period — input lines
  * (investment items, equity, loans, sales lines, cost items), products, cost centres and a fixed
- * part for the statements — plus the allocation of every indirect cost to every product.
+ * part for the statements and for the economic schedules — plus the allocation of every indirect cost to every product.
  */
 export function calculationSize(input: z.infer<typeof projectInputFieldsSchema>): number {
   const { products, costs, costCentres } = input.operations;
@@ -371,7 +399,12 @@ export function calculationSize(input: z.infer<typeof projectInputFieldsSchema>)
     products.reduce((sum, product) => sum + product.sales.length, 0);
   const indirect = costs.filter((cost) => cost.product === undefined).length;
   const perPeriod =
-    lines + products.length + (costCentres?.length ?? 0) + 20 + (indirect * products.length) / 10;
+    lines +
+    products.length +
+    (costCentres?.length ?? 0) +
+    20 +
+    (input.economic === undefined ? 0 : 40) +
+    (indirect * products.length) / 10;
   return Math.ceil(horizonPeriods(input.horizon) * perPeriod);
 }
 

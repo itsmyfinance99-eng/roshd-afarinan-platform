@@ -3,7 +3,9 @@ import {
   COST_CATEGORIES,
   COST_CENTRE_GROUPS,
   EQUITY_CLASSES,
+  INPUT_NATURES,
   INVESTMENT_GROUPS,
+  LABOUR_SKILLS,
   projectModel,
   type DepreciationMethod,
   type ProjectInput,
@@ -15,7 +17,9 @@ import {
   COST_CENTRE_GROUP_VALUES,
   DEPRECIATION_METHOD_VALUES,
   EQUITY_CLASS_VALUES,
+  INPUT_NATURE_VALUES,
   INVESTMENT_GROUP_VALUES,
+  LABOUR_SKILL_VALUES,
   createFinancialModelSchema,
   projectInputSchema,
   updateFinancialModelSchema,
@@ -131,6 +135,8 @@ describe('projectInputSchema', () => {
     expect(COST_CATEGORY_VALUES).toEqual(COST_CATEGORIES);
     expect(COST_CENTRE_GROUP_VALUES).toEqual(COST_CENTRE_GROUPS);
     expect([...ALLOCATION_KEY_VALUES, 'SHARES']).toEqual(ALLOCATION_KEYS);
+    expect(INPUT_NATURE_VALUES).toEqual(INPUT_NATURES);
+    expect(LABOUR_SKILL_VALUES).toEqual(LABOUR_SKILLS);
     const methods: readonly DepreciationMethod[] = DEPRECIATION_METHOD_VALUES;
     expect(methods).toHaveLength(4);
   });
@@ -289,6 +295,58 @@ describe('projectInputSchema: shareholders', () => {
     const plain = projectInputSchema.parse(input);
     expect(plain.financing.equity[0]?.refunds).toBeUndefined();
     expect(projectModel(plain).value.statements.shareholders).toBeUndefined();
+  });
+});
+
+describe('projectInputSchema: economic analysis', () => {
+  const economic = {
+    discountRate: '۰٫۰۸',
+    costs: [{ item: 'ore', taxesIncluded: '0.1', valueAddedIncluded: ['0.25'] }],
+    investment: [{ item: 'machinery', taxesIncluded: '0.05' }],
+    dividendTax: { local: '0', foreign: '0' },
+  };
+
+  it('passes the economic input to the engine', () => {
+    const parsed = projectInputSchema.parse({ ...clone(), economic });
+    expect(parsed.economic?.discountRate).toBe('0.08');
+    const engineInput: ProjectInput = parsed;
+    const { value } = projectModel(engineInput);
+    // Machinery of 600 000 000 less the 5 % of duties included.
+    expect(value.economic?.valueAdded.investment.fixedAndPreProduction.values[0]).toBe('570000000');
+    // Without it a model is as before.
+    expect(projectModel(projectInputSchema.parse(input)).value.economic).toBeUndefined();
+  });
+
+  it('reports malformed parts at their field', () => {
+    const issues = (value: unknown) =>
+      projectInputSchema
+        .safeParse({ ...clone(), economic: value })
+        .error?.issues.map((i) => i.path.join('.')) ?? [];
+    expect(issues({})).toEqual(
+      expect.arrayContaining([
+        'economic.discountRate',
+        'economic.costs',
+        'economic.investment',
+        'economic.dividendTax',
+      ]),
+    );
+    expect(
+      issues({
+        ...economic,
+        costs: [
+          {
+            item: 'ore',
+            nature: 'FUEL',
+            skill: 'MASTER',
+            valueAddedIncluded: ['0', '0', '0', '0'],
+          },
+        ],
+      }),
+    ).toEqual([
+      'economic.costs.0.valueAddedIncluded',
+      'economic.costs.0.nature',
+      'economic.costs.0.skill',
+    ]);
   });
 });
 

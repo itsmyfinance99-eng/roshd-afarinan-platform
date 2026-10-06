@@ -2433,6 +2433,7 @@ epics:
         sprint: S17
         points: 5
         priority: high
+        status: done
         area: [api]
         depends: [ST-34.04]
         story: 'به‌عنوان کارشناس می‌خواهم سهم طرح در ارزش افزوده اقتصاد را محاسبه کنم.'

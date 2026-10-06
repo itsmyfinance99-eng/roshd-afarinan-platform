@@ -13,6 +13,7 @@ import { investmentSchedule, type InvestmentItem, type InvestmentSchedule } from
 import { operationsSchedule, type OperationsInput, type OperationsSchedule } from './operations';
 import { startingAmount, type StartingBalances } from './starting-balances';
 import { financialStatements, type FinancialStatements, type StatementsInput } from './statements';
+import { valueAdded, type EconomicInput, type ValueAddedSchedule } from './value-added';
 
 /**
  * The whole financial model of a project in one call (comfar-model-spec §4): the planning
@@ -40,6 +41,11 @@ export interface ProjectInput {
    * project (manual VII.T), absent for a new project.
    */
   startingBalances?: StartingBalances;
+  /**
+   * Economic analysis (manual VIII): present when the user asks for it. It reads the financial
+   * schedules and changes none of them.
+   */
+  economic?: EconomicInput;
 }
 
 export interface ProjectModel {
@@ -48,6 +54,8 @@ export interface ProjectModel {
   financing: FinancingSchedule;
   operations: OperationsSchedule;
   statements: FinancialStatements;
+  /** Only with an `economic` input. */
+  economic?: { valueAdded: ValueAddedSchedule };
 }
 
 /** Inputs shared by every schedule: an error in them keeps its own path. */
@@ -120,8 +128,35 @@ export function projectModel(input: ProjectInput): CalculationResult<ProjectMode
       }),
     ),
   );
+  const reference = input.statements.discounting.reference;
+  const economicInput = input.economic;
+  const economic =
+    economicInput === undefined
+      ? undefined
+      : {
+          valueAdded: collect(
+            withField('economic', () =>
+              valueAdded({
+                horizon,
+                investment,
+                financing,
+                operations,
+                statements,
+                economic: economicInput,
+                ...(reference === undefined ? {} : { reference }),
+              }),
+            ),
+          ),
+        };
   return {
-    value: { horizon, investment, financing, operations, statements },
+    value: {
+      horizon,
+      investment,
+      financing,
+      operations,
+      statements,
+      ...(economic === undefined ? {} : { economic }),
+    },
     modelVersion: MODEL_VERSION,
     warnings,
     defaultsUsed,
