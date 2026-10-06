@@ -82,6 +82,44 @@ export interface EconomicInput {
   indirectForeignExchange?: IndirectForeignExchangeInput;
   /** Jobs created by the project and around it (VIII.L); no employment schedule when absent. */
   employment?: EmploymentInput;
+  /** Cost-benefit analysis at economic prices (VIII.B–K); no such schedule when absent. */
+  costBenefit?: CostBenefitInput;
+}
+
+/** The unit of account of the cost-benefit analysis (VIII.E.1). */
+export const NUMERAIRES = [
+  'LOCAL_DOMESTIC_PRICES',
+  'LOCAL_BORDER_PRICES',
+  'FOREIGN_BORDER_PRICES',
+] as const;
+export type Numeraire = (typeof NUMERAIRES)[number];
+
+/** How an item is taken from its financial to its economic value. */
+export interface EconomicValuation {
+  /** `AF`: adjusted market value (the economic efficiency price) over the financial value. */
+  adjustmentFactor: DecimalString;
+  /** `FCE`: part of the adjusted market value that is a transaction in foreign currency, 0 … 1. */
+  foreignCurrencyExposure: DecimalString;
+}
+
+export interface CostBenefitInput {
+  numeraire: Numeraire;
+  /** The foreign currency of the numeraire; only with `FOREIGN_BORDER_PRICES`. */
+  currency?: CurrencyCode;
+  /** `SCF = OER / SER`: official over shadow exchange rate; "1" when they do not differ. */
+  standardConversionFactor: DecimalString;
+  /** Sales lines valued at economic prices; the others keep their financial value. */
+  outputs: (EconomicValuation & { product: string; line: string })[];
+  /** Cost items valued at economic prices. */
+  costs: (EconomicValuation & { item: string })[];
+  /** Investment items valued at economic prices. */
+  investment: (EconomicValuation & { item: string })[];
+  /** Keys of loans of foreign origin that are available for this project only. */
+  foreignLoans: string[];
+  /** Monetary benefits and merits, per period in a currency. */
+  indirectBenefits: IndirectForeignExchangeItem[];
+  /** Monetary costs and demerits. */
+  indirectCosts: IndirectForeignExchangeItem[];
 }
 
 /** Jobs and their wage bill in the reference year, in local currency. */

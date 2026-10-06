@@ -14,6 +14,7 @@ import { operationsSchedule, type OperationsInput, type OperationsSchedule } fro
 import { startingAmount, type StartingBalances } from './starting-balances';
 import { financialStatements, type FinancialStatements, type StatementsInput } from './statements';
 import type { EconomicInput } from './economic';
+import { costBenefit, type CostBenefitSchedule } from './cost-benefit';
 import { employmentEffect, type EmploymentSchedule } from './employment';
 import { foreignExchangeEffect, type ForeignExchangeSchedule } from './foreign-exchange';
 import { valueAdded, type ValueAddedSchedule } from './value-added';
@@ -63,6 +64,8 @@ export interface ProjectModel {
     foreignExchange: ForeignExchangeSchedule;
     /** Only when the employment was entered. */
     employment?: EmploymentSchedule;
+    /** Only when the cost-benefit analysis was entered. */
+    costBenefit?: CostBenefitSchedule;
   };
 }
 
@@ -178,6 +181,19 @@ export function projectModel(input: ProjectInput): CalculationResult<ProjectMode
       foreignExchange,
       ...(employment === undefined ? {} : { employment }),
     };
+    const analysis = economicInput.costBenefit;
+    if (analysis !== undefined) {
+      economic.costBenefit = collect(
+        withField('economic', () =>
+          costBenefit({
+            ...schedules,
+            costBenefit: analysis,
+            localCurrency: input.localCurrency,
+            exchangeRates: input.exchangeRates,
+          }),
+        ),
+      );
+    }
   }
   return {
     value: {

@@ -217,6 +217,37 @@ describe('employment effect of a project', () => {
     expect(none.map((w) => w.code)).toContain('employment.noInvestment');
     // The indirect investment of 400 still carries the ratios of the total.
     close(value.economic?.employment?.total.investmentPerJob.total, over('400', '84'));
+    // An enterprise that only uses up a stock it starts with sets working capital free: its
+    // investment is negative, and no ratio is given either.
+    const releasing = projectModel({
+      ...base,
+      investment: {
+        items: base.investment.items.map((i) => ({ ...i, amounts: ['0', '0', '0', '0'] })),
+      },
+      statements,
+      startingBalances: {
+        fixedAssets: [],
+        materials: [{ cost: 'spare-parts', value: '50' }],
+        workInProgress: [],
+        finishedProducts: [],
+        receivables: { value: '0', collectionDays: 0 },
+        payables: { value: '0', paymentDays: 0 },
+        cashInHand: '0',
+        shortTermDeposits: '0',
+        cashSurplus: '0',
+        loans: [],
+        equity: [],
+      },
+    });
+    const released = releasing.value.economic?.employment;
+    close(released?.direct.investment, '-50');
+    expect(released?.direct.jobsPerInvestment).toEqual(NO_RATIOS);
+    expect(released?.direct.investmentPerJob).toEqual(NO_RATIOS);
+    expect(released?.direct.investmentToWages).toEqual(NO_RATIOS);
+    expect(releasing.warnings.map((w) => w.code)).toContain('employment.noInvestment');
+    // The total nets the two: 400 of the other projects less the 50 set free.
+    close(released?.total.investment, '350');
+    close(released?.total.investmentPerJob.total, over('350', '84'));
   });
 
   it('takes the wage bill of the reference year the user chose', () => {

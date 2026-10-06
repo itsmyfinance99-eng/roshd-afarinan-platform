@@ -2467,6 +2467,7 @@ epics:
         sprint: S18
         points: 8
         priority: high
+        status: done
         area: [api]
         depends: [ST-37.01, ST-37.02]
         story: 'به‌عنوان کارشناس می‌خواهم ارزش اقتصادی طرح را با تعدیل مالیات، یارانه و نرخ ارز سایه‌ای بسنجم.'

@@ -313,6 +313,12 @@ export const INPUT_NATURE_VALUES = ['MATERIALS', 'WAGES', 'OTHER'] as const;
 export const LABOUR_SKILL_VALUES = ['SKILLED', 'UNSKILLED'] as const;
 /** How a local item would be traded without the project (ST-37.02). */
 export const TRADE_CATEGORY_VALUES = ['IMPORTABLE', 'EXPORTABLE'] as const;
+/** The unit of account of the cost-benefit analysis (ST-37.04). */
+export const NUMERAIRE_VALUES = [
+  'LOCAL_DOMESTIC_PRICES',
+  'LOCAL_BORDER_PRICES',
+  'FOREIGN_BORDER_PRICES',
+] as const;
 
 /**
  * Economic analysis (ST-37.01; the engine's `EconomicInput`): present when the user asks for it.
@@ -355,6 +361,22 @@ const employmentSchema = z.object({
   inputSupplying: indirectEmployment,
   outputUsing: indirectEmployment,
 });
+const valuation = { adjustmentFactor: decimal, foreignCurrencyExposure: decimal };
+/**
+ * Cost-benefit analysis at economic prices (ST-37.04; the engine's `CostBenefitInput`). The
+ * numeraire and the standard conversion factor are entered; every list is entered, empty or not.
+ */
+const costBenefitSchema = z.object({
+  numeraire: choice(NUMERAIRE_VALUES),
+  currency: currencyCodeSchema.optional(),
+  standardConversionFactor: decimal,
+  outputs: list(z.object({ product: key, line: key, ...valuation })),
+  costs: list(z.object({ item: key, ...valuation })),
+  investment: list(z.object({ item: key, ...valuation })),
+  foreignLoans: list(key, 50),
+  indirectBenefits: list(indirectForeignExchangeItem, 50),
+  indirectCosts: list(indirectForeignExchangeItem, 50),
+});
 const economicSchema = z.object({
   discountRate: perPeriod,
   costs: list(
@@ -369,6 +391,7 @@ const economicSchema = z.object({
   dividendTax: z.object({ local: decimal, foreign: decimal }),
   indirectForeignExchange: indirectForeignExchangeSchema.optional(),
   employment: employmentSchema.optional(),
+  costBenefit: costBenefitSchema.optional(),
 });
 
 /** Inputs that may carry a note: their path in the input, e.g. `exchangeRates.USD`. */
@@ -435,6 +458,7 @@ export function calculationSize(input: z.infer<typeof projectInputFieldsSchema>)
     products.reduce((sum, product) => sum + product.sales.length, 0);
   const indirect = costs.filter((cost) => cost.product === undefined).length;
   const tradables = input.economic?.indirectForeignExchange;
+  const analysis = input.economic?.costBenefit;
   const economic =
     input.economic === undefined
       ? 0
@@ -444,7 +468,10 @@ export function calculationSize(input: z.infer<typeof projectInputFieldsSchema>)
           : tradables.outputs.length +
             tradables.inputs.length +
             tradables.otherInflows.length +
-            tradables.otherOutflows.length);
+            tradables.otherOutflows.length) +
+        (analysis === undefined
+          ? 0
+          : 30 + analysis.indirectBenefits.length + analysis.indirectCosts.length);
   const perPeriod =
     lines +
     products.length +

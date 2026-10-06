@@ -6,6 +6,7 @@ import {
   INPUT_NATURES,
   INVESTMENT_GROUPS,
   LABOUR_SKILLS,
+  NUMERAIRES,
   TRADE_CATEGORIES,
   projectModel,
   type DepreciationMethod,
@@ -21,6 +22,7 @@ import {
   INPUT_NATURE_VALUES,
   INVESTMENT_GROUP_VALUES,
   LABOUR_SKILL_VALUES,
+  NUMERAIRE_VALUES,
   TRADE_CATEGORY_VALUES,
   createFinancialModelSchema,
   calculationSize,
@@ -141,6 +143,7 @@ describe('projectInputSchema', () => {
     expect(INPUT_NATURE_VALUES).toEqual(INPUT_NATURES);
     expect(LABOUR_SKILL_VALUES).toEqual(LABOUR_SKILLS);
     expect(TRADE_CATEGORY_VALUES).toEqual(TRADE_CATEGORIES);
+    expect(NUMERAIRE_VALUES).toEqual(NUMERAIRES);
     const methods: readonly DepreciationMethod[] = DEPRECIATION_METHOD_VALUES;
     expect(methods).toHaveLength(4);
   });
@@ -380,6 +383,51 @@ describe('projectInputSchema: economic analysis', () => {
     expect(issues).toEqual([
       'economic.indirectForeignExchange.inputs.0.trade',
       'economic.indirectForeignExchange.otherInflows',
+    ]);
+  });
+
+  it('passes the cost-benefit analysis to the engine', () => {
+    const costBenefit = {
+      numeraire: 'LOCAL_DOMESTIC_PRICES',
+      standardConversionFactor: '۰٫۸',
+      outputs: [],
+      costs: [],
+      investment: [{ item: 'machinery', adjustmentFactor: '0.9', foreignCurrencyExposure: '1' }],
+      foreignLoans: [],
+      indirectBenefits: [{ key: 'training', currency: 'irr', amounts: ['0', '7', '7', '7'] }],
+      indirectCosts: [],
+    };
+    const parsed = projectInputSchema.parse({ ...clone(), economic: { ...economic, costBenefit } });
+    expect(parsed.economic?.costBenefit?.standardConversionFactor).toBe('0.8');
+    const engineInput: ProjectInput = parsed;
+    const schedule = projectModel(engineInput).value.economic?.costBenefit;
+    // Machinery of 600 000 000 at 90 %, and a quarter more for the shadow rate of its dollars.
+    expect(schedule?.outflows.fixedInvestment.adjustedMarketValue).toBe('540000000');
+    expect(schedule?.outflows.fixedInvestment.foreignExchangeAdjustment).toBe('135000000');
+    expect(schedule?.levels.withIndirect.npv).toBeDefined();
+    // The schedule and its entered indirect item count in the size of the calculation.
+    const bare = projectInputSchema.parse({ ...clone(), economic });
+    const periods = projectModel(bare).value.horizon.periods.length;
+    expect(calculationSize(parsed) - calculationSize(bare)).toBe(31 * periods);
+    expect(projectModel(bare).value.economic?.costBenefit).toBeUndefined();
+    const issues = projectInputSchema
+      .safeParse({
+        ...clone(),
+        economic: {
+          ...economic,
+          costBenefit: {
+            ...costBenefit,
+            numeraire: 'GOLD',
+            investment: [{ item: 'machinery', adjustmentFactor: '0.9' }],
+            foreignLoans: undefined,
+          },
+        },
+      })
+      .error?.issues.map((i) => i.path.join('.'));
+    expect(issues).toEqual([
+      'economic.costBenefit.numeraire',
+      'economic.costBenefit.investment.0.foreignCurrencyExposure',
+      'economic.costBenefit.foreignLoans',
     ]);
   });
 
