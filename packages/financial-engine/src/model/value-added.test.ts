@@ -29,8 +29,8 @@ const close = (actual: string | null | undefined, expected: Decimal | string | n
       .lt('1e-20'),
     `${actual} ≈ ${String(expected)}`,
   ).toBe(true);
-/** The mill exports more than it spends abroad: its only warning (see foreign-exchange.test). */
-const netEarner = [{ code: 'foreignExchange.noNetUse' }];
+/** The mill earns more foreign exchange than it uses: its only warning (foreign-exchange.test). */
+const noNetUse = [{ code: 'foreignExchange.noNetUse' }];
 /** The line has these values, their sum and their present value. */
 const expectLine = (line: EconomicLine | undefined, expected: string[]) => {
   expect(line?.values.length).toBe(expected.length);
@@ -50,7 +50,7 @@ describe('value added of a project', () => {
     expect(statements.dividends.total.map(Number)).toEqual([0, 88, 88, 98]);
     expect(statements.cashFlow.outflows.financialCosts.map(Number)).toEqual([0, 90, 90, 65]);
     expect(statements.cashFlow.automaticOverdraft.map(Number)).toEqual([0, 0, 0, 0]);
-    expect(warnings).toEqual(netEarner);
+    expect(warnings).toEqual(noNetUse);
   });
 
   it('deducts the material input from the value of output', () => {
@@ -368,7 +368,7 @@ describe('value added: adjustments and special cases', () => {
       },
     };
     const { value, warnings } = projectModel(halves);
-    expect(warnings).toEqual(netEarner);
+    expect(warnings).toEqual(noNetUse);
     const nnva = value.economic?.valueAdded.netNationalValueAdded;
     const expected = ['-100', '-1350', '1493.74', '1493.74', '1616.04'];
     expected.forEach((v, j) => close(nnva?.values[j], v));
