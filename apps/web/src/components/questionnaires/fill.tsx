@@ -41,6 +41,8 @@ const SAVE_DELAY_MS = 1200;
 
 /** How often a save that the network or the server lost is tried again by itself. */
 const MAX_RETRIES = 4;
+/** Browsers cut a request that outlives its page at about 64 KiB; stay well below. */
+const KEEPALIVE_LIMIT = 60_000;
 
 const ORIGIN_LABELS = { applicant: 'افزوده شما', staff: 'افزوده کارشناسان' } as const;
 
@@ -251,21 +253,38 @@ export function QuestionnaireForm({
   const queue = useRef({
     drafts,
     questions,
-    /** Per queued question: how often it changed, to tell whether a sent answer is still the last. */
+    /** Per queued question: the number of its last change, to tell whether a sent answer is still the last. */
     dirty: new Map<string, number>(),
-    saving: false,
+    /** Never repeats, so an old answer of the server cannot be taken for a newer change. */
+    sequence: 0,
+    /** The save that is on its way, for whoever must wait for it. */
+    inflight: null as Promise<void> | null,
+    /** What the server said last, for what must read it before the next rendering. */
+    latest: questionnaire,
     retries: 0,
     timer: undefined as ReturnType<typeof setTimeout> | undefined,
     gone: false,
   });
   useEffect(() => {
     queue.current.questions = questions;
-  }, [questions]);
+    queue.current.latest = questionnaire;
+  }, [questions, questionnaire]);
 
-  const refresh = useCallback(async () => {
+  /** Takes over what the server answered. */
+  const accept = useCallback(
+    (next: ProjectQuestionnaire) => {
+      queue.current.latest = next;
+      onQuestionnaire(next);
+    },
+    [onQuestionnaire],
+  );
+
+  const refresh = useCallback(async (): Promise<ProjectQuestionnaire | null> => {
     const result = await apiFetch<ProjectQuestionnaire>(base);
-    if (result.ok) onQuestionnaire(result.data);
-  }, [base, onQuestionnaire]);
+    if (!result.ok) return null;
+    accept(result.data);
+    return result.data;
+  }, [accept, base]);
 
   const flushRef = useRef<() => Promise<void>>(async () => {});
   const schedule = useCallback((delay: number) => {
@@ -274,11 +293,10 @@ export function QuestionnaireForm({
     q.timer = setTimeout(() => void flushRef.current(), delay);
   }, []);
 
-  /** Sends what is queued and valid; what is not valid waits in the form for its correction. */
-  const flush = useCallback(async () => {
+  /** One request with what is queued and valid; what is not valid waits for its correction. */
+  const send = useCallback(async () => {
     const q = queue.current;
-    clearTimeout(q.timer);
-    if (q.saving || q.dirty.size === 0) return;
+    if (q.dirty.size === 0) return;
     const sent = new Map(q.dirty);
     const checked = checkDrafts(q.questions, q.drafts, sent.keys());
     const wrong = new Set(Object.keys(checked.errors).map(questionOfPath));
@@ -295,39 +313,45 @@ export function QuestionnaireForm({
     setUnsent(q.dirty.size);
     if (Object.keys(checked.valid).length === 0) return;
 
-    q.saving = true;
     setSaving(true);
     const result = await apiFetch<ProjectQuestionnaire>(`${base}/answers`, {
       method: 'PUT',
       body: { answers: checked.valid },
     });
-    q.saving = false;
     if (q.gone) return;
     setSaving(false);
+    /** Out of the queue, unless it was changed again while the request was on its way. */
+    const settle = (key: string) => {
+      if (q.dirty.get(key) === sent.get(key)) q.dirty.delete(key);
+    };
+    const fromApi = result.ok ? {} : errorsFromDetails(result.details);
 
     if (result.ok) {
-      // Saved, unless it was changed again meanwhile.
-      for (const key of Object.keys(checked.valid)) {
-        if (q.dirty.get(key) === sent.get(key)) q.dirty.delete(key);
-      }
+      for (const key of Object.keys(checked.valid)) settle(key);
       q.retries = 0;
       setFailure(null);
-      onQuestionnaire(result.data);
-    } else if (result.status === 400 && result.details.length > 0) {
+      accept(result.data);
+    } else if (result.status === 400 && Object.keys(fromApi).length > 0) {
       // The whole request was refused for the answers the details name; the others go again.
-      const fromApi = errorsFromDetails(result.details);
-      for (const path of Object.keys(fromApi)) q.dirty.delete(questionOfPath(path));
+      for (const path of Object.keys(fromApi)) settle(questionOfPath(path));
       setErrors((old) => ({ ...old, ...fromApi }));
-      setFailure(Object.keys(fromApi).length > 0 ? null : result.message);
+      setFailure(null);
       // A question may be gone (the staff removed it): show what there is now.
       void refresh();
     } else if (result.status === 409 || result.status === 403 || result.status === 404) {
-      // The project was submitted or is no longer the caller's: nothing more can be saved.
+      // The project was submitted or is no longer the caller's: nothing more can be saved, and
+      // what was not saved is not shown as if it were.
       q.dirty.clear();
       setFailure(result.message);
-      void refresh();
+      const now = await refresh();
+      if (now && !q.gone) {
+        q.drafts = { ...now.answers };
+        setDrafts(q.drafts);
+        setErrors({});
+      }
     } else {
-      // The network or the server: the answers stay queued and are tried again, a few times.
+      // The network, the server, or a refusal that names no answer: the answers stay queued and
+      // are tried again, a few times.
       q.retries += 1;
       setFailure(result.message);
       setUnsent(q.dirty.size);
@@ -336,39 +360,65 @@ export function QuestionnaireForm({
     }
     setUnsent(q.dirty.size);
     if (q.dirty.size > 0) schedule(300);
-  }, [base, onQuestionnaire, refresh, schedule]);
+  }, [accept, base, refresh, schedule]);
+
+  /**
+   * Sends what is queued. Whoever awaits it also awaits a save that was already on its way, so
+   * that afterwards the server has seen everything that was typed before.
+   */
+  const flush = useCallback(async () => {
+    const q = queue.current;
+    clearTimeout(q.timer);
+    while (q.inflight) await q.inflight;
+    const run = send().finally(() => {
+      if (q.inflight === run) q.inflight = null;
+    });
+    q.inflight = run;
+    await run;
+  }, [send]);
   useEffect(() => {
     flushRef.current = flush;
   }, [flush]);
 
-  // Leaving the page: what is queued and valid goes out with a request that outlives the page.
+  // Leaving the page: what is queued and valid goes out with a last request.
   useEffect(() => {
     const q = queue.current;
-    const last = () => {
+    const last = (unloading: boolean) => {
       clearTimeout(q.timer);
       if (q.dirty.size === 0) return;
       const checked = checkDrafts(q.questions, q.drafts, q.dirty.keys());
       if (Object.keys(checked.valid).length === 0) return;
-      for (const key of Object.keys(checked.valid)) q.dirty.delete(key);
+      const body = { answers: checked.valid };
       void apiFetch(`${base}/answers`, {
         method: 'PUT',
-        body: { answers: checked.valid },
-        keepalive: true,
+        body,
+        // Only a page that is really going away needs the request to outlive it, and such a
+        // request may not be large; a larger one is sent the usual way and may be cut off.
+        keepalive: unloading && JSON.stringify(body).length < KEEPALIVE_LIMIT,
       });
     };
+    // The queue is left as it is: if the page comes back, the answers are simply sent again.
+    const hide = () => last(true);
     const hidden = () => {
       if (document.visibilityState === 'hidden') void flushRef.current();
     };
-    window.addEventListener('pagehide', last);
+    // Back from the browser's cache: what the server has may be newer than what is shown.
+    const shown = (event: PageTransitionEvent) => {
+      if (event.persisted) void flushRef.current().then(() => refresh());
+    };
+    window.addEventListener('pagehide', hide);
+    window.addEventListener('pageshow', shown);
     document.addEventListener('visibilitychange', hidden);
     q.gone = false;
     return () => {
-      window.removeEventListener('pagehide', last);
+      window.removeEventListener('pagehide', hide);
+      window.removeEventListener('pageshow', shown);
       document.removeEventListener('visibilitychange', hidden);
       q.gone = true;
-      last();
+      // Inside the app the page lives on, so an ordinary request is enough and has no limit.
+      last(false);
     };
-  }, [base]);
+  }, [base, refresh]);
 
   // Closing the page while something is not saved yet asks first.
   useEffect(() => {
@@ -381,7 +431,8 @@ export function QuestionnaireForm({
   const change = (key: string, draft: Draft) => {
     const q = queue.current;
     q.drafts = { ...q.drafts, [key]: draft };
-    q.dirty.set(key, (q.dirty.get(key) ?? 0) + 1);
+    q.sequence += 1;
+    q.dirty.set(key, q.sequence);
     q.retries = 0;
     setDrafts(q.drafts);
     // Its old messages were about what it was; the new value is checked when it is saved.
@@ -406,18 +457,19 @@ export function QuestionnaireForm({
 
   /** Says what a submission would still ask for, and opens the first step that has some. */
   const checkComplete = () => {
-    const open = completeIssues(questions, questionnaire.answers);
+    // What the server said last, which after a save is ahead of what was rendered.
+    const now = queue.current.latest;
+    const nowSteps = stepsOf(now, now.items.length > 0 || now.access.addItems);
+    const open = completeIssues(
+      nowSteps.flatMap((item) => item.questions),
+      now.answers,
+    );
     setErrors(open);
-    const first = firstOpenStep(steps, questionnaire.answers, open);
+    const first = firstOpenStep(nowSteps, now.answers, open);
     if (first >= 0) setCurrent(first);
     setVerdict(Object.keys(open).length === 0 ? 'complete' : 'open');
     focusHeading();
   };
-  // Called a moment after a save, when what it reads is what the server answered.
-  const checkRef = useRef(checkComplete);
-  useEffect(() => {
-    checkRef.current = checkComplete;
-  });
 
   const removeItem = async (item: ProjectItem) => {
     if (!window.confirm('این مورد و پاسخ آن حذف شود؟')) return;
@@ -429,7 +481,13 @@ export function QuestionnaireForm({
     });
     if (result.ok) {
       queue.current.dirty.delete(item.key);
-      onQuestionnaire(result.data);
+      setUnsent(queue.current.dirty.size);
+      setErrors((old) =>
+        Object.fromEntries(
+          Object.entries(old).filter(([path]) => questionOfPath(path) !== item.key),
+        ),
+      );
+      accept(result.data);
       focusHeading();
     } else setItemError(result.message);
   };
@@ -447,12 +505,18 @@ export function QuestionnaireForm({
   }
 
   const index = steps.indexOf(step);
-  const wrong = new Set(Object.keys(errors).map(questionOfPath));
+  const known = new Set(questions.map((question) => question.key));
+  // A message about a question that is gone (the staff removed it) is nobody's to fix.
+  const wrong = new Set(
+    Object.keys(errors)
+      .map(questionOfPath)
+      .filter((key) => known.has(key)),
+  );
   /** What the line under the form says; only its settled states are announced. */
   const settled = failure
     ? null
     : wrong.size > 0
-      ? `${toPersianDigits(wrong.size)} پاسخ نیاز به اصلاح دارد و ذخیره نشده است.`
+      ? `${toPersianDigits(wrong.size)} پاسخ نیاز به اصلاح یا تکمیل دارد.`
       : verdict === 'complete' && unsent === 0
         ? 'پرسشنامه کامل است.'
         : touched
@@ -468,7 +532,9 @@ export function QuestionnaireForm({
     <div
       className="flex flex-col gap-6"
       // Leaving a field sends what is queued, so little is ever waiting.
-      onBlur={() => {
+      onBlur={(event) => {
+        // A tick among several is not the whole answer yet; the others are on their way.
+        if ((event.target as HTMLElement).getAttribute('type') === 'checkbox') return;
         if (queue.current.dirty.size > 0 && !failure) schedule(150);
       }}
     >
@@ -604,13 +670,7 @@ export function QuestionnaireForm({
             )}
             {itemError ? <ErrorMessage>{itemError}</ErrorMessage> : null}
             {questionnaire.access.addItems ? (
-              <AddItemForm
-                base={base}
-                before={flush}
-                onAdded={(next) => {
-                  onQuestionnaire(next);
-                }}
-              />
+              <AddItemForm base={base} before={flush} onAdded={accept} />
             ) : null}
           </>
         ) : step.questions.length === 0 ? (
@@ -663,7 +723,7 @@ export function QuestionnaireForm({
             variant="ghost"
             onClick={() => {
               // What was just typed is part of what is checked.
-              void flush().then(() => requestAnimationFrame(() => checkRef.current()));
+              void flush().then(checkComplete);
             }}
           >
             بررسی کامل بودن پرسشنامه

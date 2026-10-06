@@ -207,7 +207,7 @@ test.describe('the questionnaire of a project for its applicant', () => {
     await expect(page.getByLabel('محصول اصلی')).toHaveValue('کنسانتره');
     await page.getByLabel(/^ظرفیت اسمی/).fill('-5');
     await expect(page.getByText('مقدار نباید کمتر از ۰ باشد.')).toBeVisible();
-    await expect(page.getByText('۱ پاسخ نیاز به اصلاح دارد و ذخیره نشده است.')).toBeVisible();
+    await expect(page.getByText('۱ پاسخ نیاز به اصلاح یا تکمیل دارد.')).toBeVisible();
     expect(saves).toEqual([]);
     await expect(page.getByRole('button', { name: /۱\. مشخصات طرح · خطا/ })).toBeVisible();
 
@@ -354,7 +354,7 @@ test.describe('the questionnaire of a project for its applicant', () => {
     await page.getByLabel('هدف صادراتی').check();
     await expect(page.getByText('گزینه را از فهرست انتخاب کنید.')).toBeVisible();
     await expect.poll(() => saves.at(-1)).toEqual({ product: 'کنسانتره' });
-    await expect(page.getByText('۱ پاسخ نیاز به اصلاح دارد و ذخیره نشده است.')).toBeVisible();
+    await expect(page.getByText('۱ پاسخ نیاز به اصلاح یا تکمیل دارد.')).toBeVisible();
     await expect(page.getByText('۱ از ۵ سؤال پاسخ داده شده')).toBeVisible();
     mode = 'ok';
     await page.getByLabel('هدف صادراتی').uncheck();
@@ -364,8 +364,13 @@ test.describe('the questionnaire of a project for its applicant', () => {
     mode = 'offline';
     await page.getByLabel(/^ظرفیت اسمی/).fill('500');
     await expect(page.getByText('پاسخ‌های ذخیره‌نشده در فرم مانده‌اند.')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'تلاش دوباره برای ذخیره' })).toBeVisible();
     mode = 'ok';
-    await page.getByRole('button', { name: 'تلاش دوباره برای ذخیره' }).click();
+    // The form also tries again by itself; whichever comes first, the answer arrives.
+    await page
+      .getByRole('button', { name: 'تلاش دوباره برای ذخیره' })
+      .click({ timeout: 1500 })
+      .catch(() => undefined);
     await expect.poll(() => saves.at(-1)).toEqual({ capacity: { value: '500', unit: 'تن' } });
     await expect(page.getByText('همه تغییرها ذخیره شد.')).toBeVisible();
     await expect(page.getByRole('button', { name: 'تلاش دوباره برای ذخیره' })).toHaveCount(0);
@@ -375,7 +380,8 @@ test.describe('the questionnaire of a project for its applicant', () => {
     await page.getByLabel('محصول اصلی').fill('گندله');
     await page.getByRole('link', { name: /بازگشت به پروژه/ }).click();
     await expect(page).toHaveURL(/\/dashboard\/feasibility\/p1$/);
-    await expect.poll(() => saves.slice(before)).toEqual([{ product: 'گندله' }]);
+    await expect.poll(() => saves.length).toBeGreaterThan(before);
+    await expect.poll(() => saves.at(-1)).toEqual({ product: 'گندله' });
   });
 
   test('turns read-only when the project was submitted elsewhere meanwhile', async ({ page }) => {
@@ -416,7 +422,7 @@ test.describe('the questionnaire of a project for its applicant', () => {
     await page.goto('/dashboard/feasibility/p1/questionnaire?check=1');
     await expect(page.getByRole('heading', { name: 'متقاضی' })).toBeVisible();
     await expect(page.getByRole('button', { name: /۲\. متقاضی · خطا/ })).toBeVisible();
-    await expect(page.getByText('۲ پاسخ نیاز به اصلاح دارد و ذخیره نشده است.')).toBeVisible();
+    await expect(page.getByText('۲ پاسخ نیاز به اصلاح یا تکمیل دارد.')).toBeVisible();
     const row = page.getByRole('group', { name: 'سطر ۱' });
     await expect(row.getByLabel('نام سهامدار')).toHaveAttribute('aria-invalid', 'true');
     await audit(page);
