@@ -13,6 +13,7 @@ import {
   type ReportValue,
 } from './document';
 import {
+  costBenefitCurrency,
   costBenefitIndicators,
   costBenefitIndirect,
   costBenefitLevelsTable,
@@ -349,7 +350,7 @@ function economicBlocks(
   }
   const analysis = economicPart(economic.costBenefit);
   if (analysis !== undefined) {
-    const numeraire = unitLabel(unit, isolate(analysis.currency));
+    const numeraire = unitLabel(unit, isolate(costBenefitCurrency(analysis)));
     const analysisNote = `مبلغ‌ها به ${numeraire}`;
     blocks.push(
       matrixBlock(costBenefitTable(analysis), unit, analysisNote),

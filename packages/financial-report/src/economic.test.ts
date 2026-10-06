@@ -301,6 +301,18 @@ describe('economic analysis in the report of a run', () => {
     expect(unreadable(['employment', 'direct', 'jobs', 'unskilled'])).toEqual(message);
     expect(unreadable(['costBenefit', 'levels', 'economic', 'npv'])).toEqual(message);
     expect(unreadable(['costBenefit', 'indirect', 'net'])).toEqual(message);
+    // A rate of return is absent when there is none, never null; a net flow has no gaps; and
+    // the analysis names its currency.
+    expect(unreadable(['costBenefit', 'levels', 'adjusted', 'irr'], null)).toEqual(message);
+    expect(unreadable(['costBenefit', 'levels', 'adjusted', 'startingBalance'], null)).toEqual(
+      message,
+    );
+    const net = result.costBenefit?.levels.financial.net ?? [];
+    expect(
+      unreadable(['costBenefit', 'levels', 'financial', 'net'], [null, ...net.slice(1)]),
+    ).toEqual(message);
+    expect(unreadable(['costBenefit', 'currency'])).toEqual(message);
+    expect(unreadable(['costBenefit', 'currency'], 5)).toEqual(message);
     expect(unreadable(['valueAdded', 'efficiency', 'absolute'], 12)).toEqual(message);
     // A part that is neither absent nor a record.
     for (const part of ['foreignExchange', 'employment', 'costBenefit']) {

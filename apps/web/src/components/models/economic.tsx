@@ -72,7 +72,7 @@ const namesOf = (items: unknown[]): Options =>
  * project and the cost-benefit analysis at economic prices. Nothing has a default.
  */
 export function EconomicSection() {
-  const { draft, set } = useEditor();
+  const { draft, set, change } = useEditor();
   const enabled = getIn(draft, ECONOMIC) !== undefined;
   return (
     <div className="flex flex-col gap-6">
@@ -86,7 +86,12 @@ export function EconomicSection() {
           onChange={(checked) => {
             if (checked) set(ECONOMIC, emptyEconomic());
             else if (window.confirm('همه ورودی‌های تحلیل اقتصادی حذف شود؟')) {
-              set(ECONOMIC, undefined);
+              // The source of the rate goes with the rate.
+              change((current) => {
+                const next = setIn(current, ECONOMIC, undefined);
+                const note = ['notes', 'economic.discountRate'] as const;
+                return getIn(next, note) === undefined ? next : setIn(next, note, undefined);
+              });
             }
           }}
         />
@@ -467,17 +472,24 @@ function SalesLineField({ base, market }: { base: Path; market?: string }) {
   const lines = useSalesLines(market);
   const product = textAt(draft, [...base, 'product']);
   const line = textAt(draft, [...base, 'line']);
+  const current = lines.findIndex((l) => l.product === product && l.line === line);
   return (
     <ChoiceField
       path={[...base, 'line']}
       label="سطر فروش"
-      shown={product === '' && line === '' ? '' : lineLabel(product, line)}
-      options={lines.map((l) => {
-        const label = lineLabel(l.product, l.line);
-        return [label, label] as const;
-      })}
+      // The value of a choice is its place in the list: two lines may read alike («a › b» of
+      // product «c» and «b» of product «c › a»), their places never do. A stored line that is not
+      // in the list is shown by its names, as an invalid choice.
+      shown={
+        product === '' && line === ''
+          ? ''
+          : current >= 0
+            ? String(current)
+            : lineLabel(product, line)
+      }
+      options={lines.map((l, i) => [String(i), lineLabel(l.product, l.line)] as const)}
       onCommit={(value) => {
-        const chosen = lines.find((l) => lineLabel(l.product, l.line) === value);
+        const chosen = value === undefined ? undefined : lines[Number(value)];
         change((current) =>
           setIn(
             setIn(current, [...base, 'product'], chosen?.product),

@@ -2,6 +2,7 @@
 
 import type { ProjectModel } from '@roshd/financial-engine';
 import {
+  costBenefitCurrency,
   costBenefitIndicators,
   costBenefitIndirect,
   costBenefitLevelsTable,
@@ -212,16 +213,17 @@ function CostBenefitSection({
   schedule: (build: () => StatementTable, unitLabel?: string) => ReactNode;
 }) {
   // The analysis is in its numeraire, which may be a foreign currency.
-  const label = unitLabel(unit, analysis.currency);
+  const currency = costBenefitCurrency(analysis);
+  const label = unitLabel(unit, currency);
   const levels = costBenefitIndicators(analysis);
   return (
     <Section title="هزینه-فایده به قیمت‌های اقتصادی">
       <p className="text-sm leading-7 text-ink-3">
         واحد سنجش: {NUMERAIRE_LABELS_FA[analysis.numeraire] ?? analysis.numeraire}
-        {analysis.currency !== local ? (
+        {currency !== local ? (
           <>
             {' '}
-            (<bdi dir="ltr">{analysis.currency}</bdi>)
+            (<bdi dir="ltr">{currency}</bdi>)
           </>
         ) : null}
         . همه مبلغ‌های این قسمت ارزش فعلی با نرخ تنزیل اقتصادی و به {label} است. شاخص‌های سطح آخر،
