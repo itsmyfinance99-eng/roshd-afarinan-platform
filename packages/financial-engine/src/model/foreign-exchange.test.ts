@@ -221,6 +221,41 @@ describe('net foreign-exchange effect of a project', () => {
     expectLine(schedule?.outflows.others, ['0', '48', '30', '30']);
   });
 
+  it('shows the foreign content of a starting stock of finished products when it is first valued', () => {
+    // An existing enterprise starts with the 15 units the mill keeps in stock (36 days of sales).
+    const expansion = projectModel({
+      ...mill,
+      operations: {
+        ...mill.operations,
+        products: mill.operations.products.map((p) => ({
+          ...p,
+          finishedGoodsCoverage: { days: '36' },
+        })),
+      },
+      startingBalances: {
+        fixedAssets: [],
+        materials: [],
+        workInProgress: [],
+        finishedProducts: [{ product: 'steel', quantity: '15', price: '6' }],
+        receivables: { value: '0', collectionDays: 0 },
+        payables: { value: '0', paymentDays: 0 },
+        cashInHand: '0',
+        shortTermDeposits: '0',
+        cashSurplus: '0',
+        loans: [],
+        equity: [],
+      },
+    }).value;
+    const working = expansion.operations.workingCapital;
+    // A starting stock of finished products counts as local: nothing of it is of foreign origin.
+    expect(working.starting?.opening.foreign).toBe('0');
+    // From the first year of sales the stock is valued like the production of the year, and
+    // 15/150 of the fixed foreign factory costs (180) are in it: 18, shown as an outflow of that
+    // year on top of the licence of 30, although the stock was there before the project.
+    expect(working.totals.foreign.map(Number)).toEqual([0, 18, 18, 18]);
+    expectLine(expansion.economic?.foreignExchange.outflows.others, ['0', '48', '30', '30']);
+  });
+
   it('has no foreign exchange to relate the value added to in a project without foreign flows', () => {
     const local = <T extends { origin: string }>(item: T) => ({
       ...item,

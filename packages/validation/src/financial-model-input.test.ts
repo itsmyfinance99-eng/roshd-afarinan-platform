@@ -340,7 +340,7 @@ describe('projectInputSchema: economic analysis', () => {
         },
       ],
       inputs: [{ item: 'ore', trade: 'EXPORTABLE', share: '1', borderPriceFactor: '0.5' }],
-      otherInflows: [],
+      otherInflows: [{ key: 'visitors', currency: 'usd', amounts: ['0', '1', '1', '1'] }],
       otherOutflows: [],
     };
     const parsed = projectInputSchema.parse({
@@ -348,10 +348,12 @@ describe('projectInputSchema: economic analysis', () => {
       economic: { ...economic, indirectForeignExchange },
     });
     expect(parsed.economic?.indirectForeignExchange?.outputs[0]?.share).toBe('0.5');
-    // The two entered items count in the size of the calculation, per period.
+    expect(parsed.economic?.indirectForeignExchange?.otherInflows[0]?.currency).toBe('USD');
+    // The tradable output, the tradable input and the entered inflow count in the size of the
+    // calculation, per period.
     const bare = projectInputSchema.parse({ ...clone(), economic });
     const periods = projectModel(bare).value.horizon.periods.length;
-    expect(calculationSize(parsed) - calculationSize(bare)).toBe(2 * periods);
+    expect(calculationSize(parsed) - calculationSize(bare)).toBe(3 * periods);
     const engineInput: ProjectInput = parsed;
     const { value } = projectModel(engineInput);
     // Half of the sales at home of 1 000 000 000 a year replace imports.
