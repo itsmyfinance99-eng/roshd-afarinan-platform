@@ -290,7 +290,9 @@ export class ProjectDocumentsService {
     });
     if (rows.length === 0) return [];
     const since = await this.lastSubmission(tx, projectId);
-    if (since !== null && rows.some((row) => row.createdAt <= since)) {
+    // Only a file that is still there holds the item: one staff deleted is nobody's to keep.
+    const active = await this.files.activeIds(rows.map((row) => row.fileId));
+    if (since !== null && rows.some((row) => active.has(row.fileId) && row.createdAt <= since)) {
       throw new ConflictError(
         'برای این مورد فایلی بارگذاری شده که برای بررسی ارسال شده است؛ چنین موردی برداشته نمی‌شود.',
       );
@@ -334,13 +336,18 @@ export class ProjectDocumentsService {
         { path: 'key', message: 'این مدرک در پرسشنامه پروژه نیست.' },
       ]);
     }
-    const [inSlot, inProject] = await Promise.all([
+    // Room is taken by the files that are there: one staff deleted through the files module
+    // gives its place back. Its version number stays taken, so no number means two files.
+    const there = { file: { status: 'ACTIVE' as const } };
+    const [versions, inSlot, inProject] = await Promise.all([
       db.projectDocument.aggregate({
         where: { projectId, kind: input.kind, slotKey: input.key },
-        _count: { _all: true },
         _max: { version: true },
       }),
-      db.projectDocument.count({ where: { projectId } }),
+      db.projectDocument.count({
+        where: { projectId, kind: input.kind, slotKey: input.key, ...there },
+      }),
+      db.projectDocument.count({ where: { projectId, ...there } }),
     ]);
     if (inProject >= MAX_PROJECT_DOCUMENT_FILES) {
       throw new ConflictError('حداکثر تعداد فایل‌های این پروژه پر شده است.');
@@ -349,14 +356,14 @@ export class ProjectDocumentsService {
       slot.kind === 'ANSWER'
         ? (slot.maxFiles ?? QUESTIONNAIRE_LIMITS.files)
         : MAX_DOCUMENT_VERSIONS;
-    if (inSlot._count._all >= room) {
+    if (inSlot >= room) {
       throw new ConflictError(
         slot.kind === 'ANSWER'
           ? 'حداکثر تعداد فایل‌های این سؤال بارگذاری شده است.'
           : 'حداکثر تعداد نسخه‌های این مدرک بارگذاری شده است.',
       );
     }
-    return { highest: inSlot._max.version ?? 0 };
+    return { highest: versions._max.version ?? 0 };
   }
 
   /** The answer of a file question is the list of its files, in the order they were handed in. */

@@ -587,9 +587,44 @@ describe('Documents of a feasibility project (e2e)', () => {
     expect(
       (refused.body.error.details as { path: string }[]).map((detail) => detail.path).sort(),
     ).toEqual(['answers.drawings', 'documents.license']);
-    // Handing them in again makes the project whole.
-    await upload(owner, project.id, LICENSE).expect(201);
+    // The answer the form reads is gone too, not a list with an id nobody can open.
+    expect(questionnaire.body.data.answers).not.toHaveProperty('drawings');
+
+    // A deleted file gives its place back, also where there is room for one only.
+    await prisma().projectDocument.create({
+      data: {
+        projectId: project.id,
+        kind: 'ANSWER',
+        slotKey: 'drawings',
+        version: 2,
+        fileId: (
+          await prisma().fileObject.create({
+            data: {
+              ownerId: owner.id,
+              purpose: 'FEASIBILITY_DOCUMENT',
+              entityType: 'feasibility_project',
+              entityId: project.id,
+              originalName: 'حذف‌شده.pdf',
+              mimeType: 'application/pdf',
+              size: 10,
+              checksum: 'x',
+              storageKey: `gone-${project.id}`,
+              status: 'DELETED',
+              deletedAt: new Date(),
+            },
+          })
+        ).id,
+      },
+    });
+    // Two dead rows in a slot of two: both places are free again.
     await upload(owner, project.id, DRAWINGS).expect(201);
+    const again = await upload(owner, project.id, DRAWINGS).expect(201);
+    // The numbers of the dead rows are not given to other files.
+    expect(slotOf(again.body, 'drawings').files.map((file) => file.version)).toEqual([4, 3]);
+    await upload(owner, project.id, DRAWINGS).expect(409);
+
+    // Handing the document in again makes the project whole.
+    await upload(owner, project.id, LICENSE).expect(201);
     await move(owner, project.id, 'SUBMITTED').expect(200);
   });
 

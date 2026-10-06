@@ -196,22 +196,46 @@ export class QuestionnaireReader {
     });
     if (!project) return null;
     const { templateVersion, questionnaireItems, answers, documents } = project;
+    const files = documents.map((row) => ({
+      kind: row.kind,
+      key: row.slotKey,
+      fileId: row.fileId,
+    }));
+    const pinned = templateVersion
+      ? { ...templateVersion, definition: storedDefinition(templateVersion.definition) }
+      : null;
+    const items = questionnaireItems.map(({ definition, ...item }) => ({
+      ...item,
+      content: definition as unknown as ProjectItemContent,
+    }));
+    // The answer of a file question is the files that are there now, in the order they were
+    // handed in — whatever its stored row says (a file may have been deleted by staff since).
+    const fileQuestions = new Set(
+      questionsOfProject({ pinned, items })
+        .filter((question) => question.type === 'file')
+        .map((question) => question.key),
+    );
+    const stored = answers.map((answer) => ({
+      key: answer.questionKey,
+      value: answer.value as unknown as AnswerValue,
+      updatedAt: answer.updatedAt,
+    }));
+    const live = [...fileQuestions].flatMap((key) => {
+      const ids = files
+        .filter((file) => file.kind === 'ANSWER' && file.key === key)
+        .map((file) => file.fileId);
+      const row = stored.find((answer) => answer.key === key);
+      return ids.length > 0 ? [{ key, value: ids, updatedAt: row?.updatedAt ?? new Date(0) }] : [];
+    });
     return {
       status: project.status,
       sector: project.sector,
-      pinned: templateVersion
-        ? { ...templateVersion, definition: storedDefinition(templateVersion.definition) }
-        : null,
-      items: questionnaireItems.map(({ definition, ...item }) => ({
-        ...item,
-        content: definition as unknown as ProjectItemContent,
-      })),
-      answers: answers.map((answer) => ({
-        key: answer.questionKey,
-        value: answer.value as unknown as AnswerValue,
-        updatedAt: answer.updatedAt,
-      })),
-      files: documents.map((row) => ({ kind: row.kind, key: row.slotKey, fileId: row.fileId })),
+      pinned,
+      items,
+      answers: [...stored.filter((answer) => !fileQuestions.has(answer.key)), ...live].sort(
+        (a, b) => a.key.localeCompare(b.key),
+      ),
+      files,
     };
   }
 
@@ -239,20 +263,11 @@ export class QuestionnaireReader {
     if (!questionnaire) return [];
     const questions = questionsOfProject(questionnaire);
     const keys = new Set(questions.map((question) => question.key));
-    const answers: Record<string, AnswerValue> = Object.fromEntries(
+    const answers = Object.fromEntries(
       questionnaire.answers
         .filter((answer) => keys.has(answer.key))
         .map((answer) => [answer.key, answer.value]),
     );
-    // The answer of a file question is the files that are there now, whatever its row says.
-    for (const question of questions) {
-      if (question.type !== 'file') continue;
-      const ids = questionnaire.files
-        .filter((file) => file.kind === 'ANSWER' && file.key === question.key)
-        .map((file) => file.fileId);
-      if (ids.length > 0) answers[question.key] = ids;
-      else delete answers[question.key];
-    }
     const checked = validateAnswers(questions, answers, { complete: true });
     const documents = missingDocumentsOf(questionnaire).map((slot) => ({
       path: `documents.${slot.key}`,
