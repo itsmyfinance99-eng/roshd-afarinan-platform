@@ -1,7 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import {
   FEASIBILITY_EDITABLE_STATUSES,
+  FEASIBILITY_REVIEW_QUEUE_STATUSES,
   FEASIBILITY_SECTORS,
+  FEASIBILITY_STAFF_NOTE_REQUIRED,
   FEASIBILITY_STATUS_LABELS_FA,
   MAX_FEASIBILITY_DRAFTS,
   MAX_PROJECT_EXPERTS,
@@ -44,6 +46,15 @@ const MANAGE_PERMISSION = 'feasibility:manage';
 /** Permission an assigned expert must hold. */
 const EXPERT_PERMISSION = 'feasibility:work';
 const MAX_CODE_ATTEMPTS = 5;
+/** How much of the note of a step a notification carries; the whole note is on the project. */
+const NOTICE_NOTE_MAX = 300;
+/** The part of a note a notification carries: cut between characters, and marked as cut. */
+const noticeNote = (note: string): string => {
+  const characters = Array.from(note);
+  return characters.length > NOTICE_NOTE_MAX
+    ? `${characters.slice(0, NOTICE_NOTE_MAX - 1).join('')}…`
+    : note;
+};
 const ARCHIVED_PROJECT = 'پروژه بایگانی‌شده تغییر نمی‌کند.';
 
 /** Under which name the files of a project are attached to it. */
@@ -163,16 +174,29 @@ export class FeasibilityProjectsService {
     } else {
       scope = { ownerId: principal.userId };
     }
-    const where = {
+    // The review queue is the staff's: what waits for the intake, the longest waiting first.
+    const queue = query.queue === 'review';
+    if (queue && query.scope !== 'all') {
+      throw new ValidationFailedError([
+        { path: 'queue', message: 'صف بررسی فقط برای همه پروژه‌ها (scope=all) است.' },
+      ]);
+    }
+    // A status narrows the queue and never widens it: one outside the queue matches nothing.
+    const queued = FEASIBILITY_REVIEW_QUEUE_STATUSES.filter(
+      (status) => !query.status || status === query.status,
+    );
+    const where: Prisma.FeasibilityProjectWhereInput = {
       ...scope,
-      ...(query.status ? { status: query.status } : {}),
+      ...(queue ? { status: { in: queued } } : query.status ? { status: query.status } : {}),
       ...(query.sourceRequestId ? { sourceRequestId: query.sourceRequestId } : {}),
     };
     const [rows, total] = await this.prisma.$transaction([
       this.prisma.feasibilityProject.findMany({
         where,
         select: { ...SUMMARY_SELECT, ownerId: true },
-        orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
+        orderBy: queue
+          ? [{ updatedAt: 'asc' }, { id: 'asc' }]
+          : [{ updatedAt: 'desc' }, { id: 'desc' }],
         skip: (query.page - 1) * query.pageSize,
         take: query.pageSize,
       }),
@@ -489,6 +513,24 @@ export class FeasibilityProjectsService {
       }
       throw new ConflictError('تغییر وضعیت پروژه به این مرحله مجاز نیست.');
     }
+    if (
+      decision.actor === 'staff' &&
+      (FEASIBILITY_STAFF_NOTE_REQUIRED as readonly FeasibilityStatus[]).includes(decision.to) &&
+      // Filing a delivered study away is the ordinary end and needs no explanation.
+      decision.from !== 'DELIVERED' &&
+      !input.note
+    ) {
+      // The applicant reads this note: what is missing, or why the project was closed.
+      throw new ValidationFailedError([
+        {
+          path: 'note',
+          message:
+            decision.to === 'NEEDS_MORE_INFO'
+              ? 'بنویسید چه اطلاعات یا مدرکی لازم است تا متقاضی بداند چه چیزی را کامل کند.'
+              : 'دلیل بایگانی پروژه را برای متقاضی بنویسید.',
+        },
+      ]);
+    }
     if (decision.to === 'SUBMITTED') {
       // The reviewers need to know at least what the project is about and in which field.
       const missing = [
@@ -545,11 +587,16 @@ export class FeasibilityProjectsService {
       meta,
     });
     // Best effort: the status has changed, so a failed announcement must not fail the request.
-    await this.announce(id, current, decision.to, decision.actor, principal.userId).catch(
-      (error: unknown) => {
-        this.logger.warn({ err: error, projectId: id }, 'status announcement failed');
-      },
-    );
+    await this.announce(
+      id,
+      current,
+      decision.to,
+      decision.actor,
+      principal.userId,
+      input.note || null,
+    ).catch((error: unknown) => {
+      this.logger.warn({ err: error, projectId: id }, 'status announcement failed');
+    });
     return this.get(id, principal);
   }
 
@@ -659,12 +706,14 @@ export class FeasibilityProjectsService {
     status: FeasibilityStatus,
     actor: FeasibilityActor,
     actorId: string,
+    note: string | null,
   ): Promise<void> {
     const label = FEASIBILITY_STATUS_LABELS_FA[status];
     const notification = {
       kind: 'feasibility_project.status_changed',
       title: `وضعیت پروژه ${project.code}: ${label}`,
-      body: project.title,
+      // The note of the step is written for the other parties; without one, the project is named.
+      body: note ? noticeNote(note) : project.title,
     };
     if (project.ownerId !== actorId) {
       await this.inbox.notifyUsers(

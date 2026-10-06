@@ -93,8 +93,25 @@ export type ConvertRequestToProjectInput = z.infer<typeof convertRequestToProjec
 /** `mine`: the caller's projects; `assigned`: projects the caller is an expert of; `all`: staff. */
 export const FEASIBILITY_PROJECT_SCOPES = ['mine', 'assigned', 'all'] as const;
 
+/** Statuses in which a project waits for the staff of the intake: the review queue. */
+export const FEASIBILITY_REVIEW_QUEUE_STATUSES = [
+  'SUBMITTED',
+  'INITIAL_REVIEW',
+] as const satisfies readonly FeasibilityStatus[];
+
+/**
+ * Steps the staff explain when they take them: the applicant must read what is missing, or why
+ * the project was closed.
+ */
+export const FEASIBILITY_STAFF_NOTE_REQUIRED = [
+  'NEEDS_MORE_INFO',
+  'ARCHIVED',
+] as const satisfies readonly FeasibilityStatus[];
+
 export const listFeasibilityProjectsQuerySchema = paginationQuerySchema.extend({
   scope: z.enum(FEASIBILITY_PROJECT_SCOPES).default('mine'),
+  /** `review`: what waits for the intake review, the longest waiting first (staff, scope `all`). */
+  queue: z.enum(['review']).optional(),
   status: z.enum(FEASIBILITY_STATUSES).optional(),
   /** The project a service request was converted into, if the caller may see it. */
   sourceRequestId: z.uuid().optional(),

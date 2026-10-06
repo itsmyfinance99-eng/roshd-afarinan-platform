@@ -78,7 +78,11 @@ describe('Questionnaires (e2e)', () => {
   const removeItem = (actor: Account, id: string, itemId: string) =>
     http().delete(`${projects}/${id}/questionnaire/items/${itemId}`).set(auth(actor.token));
   const move = (actor: Account, id: string, to: string) =>
-    http().post(`${projects}/${id}/transitions`).set(auth(actor.token)).send({ to });
+    http()
+      .post(`${projects}/${id}/transitions`)
+      .set(auth(actor.token))
+      // Staff explain a request for more information and an archive (ST-35.07).
+      .send({ to, note: 'یادداشت بررسی' });
   const paths = (body: { error: { details: { path: string }[] } }) =>
     body.error.details.map((detail) => detail.path).sort();
 

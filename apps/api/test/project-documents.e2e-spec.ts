@@ -94,7 +94,11 @@ describe('Documents of a feasibility project (e2e)', () => {
   const link = (actor: Account, id: string, documentId: string) =>
     http().post(`${projects}/${id}/documents/${documentId}/download-url`).set(auth(actor.token));
   const move = (actor: Account, id: string, to: string) =>
-    http().post(`${projects}/${id}/transitions`).set(auth(actor.token)).send({ to });
+    http()
+      .post(`${projects}/${id}/transitions`)
+      .set(auth(actor.token))
+      // Staff explain a request for more information and an archive (ST-35.07).
+      .send({ to, note: 'یادداشت بررسی' });
   const slotOf = (body: { data: { slots: Slot[] } }, key: string) => {
     const slot = body.data.slots.find((candidate) => candidate.key === key);
     if (!slot) throw new Error(`no slot ${key}`);
