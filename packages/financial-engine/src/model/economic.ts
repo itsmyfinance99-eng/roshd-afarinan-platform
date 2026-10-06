@@ -104,7 +104,7 @@ export interface EconomicValuation {
    * Traded (imported or exported), tradable (it would be traded without the project or without
    * trade restrictions) or non-traded. A non-traded item has no foreign-currency exposure.
    */
-  category: TradeClass;
+  tradeClass: TradeClass;
   /** `AF`: adjusted market value (the economic efficiency price) over the financial value. */
   adjustmentFactor: DecimalString;
   /** `FCE`: part of the adjusted market value that is a transaction in foreign currency, 0 … 1. */
@@ -117,7 +117,10 @@ export interface CostBenefitInput {
   currency?: CurrencyCode;
   /** `SCF = OER / SER`: official over shadow exchange rate; "1" when they do not differ. */
   standardConversionFactor: DecimalString;
-  /** Sales lines valued at economic prices; the others keep their financial value. */
+  /**
+   * Sales lines valued at economic prices. The others keep their financial value, at the shadow
+   * exchange rate when they are in a foreign currency; so do the cost and investment items.
+   */
   outputs: (EconomicValuation & { product: string; line: string })[];
   /** Cost items valued at economic prices. */
   costs: (EconomicValuation & { item: string })[];

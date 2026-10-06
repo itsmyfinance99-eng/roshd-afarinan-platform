@@ -38,14 +38,14 @@ const analysis: CostBenefitInput = {
     {
       product: 'steel',
       line: 'export',
-      category: 'TRADED',
+      tradeClass: 'TRADED',
       adjustmentFactor: '1',
       foreignCurrencyExposure: '1',
     },
     {
       product: 'steel',
       line: 'home',
-      category: 'TRADED',
+      tradeClass: 'TRADED',
       adjustmentFactor: '1.1',
       foreignCurrencyExposure: '0.4',
     },
@@ -53,16 +53,21 @@ const analysis: CostBenefitInput = {
   costs: [
     {
       item: 'spare-parts',
-      category: 'TRADED',
+      tradeClass: 'TRADED',
       adjustmentFactor: '1',
       foreignCurrencyExposure: '1',
     },
-    { item: 'ore', category: 'NON_TRADED', adjustmentFactor: '0.9', foreignCurrencyExposure: '0' },
+    {
+      item: 'ore',
+      tradeClass: 'NON_TRADED',
+      adjustmentFactor: '0.9',
+      foreignCurrencyExposure: '0',
+    },
   ],
   investment: [
     {
       item: 'machinery',
-      category: 'TRADED',
+      tradeClass: 'TRADED',
       adjustmentFactor: '0.9',
       foreignCurrencyExposure: '1',
     },
@@ -356,6 +361,77 @@ describe('cost-benefit analysis: boundaries', () => {
     close(cheap?.inflows.salesRevenue.foreignExchangeAdjustment, yearly('-255.6'));
   });
 
+  it('values what is paid in a foreign currency at the shadow rate, listed or not', () => {
+    // Nothing is listed; a dollar is worth a quarter more than its official rate.
+    const unlisted = withEconomic({ costBenefit: { ...plain, standardConversionFactor: '0.8' } });
+    const result = schedule(unlisted);
+    // The machinery of 900 is bought in dollars.
+    expectLine(result?.outflows.fixedInvestment, {
+      fv: D('1600'),
+      amv: D('1600'),
+      fea: D('225'),
+      fce: D('900').div('1600'),
+    });
+    // The licence, and of the operating costs the spare parts (100) and the experts (80).
+    expectLine(result?.outflows.leasingCosts, {
+      fv: yearly('30'),
+      amv: yearly('30'),
+      fea: yearly('7.5'),
+      fce: D('1'),
+    });
+    expectLine(result?.outflows.operatingCosts, {
+      fv: yearly('1010'),
+      amv: yearly('1010'),
+      fea: yearly('45'),
+      fce: D('180').div('1010'),
+    });
+    // Sales 2 070 and 187.5 on the exports; costs 1 100 and 52.5; tax; the land sold at the end.
+    const net = ['-2125', '1061', '1061', '1156', '0'];
+    expectNet(result?.levels.economic.net, net);
+    // It is the currency that counts, not the origin: experts hired at home but paid in dollars,
+    // and power from abroad paid in local currency, change nothing.
+    const swapped = schedule({
+      ...unlisted,
+      operations: {
+        ...unlisted.operations,
+        costs: unlisted.operations.costs.map((c) =>
+          c.key === 'experts'
+            ? { ...c, origin: 'LOCAL' as const }
+            : c.key === 'power'
+              ? { ...c, origin: 'FOREIGN' as const }
+              : c,
+        ),
+      },
+    });
+    expectNet(swapped?.levels.economic.net, net);
+  });
+
+  it('converts the starting balance to a foreign numeraire at the rate of the first period', () => {
+    const expansion = schedule({
+      ...withEconomic({
+        costBenefit: { ...plain, numeraire: 'FOREIGN_BORDER_PRICES', currency: 'USD' },
+      }),
+      exchangeRates: { USD: ['10', '10', '12.5', '12.5'] },
+      startingBalances: {
+        fixedAssets: [],
+        materials: [{ cost: 'ore', value: '50' }],
+        workInProgress: [],
+        finishedProducts: [],
+        receivables: { value: '0', collectionDays: 0 },
+        payables: { value: '0', paymentDays: 0 },
+        cashInHand: '0',
+        shortTermDeposits: '0',
+        cashSurplus: '0',
+        loans: [],
+        equity: [],
+      },
+    });
+    // 50 NCU at 10 to the dollar, a year before the reference date.
+    close(expansion?.levels.financial.startingBalance, '5');
+    expectLine(expansion?.outflows.startingBalance, { fv: D('5.4'), amv: D('5.4'), fea: D('0') });
+    close(expansion?.netFlow.financialValue, expansion?.levels.financial.npv ?? 'NaN');
+  });
+
   it('gives the rate of return of the economic flow', () => {
     const level = schedule(withAnalysis())?.levels.withIndirect;
     const rate = D(level?.irr ?? 'NaN');
@@ -374,7 +450,7 @@ describe('cost-benefit analysis: boundaries', () => {
           ...plain,
           investment: ['machinery', 'building', 'studies', 'land'].map((item) => ({
             item,
-            category: 'NON_TRADED' as const,
+            tradeClass: 'NON_TRADED' as const,
             adjustmentFactor: '0',
             foreignCurrencyExposure: '0',
           })),
@@ -488,7 +564,7 @@ describe('cost-benefit input the engine refuses', () => {
   const output = analysis.outputs[0] ?? {
     product: '',
     line: '',
-    category: 'TRADED',
+    tradeClass: 'TRADED',
     adjustmentFactor: '',
     foreignCurrencyExposure: '',
   };
@@ -550,7 +626,7 @@ describe('cost-benefit input the engine refuses', () => {
             costs: [
               {
                 item: 'coal',
-                category: 'TRADED',
+                tradeClass: 'TRADED',
                 adjustmentFactor: '1',
                 foreignCurrencyExposure: '0',
               },
@@ -567,7 +643,7 @@ describe('cost-benefit input the engine refuses', () => {
             costs: [
               {
                 item: 'ore',
-                category: 'TRADED',
+                tradeClass: 'TRADED',
                 adjustmentFactor: '-1',
                 foreignCurrencyExposure: '0',
               },
@@ -584,7 +660,7 @@ describe('cost-benefit input the engine refuses', () => {
             investment: [
               {
                 item: 'land',
-                category: 'TRADED',
+                tradeClass: 'TRADED',
                 adjustmentFactor: '1',
                 foreignCurrencyExposure: '1.2',
               },
@@ -599,15 +675,15 @@ describe('cost-benefit input the engine refuses', () => {
   it('needs a class for every listed item, and no exposure for a non-traded one', () => {
     const ore = { item: 'ore', adjustmentFactor: '0.9', foreignCurrencyExposure: '0' };
     fails(
-      () => projectModel(withAnalysis({ costs: [{ ...ore, category: 'LOCAL' as 'TRADED' }] })),
-      'costBenefit.category',
-      `${at}.costs[0].category`,
+      () => projectModel(withAnalysis({ costs: [{ ...ore, tradeClass: 'LOCAL' as 'TRADED' }] })),
+      'costBenefit.tradeClass',
+      `${at}.costs[0].tradeClass`,
     );
     fails(
       () =>
         projectModel(
           withAnalysis({
-            costs: [{ ...ore, category: 'NON_TRADED', foreignCurrencyExposure: '0.1' }],
+            costs: [{ ...ore, tradeClass: 'NON_TRADED', foreignCurrencyExposure: '0.1' }],
           }),
         ),
       'costBenefit.nonTradedExposure',
@@ -617,7 +693,7 @@ describe('cost-benefit input the engine refuses', () => {
       () =>
         projectModel(
           withAnalysis({
-            costs: [{ ...ore, category: 'TRADABLE', foreignCurrencyExposure: '-0.1' }],
+            costs: [{ ...ore, tradeClass: 'TRADABLE', foreignCurrencyExposure: '-0.1' }],
           }),
         ),
       'share.outOfRange',

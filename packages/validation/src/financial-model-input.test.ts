@@ -398,7 +398,7 @@ describe('projectInputSchema: economic analysis', () => {
       investment: [
         {
           item: 'machinery',
-          category: 'TRADED',
+          tradeClass: 'TRADED',
           adjustmentFactor: '0.9',
           foreignCurrencyExposure: '1',
         },
@@ -428,7 +428,7 @@ describe('projectInputSchema: economic analysis', () => {
           costBenefit: {
             ...costBenefit,
             numeraire: 'GOLD',
-            investment: [{ item: 'machinery', category: 'IMPORTED', adjustmentFactor: '0.9' }],
+            investment: [{ item: 'machinery', tradeClass: 'IMPORTED', adjustmentFactor: '0.9' }],
             foreignLoans: undefined,
           },
         },
@@ -436,7 +436,7 @@ describe('projectInputSchema: economic analysis', () => {
       .error?.issues.map((i) => i.path.join('.'));
     expect(issues).toEqual([
       'economic.costBenefit.numeraire',
-      'economic.costBenefit.investment.0.category',
+      'economic.costBenefit.investment.0.tradeClass',
       'economic.costBenefit.investment.0.foreignCurrencyExposure',
       'economic.costBenefit.foreignLoans',
     ]);
