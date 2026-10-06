@@ -735,9 +735,14 @@ test.describe('financial model editor', () => {
 
     // Leaving the analysis asks first and removes all of it.
     await openSection(page, 'تحلیل اقتصادی');
+    const notes = () => (saves.at(-1)?.inputs as { notes?: Record<string, unknown> }).notes;
+    await page.getByLabel('منبع نرخ تنزیل اقتصادی').fill('سازمان برنامه');
+    await expect.poll(notes).toEqual({ 'economic.discountRate': { source: 'سازمان برنامه' } });
     page.once('dialog', (dialog) => void dialog.accept());
     await page.getByLabel('این مدل تحلیل اقتصادی دارد').uncheck();
     await expect.poll(economic).toBeUndefined();
+    // The source of its rate goes with it.
+    expect(notes()).toEqual({});
   });
 
   test('asks for what the economic schedules need, item by item', async ({ page }) => {

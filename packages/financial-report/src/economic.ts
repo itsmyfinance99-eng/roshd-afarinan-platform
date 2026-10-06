@@ -440,6 +440,15 @@ export function costBenefitTable(schedule: CostBenefitSchedule): MatrixTable {
   });
 }
 
+/** The currency the cost-benefit analysis is in; a run without one has another shape. */
+export function costBenefitCurrency(schedule: CostBenefitSchedule): string {
+  const currency: unknown = schedule.currency;
+  if (typeof currency !== 'string' || currency === '') {
+    throw new Error('unexpected shape of «currency»');
+  }
+  return currency;
+}
+
 export const COST_BENEFIT_LEVELS = ['financial', 'adjusted', 'economic', 'withIndirect'] as const;
 export type CostBenefitLevelKey = (typeof COST_BENEFIT_LEVELS)[number];
 
@@ -452,12 +461,19 @@ export const COST_BENEFIT_LEVEL_LABELS_FA: Record<CostBenefitLevelKey, string> =
 
 /** The net flow of the total capital per period at the four levels of valuation. */
 export function costBenefitLevelsTable(schedule: CostBenefitSchedule): StatementTable {
-  const rows: StatementSection['rows'] = COST_BENEFIT_LEVELS.map((key) => ({
-    label: COST_BENEFIT_LEVEL_LABELS_FA[key],
-    values: schedule.levels[key].net,
-    kind: 'amount',
-    ...(key === 'withIndirect' ? { strong: true } : {}),
-  }));
+  const rows: StatementSection['rows'] = COST_BENEFIT_LEVELS.map((key) => {
+    const values: unknown = schedule.levels[key].net;
+    // A net flow has a value in every column: a gap is another shape, not «no value».
+    if (!Array.isArray(values) || !values.every(isNumber)) {
+      throw new Error(`unexpected shape of level «${key}»`);
+    }
+    return {
+      label: COST_BENEFIT_LEVEL_LABELS_FA[key],
+      values,
+      kind: 'amount',
+      ...(key === 'withIndirect' ? { strong: true } : {}),
+    };
+  });
   return {
     id: 'cost-benefit-levels',
     title: 'جریان خالص کل سرمایه در چهار سطح ارزش‌گذاری',
@@ -480,8 +496,14 @@ export interface CostBenefitIndicators {
 export const costBenefitIndicators = (schedule: CostBenefitSchedule): CostBenefitIndicators[] =>
   COST_BENEFIT_LEVELS.map((key) => {
     const level: CostBenefitLevel = schedule.levels[key];
-    const numbers = [level.npv, level.irr ?? '0', level.startingBalance ?? '0'];
-    if (!numbers.every(isNumber) || !Array.isArray(level.warnings)) {
+    // The rate and the starting balance are absent when there is none; never null.
+    const optional = (value: unknown) => value === undefined || isNumber(value);
+    if (
+      !isNumber(level.npv) ||
+      !optional(level.irr) ||
+      !optional(level.startingBalance) ||
+      !Array.isArray(level.warnings)
+    ) {
       throw new Error(`unexpected shape of level «${key}»`);
     }
     return {
