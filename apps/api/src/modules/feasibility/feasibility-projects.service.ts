@@ -125,6 +125,10 @@ export interface FeasibilityProjectDetail extends FeasibilityProjectSummary {
   costEstimate: CostEstimateView | null;
   /** What the caller may do with this project now. */
   access: {
+    /**
+     * The steps open to the caller. `COST_ESTIMATED` among them is taken by entering the
+     * estimate (`POST …/cost-estimate`), not as a plain transition.
+     */
     transitions: FeasibilityStatus[];
     /** Change the details (the applicant, before the review and when more is asked for). */
     edit: boolean;
@@ -582,6 +586,16 @@ export class FeasibilityProjectsService {
       throw new ValidationFailedError([
         { path: 'to', message: 'برای این مرحله، برآورد هزینه و مدت مطالعه را ثبت کنید.' },
       ]);
+    }
+    if (
+      decision.from === 'COST_ESTIMATED' &&
+      decision.to === 'CONTRACT_PENDING' &&
+      !(await this.estimateOf(id))
+    ) {
+      // A project that reached this status before estimates were recorded has nothing to accept.
+      throw new ConflictError(
+        'برای این پروژه برآوردی ثبت نشده است که پذیرفته شود. با کارشناسان هماهنگ کنید.',
+      );
     }
     if (decision.to === 'SUBMITTED') {
       // The reviewers need to know at least what the project is about and in which field.

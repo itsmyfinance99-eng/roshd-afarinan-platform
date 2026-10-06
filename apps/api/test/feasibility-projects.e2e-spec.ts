@@ -1197,6 +1197,19 @@ describe('Feasibility projects (e2e)', () => {
       await move(owner, id, 'ARCHIVED').expect(403);
     });
 
+    it('has nothing to accept on a project that carries the status without an estimate', async () => {
+      const { owner, id } = await reviewed();
+      // Such a row can only be older than the estimates: the API no longer makes one.
+      await prisma().feasibilityProject.update({
+        where: { id },
+        data: { status: 'COST_ESTIMATED' },
+      });
+      await move(owner, id, 'CONTRACT_PENDING').expect(409);
+      expect(await statusOf(id)).toBe('COST_ESTIMATED');
+      // Declining stays open, so the project is not stuck.
+      await move(owner, id, 'ARCHIVED').expect(200);
+    });
+
     it('is declined by the applicant, which archives the project', async () => {
       const { owner, officer, id, code } = await reviewed();
       await estimate(officer, id).expect(200);

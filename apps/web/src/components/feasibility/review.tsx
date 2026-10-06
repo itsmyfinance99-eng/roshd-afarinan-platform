@@ -48,7 +48,9 @@ export function ReviewActions({
   const [busy, setBusy] = useState<FeasibilityStatus | null>(null);
   const [noteError, setNoteError] = useState<string | undefined>();
   const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState<string | null>(null);
+  const [taken, setTaken] = useState<(typeof STEPS)[number] | null>(null);
+  // The message of a step is said while the project is where that step took it.
+  const done = taken && project.status === taken.to ? taken.done : null;
 
   if (steps.length === 0) return done ? <SuccessMessage>{done}</SuccessMessage> : null;
 
@@ -60,7 +62,7 @@ export function ReviewActions({
 
   const take = async (step: (typeof STEPS)[number]) => {
     setError(null);
-    setDone(null);
+    setTaken(null);
     const text = note.trim();
     // A delivered study is filed away without a reason; every other archive has one.
     if (needsNote(step.to) && !noteOptional && text === '') {
@@ -87,7 +89,7 @@ export function ReviewActions({
     setBusy(null);
     if (result.ok) {
       setNote('');
-      setDone(step.done);
+      setTaken(step);
       onChanged();
       return;
     }

@@ -131,12 +131,15 @@ test.describe('the cost estimate of a feasibility study', () => {
     await page.getByLabel('پیام برای متقاضی (اختیاری)').fill('برآورد بر پایه پرسشنامه است.');
 
     // Without the confirmation nothing goes out.
+    let asked = '';
     page.once('dialog', (dialog) => {
-      expect(dialog.message()).toContain('۲٬۵۰۰٬۰۰۰٬۰۰۰ ریال');
+      asked = dialog.message();
       void dialog.dismiss();
     });
     await submit.click();
+    expect(asked).toContain('۲٬۵۰۰٬۰۰۰٬۰۰۰ ریال');
     await expect(submit).toBeEnabled();
+    expect(sent).toHaveLength(0);
 
     // A refusal of the API is shown at its field and the form keeps what was typed.
     page.once('dialog', (dialog) => void dialog.accept());
@@ -210,6 +213,7 @@ test.describe('the cost estimate of a feasibility study', () => {
     page.once('dialog', (dialog) => void dialog.dismiss());
     await accept.click();
     await expect(accept).toBeEnabled();
+    expect(sent).toHaveLength(0);
 
     // A refusal is shown and the decision stays open.
     page.once('dialog', (dialog) => void dialog.accept());
@@ -245,13 +249,25 @@ test.describe('the cost estimate of a feasibility study', () => {
 
     await page.goto('/dashboard/feasibility/p1');
     await page.getByLabel('پیام برای کارشناسان (اختیاری)').fill('مبلغ برای ما زیاد است.');
+    let asked = '';
     page.once('dialog', (dialog) => {
-      expect(dialog.message()).toContain('بایگانی');
+      asked = dialog.message();
       void dialog.accept();
     });
     await page.getByRole('button', { name: 'رد برآورد' }).click();
+    expect(asked).toContain('بایگانی');
     await expect(page.getByText('برآورد را رد کردید و پروژه بایگانی شد.')).toBeVisible();
     expect(sent).toEqual([{ to: 'ARCHIVED', note: 'مبلغ برای ما زیاد است.' }]);
+    await expect(page.getByRole('button', { name: 'پذیرش برآورد' })).toHaveCount(0);
+  });
+
+  test('offers only to decline when the project carries no estimate', async ({ page }) => {
+    await signIn(page, []);
+    await page.route('**/api/v1/feasibility-projects/p1', (route) =>
+      json(route, project('COST_ESTIMATED', ['CONTRACT_PENDING', 'ARCHIVED'])),
+    );
+    await page.goto('/dashboard/feasibility/p1');
+    await expect(page.getByRole('button', { name: 'رد برآورد' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'پذیرش برآورد' })).toHaveCount(0);
   });
 

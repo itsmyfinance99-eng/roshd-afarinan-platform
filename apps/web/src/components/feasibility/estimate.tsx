@@ -86,7 +86,8 @@ export function EstimateForm({
   const [done, setDone] = useState(false);
 
   if (!project.access.transitions.includes('COST_ESTIMATED')) {
-    return done ? (
+    // Said while the estimate waits for the applicant; a later step has its own message.
+    return done && project.status === 'COST_ESTIMATED' ? (
       <SuccessMessage>برآورد ثبت شد و برای تصمیم متقاضی فرستاده شد.</SuccessMessage>
     ) : null;
   }
@@ -137,12 +138,13 @@ export function EstimateForm({
       method: 'POST',
       body: { ...estimate, note: note || undefined },
     });
-    setBusy(false);
     if (result.ok) {
+      // Still busy: the form gives way to the estimate as soon as the project is read again.
       setDone(true);
       onChanged();
       return;
     }
+    setBusy(false);
     setError(result.message);
     refuse(fieldErrors(result.details));
   };
@@ -272,14 +274,17 @@ export function EstimateDecision({
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState<Decision | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState<string | null>(null);
+  const [done, setDone] = useState<Decision | null>(null);
 
   // The decision is offered while the estimate waits for it, and only to the applicant.
   if (
     project.status !== 'COST_ESTIMATED' ||
     !project.access.transitions.includes('CONTRACT_PENDING')
   ) {
-    return done ? <SuccessMessage>{done}</SuccessMessage> : null;
+    // The message of a decision is said while the project is where that decision took it.
+    return done && project.status === done ? (
+      <SuccessMessage>{DECISIONS[done].done}</SuccessMessage>
+    ) : null;
   }
 
   const decide = async (to: Decision) => {
@@ -290,13 +295,13 @@ export function EstimateDecision({
       method: 'POST',
       body: { to, note: note.trim() || undefined },
     });
-    setBusy(null);
     if (result.ok) {
-      setNote('');
-      setDone(DECISIONS[to].done);
+      // Still busy: the form goes as soon as the project is read again.
+      setDone(to);
       onChanged();
       return;
     }
+    setBusy(null);
     setError(result.message);
   };
 
@@ -325,7 +330,12 @@ export function EstimateDecision({
       {error ? <ErrorMessage>{error}</ErrorMessage> : null}
       <div className="flex flex-wrap gap-3">
         {(Object.keys(DECISIONS) as Decision[])
-          .filter((to) => project.access.transitions.includes(to))
+          // Without an estimate there is nothing to accept; declining stays open.
+          .filter(
+            (to) =>
+              project.access.transitions.includes(to) &&
+              (to === 'ARCHIVED' || project.costEstimate !== null),
+          )
           .map((to) => (
             <Button
               key={to}
