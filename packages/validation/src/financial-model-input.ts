@@ -387,7 +387,7 @@ const projectInputFieldsSchema = z.object({
 /**
  * Rough size of a calculation: project periods × everything computed per period — input lines
  * (investment items, equity, loans, sales lines, cost items), products, cost centres and a fixed
- * part for the statements and for the economic schedules — plus the allocation of every indirect cost to every product.
+ * part for the statements, and the lines of the economic schedules when they are asked for — plus the allocation of every indirect cost to every product.
  */
 export function calculationSize(input: z.infer<typeof projectInputFieldsSchema>): number {
   const { products, costs, costCentres } = input.operations;

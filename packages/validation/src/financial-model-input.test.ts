@@ -21,6 +21,7 @@ import {
   INVESTMENT_GROUP_VALUES,
   LABOUR_SKILL_VALUES,
   createFinancialModelSchema,
+  calculationSize,
   projectInputSchema,
   updateFinancialModelSchema,
   MAX_INPUT_NOTES,
@@ -315,6 +316,13 @@ describe('projectInputSchema: economic analysis', () => {
     expect(value.economic?.valueAdded.investment.fixedAndPreProduction.values[0]).toBe('570000000');
     // Without it a model is as before.
     expect(projectModel(projectInputSchema.parse(input)).value.economic).toBeUndefined();
+  });
+
+  it('counts the economic schedules in the size of a calculation', () => {
+    const plain = projectInputSchema.parse(input);
+    const periods = projectModel(plain).value.horizon.periods.length;
+    const withEconomic = projectInputSchema.parse({ ...clone(), economic });
+    expect(calculationSize(withEconomic) - calculationSize(plain)).toBe(40 * periods);
   });
 
   it('reports malformed parts at their field', () => {

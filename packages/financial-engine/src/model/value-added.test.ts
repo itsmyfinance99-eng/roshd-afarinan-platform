@@ -574,14 +574,11 @@ describe('value added: adjustments and special cases', () => {
     }).value;
     const working = expansion.operations.workingCapital;
     expect(working.starting?.opening.materials).toBe('50');
-    const inventory = working.totals.inventory;
-    // The stock of 50 is there before the project starts: holding it is no investment.
-    expect(Number(inventory[0])).toBe(50);
-    const increase = inventory.map((v, j) =>
-      new Decimal(v).minus(j === 0 ? '50' : (inventory[j - 1] ?? '0')).toString(),
-    );
-    expect(increase[0]).toBe('0');
-    expectLine(expansion.economic?.valueAdded.investment.inventoryIncrease, increase);
+    // A tenth of a year's ore (30) is needed: the stock of 50 is there before the project starts,
+    // so holding it is no investment, and running it down to 30 in the first year of production
+    // is a negative one.
+    expect(working.totals.inventory.map(Number)).toEqual([50, 30, 30, 30]);
+    expectLine(expansion.economic?.valueAdded.investment.inventoryIncrease, ['0', '-20', '0', '0']);
   });
 
   it('discounts periods shorter than a year by their months', () => {
