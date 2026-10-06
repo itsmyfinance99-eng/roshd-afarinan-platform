@@ -629,7 +629,7 @@ describe('Questionnaires (e2e)', () => {
       expect(removed.body.data.items.map((item: { id: string }) => item.id)).not.toContain(mine.id);
       expect(removed.body.data.answers).toEqual({});
       expect(await audits(project.id, 'feasibility_project.questionnaire_item_removed')).toBe(1);
-      // What went is still readable in the audit log.
+      // What went is still readable in the audit log, but not what the applicant wrote.
       const record = await prisma().auditLog.findFirstOrThrow({
         where: {
           entityId: project.id,
@@ -639,9 +639,10 @@ describe('Questionnaires (e2e)', () => {
       expect(record.metadata).toMatchObject({
         itemId: mine.id,
         origin: 'applicant',
-        answer: 'شرکت نمونه',
+        answered: true,
         definition: { kind: 'QUESTION', question: { label: 'نام شریک خارجی' } },
       });
+      expect(JSON.stringify(record.metadata)).not.toContain('شرکت نمونه');
       await removeItem(owner, project.id, mine.id).expect(404);
 
       await answer(owner, project.id, { [theirs.key]: '۱۲.۵' }).expect(200);

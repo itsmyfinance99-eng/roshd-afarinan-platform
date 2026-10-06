@@ -331,23 +331,24 @@ export class ProjectQuestionnaireService {
       await tx.projectQuestionnaireItem.delete({ where: { id: itemId } });
       const answers = await tx.questionnaireAnswer.findMany({
         where: { projectId: id, questionKey: item.key },
-        select: { value: true },
+        select: { id: true },
       });
       await tx.questionnaireAnswer.deleteMany({ where: { projectId: id, questionKey: item.key } });
-      return { ...item, answer: answers[0]?.value ?? null };
+      return { ...item, answered: answers.length > 0 };
     });
     await this.audit.record({
       action: 'feasibility_project.questionnaire_item_removed',
       actorId: principal.userId,
       entityType: 'feasibility_project',
       entityId: id,
-      // What was removed stays readable here: the item and an answer it had are gone otherwise.
+      // What was removed stays readable here. Of an answer only that there was one: what the
+      // applicant wrote is not for the readers of the audit log.
       metadata: {
         itemId,
         kind: removed.kind,
         origin: removed.origin,
         definition: removed.definition,
-        answer: removed.answer,
+        answered: removed.answered,
       },
       meta,
     });

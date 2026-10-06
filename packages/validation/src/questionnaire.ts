@@ -383,9 +383,21 @@ export function compareDecimals(a: string, b: string): number {
 }
 
 /** Characters the database cannot store in a text: NUL and halves of a surrogate pair. */
-const LONE_SURROGATE = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/;
-const unstorable = (value: string): boolean =>
-  value.includes('\u0000') || LONE_SURROGATE.test(value);
+function unstorable(value: string): boolean {
+  // A loop and no pattern: older browsers do not read the lookbehind this would take.
+  for (let i = 0; i < value.length; i++) {
+    const code = value.charCodeAt(i);
+    if (code === 0) return true;
+    if (code >= 0xd800 && code <= 0xdbff) {
+      const next = value.charCodeAt(i + 1);
+      if (!(next >= 0xdc00 && next <= 0xdfff)) return true;
+      i++;
+    } else if (code >= 0xdc00 && code <= 0xdfff) {
+      return true;
+    }
+  }
+  return false;
+}
 
 function parseText(value: unknown, max: number): Parsed<string> {
   if (typeof value !== 'string' || unstorable(value)) return fail(M.text);
