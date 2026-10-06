@@ -624,7 +624,7 @@ describe('Feasibility projects (e2e)', () => {
       // An emptied description cannot go back in with a later submission either.
       const officer = await registerUser(app, ['feasibility_officer']);
       await move(officer, id, 'INITIAL_REVIEW').expect(200);
-      await move(officer, id, 'NEEDS_MORE_INFO').expect(200);
+      await move(officer, id, 'NEEDS_MORE_INFO', 'شرح طرح را کامل کنید').expect(200);
       await patch(owner, id, { summary: '' }).expect(200);
       await move(owner, id, 'SUBMITTED').expect(400);
       expect(await statusOf(id)).toBe('NEEDS_MORE_INFO');
@@ -888,6 +888,106 @@ describe('Feasibility projects (e2e)', () => {
 
       const admin = await registerUser(app, ['admin']);
       await convert(admin, req.id).expect(201);
+    });
+  });
+
+  describe('the intake review (ST-35.07)', () => {
+    it('queues what waits for the review, the longest waiting first, for staff only', async () => {
+      const owner = await registerUser(app);
+      const officer = await registerUser(app, ['feasibility_officer']);
+      const expert = await registerUser(app, ['expert']);
+      const first = await createProject(owner, 'طرح نخست');
+      const second = await createProject(owner, 'طرح دوم');
+      const draft = await createProject(owner, 'پیش‌نویس');
+      const done = await createProject(owner, 'طرح برگشت‌خورده');
+      await move(owner, first.id, 'SUBMITTED').expect(200);
+      await move(owner, second.id, 'SUBMITTED').expect(200);
+      await move(owner, done.id, 'SUBMITTED').expect(200);
+      await move(officer, done.id, 'INITIAL_REVIEW').expect(200);
+      await move(officer, done.id, 'NEEDS_MORE_INFO', 'ظرفیت اسمی را بنویسید').expect(200);
+      // The second one is being reviewed: it stays in the queue, behind what waits longer.
+      await move(officer, second.id, 'INITIAL_REVIEW').expect(200);
+
+      const queue = await http()
+        .get(`${base}?scope=all&queue=review&pageSize=100`)
+        .set(auth(officer.token))
+        .expect(200);
+      const mine = (queue.body.data as { id: string; status: string }[]).filter((item) =>
+        [first.id, second.id, draft.id, done.id].includes(item.id),
+      );
+      expect(mine.map((item) => [item.id, item.status])).toEqual([
+        [first.id, 'SUBMITTED'],
+        [second.id, 'INITIAL_REVIEW'],
+      ]);
+      // A status narrows the queue further.
+      const waiting = await http()
+        .get(`${base}?scope=all&queue=review&status=SUBMITTED&pageSize=100`)
+        .set(auth(officer.token))
+        .expect(200);
+      expect((waiting.body.data as { id: string }[]).map((item) => item.id)).not.toContain(
+        second.id,
+      );
+
+      // The queue is the staff's: not the applicant's list, not an expert's.
+      await http().get(`${base}?queue=review`).set(auth(owner.token)).expect(400);
+      await http().get(`${base}?scope=all&queue=review`).set(auth(owner.token)).expect(403);
+      await http().get(`${base}?scope=assigned&queue=review`).set(auth(expert.token)).expect(400);
+      await http().get(`${base}?scope=all&queue=review`).set(auth(expert.token)).expect(403);
+      await http().get(`${base}?scope=all&queue=other`).set(auth(officer.token)).expect(400);
+      await http().get(`${base}?scope=all&queue=review`).expect(401);
+    });
+
+    it('takes the steps of the review with a note the applicant reads', async () => {
+      const owner = await registerUser(app);
+      const officer = await registerUser(app, ['feasibility_officer']);
+      const { id, code } = await createProject(owner);
+      await move(owner, id, 'SUBMITTED').expect(200);
+      // Starting the review needs no explanation.
+      await move(officer, id, 'INITIAL_REVIEW').expect(200);
+
+      // Asking for more, or closing the project, without saying why is refused.
+      for (const to of ['NEEDS_MORE_INFO', 'ARCHIVED']) {
+        const refused = await move(officer, id, to).expect(400);
+        expect(refused.body.error.details).toEqual([expect.objectContaining({ path: 'note' })]);
+        await move(officer, id, to, '   ').expect(400);
+      }
+      expect(await statusOf(id)).toBe('INITIAL_REVIEW');
+
+      const note = 'جواز تأسیس و ظرفیت اسمی طرح را اضافه کنید.';
+      await move(officer, id, 'NEEDS_MORE_INFO', note).expect(200);
+      // The applicant is told with the words of the reviewer, and reads them on the project.
+      const notice = (await inbox(owner.token)).find(
+        (item) => item.kind === 'feasibility_project.status_changed' && item.title.includes(code),
+      );
+      expect(notice).toMatchObject({ link: `/dashboard/feasibility/${id}` });
+      expect(
+        (
+          await prisma().notification.findFirstOrThrow({
+            where: { userId: owner.id, kind: 'feasibility_project.status_changed' },
+            orderBy: { createdAt: 'desc' },
+          })
+        ).body,
+      ).toBe(note);
+      const mine = await http().get(`${base}/${id}`).set(auth(owner.token)).expect(200);
+      expect(mine.body.data.events.at(-1)).toMatchObject({
+        toStatus: 'NEEDS_MORE_INFO',
+        actor: 'staff',
+        note,
+      });
+      // And the details are the applicant's to change again.
+      expect(mine.body.data.access).toMatchObject({ edit: true, transitions: ['SUBMITTED'] });
+      await http()
+        .patch(`${base}/${id}`)
+        .set(auth(owner.token))
+        .send({ summary: 'ظرفیت اسمی: صد هزار تن در سال' })
+        .expect(200);
+      await move(owner, id, 'SUBMITTED').expect(200);
+
+      // Closing with a reason; the applicant cannot take the staff's steps.
+      await move(officer, id, 'INITIAL_REVIEW').expect(200);
+      await move(owner, id, 'ARCHIVED', 'منصرف شدم').expect(403);
+      await move(officer, id, 'ARCHIVED', 'طرح در حوزه فعالیت ما نیست.').expect(200);
+      expect(await statusOf(id)).toBe('ARCHIVED');
     });
   });
 });
