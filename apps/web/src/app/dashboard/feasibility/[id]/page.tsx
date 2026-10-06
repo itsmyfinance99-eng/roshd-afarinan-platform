@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { type FormEvent, useState } from 'react';
 import { AsyncBoundary, PageTitle } from '@/components/dashboard/ui';
+import { EstimateDecision, EstimateFacts } from '@/components/feasibility/estimate';
 import {
   ProjectAttachments,
   ProjectFacts,
@@ -24,6 +25,9 @@ const GUIDANCE: Partial<Record<FeasibilityStatus, string>> = {
   INITIAL_REVIEW: 'پروژه در بررسی اولیه است. نتیجه از همین صفحه و با اعلان به شما خبر داده می‌شود.',
   NEEDS_MORE_INFO:
     'برای ادامه بررسی به اطلاعات بیشتری نیاز است. یادداشت بررسی را در روند پروژه بخوانید، مشخصات را کامل کنید و دوباره بفرستید.',
+  COST_ESTIMATED: 'برآورد هزینه و مدت مطالعه آماده است. آن را بخوانید و بپذیرید یا رد کنید.',
+  CONTRACT_PENDING:
+    'برآورد را پذیرفته‌اید و پروژه در انتظار قرارداد است. ادامه کار از همین صفحه و با اعلان به شما خبر داده می‌شود.',
 };
 
 export default function MyFeasibilityProjectPage() {
@@ -116,6 +120,8 @@ function ProjectView({
         ) : (
           <>
             <ProjectFacts project={project} />
+            {project.costEstimate ? <EstimateFacts estimate={project.costEstimate} /> : null}
+            <EstimateDecision project={project} onChanged={onChanged} />
             {project.sourceRequest ? (
               <p className="text-[15px]">
                 <span className="text-ink-5">ساخته‌شده از درخواست </span>

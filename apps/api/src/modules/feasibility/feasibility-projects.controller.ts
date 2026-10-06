@@ -4,6 +4,7 @@ import {
   assignExpertSchema,
   convertRequestToProjectSchema,
   createFeasibilityProjectSchema,
+  feasibilityCostEstimateSchema,
   feasibilityTransitionSchema,
   idSchema,
   listFeasibilityProjectsQuerySchema,
@@ -11,6 +12,7 @@ import {
   type AssignExpertInput,
   type ConvertRequestToProjectInput,
   type CreateFeasibilityProjectInput,
+  type FeasibilityCostEstimateInput,
   type FeasibilityTransitionInput,
   type ListFeasibilityProjectsQuery,
   type UpdateFeasibilityProjectInput,
@@ -114,6 +116,22 @@ export class FeasibilityProjectsController {
     @Meta() meta: RequestMeta,
   ) {
     return this.projects.transition(id, body, user, meta);
+  }
+
+  @Post(':id/cost-estimate')
+  @HttpCode(200)
+  @RequirePermissions('feasibility:manage')
+  @ApiOperation({
+    summary:
+      'Enter the cost estimate of the study; the project goes to the applicant to decide (audited, notified)',
+  })
+  estimate(
+    @CurrentUser() user: Principal,
+    @ZodParam('id', idSchema) id: string,
+    @ZodBody(feasibilityCostEstimateSchema) body: FeasibilityCostEstimateInput,
+    @Meta() meta: RequestMeta,
+  ) {
+    return this.projects.estimate(id, body, user, meta);
   }
 
   @Post(':id/experts')

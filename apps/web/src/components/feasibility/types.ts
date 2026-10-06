@@ -26,11 +26,21 @@ export interface FeasibilityStatusEvent {
   by?: StaffRef | null;
 }
 
+/** The cost estimate of a study; the amount is whole rials as digits. */
+export interface FeasibilityCostEstimate {
+  amountRials: string;
+  scope: string;
+  durationDays: number;
+  createdAt: string;
+}
+
 /** Mirrors GET /api/v1/feasibility-projects/:id. */
 export interface FeasibilityProjectDetail extends FeasibilityProjectItem {
   summary: string | null;
   sourceRequest: { id: string; trackingCode: string } | null;
   attachments: FileItem[];
+  /** Once the staff entered it; always null for an expert. */
+  costEstimate: FeasibilityCostEstimate | null;
   events: FeasibilityStatusEvent[];
   access: {
     transitions: FeasibilityStatus[];
