@@ -361,7 +361,7 @@ describe('cost-benefit analysis: boundaries', () => {
     close(cheap?.inflows.salesRevenue.foreignExchangeAdjustment, yearly('-255.6'));
   });
 
-  it('values what is paid in a foreign currency at the shadow rate, listed or not', () => {
+  it('values an unlisted item paid in a foreign currency at the shadow rate', () => {
     // Nothing is listed; a dollar is worth a quarter more than its official rate.
     const unlisted = withEconomic({ costBenefit: { ...plain, standardConversionFactor: '0.8' } });
     const result = schedule(unlisted);
@@ -411,7 +411,8 @@ describe('cost-benefit analysis: boundaries', () => {
       ...withEconomic({
         costBenefit: { ...plain, numeraire: 'FOREIGN_BORDER_PRICES', currency: 'USD' },
       }),
-      exchangeRates: { USD: ['10', '10', '12.5', '12.5'] },
+      // The rate of the first period differs from the next: only the first one applies.
+      exchangeRates: { USD: ['10', '12.5', '12.5', '12.5'] },
       startingBalances: {
         fixedAssets: [],
         materials: [{ cost: 'ore', value: '50' }],

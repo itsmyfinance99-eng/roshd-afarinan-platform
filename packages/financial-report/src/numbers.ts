@@ -56,3 +56,15 @@ export function roundDecimal(value: string, digits: number): string {
   const body = rest === '' ? whole : `${whole}.${rest}`;
   return match[1] === '-' && /[1-9]/.test(body) ? `-${body}` : body;
 }
+
+/**
+ * Rounds for display so that a small ratio keeps its leading digits: two decimals for a number of
+ * one or more, three significant digits below that.
+ */
+export function roundSignificant(value: string): string {
+  const match = CANONICAL.exec(value);
+  if (!match) return value;
+  if (/[1-9]/.test(match[2] ?? '')) return roundDecimal(value, 2);
+  const zeros = /^0*/.exec(match[3] ?? '')?.[0].length ?? 0;
+  return roundDecimal(value, zeros + 3);
+}

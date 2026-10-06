@@ -23,6 +23,7 @@ import type { Indicators } from '@/lib/model-editor/summary';
 import { useLiveCalculation, type LiveState } from '@/lib/model-editor/use-live-calculation';
 import { AssumptionsSection } from './assumptions';
 import { CostsSection } from './costs';
+import { EconomicSection } from './economic';
 import { EditorProvider, type EditorApi } from './fields';
 import { FinancingSection } from './financing';
 import { InvestmentSection } from './investment';
@@ -42,12 +43,13 @@ const PANELS: Record<SectionId, () => React.JSX.Element> = {
   costs: CostsSection,
   workingCapital: WorkingCapitalSection,
   startingBalance: StartingBalanceSection,
+  economic: EconomicSection,
 };
 
 type SaveFailure = { kind: 'conflict' } | { kind: 'error'; message: string };
 
 /**
- * Editor of a financial model's inputs (ST-34.07): six sections of tabular forms, saved on their
+ * Editor of a financial model's inputs (ST-34.07): sections of tabular forms, saved on their
  * own a moment after every change (on top of the version that was loaded), and calculated live in
  * the browser with the same engine the server runs.
  */

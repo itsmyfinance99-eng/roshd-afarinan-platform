@@ -24,9 +24,11 @@ import { Component, useId, useMemo, useState, type KeyboardEvent, type ReactNode
 import { apiFetch } from '@/lib/api-client';
 import { frameOfHorizon } from '@/lib/model-editor/frame';
 import { getIn, textAt } from '@/lib/model-editor/paths';
+import { economicScheduleOfWarning } from '@roshd/financial-report/economic';
 import {
   balanceSheetTable,
   cashFlowTable,
+  columnsOf,
   discountedCashFlowTable,
   DISCOUNTED_TITLES_FA,
   incomeStatementTable,
@@ -48,6 +50,7 @@ import {
 import type { CalculationRunDetail } from '../types';
 import { ScenarioPanel, SensitivityPanel } from './analysis';
 import { CumulativeChart } from './charts';
+import { EconomicPart } from './economic';
 import { RunDownloads } from './downloads';
 import {
   amountText,
@@ -66,6 +69,7 @@ const TABS = [
   ['balance', 'ترازنامه'],
   ['discounted', 'جریان نقدی تنزیل‌شده'],
   ['ratios', 'نسبت‌ها'],
+  ['economic', 'تحلیل اقتصادی'],
   ['analysis', 'سناریو و حساسیت'],
   ['incremental', 'تحلیل افزایشی'],
 ] as const;
@@ -172,8 +176,8 @@ export function RunView({
     document.getElementById(`${tabsId}-tab-${id}`)?.focus();
   };
 
-  const schedule = (build: () => StatementTable) => (
-    <Schedule build={build} frame={frame} unit={unit} unitLabel={label} />
+  const schedule = (build: () => StatementTable, amounts = label) => (
+    <Schedule build={build} frame={frame} unit={unit} unitLabel={amounts} />
   );
 
   return (
@@ -287,6 +291,16 @@ export function RunView({
             </>
           ) : null}
           {tab === 'ratios' ? schedule(() => ratiosTable(statements)) : null}
+          {tab === 'economic' ? (
+            <EconomicPart
+              economic={model.economic}
+              unit={unit}
+              label={label}
+              currency={currency}
+              warnings={run.warnings}
+              schedule={schedule}
+            />
+          ) : null}
         </ResultsBoundary>
         {/* Kept on the page while another part is open: what was typed and calculated stays. */}
         <div hidden={tab !== 'analysis'} className="flex flex-col gap-6">
@@ -343,7 +357,7 @@ function Schedule({
   unitLabel: string;
 }) {
   const table = build();
-  const columns = tableColumns(frame, table.salvageColumn, table.openingColumn);
+  const columns = columnsOf(frame, table);
   // A line that is not one value per column is not shown as if the rest were empty.
   for (const row of table.sections.flatMap((section) => section.rows)) {
     if (!Array.isArray(row.values) || row.values.length !== columns.length) {
@@ -375,7 +389,10 @@ function SummaryPart({
     return place ? [{ ...place, text: warningMessage(warning) }] : [];
   });
   const general = unique(
-    warnings.filter((warning) => warningPlace(warning) === null).map(warningText),
+    warnings
+      // The warnings of an economic schedule are shown with it.
+      .filter((w) => warningPlace(w) === null && economicScheduleOfWarning(w) === null)
+      .map(warningText),
   );
   const defaults = unique(defaultsUsed.map(defaultText));
   return (
