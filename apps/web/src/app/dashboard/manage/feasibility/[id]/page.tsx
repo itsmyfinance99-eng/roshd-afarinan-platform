@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useCan } from '@/components/dashboard/me-context';
 import { AsyncBoundary, PageTitle } from '@/components/dashboard/ui';
+import { ProjectContract } from '@/components/feasibility/contract';
 import { ProjectDocuments } from '@/components/feasibility/documents';
 import { EstimateFacts, EstimateForm } from '@/components/feasibility/estimate';
 import { ReviewActions } from '@/components/feasibility/review';
@@ -13,8 +14,9 @@ import type { FeasibilityProjectDetail } from '@/components/feasibility/types';
 import { useApi } from '@/lib/use-api';
 
 /**
- * A project as staff and its experts see it, with the steps of the intake review (ST-35.07)
- * and the cost estimate (ST-35.08) for staff. The later steps join in their own stories.
+ * A project as staff and its experts see it, with the steps of the intake review (ST-35.07),
+ * the cost estimate (ST-35.08) and the contract (ST-35.09) for staff. The later steps join in
+ * their own stories.
  */
 export default function ManageFeasibilityProjectPage() {
   const { id } = useParams<{ id: string }>();
@@ -45,6 +47,14 @@ export default function ManageFeasibilityProjectPage() {
               <ProjectFacts project={project} />
               {project.costEstimate ? <EstimateFacts estimate={project.costEstimate} /> : null}
               <EstimateForm project={project} onChanged={() => reload({ silent: true })} />
+              {/* The contract is between the applicant and the company; an expert does not read it. */}
+              {canManage ? (
+                <ProjectContract
+                  project={project}
+                  side="staff"
+                  onChanged={() => reload({ silent: true })}
+                />
+              ) : null}
               <ReviewActions project={project} onChanged={() => reload({ silent: true })} />
               <dl className="grid grid-cols-[auto_1fr] gap-x-5 gap-y-2 text-[15px]">
                 <dt className="text-ink-5">متقاضی</dt>

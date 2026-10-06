@@ -81,6 +81,9 @@ test.describe('the intake review of feasibility projects', () => {
     await page.route('**/api/v1/feasibility-projects/p1/documents', (route) =>
       json(route, { slots: [], access: { upload: false } }),
     );
+    await page.route('**/api/v1/feasibility-projects/p1/contract', (route) =>
+      json(route, { files: [], access: { upload: false, confirm: false } }),
+    );
   });
 
   test('opens on the review queue and narrows it by status', async ({ page }) => {

@@ -316,8 +316,8 @@ export class FilesService {
   }
 
   /**
-   * Deletes uploads that were never attached to a record, and documents of a project that have
-   * no row in it, when they are older than the retention window. Runs on a schedule; safe to
+   * Deletes uploads that were never attached to a record, and documents and contract copies of
+   * a project that have no row in it, when they are older than the retention window. Runs on a schedule; safe to
    * call at any time.
    */
   async removeStaleUploads(now = new Date()): Promise<{ removed: number }> {
@@ -333,6 +333,7 @@ export class FilesService {
           // A document of a project is stored before its row is written; if that row never came
           // to be (the process died in between), nothing lists the file and nothing removes it.
           { purpose: 'FEASIBILITY_DOCUMENT', projectDocument: { is: null } },
+          { purpose: 'FEASIBILITY_CONTRACT', feasibilityContract: { is: null } },
         ],
       },
       select: { id: true, storageKey: true },

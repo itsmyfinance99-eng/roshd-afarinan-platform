@@ -8,6 +8,7 @@ import {
   MAX_FEASIBILITY_DRAFTS,
   MAX_PROJECT_EXPERTS,
   type AssignExpertInput,
+  type ConfirmContractInput,
   type ConvertRequestToProjectInput,
   type CreateFeasibilityProjectInput,
   type FeasibilityCostEstimateInput,
@@ -127,7 +128,8 @@ export interface FeasibilityProjectDetail extends FeasibilityProjectSummary {
   access: {
     /**
      * The steps open to the caller. `COST_ESTIMATED` among them is taken by entering the
-     * estimate (`POST …/cost-estimate`), not as a plain transition.
+     * estimate (`POST …/cost-estimate`) and `IN_PROGRESS` out of `CONTRACT_PENDING` by confirming
+     * a copy of the contract (`POST …/contract/:contractId/confirm`), not as a plain transition.
      */
     transitions: FeasibilityStatus[];
     /** Change the details (the applicant, before the review and when more is asked for). */
@@ -144,6 +146,13 @@ export interface FeasibilityProjectDetail extends FeasibilityProjectSummary {
 const isEditable = (status: FeasibilityStatus): boolean =>
   (FEASIBILITY_EDITABLE_STATUSES as readonly FeasibilityStatus[]).includes(status);
 
+/** What a step carries beyond its note: the record that step is taken with. */
+interface StepRecord {
+  estimate?: Omit<FeasibilityCostEstimateInput, 'note'>;
+  /** The copy of the contract the staff confirm. */
+  contractId?: string;
+}
+
 /** The caller's relations to a project; at least one holds for a visible project. */
 export interface ProjectRelation {
   owner: boolean;
@@ -156,11 +165,12 @@ export interface ProjectRelation {
  *
  * - A project is visible to its applicant, to staff holding `feasibility:manage` and to the
  *   experts assigned to it; for anyone else it does not exist (404, so ids cannot be probed).
- * - The status changes only in `move()`, behind `transition()` and `estimate()`: the state
- *   machine decides, the change and its status event are written together, and it is audited
- *   and announced to the other parties.
+ * - The status changes only in `move()`, behind `transition()`, `estimate()` and
+ *   `confirmContract()`: the state machine decides, the change and its status event are written
+ *   together, and it is audited and announced to the other parties.
  * - The step to the cost estimate is taken only with an estimate (ST-35.08): the staff enter
  *   the amount, nothing computes it, and the applicant accepts or declines it.
+ * - The work starts only with a confirmed copy of the signed contract (ST-35.09).
  * - On their own project a user is the applicant and nothing else: staff rights and an
  *   assignment do not count there.
  */
@@ -470,7 +480,10 @@ export class FeasibilityProjectsService {
       // Listed for those who can open them; an expert gets the documents in ST-35.06.
       attachments:
         relation.owner || relation.manager
-          ? await this.files.listForEntity(FILE_ENTITY, id, ['FEASIBILITY_DOCUMENT'])
+          ? await this.files.listForEntity(FILE_ENTITY, id, [
+              'FEASIBILITY_DOCUMENT',
+              'FEASIBILITY_CONTRACT',
+            ])
           : [],
       // The price is between the applicant and the staff; an expert works without it.
       costEstimate: relation.owner || relation.manager ? await this.estimateOf(id) : null,
@@ -529,7 +542,21 @@ export class FeasibilityProjectsService {
     meta: RequestMeta,
   ): Promise<FeasibilityProjectDetail> {
     const { note, ...estimate } = input;
-    return this.move(id, { to: 'COST_ESTIMATED', note }, principal, meta, estimate);
+    return this.move(id, { to: 'COST_ESTIMATED', note }, principal, meta, { estimate });
+  }
+
+  /**
+   * The staff confirm a copy of the signed contract, and the work on the study starts (ST-35.09).
+   * The confirmation and the step are written together.
+   */
+  async confirmContract(
+    id: string,
+    contractId: string,
+    input: ConfirmContractInput,
+    principal: Principal,
+    meta: RequestMeta,
+  ): Promise<FeasibilityProjectDetail> {
+    return this.move(id, { to: 'IN_PROGRESS', note: input.note }, principal, meta, { contractId });
   }
 
   /**
@@ -541,7 +568,7 @@ export class FeasibilityProjectsService {
     input: FeasibilityTransitionInput,
     principal: Principal,
     meta: RequestMeta,
-    estimate?: Omit<FeasibilityCostEstimateInput, 'note'>,
+    { estimate, contractId }: StepRecord = {},
   ): Promise<FeasibilityProjectDetail> {
     const relation = await this.relationOf(id, principal);
     const current = await this.prisma.feasibilityProject.findUnique({
@@ -597,6 +624,17 @@ export class FeasibilityProjectsService {
         'برای این پروژه برآوردی ثبت نشده است که پذیرفته شود. با کارشناسان هماهنگ کنید.',
       );
     }
+    if (decision.from === 'CONTRACT_PENDING' && decision.to === 'IN_PROGRESS' && !contractId) {
+      // The work starts on a signed contract, so the step is not taken without a confirmed copy.
+      throw new ValidationFailedError([
+        { path: 'to', message: 'برای شروع کار، نسخه امضاشده قرارداد را تأیید کنید.' },
+      ]);
+    }
+    if (contractId && decision.from !== 'CONTRACT_PENDING') {
+      // A contract is confirmed once, where the project waits for it; later returns to the work
+      // (out of a review) are plain steps.
+      throw new ConflictError('قرارداد فقط در مرحله «در انتظار قرارداد» تأیید می‌شود.');
+    }
     if (decision.to === 'SUBMITTED') {
       // The reviewers need to know at least what the project is about and in which field.
       const missing = [
@@ -649,6 +687,21 @@ export class FeasibilityProjectsService {
           },
         });
       }
+      if (contractId) {
+        // The project row is held by the update above, so no copy is added or confirmed beside this.
+        const copy = await tx.feasibilityContract.findFirst({
+          where: { id: contractId, projectId: id },
+          select: { fileId: true },
+        });
+        // A copy staff deleted through the files module is nothing the work can start on.
+        if (!copy || !(await this.files.activeIds([copy.fileId])).has(copy.fileId)) {
+          throw new NotFoundError('این نسخه قرارداد در پروژه نیست یا حذف شده است.');
+        }
+        await tx.feasibilityContract.update({
+          where: { id: contractId },
+          data: { confirmedAt: new Date(), confirmedById: principal.userId },
+        });
+      }
       return true;
     });
     if (!updated) {
@@ -668,6 +721,8 @@ export class FeasibilityProjectsService {
         ...(estimate
           ? { amountRials: estimate.amountRials, durationDays: estimate.durationDays }
           : {}),
+        // And which copy of the contract the work was started on.
+        ...(contractId ? { contractId } : {}),
       },
       meta,
     });
