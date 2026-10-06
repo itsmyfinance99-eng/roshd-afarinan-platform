@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useCan } from '@/components/dashboard/me-context';
 import { AsyncBoundary, PageTitle } from '@/components/dashboard/ui';
+import { ProjectDocuments } from '@/components/feasibility/documents';
 import { ProjectAttachments, ProjectFacts, ProjectTimeline } from '@/components/feasibility/parts';
 import type { FeasibilityProjectDetail } from '@/components/feasibility/types';
 import { useApi } from '@/lib/use-api';
@@ -56,6 +57,15 @@ export default function ManageFeasibilityProjectPage() {
                 ) : null}
               </dl>
               <ProjectAttachments project={project} />
+              <section aria-labelledby="documents-title" className="flex flex-col gap-3">
+                <h2 id="documents-title" className="text-base font-extrabold text-brand-900">
+                  مدارک پروژه
+                </h2>
+                <ProjectDocuments
+                  projectId={project.id}
+                  emptyText="پرسشنامه این پروژه مدرک یا فایلی نمی‌خواهد یا هنوز شروع نشده است."
+                />
+              </section>
               <section aria-labelledby="experts-title">
                 <h2 id="experts-title" className="mb-3 text-base font-extrabold text-brand-900">
                   کارشناسان پروژه

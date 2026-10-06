@@ -19,6 +19,7 @@ import {
   PROJECT_NOTE_MAX,
   type AnswerValue,
   type ProjectItemKind,
+  type Question,
 } from '@roshd/validation';
 import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { apiFetch } from '@/lib/api-client';
@@ -27,6 +28,7 @@ import {
   completeIssues,
   errorsFromDetails,
   firstOpenStep,
+  hasOwnStep,
   progressOf,
   questionOfPath,
   stepsOf,
@@ -35,6 +37,7 @@ import {
   type ProjectQuestionnaire,
   type Step,
 } from './answers';
+import { ProjectDocuments } from '@/components/feasibility/documents';
 import { AnswerField } from './fields';
 
 const SAVE_DELAY_MS = 1200;
@@ -240,7 +243,7 @@ export function QuestionnaireForm({
   const [verdict, setVerdict] = useState<'complete' | 'open' | null>(null);
 
   const readOnly = !questionnaire.access.answer;
-  const withOwn = questionnaire.items.length > 0 || questionnaire.access.addItems;
+  const withOwn = hasOwnStep(questionnaire);
   const steps = useMemo(() => stepsOf(questionnaire, withOwn), [questionnaire, withOwn]);
   const questions = useMemo(() => steps.flatMap((step) => step.questions), [steps]);
   const [current, setCurrent] = useState(() =>
@@ -459,15 +462,18 @@ export function QuestionnaireForm({
   const checkComplete = () => {
     // What the server said last, which after a save is ahead of what was rendered.
     const now = queue.current.latest;
-    const nowSteps = stepsOf(now, now.items.length > 0 || now.access.addItems);
+    const nowSteps = stepsOf(now, hasOwnStep(now));
     const open = completeIssues(
       nowSteps.flatMap((item) => item.questions),
       now.answers,
     );
     setErrors(open);
     const first = firstOpenStep(nowSteps, now.answers, open);
+    const documentsOpen = now.missingDocuments.length > 0;
+    // Missing documents are handed in in the last step; it opens when nothing comes before it.
     if (first >= 0) setCurrent(first);
-    setVerdict(Object.keys(open).length === 0 ? 'complete' : 'open');
+    else if (documentsOpen) setCurrent(nowSteps.length - 1);
+    setVerdict(Object.keys(open).length === 0 && !documentsOpen ? 'complete' : 'open');
     focusHeading();
   };
 
@@ -505,6 +511,14 @@ export function QuestionnaireForm({
   }
 
   const index = steps.indexOf(step);
+  /** A file question shows the files the server has; everything else what the form holds. */
+  const draftOf = (question: Question): Draft =>
+    question.type === 'file' ? questionnaire.answers[question.key] : drafts[question.key];
+  const missingDocuments = questionnaire.missingDocuments.length;
+  const documentsLine =
+    missingDocuments > 0
+      ? `${toPersianDigits(missingDocuments)} مدرک الزامی بارگذاری نشده است.`
+      : null;
   const known = new Set(questions.map((question) => question.key));
   // A message about a question that is gone (the staff removed it) is nobody's to fix.
   const wrong = new Set(
@@ -516,12 +530,16 @@ export function QuestionnaireForm({
   const settled = failure
     ? null
     : wrong.size > 0
-      ? `${toPersianDigits(wrong.size)} پاسخ نیاز به اصلاح یا تکمیل دارد.`
-      : verdict === 'complete' && unsent === 0
-        ? 'پرسشنامه کامل است.'
-        : touched
-          ? 'همه تغییرها ذخیره شد.'
-          : 'پاسخ‌ها خودکار ذخیره می‌شوند.';
+      ? `${toPersianDigits(wrong.size)} پاسخ نیاز به اصلاح یا تکمیل دارد.${
+          verdict !== null && documentsLine ? ` ${documentsLine}` : ''
+        }`
+      : verdict !== null && documentsLine
+        ? documentsLine
+        : verdict === 'complete' && unsent === 0
+          ? 'پرسشنامه کامل است.'
+          : touched
+            ? 'همه تغییرها ذخیره شد.'
+            : 'پاسخ‌ها خودکار ذخیره می‌شوند.';
   const busyLine = saving
     ? 'در حال ذخیره…'
     : unsent > 0 && !failure
@@ -563,6 +581,11 @@ export function QuestionnaireForm({
               {toPersianDigits(overall.missing)} سؤال الزامی مانده است
             </span>
           ) : null}
+          {missingDocuments > 0 ? (
+            <span className="text-ink-3">
+              {toPersianDigits(missingDocuments)} مدرک الزامی مانده است
+            </span>
+          ) : null}
         </div>
         <progress
           aria-label="پیشرفت پرسشنامه"
@@ -576,7 +599,10 @@ export function QuestionnaireForm({
         <ol className="flex flex-wrap gap-2">
           {steps.map((item, i) => {
             const progress = progressOf(item.questions, saved);
-            const hasError = item.questions.some((question) => wrong.has(question.key));
+            const hasError =
+              item.questions.some((question) => wrong.has(question.key)) ||
+              // After a check the step of the documents says that some are still missing.
+              (item.own === true && verdict !== null && missingDocuments > 0);
             return (
               <li key={item.key}>
                 <Button
@@ -588,7 +614,9 @@ export function QuestionnaireForm({
                   {toPersianDigits(i + 1)}. {item.title}
                   {hasError ? (
                     <span className="ms-1">· خطا</span>
-                  ) : progress.answered > 0 && progress.missing === 0 ? (
+                  ) : progress.answered > 0 &&
+                    progress.missing === 0 &&
+                    !(item.own && missingDocuments > 0) ? (
                     <span className="ms-1" aria-label="کامل">
                       ✓
                     </span>
@@ -617,25 +645,14 @@ export function QuestionnaireForm({
 
         {step.own ? (
           <>
-            {questionnaire.definition?.documents.length ? (
-              <div>
-                <h3 className="mb-2 text-base font-extrabold text-brand-900">مدارک پرسشنامه</h3>
-                <ul className="flex list-disc flex-col gap-1.5 ps-5 text-[15px]">
-                  {questionnaire.definition.documents.map((document) => (
-                    <li key={document.key}>
-                      {document.label}
-                      {document.required ? <span className="ms-1 text-danger">*</span> : null}
-                      {document.help ? (
-                        <span className="block text-[13px] text-ink-3">{document.help}</span>
-                      ) : null}
-                    </li>
-                  ))}
-                </ul>
-                <p className="mt-2 text-[13px] text-ink-3">
-                  بارگذاری مدارک هنوز فعال نیست و با بخش مدارک پروژه اضافه می‌شود.
-                </p>
-              </div>
-            ) : null}
+            {/* Handing in a file changes the answer of its file question on the server. */}
+            <ProjectDocuments
+              projectId={projectId}
+              revision={questionnaire.items.length}
+              onChanged={() => void refresh()}
+              emptyText="این پرسشنامه مدرک یا فایلی برای بارگذاری نمی‌خواهد."
+            />
+            <h3 className="text-base font-extrabold text-brand-900">موارد اختصاصی پروژه</h3>
             {questionnaire.items.length > 0 ? (
               <ul className="flex flex-col gap-4">
                 {questionnaire.items.map((item) => (
@@ -656,7 +673,7 @@ export function QuestionnaireForm({
                     ) : (
                       <AnswerField
                         question={item.question}
-                        draft={drafts[item.question.key]}
+                        draft={draftOf(item.question)}
                         errors={errors}
                         disabled={readOnly}
                         onChange={(draft) => change(item.question.key, draft)}
@@ -681,7 +698,7 @@ export function QuestionnaireForm({
               <AnswerField
                 key={question.key}
                 question={question}
-                draft={drafts[question.key]}
+                draft={draftOf(question)}
                 errors={errors}
                 disabled={readOnly}
                 onChange={(draft) => change(question.key, draft)}

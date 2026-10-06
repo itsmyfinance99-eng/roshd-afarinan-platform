@@ -134,6 +134,18 @@ export function questionsOfProject(
   ];
 }
 
+/** Required documents of the list without a file: one is handed in when it has a version. */
+export function missingDocumentsOf(
+  questionnaire: Pick<ProjectQuestionnaire, 'pinned' | 'items' | 'files'>,
+): DocumentSlot[] {
+  const handedIn = new Set(
+    questionnaire.files.filter((file) => file.kind === 'DOCUMENT').map((file) => file.key),
+  );
+  return documentSlotsOf(questionnaire).filter(
+    (slot) => slot.kind === 'DOCUMENT' && slot.required && !handedIn.has(slot.key),
+  );
+}
+
 /** Under which path the API reports a problem of an answer. */
 export const answerIssues = (issues: { path: string; message: string }[]): ApiErrorDetail[] =>
   issues.map((issue) => ({ path: `answers.${issue.path}`, message: issue.message }));
@@ -228,16 +240,10 @@ export class QuestionnaireReader {
         .map((answer) => [answer.key, answer.value]),
     );
     const checked = validateAnswers(questions, answers, { complete: true });
-    // A required document of the list is handed in when it has at least one version.
-    const handedIn = new Set(
-      questionnaire.files.filter((file) => file.kind === 'DOCUMENT').map((file) => file.key),
-    );
-    const documents = documentSlotsOf(questionnaire)
-      .filter((slot) => slot.kind === 'DOCUMENT' && slot.required && !handedIn.has(slot.key))
-      .map((slot) => ({
-        path: `documents.${slot.key}`,
-        message: `مدرک الزامی «${slot.label}» بارگذاری نشده است.`,
-      }));
+    const documents = missingDocumentsOf(questionnaire).map((slot) => ({
+      path: `documents.${slot.key}`,
+      message: `مدرک الزامی «${slot.label}» بارگذاری نشده است.`,
+    }));
     return [...(checked.ok ? [] : answerIssues(checked.issues)), ...documents];
   }
 }

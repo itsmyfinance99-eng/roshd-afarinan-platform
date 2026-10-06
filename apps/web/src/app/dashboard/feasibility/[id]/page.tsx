@@ -204,8 +204,9 @@ function SubmitForReview({
       return;
     }
     const open = result.details.filter((d) => d.path.startsWith('answers.')).length;
+    // A document that is missing is named by its message; the answers are marked in the form.
     const others = result.details.filter((d) => !d.path.startsWith('answers.'));
-    setIncomplete(open > 0);
+    setIncomplete(open > 0 || others.some((d) => d.path.startsWith('documents.')));
     setErrors(
       open > 0
         ? [result.message, ...others.map((d) => d.message)]

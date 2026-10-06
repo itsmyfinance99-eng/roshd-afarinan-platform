@@ -97,6 +97,7 @@ const questionnaire = (over: object = {}) => ({
   items: [] as object[],
   answers: {} as Record<string, unknown>,
   answeredAt: null,
+  missingDocuments: [] as { key: string; label: string }[],
   access: { start: false, answer: true, addItems: true },
   ...over,
 });
@@ -112,8 +113,33 @@ async function audit(page: Page) {
 }
 
 const base = '**/api/v1/feasibility-projects/p1/questionnaire';
+const documentsUrl = '**/api/v1/feasibility-projects/p1/documents';
+
+const license = (files: object[] = []) => ({
+  kind: 'DOCUMENT',
+  key: 'license',
+  label: 'جواز تأسیس',
+  required: true,
+  origin: 'template',
+  files,
+});
+const version = (n: number, over: object = {}) => ({
+  id: `f${n}`,
+  version: n,
+  originalName: `جواز-${n}.pdf`,
+  mimeType: 'application/pdf',
+  size: 120_000,
+  uploadedAt: '2026-10-03T08:00:00Z',
+  removable: true,
+  ...over,
+});
+const documentsOf = (slots: object[], upload = true) => ({ slots, access: { upload } });
 
 test.describe('the questionnaire of a project for its applicant', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.route(documentsUrl, (route) => json(route, documentsOf([license()])));
+  });
+
   test('is started, then filled in step by step and saved on its own', async ({ page }) => {
     await signIn(page);
     let current = questionnaire({
@@ -297,6 +323,7 @@ test.describe('the questionnaire of a project for its applicant', () => {
     await expect(page.getByRole('heading', { name: 'موارد اختصاصی و مدارک' })).toBeVisible();
     await expect(page.getByText('افزوده کارشناسان')).toBeVisible();
     await expect(page.getByText('جواز تأسیس')).toBeVisible();
+    await expect(page.getByText('بارگذاری نشده', { exact: true })).toBeVisible();
     await page.getByLabel('فاصله تا پست برق').fill('12.5');
     await expect(page.getByText('همه تغییرها ذخیره شد.')).toBeVisible();
     // The staff's item is not the applicant's to remove.
@@ -443,7 +470,7 @@ test.describe('the questionnaire of a project for its applicant', () => {
     await expect(page.getByRole('button', { name: /۱\. مشخصات طرح · خطا/ })).toBeVisible();
   });
 
-  test('shows the message of a date once, and says that files cannot be uploaded yet', async ({
+  test('shows the message of a date once, and says where the files of a question go', async ({
     page,
   }) => {
     await signIn(page);
@@ -465,8 +492,173 @@ test.describe('the questionnaire of a project for its applicant', () => {
     );
     await page.goto('/dashboard/feasibility/p1/questionnaire?check=1');
     await expect(page.getByText('تاریخ زودتر از بازه مجاز است.')).toHaveCount(1);
-    await expect(page.getByText(/بارگذاری فایل برای این سؤال هنوز فعال نیست/)).toBeVisible();
-    await expect(page.getByText(/پروژه‌ای که این سؤال الزامی را دارد ارسال نمی‌شود/)).toBeVisible();
+    await expect(page.getByText(/هنوز فایلی برای این سؤال بارگذاری نشده است/)).toBeVisible();
+    await expect(
+      page.getByText(/فایل‌های این سؤال در مرحله «موارد اختصاصی و مدارک» بارگذاری/),
+    ).toBeVisible();
+    await audit(page);
+  });
+
+  test('hands in documents as versions, downloads them and takes one back', async ({ page }) => {
+    await signIn(page);
+    let current = questionnaire({
+      answers: {
+        product: 'کنسانتره',
+        capacity: { value: '10', unit: 'تن' },
+        company_type: 'private',
+      },
+      missingDocuments: [{ key: 'license', label: 'جواز تأسیس' }],
+    });
+    let files: object[] = [];
+    const sent: { kind: string | null; key: string | null; name: string | null }[] = [];
+    let removed = 0;
+    await page.route(base, (route) => json(route, current));
+    await page.route(documentsUrl, async (route) => {
+      if (route.request().method() === 'POST') {
+        const body = route.request().postData() ?? '';
+        sent.push({
+          kind: /name="kind"\r\n\r\n([^\r]+)/.exec(body)?.[1] ?? null,
+          key: /name="key"\r\n\r\n([^\r]+)/.exec(body)?.[1] ?? null,
+          name: /filename="([^"]+)"/.exec(body)?.[1] ?? null,
+        });
+        files = [version(files.length + 1), ...files];
+        current = { ...current, missingDocuments: [] };
+        return json(route, documentsOf([license(files)]), 201);
+      }
+      return json(route, documentsOf([license(files)]));
+    });
+    await page.route(`${documentsUrl}/f2`, (route) => {
+      removed += 1;
+      files = files.slice(1);
+      return json(route, documentsOf([license(files)]));
+    });
+    await page.route(`${documentsUrl}/f1/download-url`, (route) =>
+      json(route, { url: '/api/v1/files/x/content?exp=1&sig=abcdefghijkl', expiresAt: 'x' }),
+    );
+    await page.route('**/api/v1/files/x/content?*', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/pdf',
+        headers: { 'Content-Disposition': 'attachment; filename="license.pdf"' },
+        body: '%PDF-1.7',
+      }),
+    );
+
+    // The check for completeness names the missing document and opens the step it is handed in.
+    await page.goto('/dashboard/feasibility/p1/questionnaire?check=1');
+    await page.getByRole('button', { name: 'بررسی کامل بودن پرسشنامه' }).click();
+    await expect(page.getByRole('heading', { name: 'موارد اختصاصی و مدارک' })).toBeVisible();
+    await expect(page.getByText('۱ مدرک الزامی بارگذاری نشده است.')).toBeVisible();
+    await expect(page.getByText('۱ مدرک الزامی مانده است')).toBeVisible();
+    await expect(page.getByText('بارگذاری نشده', { exact: true })).toBeVisible();
+    await audit(page);
+
+    // A wrong type is refused before anything is sent.
+    const chooser = page.waitForEvent('filechooser');
+    await page.getByRole('button', { name: 'بارگذاری', exact: true }).click();
+    await (
+      await chooser
+    ).setFiles({
+      name: 'page.html',
+      mimeType: 'text/html',
+      buffer: Buffer.from('<html></html>'),
+    });
+    await expect(page.getByText(/نوع فایل مجاز نیست/)).toBeVisible();
+    expect(sent).toEqual([]);
+
+    const first = page.waitForEvent('filechooser');
+    await page.getByRole('button', { name: 'بارگذاری', exact: true }).click();
+    await (
+      await first
+    ).setFiles({
+      name: 'license.pdf',
+      mimeType: 'application/pdf',
+      buffer: Buffer.from('%PDF-1.7'),
+    });
+    await expect(page.getByText('جواز-1.pdf')).toBeVisible();
+    expect(sent).toEqual([{ kind: 'DOCUMENT', key: 'license', name: 'license.pdf' }]);
+    await expect(page.getByText('بارگذاری نشده', { exact: true })).toHaveCount(0);
+    await expect(page.getByText('۱ مدرک الزامی مانده است')).toHaveCount(0);
+
+    // Handing it in again is a new version next to the first one.
+    const second = page.waitForEvent('filechooser');
+    await page.getByRole('button', { name: 'بارگذاری نسخه تازه' }).click();
+    await (
+      await second
+    ).setFiles({
+      name: 'license-2.pdf',
+      mimeType: 'application/pdf',
+      buffer: Buffer.from('%PDF-1.7'),
+    });
+    await expect(page.getByText('نسخه ۲ · آخرین')).toBeVisible();
+    await expect(page.getByText('نسخه ۱', { exact: true })).toBeVisible();
+    await audit(page);
+
+    const download = page.waitForEvent('download');
+    await page.getByRole('button', { name: 'دریافت جواز-1.pdf' }).click();
+    expect((await download).suggestedFilename()).toBe('license.pdf');
+
+    page.once('dialog', (dialog) => void dialog.accept());
+    await page.getByRole('button', { name: 'برداشتن جواز-2.pdf' }).click();
+    await expect(page.getByText('جواز-2.pdf')).toHaveCount(0);
+    expect(removed).toBe(1);
+    await expect(page.getByRole('button', { name: 'بارگذاری نسخه تازه' })).toBeFocused();
+
+    await page.getByRole('button', { name: 'بررسی کامل بودن پرسشنامه' }).click();
+    await expect(page.getByText('پرسشنامه کامل است.')).toBeVisible();
+  });
+
+  test('shows the files of a file question and the documents of a locked project', async ({
+    page,
+  }) => {
+    await signIn(page);
+    const withFile = {
+      sections: [
+        {
+          key: 'plan',
+          title: 'مشخصات طرح',
+          questions: [{ key: 'drawings', type: 'file', label: 'نقشه‌های طرح', maxFiles: 2 }],
+        },
+      ],
+      documents: [],
+    };
+    await page.route(base, (route) =>
+      json(
+        route,
+        questionnaire({
+          definition: withFile,
+          answers: { drawings: ['0198c0de-0000-7000-8000-00000000000a'] },
+          access: { start: false, answer: false, addItems: false },
+        }),
+      ),
+    );
+    await page.route(documentsUrl, (route) =>
+      json(
+        route,
+        documentsOf(
+          [
+            {
+              kind: 'ANSWER',
+              key: 'drawings',
+              label: 'نقشه‌های طرح',
+              required: false,
+              origin: 'template',
+              maxFiles: 2,
+              files: [version(1, { originalName: 'نقشه.pdf', removable: false })],
+            },
+          ],
+          false,
+        ),
+      ),
+    );
+    await page.goto('/dashboard/feasibility/p1/questionnaire');
+    await expect(page.getByText(/۱ فایل برای این سؤال بارگذاری شده است/)).toBeVisible();
+    // The step of the documents is there although nothing can be added any more.
+    await page.getByRole('button', { name: /۲\. موارد اختصاصی و مدارک/ }).click();
+    await expect(page.getByRole('heading', { name: 'فایل‌های پاسخ' })).toBeVisible();
+    await expect(page.getByText('نقشه.pdf')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'دریافت نقشه.pdf' })).toBeVisible();
+    await expect(page.getByRole('button', { name: /افزودن فایل|برداشتن/ })).toHaveCount(0);
     await audit(page);
   });
 

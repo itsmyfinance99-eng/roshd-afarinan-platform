@@ -443,6 +443,33 @@ test.describe('feasibility projects for staff', () => {
       ),
     );
 
+    await page.route('**/api/v1/feasibility-projects/p1/documents', (route) =>
+      json(route, {
+        slots: [
+          {
+            kind: 'DOCUMENT',
+            key: 'license',
+            label: 'جواز تأسیس',
+            required: true,
+            origin: 'template',
+            files: [
+              {
+                id: 'f1',
+                version: 1,
+                originalName: 'license.pdf',
+                mimeType: 'application/pdf',
+                size: 120000,
+                uploadedAt: '2026-10-02T08:00:00Z',
+                removable: false,
+                uploadedBy: { id: 'u2', fullName: 'رضا کریمی' },
+              },
+            ],
+          },
+        ],
+        access: { upload: false },
+      }),
+    );
+
     await page.goto('/dashboard/manage/feasibility');
     await expect(page.getByText(/متقاضی: رضا کریمی/)).toBeVisible();
     expect(queries[0]?.get('scope')).toBe('all');
@@ -458,6 +485,10 @@ test.describe('feasibility projects for staff', () => {
     await page.getByRole('link', { name: /FP-7K3M9QPD/ }).click();
     await expect(page).toHaveURL(/\/dashboard\/manage\/feasibility\/p1$/);
     await expect(page.getByText('نرگس کارشناس')).toBeVisible();
+    // The documents are read and downloaded here, and nothing is handed in.
+    await expect(page.getByRole('heading', { name: 'مدارک پروژه' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'دریافت license.pdf' })).toBeVisible();
+    await expect(page.getByRole('button', { name: /بارگذاری/ })).toHaveCount(0);
     // Staff read who acted, and the page changes nothing about the project.
     await expect(page.getByText('متقاضی · رضا کریمی')).toBeVisible();
     await expect(page.getByRole('button', { name: 'ویرایش مشخصات' })).toHaveCount(0);

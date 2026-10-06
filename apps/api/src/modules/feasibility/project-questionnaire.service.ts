@@ -30,6 +30,7 @@ import { ProjectDocumentsService } from './project-documents.service';
 import {
   answerIssues,
   generateItemKey,
+  missingDocumentsOf,
   QuestionnaireReader,
   questionsOfProject,
   type ProjectItemContent,
@@ -70,6 +71,8 @@ export interface ProjectQuestionnaireView {
   answers: Record<string, AnswerValue>;
   /** When an answer was last saved. */
   answeredAt: Date | null;
+  /** Required documents of the list that have no file yet; a submission asks for them. */
+  missingDocuments: { key: string; label: string }[];
   access: {
     /** Start the questionnaire: a published version exists and none is pinned yet. */
     start: boolean;
@@ -147,6 +150,10 @@ export class ProjectQuestionnaireService {
         (latest, answer) => (latest && latest > answer.updatedAt ? latest : answer.updatedAt),
         null,
       ),
+      missingDocuments: missingDocumentsOf(questionnaire).map(({ key, label }) => ({
+        key,
+        label,
+      })),
       access: {
         start:
           answering &&

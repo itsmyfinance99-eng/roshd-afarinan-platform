@@ -18,16 +18,26 @@ export interface FileItem {
   createdAt: string;
 }
 
-const ACCEPT = [...Object.keys(ALLOWED_FILE_TYPES), ...ALLOWED_EXTENSIONS.map((e) => `.${e}`)].join(
-  ',',
-);
-const TYPES_LABEL = Object.values(ALLOWED_FILE_TYPES)
+export const FILE_ACCEPT = [
+  ...Object.keys(ALLOWED_FILE_TYPES),
+  ...ALLOWED_EXTENSIONS.map((e) => `.${e}`),
+].join(',');
+export const FILE_TYPES_LABEL = Object.values(ALLOWED_FILE_TYPES)
   .map((t) => t.label)
   .join('، ');
 
 export function formatSize(bytes: number): string {
   if (bytes < 1024 * 1024) return `${formatNumber(Math.max(1, Math.round(bytes / 1024)))} کیلوبایت`;
   return `${formatNumber(Math.round((bytes / (1024 * 1024)) * 10) / 10)} مگابایت`;
+}
+
+/** Why the server would refuse this file, by the rules it applies (type by name, size); else `null`. */
+export function fileProblem(file: File): string | null {
+  const ext = file.name.toLowerCase().split('.').pop() ?? '';
+  if (!ALLOWED_EXTENSIONS.includes(ext))
+    return `نوع فایل مجاز نیست. فرمت‌های مجاز: ${FILE_TYPES_LABEL}`;
+  if (file.size > MAX_FILE_BYTES) return `حجم فایل بیش از ${formatSize(MAX_FILE_BYTES)} است.`;
+  return null;
 }
 
 /** Gets a short-lived signed URL, then lets the browser download it. */
@@ -63,13 +73,9 @@ export function FileUploader({
     event.target.value = '';
     if (!file) return;
     setError(null);
-    const ext = file.name.toLowerCase().split('.').pop() ?? '';
-    if (!ALLOWED_EXTENSIONS.includes(ext)) {
-      setError(`نوع فایل مجاز نیست. فرمت‌های مجاز: ${TYPES_LABEL}`);
-      return;
-    }
-    if (file.size > MAX_FILE_BYTES) {
-      setError(`حجم فایل بیش از ${formatSize(MAX_FILE_BYTES)} است.`);
+    const problem = fileProblem(file);
+    if (problem) {
+      setError(problem);
       return;
     }
     const form = new FormData();
@@ -89,7 +95,7 @@ export function FileUploader({
           ref={inputRef}
           id={inputId}
           type="file"
-          accept={ACCEPT}
+          accept={FILE_ACCEPT}
           className="sr-only"
           // The visible button below is the control; keep this input out of focus and the a11y tree.
           tabIndex={-1}
@@ -106,7 +112,7 @@ export function FileUploader({
           {busy ? 'در حال بارگذاری…' : label}
         </Button>
         <span className="text-xs text-ink-5">
-          {TYPES_LABEL} · حداکثر {formatSize(MAX_FILE_BYTES)}
+          {FILE_TYPES_LABEL} · حداکثر {formatSize(MAX_FILE_BYTES)}
         </span>
       </div>
       {error ? <ErrorMessage>{error}</ErrorMessage> : null}
