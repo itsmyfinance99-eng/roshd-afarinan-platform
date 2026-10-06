@@ -5,6 +5,7 @@ import {
   questionsOf,
   validateAnswers,
   type AnswerValue,
+  type ProjectDocumentKind,
   type FeasibilityStatus,
   type ProjectItemKind,
   type ProjectItemOrigin,
@@ -49,6 +50,63 @@ export interface ProjectQuestionnaire {
   pinned: PinnedVersion | null;
   items: StoredProjectItem[];
   answers: { key: string; value: AnswerValue; updatedAt: Date }[];
+  /** Which documents and file questions have a file, one entry per file. */
+  files: { kind: ProjectDocumentKind; key: string }[];
+}
+
+/** Something of a project a file can be handed in for (ST-35.06). */
+export interface DocumentSlot {
+  kind: ProjectDocumentKind;
+  key: string;
+  label: string;
+  help?: string;
+  required: boolean;
+  /** Where it comes from: the pinned template, or the project's own items with their origin. */
+  origin: 'template' | ProjectItemOrigin;
+  /** A file question takes several files; a document has versions instead. */
+  maxFiles?: number;
+}
+
+/**
+ * Everything a file can be handed in for, in the order of the form: the documents of the pinned
+ * template, the documents the project has of its own, then the file questions.
+ */
+export function documentSlotsOf(
+  questionnaire: Pick<ProjectQuestionnaire, 'pinned' | 'items'>,
+): DocumentSlot[] {
+  const question = (item: Question, origin: DocumentSlot['origin']): DocumentSlot[] =>
+    item.type === 'file'
+      ? [
+          {
+            kind: 'ANSWER',
+            key: item.key,
+            label: item.label,
+            ...(item.help ? { help: item.help } : {}),
+            required: item.required === true,
+            origin,
+            ...(item.maxFiles !== undefined ? { maxFiles: item.maxFiles } : {}),
+          },
+        ]
+      : [];
+  const document = (item: RequiredDocument, origin: DocumentSlot['origin']): DocumentSlot => ({
+    kind: 'DOCUMENT',
+    key: item.key,
+    label: item.label,
+    ...(item.help ? { help: item.help } : {}),
+    required: item.required === true,
+    origin,
+  });
+  const pinned = questionnaire.pinned?.definition;
+  return [
+    ...(pinned?.documents ?? []).map((item) => document(item, 'template')),
+    ...questionnaire.items.flatMap((item) =>
+      item.content.kind === 'DOCUMENT' ? [document(item.content.document, item.origin)] : [],
+    ),
+    ...(pinned ? questionsOf(pinned).flatMap((item) => question(item, 'template')) : []),
+    ...questionnaire.items.flatMap((item) =>
+      item.content.kind === 'QUESTION' ? question(item.content.question, item.origin) : [],
+    ),
+  ];
 }
 
 const KEY_ALPHABET = 'abcdefghjkmnpqrstvwxyz0123456789';
@@ -116,10 +174,11 @@ export class QuestionnaireReader {
           orderBy: { questionKey: 'asc' },
           select: { questionKey: true, value: true, updatedAt: true },
         },
+        documents: { select: { kind: true, slotKey: true } },
       },
     });
     if (!project) return null;
-    const { templateVersion, questionnaireItems, answers } = project;
+    const { templateVersion, questionnaireItems, answers, documents } = project;
     return {
       status: project.status,
       sector: project.sector,
@@ -135,6 +194,7 @@ export class QuestionnaireReader {
         value: answer.value as unknown as AnswerValue,
         updatedAt: answer.updatedAt,
       })),
+      files: documents.map((row) => ({ kind: row.kind, key: row.slotKey })),
     };
   }
 
@@ -154,14 +214,13 @@ export class QuestionnaireReader {
 
   /**
    * What keeps the questionnaire of a project from being submitted: required questions without
-   * an answer, and answers that no longer satisfy their question. Empty when there is nothing to
-   * answer.
+   * an answer, answers that no longer satisfy their question, and required documents that were
+   * not handed in. Empty when there is nothing to answer or to hand in.
    */
   async incomplete(db: Db, projectId: string): Promise<ApiErrorDetail[]> {
     const questionnaire = await this.load(db, projectId);
     if (!questionnaire) return [];
     const questions = questionsOfProject(questionnaire);
-    if (questions.length === 0) return [];
     const keys = new Set(questions.map((question) => question.key));
     const answers = Object.fromEntries(
       questionnaire.answers
@@ -169,6 +228,16 @@ export class QuestionnaireReader {
         .map((answer) => [answer.key, answer.value]),
     );
     const checked = validateAnswers(questions, answers, { complete: true });
-    return checked.ok ? [] : answerIssues(checked.issues);
+    // A required document of the list is handed in when it has at least one version.
+    const handedIn = new Set(
+      questionnaire.files.filter((file) => file.kind === 'DOCUMENT').map((file) => file.key),
+    );
+    const documents = documentSlotsOf(questionnaire)
+      .filter((slot) => slot.kind === 'DOCUMENT' && slot.required && !handedIn.has(slot.key))
+      .map((slot) => ({
+        path: `documents.${slot.key}`,
+        message: `مدرک الزامی «${slot.label}» بارگذاری نشده است.`,
+      }));
+    return [...(checked.ok ? [] : answerIssues(checked.issues)), ...documents];
   }
 }

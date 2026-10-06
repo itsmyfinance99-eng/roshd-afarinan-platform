@@ -269,6 +269,8 @@ export class FeasibilityProjectsService {
     if (count !== 1) {
       throw new ConflictError('فقط پیش‌نویسی که خودتان ساخته‌اید و هنوز ارسال نشده حذف می‌شود.');
     }
+    // The documents handed in for the draft have nothing left to belong to.
+    await this.files.removeOfEntity({ entityType: FILE_ENTITY, entityId: id }, principal, meta);
     await this.audit.record({
       action: 'feasibility_project.deleted',
       actorId: principal.userId,

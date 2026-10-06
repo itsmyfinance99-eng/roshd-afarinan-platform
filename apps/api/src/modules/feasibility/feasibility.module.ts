@@ -3,6 +3,8 @@ import { ServiceRequestsModule } from '../service-requests/service-requests.modu
 import { UsersModule } from '../users/users.module';
 import { FeasibilityProjectsController } from './feasibility-projects.controller';
 import { FeasibilityProjectsService } from './feasibility-projects.service';
+import { ProjectDocumentsController } from './project-documents.controller';
+import { ProjectDocumentsService } from './project-documents.service';
 import { ProjectQuestionnaireController } from './project-questionnaire.controller';
 import { ProjectQuestionnaireService } from './project-questionnaire.service';
 import { QuestionnaireReader } from './questionnaire-reader';
@@ -12,18 +14,20 @@ import { QuestionnaireTemplatesService } from './questionnaire-templates.service
 /**
  * Feasibility platform (EPIC-35, ADR-0010): the project, its status history and its experts
  * (ST-35.01), and the questionnaires: templates with versions, and the questionnaire of a project
- * with its answers and its own items (ST-35.03). Documents, estimates and deliverables join in
- * later stories.
+ * with its answers and its own items (ST-35.03), and the documents of a project (ST-35.06).
+ * Estimates and deliverables join in later stories.
  */
 @Module({
   imports: [UsersModule, ServiceRequestsModule],
   controllers: [
     FeasibilityProjectsController,
+    ProjectDocumentsController,
     ProjectQuestionnaireController,
     QuestionnaireTemplatesController,
   ],
   providers: [
     FeasibilityProjectsService,
+    ProjectDocumentsService,
     ProjectQuestionnaireService,
     QuestionnaireReader,
     QuestionnaireTemplatesService,

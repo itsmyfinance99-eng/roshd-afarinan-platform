@@ -67,6 +67,7 @@ model User {
   questionnaireVersionsPublished QuestionnaireTemplateVersion[] @relation("QuestionnaireVersionPublisher")
   questionnaireAnswersUpdated    QuestionnaireAnswer[]          @relation("QuestionnaireAnswerEditor")
   projectQuestionnaireItemsAdded ProjectQuestionnaireItem[]     @relation("ProjectQuestionnaireItemAuthor")
+  projectDocumentsUploaded       ProjectDocument[]              @relation("ProjectDocumentUploader")
 
   @@map("users")
 }
@@ -623,6 +624,8 @@ enum FilePurpose {
   USER_DOCUMENT
   /// Public media library image (CMS and catalog covers), served same-origin at /api/v1/media/:id.
   PUBLIC_IMAGE
+  /// A document of a feasibility project (ST-35.06); read through the project only.
+  FEASIBILITY_DOCUMENT
 }
 
 enum FileAccessLevel {
@@ -657,7 +660,8 @@ model FileObject {
   createdAt    DateTime        @default(now())
   deletedAt    DateTime?
 
-  owner User @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  owner           User             @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  projectDocument ProjectDocument?
 
   @@index([ownerId, createdAt])
   @@index([entityType, entityId])
@@ -869,6 +873,7 @@ model FeasibilityProject {
   templateVersion    QuestionnaireTemplateVersion? @relation(fields: [templateVersionId], references: [id], onDelete: Restrict)
   answers            QuestionnaireAnswer[]
   questionnaireItems ProjectQuestionnaireItem[]
+  documents          ProjectDocument[]
   financialModel     FinancialModel?               @relation(fields: [financialModelId], references: [id], onDelete: Restrict)
   sourceRequest      ServiceRequest?               @relation(fields: [sourceRequestId], references: [id], onDelete: SetNull)
   events             FeasibilityStatusEvent[]
@@ -1001,6 +1006,35 @@ model ProjectQuestionnaireItem {
   @@unique([projectId, key])
   @@index([projectId, createdAt])
   @@map("project_questionnaire_items")
+}
+
+/// What a file of a project was handed in for.
+enum ProjectDocumentKind {
+  /// A document of the list: of the pinned template, or one the project has of its own.
+  DOCUMENT
+  /// A file given as the answer to a file question.
+  ANSWER
+}
+
+/// One file handed in for a document or a file question of a project (ST-35.06). A document is
+/// never overwritten: handing it in again is its next version, and the earlier ones stay.
+model ProjectDocument {
+  id           String              @id @default(uuid(7)) @db.Uuid
+  projectId    String              @db.Uuid
+  kind         ProjectDocumentKind
+  /// The key of the document or of the file question it belongs to.
+  slotKey      String
+  version      Int
+  fileId       String              @unique @db.Uuid
+  uploadedById String?             @db.Uuid
+  createdAt    DateTime            @default(now())
+
+  project    FeasibilityProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  file       FileObject         @relation(fields: [fileId], references: [id], onDelete: Restrict)
+  uploadedBy User?              @relation("ProjectDocumentUploader", fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  @@unique([projectId, kind, slotKey, version])
+  @@map("project_documents")
 }
 
 /// An expert working on a project. The assignment is active while `endedAt` is null; ending it
