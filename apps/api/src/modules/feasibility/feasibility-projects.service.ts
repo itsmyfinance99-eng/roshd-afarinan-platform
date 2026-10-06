@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import {
   FEASIBILITY_STATUS_LABELS_FA,
   MAX_FEASIBILITY_DRAFTS,
@@ -79,7 +79,7 @@ export interface FeasibilityProjectDetail extends FeasibilityProjectSummary {
   summary: string | null;
   events: FeasibilityStatusEventView[];
   /** What the caller may do with this project now. */
-  access: { transitions: FeasibilityStatus[]; assignExperts: boolean };
+  access: { transitions: FeasibilityStatus[]; assignExperts: boolean; releaseExperts: boolean };
   /** The experts working on the project; staff and experts see them, the applicant does not. */
   experts?: ProjectExpertView[];
 }
@@ -103,6 +103,8 @@ interface Relation {
  */
 @Injectable()
 export class FeasibilityProjectsService {
+  private readonly logger = new Logger(FeasibilityProjectsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
@@ -162,7 +164,7 @@ export class FeasibilityProjectsService {
     });
     if (drafts >= MAX_FEASIBILITY_DRAFTS) {
       throw new ConflictError(
-        'حداکثر تعداد پروژه‌های پیش‌نویس پر شده است. یکی از پیش‌نویس‌های قبلی را ارسال کنید.',
+        'حداکثر تعداد پروژه‌های پیش‌نویس پر شده است. پیش از ساخت پروژه تازه، پیش‌نویس‌های قبلی را کامل و ارسال کنید.',
       );
     }
     const project = await this.insertWithUniqueCode(input, owner.userId);
@@ -208,6 +210,7 @@ export class FeasibilityProjectsService {
     const access = {
       transitions: [...new Set(actors.flatMap((actor) => allowedTransitions(view.status, actor)))],
       assignExperts: relation.manager && !relation.owner && view.status !== 'ARCHIVED',
+      releaseExperts: relation.manager && !relation.owner,
     };
     if (relation.owner) {
       return {
@@ -288,7 +291,12 @@ export class FeasibilityProjectsService {
       metadata: { from: decision.from, to: decision.to, actor: decision.actor },
       meta,
     });
-    await this.announce(id, current, decision.to, decision.actor, principal.userId);
+    // Best effort: the status has changed, so a failed announcement must not fail the request.
+    await this.announce(id, current, decision.to, decision.actor, principal.userId).catch(
+      (error: unknown) => {
+        this.logger.warn({ err: error, projectId: id }, 'status announcement failed');
+      },
+    );
     return this.get(id, principal);
   }
 
@@ -306,6 +314,13 @@ export class FeasibilityProjectsService {
     meta: RequestMeta,
   ): Promise<FeasibilityProjectDetail> {
     const project = await this.manageable(id, actor);
+    if (project.status === 'ARCHIVED') throw new ConflictError(ARCHIVED_PROJECT);
+    if (input.expertId === actor.userId) {
+      // Staff who are experts too get their expert's part from a colleague, not from themselves.
+      throw new ValidationFailedError([
+        { path: 'expertId', message: 'نمی‌توانید خودتان را کارشناس پروژه کنید.' },
+      ]);
+    }
     if (input.expertId === project.ownerId) {
       throw new ValidationFailedError([
         { path: 'expertId', message: 'متقاضی نمی‌تواند کارشناس پروژه خودش باشد.' },
@@ -342,18 +357,19 @@ export class FeasibilityProjectsService {
       metadata: { expertId: input.expertId },
       meta,
     });
-    if (input.expertId !== actor.userId) {
-      await this.inbox.notifyUsers([input.expertId], {
-        kind: 'feasibility_project.expert_assigned',
-        title: `پروژه ${project.code} به شما سپرده شد`,
-        body: project.title,
-        link: staffLink(id),
-      });
-    }
+    await this.inbox.notifyUsers([input.expertId], {
+      kind: 'feasibility_project.expert_assigned',
+      title: `پروژه ${project.code} به شما سپرده شد`,
+      body: project.title,
+      link: staffLink(id),
+    });
     return this.get(id, actor);
   }
 
-  /** Ends an expert's assignment (`feasibility:manage`); the row stays as history. */
+  /**
+   * Ends an expert's assignment (`feasibility:manage`); the row stays as history. Allowed on an
+   * archived project too, so that access to a finished study can be taken back.
+   */
   async unassignExpert(
     id: string,
     expertId: string,
@@ -408,12 +424,16 @@ export class FeasibilityProjectsService {
       where: { projectId: id, endedAt: null },
       select: { expertId: true },
     });
+    // Only experts who can still open the project: an assignment without the permission gives nothing.
+    const able = new Set(await this.rbac.userIdsWithPermission(EXPERT_PERMISSION));
     const told = new Set([actorId, project.ownerId]);
-    const expertIds = experts.map((e) => e.expertId).filter((expertId) => !told.has(expertId));
+    const expertIds = experts
+      .map((e) => e.expertId)
+      .filter((expertId) => able.has(expertId) && !told.has(expertId));
     await this.inbox.notifyUsers(expertIds, { ...notification, link: staffLink(id) });
     if (actor !== 'staff') {
       for (const expertId of expertIds) told.add(expertId);
-      const staff = await this.rbac.userIdsWithPermission(MANAGE_PERMISSION).catch(() => []);
+      const staff = await this.rbac.userIdsWithPermission(MANAGE_PERMISSION);
       await this.inbox.notifyUsers(
         staff.filter((userId) => !told.has(userId)),
         { ...notification, link: staffLink(id) },
@@ -425,7 +445,7 @@ export class FeasibilityProjectsService {
   private async manageable(
     id: string,
     actor: Principal,
-  ): Promise<{ ownerId: string; code: string; title: string }> {
+  ): Promise<{ ownerId: string; code: string; title: string; status: FeasibilityStatus }> {
     const relation = await this.visible(id, actor);
     if (relation.owner || !relation.manager) throw new ForbiddenError();
     const project = await this.prisma.feasibilityProject.findUnique({
@@ -433,7 +453,6 @@ export class FeasibilityProjectsService {
       select: { ownerId: true, code: true, title: true, status: true },
     });
     if (!project) throw new NotFoundError();
-    if (project.status === 'ARCHIVED') throw new ConflictError(ARCHIVED_PROJECT);
     return project;
   }
 

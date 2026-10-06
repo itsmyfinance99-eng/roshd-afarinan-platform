@@ -86,7 +86,7 @@ describe('Feasibility projects (e2e)', () => {
       sector: 'معدنی',
       location: 'یزد',
       summary: 'ظرفیت اولیه کوچک',
-      access: { transitions: ['SUBMITTED'], assignExperts: false },
+      access: { transitions: ['SUBMITTED'], assignExperts: false, releaseExperts: false },
     });
     expect(mine.body.data.events).toEqual([
       expect.objectContaining({ fromStatus: null, toStatus: 'DRAFT', actor: 'applicant' }),
@@ -107,7 +107,11 @@ describe('Feasibility projects (e2e)', () => {
     expect(staff.body.data.applicant).toMatchObject({ id: owner.id });
     expect(staff.body.data.experts).toEqual([]);
     expect(staff.body.data.events[0].by).toMatchObject({ id: owner.id });
-    expect(staff.body.data.access).toEqual({ transitions: [], assignExperts: true });
+    expect(staff.body.data.access).toEqual({
+      transitions: [],
+      assignExperts: true,
+      releaseExperts: true,
+    });
 
     expect(await audits(project.id, 'feasibility_project.created')).toHaveLength(1);
   });
@@ -216,6 +220,7 @@ describe('Feasibility projects (e2e)', () => {
     expect(asExpert.body.data.access).toEqual({
       transitions: ['EXPERT_REVIEW'],
       assignExperts: false,
+      releaseExperts: false,
     });
     await move(expert, id, 'EXPERT_REVIEW').expect(200);
     // Staff alone do not pass the expert's review.
@@ -224,7 +229,11 @@ describe('Feasibility projects (e2e)', () => {
     await move(owner, id, 'DELIVERED').expect(200);
     const done = await move(officer, id, 'ARCHIVED').expect(200);
     expect(done.body.data.status).toBe('ARCHIVED');
-    expect(done.body.data.access).toEqual({ transitions: [], assignExperts: false });
+    expect(done.body.data.access).toEqual({
+      transitions: [],
+      assignExperts: false,
+      releaseExperts: true,
+    });
 
     const events = done.body.data.events as {
       fromStatus: string | null;
@@ -266,9 +275,12 @@ describe('Feasibility projects (e2e)', () => {
       metadata: { from: 'DRAFT', to: 'SUBMITTED', actor: 'applicant' },
     });
 
-    // Nothing leaves the archive.
+    // Nothing leaves the archive and nobody joins it, but access to it can be taken back.
     await move(officer, id, 'IN_PROGRESS').expect(409);
     await assign(officer, id, expert.id).expect(409);
+    await http().get(`${base}/${id}`).set(auth(expert.token)).expect(200);
+    await http().delete(`${base}/${id}/experts/${expert.id}`).set(auth(officer.token)).expect(200);
+    await http().get(`${base}/${id}`).set(auth(expert.token)).expect(404);
   });
 
   it('refuses transitions that do not exist or belong to another party', async () => {
@@ -328,7 +340,11 @@ describe('Feasibility projects (e2e)', () => {
     const { id } = await createProject(officer);
 
     const own = await http().get(`${base}/${id}`).set(auth(officer.token)).expect(200);
-    expect(own.body.data.access).toEqual({ transitions: ['SUBMITTED'], assignExperts: false });
+    expect(own.body.data.access).toEqual({
+      transitions: ['SUBMITTED'],
+      assignExperts: false,
+      releaseExperts: false,
+    });
     expect(own.body.data).not.toHaveProperty('experts');
 
     await move(officer, id, 'SUBMITTED').expect(200);
@@ -337,6 +353,63 @@ describe('Feasibility projects (e2e)', () => {
     await assign(officer, id, expert.id).expect(403);
     await assign(colleague, id, officer.id).expect(400);
     await move(colleague, id, 'INITIAL_REVIEW').expect(200);
+  });
+
+  it('lets staff be an expert of a project only when a colleague assigns them', async () => {
+    const owner = await registerUser(app);
+    const both = await registerUser(app, ['feasibility_officer', 'expert']);
+    const colleague = await registerUser(app, ['feasibility_officer']);
+    const { id } = await createProject(owner);
+    await move(owner, id, 'SUBMITTED').expect(200);
+
+    // Nobody gives themselves the expert's part.
+    const refused = await assign(both, id, both.id).expect(400);
+    expect(refused.body.error.details).toEqual([expect.objectContaining({ path: 'expertId' })]);
+    expect(await prisma().expertAssignment.count({ where: { projectId: id } })).toBe(0);
+
+    await move(both, id, 'INITIAL_REVIEW').expect(200);
+    await move(both, id, 'COST_ESTIMATED').expect(200);
+    await move(owner, id, 'CONTRACT_PENDING').expect(200);
+    await move(both, id, 'IN_PROGRESS').expect(200);
+    await move(both, id, 'EXPERT_REVIEW').expect(200);
+    // Staff rights alone do not pass the expert's review.
+    await move(both, id, 'CLIENT_REVIEW').expect(403);
+
+    await assign(colleague, id, both.id).expect(200);
+    const seen = await http().get(`${base}/${id}`).set(auth(both.token)).expect(200);
+    expect(seen.body.data.access.transitions.sort()).toEqual(['CLIENT_REVIEW', 'IN_PROGRESS']);
+    const passed = await move(both, id, 'CLIENT_REVIEW').expect(200);
+    const events = passed.body.data.events as { toStatus: string; actor: string }[];
+    expect(events.slice(-2).map((e) => `${e.toStatus}:${e.actor}`)).toEqual([
+      'EXPERT_REVIEW:staff',
+      'CLIENT_REVIEW:expert',
+    ]);
+  });
+
+  it('announces a new status only to experts who can still open the project', async () => {
+    const owner = await registerUser(app);
+    const officer = await registerUser(app, ['feasibility_officer']);
+    const expert = await registerUser(app, ['expert']);
+    const former = await registerUser(app, ['expert']);
+    const { id, code } = await createProject(owner);
+    await move(owner, id, 'SUBMITTED').expect(200);
+    await assign(officer, id, expert.id).expect(200);
+    await assign(officer, id, former.id).expect(200);
+    const expertRole = await prisma().role.findUniqueOrThrow({ where: { key: 'expert' } });
+    await prisma().userRole.delete({
+      where: { userId_roleId: { userId: former.id, roleId: expertRole.id } },
+    });
+
+    await move(officer, id, 'INITIAL_REVIEW').expect(200);
+    const about = async (account: Account) =>
+      (await inbox(account.token)).filter(
+        (n) => n.kind === 'feasibility_project.status_changed' && n.title.includes(code),
+      );
+    expect(await about(expert)).toHaveLength(1);
+    expect(await about(former)).toEqual([]);
+    // The one who acted is not told.
+    expect(await about(officer)).toHaveLength(1);
+    expect((await about(officer))[0]?.title).toContain('ارسال‌شده');
   });
 
   it('assigns and releases experts, and gives access only while assigned', async () => {

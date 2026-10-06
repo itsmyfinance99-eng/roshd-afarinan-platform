@@ -57,7 +57,7 @@ Bounded contexts and their main entities. **Bold** entities are implemented in P
 ## Feasibility (Phase 3; ADR-0010)
 
 - **FeasibilityProject** (ST-35.01): code (`FP-…`), applicant, title, sector, location, summary, status, optional financial model (EPIC-34; a linked model cannot be deleted) and optional source `ServiceRequest`.
-- **FeasibilityStatusEvent**: from, to, capacity of the actor (`applicant`, `staff`, `expert`, `system`), user, note; written once per transition and immutable.
+- **FeasibilityStatusEvent**: from, to, capacity of the actor (`applicant`, `staff`, `expert`, `system`), user, note; written once per transition and never updated.
 - **ExpertAssignment**: project, expert, who assigned it, and who ended it and when; active while not ended, kept as history afterwards.
 - The status changes only through the state machine: `DRAFT → SUBMITTED → INITIAL_REVIEW → NEEDS_MORE_INFO → COST_ESTIMATED → CONTRACT_PENDING → IN_PROGRESS → EXPERT_REVIEW → CLIENT_REVIEW → DELIVERED → ARCHIVED`.
 - Still to come: QuestionnaireTemplate, QuestionnaireResponse, project documents, CostEstimate, ReviewComment, Deliverable.
