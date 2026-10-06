@@ -87,6 +87,8 @@ const toMedia = <T extends { id: string }>(row: T): T & { url: string } => ({
 const ENTITY_READ_PERMISSION = {
   service_request: 'requests:read-all',
   ticket: 'tickets:read-all',
+  // Assigned experts read the documents of a project through the project itself (ST-35.06).
+  feasibility_project: 'feasibility:manage',
 } as const;
 
 @Injectable()
@@ -439,6 +441,23 @@ export class FilesService {
       where: { id: { in: [...new Set(fileIds)] }, ownerId, status: 'ACTIVE', entityId: null },
       data: { entityType, entityId },
     });
+  }
+
+  /**
+   * Moves every file attached to one business record to another one (a service request that
+   * became a feasibility project). Pass the caller's transaction so the files move with the
+   * record that takes them over. Returns how many files moved.
+   */
+  async moveAttachments(
+    from: { entityType: string; entityId: string },
+    to: { entityType: string; entityId: string },
+    tx: Prisma.TransactionClient = this.prisma,
+  ): Promise<number> {
+    const { count } = await tx.fileObject.updateMany({
+      where: { entityType: from.entityType, entityId: from.entityId },
+      data: { entityType: to.entityType, entityId: to.entityId },
+    });
+    return count;
   }
 
   listForEntity(entityType: string, entityId: string): Promise<FileView[]> {

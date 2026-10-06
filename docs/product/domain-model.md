@@ -60,6 +60,7 @@ Bounded contexts and their main entities. **Bold** entities are implemented in P
 - **FeasibilityStatusEvent**: from, to, capacity of the actor (`applicant`, `staff`, `expert`, `system`), user, note; written once per transition and never updated.
 - **ExpertAssignment**: project, expert, who assigned it, and who ended it and when; active while not ended, kept as history afterwards.
 - The status changes only through the state machine: `DRAFT → SUBMITTED → INITIAL_REVIEW → NEEDS_MORE_INFO → COST_ESTIMATED → CONTRACT_PENDING → IN_PROGRESS → EXPERT_REVIEW → CLIENT_REVIEW → DELIVERED → ARCHIVED`.
+- A Phase 1 `ServiceRequest` of type `FEASIBILITY` that was sent with an account can be converted once into a project of its requester (ST-35.02); its attachments move to the project (`entityType` `feasibility_project`).
 - Still to come: QuestionnaireTemplate, QuestionnaireResponse, project documents, CostEstimate, ReviewComment, Deliverable.
 
 ## Future integrations

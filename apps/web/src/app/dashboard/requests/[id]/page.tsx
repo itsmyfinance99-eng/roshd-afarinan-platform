@@ -9,6 +9,7 @@ import {
   RequestDetails,
   StatusTimeline,
 } from '@/components/dashboard/ui';
+import { RequestProjectNotice } from '@/components/feasibility/request-project';
 import { FileList } from '@/components/files/files';
 import { useApi } from '@/lib/use-api';
 
@@ -32,6 +33,7 @@ export default function MyRequestDetailPage() {
         {(item) => (
           <div className="grid gap-8 lg:grid-cols-[1fr_280px]">
             <div className="flex flex-col gap-6">
+              {item.type === 'FEASIBILITY' ? <RequestProjectNotice requestId={item.id} /> : null}
               <RequestDetails item={item} />
               {item.attachments?.length ? (
                 <section aria-labelledby="attachments-title">

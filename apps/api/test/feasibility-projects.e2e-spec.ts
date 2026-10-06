@@ -86,7 +86,15 @@ describe('Feasibility projects (e2e)', () => {
       sector: 'معدنی',
       location: 'یزد',
       summary: 'ظرفیت اولیه کوچک',
-      access: { transitions: ['SUBMITTED'], assignExperts: false, releaseExperts: false },
+      sourceRequest: null,
+      attachments: [],
+      access: {
+        transitions: ['SUBMITTED'],
+        edit: true,
+        remove: true,
+        assignExperts: false,
+        releaseExperts: false,
+      },
     });
     expect(mine.body.data.events).toEqual([
       expect.objectContaining({ fromStatus: null, toStatus: 'DRAFT', actor: 'applicant' }),
@@ -109,6 +117,8 @@ describe('Feasibility projects (e2e)', () => {
     expect(staff.body.data.events[0].by).toMatchObject({ id: owner.id });
     expect(staff.body.data.access).toEqual({
       transitions: [],
+      edit: false,
+      remove: false,
       assignExperts: true,
       releaseExperts: true,
     });
@@ -219,6 +229,8 @@ describe('Feasibility projects (e2e)', () => {
     const asExpert = await http().get(`${base}/${id}`).set(auth(expert.token)).expect(200);
     expect(asExpert.body.data.access).toEqual({
       transitions: ['EXPERT_REVIEW'],
+      edit: false,
+      remove: false,
       assignExperts: false,
       releaseExperts: false,
     });
@@ -231,6 +243,8 @@ describe('Feasibility projects (e2e)', () => {
     expect(done.body.data.status).toBe('ARCHIVED');
     expect(done.body.data.access).toEqual({
       transitions: [],
+      edit: false,
+      remove: false,
       assignExperts: false,
       releaseExperts: true,
     });
@@ -342,6 +356,8 @@ describe('Feasibility projects (e2e)', () => {
     const own = await http().get(`${base}/${id}`).set(auth(officer.token)).expect(200);
     expect(own.body.data.access).toEqual({
       transitions: ['SUBMITTED'],
+      edit: true,
+      remove: true,
       assignExperts: false,
       releaseExperts: false,
     });
@@ -533,5 +549,345 @@ describe('Feasibility projects (e2e)', () => {
 
     await prisma().feasibilityProject.update({ where: { id }, data: { financialModelId: null } });
     await http().delete(`/api/v1/financial-models/${modelId}`).set(auth(owner.token)).expect(200);
+  });
+
+  describe("the applicant's draft (ST-35.02)", () => {
+    const patch = (actor: Account, id: string, body: object) =>
+      http().patch(`${base}/${id}`).set(auth(actor.token)).send(body);
+
+    it('lets only the applicant change the details, and only before the review', async () => {
+      const owner = await registerUser(app);
+      const other = await registerUser(app);
+      const officer = await registerUser(app, ['feasibility_officer']);
+      const { id } = await createProject(owner);
+
+      const changed = await patch(owner, id, { title: 'کارخانه کنسانتره', location: null }).expect(
+        200,
+      );
+      expect(changed.body.data).toMatchObject({
+        title: 'کارخانه کنسانتره',
+        sector: 'معدنی',
+        location: null,
+        summary: 'ظرفیت اولیه کوچک',
+      });
+      expect(await audits(id, 'feasibility_project.updated')).toHaveLength(1);
+
+      const invalid = await patch(owner, id, { title: 'ط', sector: 'ناشناخته' }).expect(400);
+      expect(invalid.body.error.details.map((d: { path: string }) => d.path).sort()).toEqual([
+        'sector',
+        'title',
+      ]);
+      await patch(owner, id, {}).expect(400);
+
+      // Staff read the project but the details are the applicant's; for others it does not exist.
+      await patch(officer, id, { title: 'عنوان کارکنان' }).expect(403);
+      await patch(other, id, { title: 'عنوان دیگری' }).expect(404);
+      await http().patch(`${base}/${id}`).send({ title: 'بدون ورود' }).expect(401);
+
+      await move(owner, id, 'SUBMITTED').expect(200);
+      const submitted = await http().get(`${base}/${id}`).set(auth(owner.token)).expect(200);
+      expect(submitted.body.data.access).toMatchObject({ edit: false, remove: false });
+      await patch(owner, id, { title: 'پس از ارسال' }).expect(409);
+
+      // When the staff ask for more, the details open again.
+      await move(officer, id, 'INITIAL_REVIEW').expect(200);
+      await patch(owner, id, { title: 'در بررسی' }).expect(409);
+      await move(officer, id, 'NEEDS_MORE_INFO', 'محل اجرا را بنویسید').expect(200);
+      const reopened = await patch(owner, id, { location: 'بافق' }).expect(200);
+      expect(reopened.body.data).toMatchObject({ title: 'کارخانه کنسانتره', location: 'بافق' });
+      expect(reopened.body.data.access).toMatchObject({ edit: true, remove: false });
+    });
+
+    it('does not submit a project without a sector and a description', async () => {
+      const owner = await registerUser(app);
+      const created = await http()
+        .post(base)
+        .set(auth(owner.token))
+        .send({ title: 'طرح بدون شرح' })
+        .expect(201);
+      const id = created.body.data.id as string;
+
+      const refused = await move(owner, id, 'SUBMITTED').expect(400);
+      expect(refused.body.error.details.map((d: { path: string }) => d.path).sort()).toEqual([
+        'sector',
+        'summary',
+      ]);
+      expect(await statusOf(id)).toBe('DRAFT');
+
+      await patch(owner, id, { sector: 'صنعتی' }).expect(200);
+      const half = await move(owner, id, 'SUBMITTED').expect(400);
+      expect(half.body.error.details.map((d: { path: string }) => d.path)).toEqual(['summary']);
+
+      await patch(owner, id, { summary: 'تولید قطعات ریخته‌گری' }).expect(200);
+      await move(owner, id, 'SUBMITTED').expect(200);
+
+      // An emptied description cannot go back in with a later submission either.
+      const officer = await registerUser(app, ['feasibility_officer']);
+      await move(officer, id, 'INITIAL_REVIEW').expect(200);
+      await move(officer, id, 'NEEDS_MORE_INFO').expect(200);
+      await patch(owner, id, { summary: '' }).expect(200);
+      await move(owner, id, 'SUBMITTED').expect(400);
+      expect(await statusOf(id)).toBe('NEEDS_MORE_INFO');
+    });
+
+    it('deletes a draft of the applicant and nothing that was ever submitted', async () => {
+      const owner = await registerUser(app);
+      const other = await registerUser(app);
+      const officer = await registerUser(app, ['feasibility_officer']);
+      const draft = await createProject(owner);
+      const sent = await createProject(owner);
+      await move(owner, sent.id, 'SUBMITTED').expect(200);
+
+      await http().delete(`${base}/${draft.id}`).set(auth(other.token)).expect(404);
+      await http().delete(`${base}/${draft.id}`).set(auth(officer.token)).expect(403);
+      await http().delete(`${base}/${draft.id}`).expect(401);
+      await http().delete(`${base}/${sent.id}`).set(auth(owner.token)).expect(409);
+
+      await http().delete(`${base}/${draft.id}`).set(auth(owner.token)).expect(200);
+      await http().get(`${base}/${draft.id}`).set(auth(owner.token)).expect(404);
+      await http().delete(`${base}/${draft.id}`).set(auth(owner.token)).expect(404);
+      expect(await audits(draft.id, 'feasibility_project.deleted')).toHaveLength(1);
+      expect(await prisma().feasibilityStatusEvent.count({ where: { projectId: draft.id } })).toBe(
+        0,
+      );
+      expect(await statusOf(sent.id)).toBe('SUBMITTED');
+    });
+
+    it('leaves the caller out of the experts that can be assigned', async () => {
+      const both = await registerUser(app, ['feasibility_officer', 'expert']);
+      const expert = await registerUser(app, ['expert']);
+      const list = await http().get(`${base}/experts`).set(auth(both.token)).expect(200);
+      const ids = (list.body.data as { id: string }[]).map((row) => row.id);
+      expect(ids).toContain(expert.id);
+      expect(ids).not.toContain(both.id);
+    });
+  });
+
+  describe('a project made from a Phase 1 request (ST-35.02)', () => {
+    const PDF = Buffer.from('%PDF-1.4\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF\n');
+    const convert = (actor: Account, requestId: string, title = 'کارخانه فرآوری مس') =>
+      http().post(`${base}/from-request`).set(auth(actor.token)).send({ requestId, title });
+    const upload = async (owner: Account, name: string) =>
+      (
+        await http()
+          .post('/api/v1/files')
+          .set(auth(owner.token))
+          .field('purpose', 'SERVICE_REQUEST_ATTACHMENT')
+          .attach('file', PDF, { filename: name, contentType: 'application/pdf' })
+          .expect(201)
+      ).body.data.id as string;
+    const sendRequest = async (
+      requester: Account | undefined,
+      body: Record<string, unknown> = {},
+    ) => {
+      const call = http().post('/api/v1/service-requests');
+      if (requester) void call.set(auth(requester.token));
+      const res = await call
+        .send({
+          type: 'FEASIBILITY',
+          fullName: 'متقاضی آزمایشی',
+          mobile: '09121234567',
+          sector: 'معدنی',
+          stage: 'ایده اولیه',
+          location: 'کرمان',
+          message: 'احداث واحد فرآوری مس با ظرفیت سالانه ده هزار تن',
+          ...body,
+        })
+        .expect(201);
+      return res.body.data as { id: string; trackingCode: string };
+    };
+    const staffUser = () => registerUser(app, ['feasibility_officer', 'support']);
+
+    it('makes a draft of the requester with the attachments of the request', async () => {
+      const applicant = await registerUser(app);
+      const staff = await staffUser();
+      const fileId = await upload(applicant, 'plan.pdf');
+      const req = await sendRequest(applicant, { attachmentIds: [fileId] });
+
+      const made = await convert(staff, req.id).expect(201);
+      const project = made.body.data as { id: string; code: string };
+      expect(made.body.data).toMatchObject({
+        title: 'کارخانه فرآوری مس',
+        sector: 'معدنی',
+        location: 'کرمان',
+        summary: 'احداث واحد فرآوری مس با ظرفیت سالانه ده هزار تن',
+        status: 'DRAFT',
+        applicant: { id: applicant.id },
+        sourceRequest: { id: req.id, trackingCode: req.trackingCode },
+        attachments: [expect.objectContaining({ id: fileId, originalName: 'plan.pdf' })],
+      });
+      expect(made.body.data.events).toEqual([
+        expect.objectContaining({
+          fromStatus: null,
+          toStatus: 'DRAFT',
+          actor: 'staff',
+          note: `از درخواست ${req.trackingCode} ساخته شد.`,
+        }),
+      ]);
+
+      // The project is the applicant's: they see it, complete it and submit it.
+      const mine = await http().get(`${base}/${project.id}`).set(auth(applicant.token)).expect(200);
+      expect(mine.body.data.attachments).toHaveLength(1);
+      expect(mine.body.data.sourceRequest).toEqual({ id: req.id, trackingCode: req.trackingCode });
+      expect(mine.body.data.access).toMatchObject({
+        transitions: ['SUBMITTED'],
+        edit: true,
+        remove: false,
+      });
+      expect(mine.body.data.events[0]).not.toHaveProperty('by');
+      await http().delete(`${base}/${project.id}`).set(auth(applicant.token)).expect(409);
+      const found = await http()
+        .get(`${base}?sourceRequestId=${req.id}`)
+        .set(auth(applicant.token))
+        .expect(200);
+      expect((found.body.data as { id: string }[]).map((row) => row.id)).toEqual([project.id]);
+
+      // The attachment moved: the request no longer lists it, and it is still downloadable.
+      const request = await http()
+        .get(`/api/v1/service-requests/${req.id}`)
+        .set(auth(applicant.token))
+        .expect(200);
+      expect(request.body.data.attachments).toEqual([]);
+      await http()
+        .post(`/api/v1/files/${fileId}/download-url`)
+        .set(auth(applicant.token))
+        .expect(200);
+
+      expect(
+        (await inbox(applicant.token)).filter(
+          (n) => n.kind === 'feasibility_project.created_from_request',
+        ),
+      ).toEqual([expect.objectContaining({ link: `/dashboard/feasibility/${project.id}` })]);
+      const audit = await audits(project.id, 'feasibility_project.created_from_request');
+      expect(audit).toHaveLength(1);
+      expect(audit[0]?.metadata).toMatchObject({ requestId: req.id, attachments: 1 });
+
+      await move(applicant, project.id, 'SUBMITTED').expect(200);
+    });
+
+    it('reads the files of a project as staff of the feasibility platform only', async () => {
+      const applicant = await registerUser(app);
+      const staff = await staffUser();
+      const officer = await registerUser(app, ['feasibility_officer']);
+      const support = await registerUser(app, ['support']);
+      const fileId = await upload(applicant, 'plan.pdf');
+      const req = await sendRequest(applicant, { attachmentIds: [fileId] });
+      const link = (actor: Account) =>
+        http().post(`/api/v1/files/${fileId}/download-url`).set(auth(actor.token));
+
+      await link(support).expect(200);
+      await link(officer).expect(404);
+      await convert(staff, req.id).expect(201);
+      // With the request it left the reach of the request staff and entered that of the officer.
+      await link(officer).expect(200);
+      await link(support).expect(404);
+
+      // An assigned expert reads the project, but is not offered files they cannot open yet.
+      const expert = await registerUser(app, ['expert']);
+      const projectId = (
+        await prisma().feasibilityProject.findUniqueOrThrow({ where: { sourceRequestId: req.id } })
+      ).id;
+      await assign(officer, projectId, expert.id).expect(200);
+      const asExpert = await http().get(`${base}/${projectId}`).set(auth(expert.token)).expect(200);
+      expect(asExpert.body.data.attachments).toEqual([]);
+      await link(expert).expect(404);
+      const asOfficer = await http()
+        .get(`${base}/${projectId}`)
+        .set(auth(officer.token))
+        .expect(200);
+      expect(asOfficer.body.data.attachments).toHaveLength(1);
+      // The details and the draft itself stay the applicant's.
+      await http()
+        .patch(`${base}/${projectId}`)
+        .set(auth(expert.token))
+        .send({ title: 'عنوان کارشناس' })
+        .expect(403);
+      await http().delete(`${base}/${projectId}`).set(auth(expert.token)).expect(403);
+      // The project of a request is found only by those who see the project.
+      const stranger = await registerUser(app);
+      const none = await http()
+        .get(`${base}?sourceRequestId=${req.id}`)
+        .set(auth(stranger.token))
+        .expect(200);
+      expect(none.body.data).toEqual([]);
+    });
+
+    it('converts a request only once', async () => {
+      const applicant = await registerUser(app);
+      const staff = await staffUser();
+      const req = await sendRequest(applicant);
+      const first = await convert(staff, req.id).expect(201);
+      const again = await convert(staff, req.id, 'عنوان دوم').expect(409);
+      expect(again.body.error.message).toContain(first.body.data.code);
+      expect(await prisma().feasibilityProject.count({ where: { sourceRequestId: req.id } })).toBe(
+        1,
+      );
+
+      const other = await sendRequest(applicant);
+      const results = await Promise.all([convert(staff, other.id), convert(staff, other.id)]);
+      expect(results.map((res) => res.status).sort()).toEqual([201, 409]);
+    });
+
+    it('refuses requests that cannot become a project', async () => {
+      const applicant = await registerUser(app);
+      const staff = await staffUser();
+
+      const guest = await sendRequest(undefined);
+      const noAccount = await convert(staff, guest.id).expect(409);
+      expect(noAccount.body.error.message).toContain('حساب کاربری');
+
+      const contact = await http()
+        .post('/api/v1/service-requests')
+        .set(auth(applicant.token))
+        .send({
+          type: 'CONTACT',
+          fullName: 'متقاضی آزمایشی',
+          mobile: '09121234567',
+          subject: 'پرسش عمومی',
+          message: 'یک پرسش عمومی درباره خدمات',
+        })
+        .expect(201);
+      await convert(staff, contact.body.data.id as string).expect(409);
+
+      const own = await sendRequest(staff);
+      await convert(staff, own.id).expect(403);
+
+      await convert(staff, '0198c0de-0000-7000-8000-000000000000').expect(404);
+      const invalid = await http()
+        .post(`${base}/from-request`)
+        .set(auth(staff.token))
+        .send({ requestId: 'nope', title: 'ط' })
+        .expect(400);
+      expect(invalid.body.error.details.map((d: { path: string }) => d.path).sort()).toEqual([
+        'requestId',
+        'title',
+      ]);
+      expect(
+        await prisma().feasibilityProject.count({ where: { sourceRequestId: guest.id } }),
+      ).toBe(0);
+    });
+
+    it('needs both the feasibility and the request rights to convert', async () => {
+      const applicant = await registerUser(app);
+      const req = await sendRequest(applicant);
+      const officer = await registerUser(app, ['feasibility_officer']);
+      const support = await registerUser(app, ['support']);
+      const expert = await registerUser(app, ['expert']);
+
+      await convert(officer, req.id).expect(403);
+      await convert(support, req.id).expect(403);
+      await convert(expert, req.id).expect(403);
+      await convert(applicant, req.id).expect(403);
+      await http()
+        .post(`${base}/from-request`)
+        .send({ requestId: req.id, title: 'طرح' })
+        .expect(401);
+      expect(await prisma().feasibilityProject.count({ where: { sourceRequestId: req.id } })).toBe(
+        0,
+      );
+
+      const admin = await registerUser(app, ['admin']);
+      await convert(admin, req.id).expect(201);
+    });
   });
 });

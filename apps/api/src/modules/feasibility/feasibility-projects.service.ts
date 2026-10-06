@@ -1,12 +1,16 @@
 import { Injectable, Logger } from '@nestjs/common';
 import {
+  FEASIBILITY_EDITABLE_STATUSES,
+  FEASIBILITY_SECTORS,
   FEASIBILITY_STATUS_LABELS_FA,
   MAX_FEASIBILITY_DRAFTS,
   MAX_PROJECT_EXPERTS,
   type AssignExpertInput,
+  type ConvertRequestToProjectInput,
   type CreateFeasibilityProjectInput,
   type FeasibilityTransitionInput,
   type ListFeasibilityProjectsQuery,
+  type UpdateFeasibilityProjectInput,
 } from '@roshd/validation';
 import {
   ConflictError,
@@ -19,9 +23,11 @@ import type { RequestMeta } from '../../common/http/request-meta';
 import { Prisma } from '../../generated/prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../database/prisma.service';
+import { FilesService, type FileView } from '../files/files.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { hasPermission, type Principal } from '../rbac/principal';
 import { RbacService } from '../rbac/rbac.service';
+import { ServiceRequestsService } from '../service-requests/service-requests.service';
 import { staffRef, staffRefs, type StaffRef } from '../users/staff-ref';
 import { UsersService } from '../users/users.service';
 import {
@@ -39,8 +45,16 @@ const EXPERT_PERMISSION = 'feasibility:work';
 const MAX_CODE_ATTEMPTS = 5;
 const ARCHIVED_PROJECT = 'پروژه بایگانی‌شده تغییر نمی‌کند.';
 
+/** Under which name the files of a project are attached to it. */
+const FILE_ENTITY = 'feasibility_project';
+
 /** Where staff and experts open a project in the dashboard. */
 const staffLink = (id: string): string => `/dashboard/manage/feasibility/${id}`;
+/** Where the applicant opens their project. */
+const applicantLink = (id: string): string => `/dashboard/feasibility/${id}`;
+
+const isSector = (value: unknown): value is (typeof FEASIBILITY_SECTORS)[number] =>
+  (FEASIBILITY_SECTORS as readonly unknown[]).includes(value);
 
 const SUMMARY_SELECT = {
   id: true,
@@ -78,11 +92,26 @@ export interface ProjectExpertView {
 export interface FeasibilityProjectDetail extends FeasibilityProjectSummary {
   summary: string | null;
   events: FeasibilityStatusEventView[];
+  /** The Phase 1 request the project was made from, if any. */
+  sourceRequest: { id: string; trackingCode: string } | null;
+  /** Files that came with the request; empty for an expert, who cannot open them yet. */
+  attachments: FileView[];
   /** What the caller may do with this project now. */
-  access: { transitions: FeasibilityStatus[]; assignExperts: boolean; releaseExperts: boolean };
+  access: {
+    transitions: FeasibilityStatus[];
+    /** Change the details (the applicant, before the review and when more is asked for). */
+    edit: boolean;
+    /** Delete the project (the applicant, a draft of their own making). */
+    remove: boolean;
+    assignExperts: boolean;
+    releaseExperts: boolean;
+  };
   /** The experts working on the project; staff and experts see them, the applicant does not. */
   experts?: ProjectExpertView[];
 }
+
+const isEditable = (status: FeasibilityStatus): boolean =>
+  (FEASIBILITY_EDITABLE_STATUSES as readonly FeasibilityStatus[]).includes(status);
 
 /** The caller's relations to a project; at least one holds for a visible project. */
 interface Relation {
@@ -111,6 +140,8 @@ export class FeasibilityProjectsService {
     private readonly inbox: NotificationsService,
     private readonly rbac: RbacService,
     private readonly users: UsersService,
+    private readonly files: FilesService,
+    private readonly requests: ServiceRequestsService,
   ) {}
 
   async list(
@@ -130,7 +161,11 @@ export class FeasibilityProjectsService {
     } else {
       scope = { ownerId: principal.userId };
     }
-    const where = { ...scope, ...(query.status ? { status: query.status } : {}) };
+    const where = {
+      ...scope,
+      ...(query.status ? { status: query.status } : {}),
+      ...(query.sourceRequestId ? { sourceRequestId: query.sourceRequestId } : {}),
+    };
     const [rows, total] = await this.prisma.$transaction([
       this.prisma.feasibilityProject.findMany({
         where,
@@ -178,6 +213,170 @@ export class FeasibilityProjectsService {
     return this.get(project.id, owner);
   }
 
+  /**
+   * The applicant changes the details of their project, while it is a draft or after the staff
+   * asked for more information; from the review on the details stand as they were submitted.
+   */
+  async update(
+    id: string,
+    input: UpdateFeasibilityProjectInput,
+    principal: Principal,
+    meta: RequestMeta,
+  ): Promise<FeasibilityProjectDetail> {
+    const relation = await this.visible(id, principal);
+    if (!relation.owner) {
+      throw new ForbiddenError('فقط متقاضی مشخصات پروژه را تغییر می‌دهد.');
+    }
+    const data: Prisma.FeasibilityProjectUpdateManyMutationInput = {
+      ...(input.title !== undefined ? { title: input.title } : {}),
+      ...(input.sector !== undefined ? { sector: input.sector } : {}),
+      ...(input.location !== undefined ? { location: input.location } : {}),
+      ...(input.summary !== undefined ? { summary: input.summary || null } : {}),
+    };
+    // Conditional on the status: a project that went to review meanwhile is not changed.
+    const { count } = await this.prisma.feasibilityProject.updateMany({
+      where: { id, status: { in: [...FEASIBILITY_EDITABLE_STATUSES] } },
+      data,
+    });
+    if (count !== 1) {
+      throw new ConflictError(
+        'مشخصات پروژه فقط در پیش‌نویس یا هنگام درخواست اطلاعات تکمیلی تغییر می‌کند.',
+      );
+    }
+    await this.audit.record({
+      action: 'feasibility_project.updated',
+      actorId: principal.userId,
+      entityType: 'feasibility_project',
+      entityId: id,
+      metadata: { fields: Object.keys(data) },
+      meta,
+    });
+    return this.get(id, principal);
+  }
+
+  /**
+   * The applicant deletes a draft they started themselves. A project that was submitted once is
+   * kept with its history, and one made from a request belongs to that request.
+   */
+  async remove(id: string, principal: Principal, meta: RequestMeta): Promise<void> {
+    const relation = await this.visible(id, principal);
+    if (!relation.owner) throw new ForbiddenError('فقط متقاضی پیش‌نویس خودش را حذف می‌کند.');
+    const { count } = await this.prisma.feasibilityProject.deleteMany({
+      where: { id, status: 'DRAFT', sourceRequestId: null },
+    });
+    if (count !== 1) {
+      throw new ConflictError('فقط پیش‌نویسی که خودتان ساخته‌اید و هنوز ارسال نشده حذف می‌شود.');
+    }
+    await this.audit.record({
+      action: 'feasibility_project.deleted',
+      actorId: principal.userId,
+      entityType: 'feasibility_project',
+      entityId: id,
+      meta,
+    });
+  }
+
+  /**
+   * Staff turn a Phase 1 feasibility request into a project of the requester (ADR-0010 §9). The
+   * project starts as a draft the applicant completes and submits; the attachments of the request
+   * move to it, and a request becomes a project only once.
+   */
+  async createFromRequest(
+    input: ConvertRequestToProjectInput,
+    actor: Principal,
+    meta: RequestMeta,
+  ): Promise<FeasibilityProjectDetail> {
+    const source = await this.requests.sourceFor(input.requestId, actor);
+    if (source.type !== 'FEASIBILITY') {
+      throw new ConflictError('فقط درخواست امکان‌سنجی به پروژه تبدیل می‌شود.');
+    }
+    if (!source.userId) {
+      throw new ConflictError(
+        'این درخواست بدون حساب کاربری ثبت شده است و متقاضی‌ای ندارد که پروژه به نام او ساخته شود.',
+      );
+    }
+    if (source.userId === actor.userId) {
+      // On a project of their own a user is the applicant only, so a colleague converts it.
+      throw new ForbiddenError('درخواست خودتان را همکار دیگری به پروژه تبدیل می‌کند.');
+    }
+    const ownerId = source.userId;
+    const details =
+      source.details && typeof source.details === 'object' && !Array.isArray(source.details)
+        ? source.details
+        : {};
+    const location = typeof details.location === 'string' ? details.location : null;
+
+    let created: { id: string; code: string; moved: number } | undefined;
+    for (let attempt = 1; !created; attempt++) {
+      try {
+        created = await this.prisma.$transaction(async (tx) => {
+          const project = await tx.feasibilityProject.create({
+            data: {
+              code: generateProjectCode(),
+              ownerId,
+              title: input.title,
+              sector: isSector(details.sector) ? details.sector : null,
+              location,
+              summary: source.message,
+              sourceRequestId: source.id,
+              events: {
+                create: {
+                  toStatus: 'DRAFT',
+                  actor: 'staff',
+                  actorId: actor.userId,
+                  note: `از درخواست ${source.trackingCode} ساخته شد.`,
+                },
+              },
+            },
+            select: { id: true, code: true },
+          });
+          const moved = await this.files.moveAttachments(
+            { entityType: 'service_request', entityId: source.id },
+            { entityType: FILE_ENTITY, entityId: project.id },
+            tx,
+          );
+          return { ...project, moved };
+        });
+      } catch (error) {
+        const collision =
+          error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002';
+        if (!collision) throw error;
+        // Either the request has its project already, or the random code was taken.
+        const existing = await this.prisma.feasibilityProject.findUnique({
+          where: { sourceRequestId: source.id },
+          select: { code: true },
+        });
+        if (existing) {
+          throw new ConflictError(`این درخواست پیش‌تر به پروژه ${existing.code} تبدیل شده است.`);
+        }
+        if (attempt >= MAX_CODE_ATTEMPTS) throw error;
+      }
+    }
+
+    await this.audit.record({
+      action: 'feasibility_project.created_from_request',
+      actorId: actor.userId,
+      entityType: 'feasibility_project',
+      entityId: created.id,
+      metadata: { requestId: source.id, attachments: created.moved },
+      meta,
+    });
+    await this.inbox.notifyUsers(
+      [ownerId],
+      {
+        kind: 'feasibility_project.created_from_request',
+        title: `درخواست ${source.trackingCode} به پروژه ${created.code} تبدیل شد`,
+        body: 'مشخصات پروژه را کامل و برای بررسی ارسال کنید.',
+        link: applicantLink(created.id),
+      },
+      {
+        template: 'feasibility-project.created-from-request',
+        data: { code: created.code, title: input.title, trackingCode: source.trackingCode },
+      },
+    );
+    return this.get(created.id, actor);
+  }
+
   async get(id: string, principal: Principal): Promise<FeasibilityProjectDetail> {
     const relation = await this.visible(id, principal);
     const project = await this.prisma.feasibilityProject.findUnique({
@@ -186,6 +385,7 @@ export class FeasibilityProjectsService {
         ...SUMMARY_SELECT,
         summary: true,
         ownerId: true,
+        sourceRequestId: true,
         events: {
           orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
           select: {
@@ -205,10 +405,22 @@ export class FeasibilityProjectsService {
       },
     });
     if (!project) throw new NotFoundError();
-    const { ownerId, events, experts, ...view } = project;
+    const { ownerId, sourceRequestId, events, experts, ...rest } = project;
+    const trackingCode = sourceRequestId
+      ? await this.requests.trackingCodeOf(sourceRequestId)
+      : null;
+    const view = {
+      ...rest,
+      sourceRequest: sourceRequestId && trackingCode ? { id: sourceRequestId, trackingCode } : null,
+      // Listed for those who can open them; an expert gets the documents in ST-35.06.
+      attachments:
+        relation.owner || relation.manager ? await this.files.listForEntity(FILE_ENTITY, id) : [],
+    };
     const actors = actorsOf(relation);
     const access = {
       transitions: [...new Set(actors.flatMap((actor) => allowedTransitions(view.status, actor)))],
+      edit: relation.owner && isEditable(view.status),
+      remove: relation.owner && view.status === 'DRAFT' && sourceRequestId === null,
       assignExperts: relation.manager && !relation.owner && view.status !== 'ARCHIVED',
       releaseExperts: relation.manager && !relation.owner,
     };
@@ -249,7 +461,14 @@ export class FeasibilityProjectsService {
     const relation = await this.visible(id, principal);
     const current = await this.prisma.feasibilityProject.findUnique({
       where: { id },
-      select: { status: true, ownerId: true, code: true, title: true },
+      select: {
+        status: true,
+        ownerId: true,
+        code: true,
+        title: true,
+        sector: true,
+        summary: true,
+      },
     });
     if (!current) throw new NotFoundError();
     const decision = transitionAs(current.status, input.to, actorsOf(relation));
@@ -259,11 +478,26 @@ export class FeasibilityProjectsService {
       }
       throw new ConflictError('تغییر وضعیت پروژه به این مرحله مجاز نیست.');
     }
+    if (decision.to === 'SUBMITTED') {
+      // The reviewers need to know at least what the project is about and in which field.
+      const missing = [
+        ...(current.sector ? [] : [{ path: 'sector', message: 'حوزه طرح را انتخاب کنید.' }]),
+        ...(current.summary
+          ? []
+          : [{ path: 'summary', message: 'پیش از ارسال، شرح طرح را بنویسید.' }]),
+      ];
+      if (missing.length > 0) throw new ValidationFailedError(missing);
+    }
 
     // Conditional update: a concurrent change makes this a no-op and is reported as a conflict.
     const updated = await this.prisma.$transaction(async (tx) => {
       const { count } = await tx.feasibilityProject.updateMany({
-        where: { id, status: decision.from },
+        where: {
+          id,
+          status: decision.from,
+          // The details that were checked above are still there.
+          ...(decision.to === 'SUBMITTED' ? { sector: { not: null }, summary: { not: null } } : {}),
+        },
         data: { status: decision.to },
       });
       if (count !== 1) return false;
@@ -300,10 +534,13 @@ export class FeasibilityProjectsService {
     return this.get(id, principal);
   }
 
-  /** Active users who may be assigned to a project (sorted by name, for the staff picker). */
-  async assignableExperts(): Promise<StaffRef[]> {
+  /**
+   * Active users the caller may assign to a project (sorted by name, for the staff picker). The
+   * caller is left out: nobody assigns themselves.
+   */
+  async assignableExperts(actor: Principal): Promise<StaffRef[]> {
     const ids = await this.rbac.userIdsWithPermission(EXPERT_PERMISSION);
-    return staffRefs(await this.users.namesByIds(ids));
+    return staffRefs(await this.users.namesByIds(ids.filter((id) => id !== actor.userId)));
   }
 
   /** Assigns an expert to a project (`feasibility:manage`); audited, and the expert is told. */
@@ -413,7 +650,7 @@ export class FeasibilityProjectsService {
     if (project.ownerId !== actorId) {
       await this.inbox.notifyUsers(
         [project.ownerId],
-        { ...notification, link: `/dashboard/feasibility/${id}` },
+        { ...notification, link: applicantLink(id) },
         {
           template: 'feasibility-project.status-changed',
           data: { code: project.code, title: project.title, status: label },

@@ -1,15 +1,19 @@
-import { Controller, Delete, Get, HttpCode, Post } from '@nestjs/common';
+import { Controller, Delete, Get, HttpCode, Patch, Post } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
   assignExpertSchema,
+  convertRequestToProjectSchema,
   createFeasibilityProjectSchema,
   feasibilityTransitionSchema,
   idSchema,
   listFeasibilityProjectsQuerySchema,
+  updateFeasibilityProjectSchema,
   type AssignExpertInput,
+  type ConvertRequestToProjectInput,
   type CreateFeasibilityProjectInput,
   type FeasibilityTransitionInput,
   type ListFeasibilityProjectsQuery,
+  type UpdateFeasibilityProjectInput,
 } from '@roshd/validation';
 import { Meta, type RequestMeta } from '../../common/http/request-meta';
 import { ZodBody, ZodParam, ZodQuery } from '../../common/http/zod';
@@ -48,8 +52,21 @@ export class FeasibilityProjectsController {
   @Get('experts')
   @RequirePermissions('feasibility:manage')
   @ApiOperation({ summary: 'Active users who can be assigned to a project as experts' })
-  assignableExperts() {
-    return this.projects.assignableExperts();
+  assignableExperts(@CurrentUser() user: Principal) {
+    return this.projects.assignableExperts(user);
+  }
+
+  @Post('from-request')
+  @RequirePermissions('feasibility:manage', 'requests:read-all')
+  @ApiOperation({
+    summary: 'Turn a Phase 1 feasibility request into a draft project of its requester (audited)',
+  })
+  createFromRequest(
+    @CurrentUser() user: Principal,
+    @ZodBody(convertRequestToProjectSchema) body: ConvertRequestToProjectInput,
+    @Meta() meta: RequestMeta,
+  ) {
+    return this.projects.createFromRequest(body, user, meta);
   }
 
   @Get(':id')
@@ -58,6 +75,31 @@ export class FeasibilityProjectsController {
   })
   get(@CurrentUser() user: Principal, @ZodParam('id', idSchema) id: string) {
     return this.projects.get(id, user);
+  }
+
+  @Patch(':id')
+  @ApiOperation({
+    summary: 'Change the details of a project (its applicant; draft or more information asked)',
+  })
+  update(
+    @CurrentUser() user: Principal,
+    @ZodParam('id', idSchema) id: string,
+    @ZodBody(updateFeasibilityProjectSchema) body: UpdateFeasibilityProjectInput,
+    @Meta() meta: RequestMeta,
+  ) {
+    return this.projects.update(id, body, user, meta);
+  }
+
+  @Delete(':id')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Delete a draft the applicant started and never submitted (audited)' })
+  async remove(
+    @CurrentUser() user: Principal,
+    @ZodParam('id', idSchema) id: string,
+    @Meta() meta: RequestMeta,
+  ): Promise<null> {
+    await this.projects.remove(id, user, meta);
+    return null;
   }
 
   @Post(':id/transitions')

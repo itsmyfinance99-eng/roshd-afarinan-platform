@@ -58,12 +58,46 @@ export const createFeasibilityProjectSchema = z.object({
 });
 export type CreateFeasibilityProjectInput = z.infer<typeof createFeasibilityProjectSchema>;
 
+/** Statuses in which the applicant may still change the details of the project. */
+export const FEASIBILITY_EDITABLE_STATUSES = [
+  'DRAFT',
+  'NEEDS_MORE_INFO',
+] as const satisfies readonly FeasibilityStatus[];
+
+/**
+ * A change of the details by the applicant: only the fields that are sent change; `null` (or an
+ * empty summary) clears an optional one.
+ */
+export const updateFeasibilityProjectSchema = z
+  .object({
+    title: text(3, 200).optional(),
+    sector: z
+      .enum(FEASIBILITY_SECTORS, { error: 'حوزه طرح را انتخاب کنید.' })
+      .nullable()
+      .optional(),
+    location: text(2, 200).nullable().optional(),
+    summary: optionalText(5000).optional(),
+  })
+  .refine((input) => Object.values(input).some((value) => value !== undefined), {
+    error: 'دست‌کم یک مشخصه را تغییر دهید.',
+  });
+export type UpdateFeasibilityProjectInput = z.infer<typeof updateFeasibilityProjectSchema>;
+
+/** Staff turn a Phase 1 feasibility request into a project; the request has no title of its own. */
+export const convertRequestToProjectSchema = z.object({
+  requestId: z.uuid({ error: 'درخواست انتخاب‌شده معتبر نیست.' }),
+  title: text(3, 200),
+});
+export type ConvertRequestToProjectInput = z.infer<typeof convertRequestToProjectSchema>;
+
 /** `mine`: the caller's projects; `assigned`: projects the caller is an expert of; `all`: staff. */
 export const FEASIBILITY_PROJECT_SCOPES = ['mine', 'assigned', 'all'] as const;
 
 export const listFeasibilityProjectsQuerySchema = paginationQuerySchema.extend({
   scope: z.enum(FEASIBILITY_PROJECT_SCOPES).default('mine'),
   status: z.enum(FEASIBILITY_STATUSES).optional(),
+  /** The project a service request was converted into, if the caller may see it. */
+  sourceRequestId: z.uuid().optional(),
 });
 export type ListFeasibilityProjectsQuery = z.infer<typeof listFeasibilityProjectsQuerySchema>;
 
