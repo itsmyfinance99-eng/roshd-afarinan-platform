@@ -384,37 +384,52 @@ describe('projectInputSchema: economic analysis', () => {
   });
 
   it('passes the employment to the engine', () => {
+    // A crew of 40 unskilled workers joins the model; suppliers and users employ 10 of each skill.
+    const staffed = () => {
+      const model = clone();
+      model.operations.costs.push({
+        key: 'crew',
+        category: 'LABOUR',
+        product: 'steel',
+        currency: 'IRR',
+        origin: 'LOCAL',
+        standard: { mode: 'PER_UNIT', quantity: '0', price: '0', fixedCost: '1000000' },
+        payablesCoverage: { days: '0' },
+      });
+      return model;
+    };
+    const crew = { item: 'crew', skill: 'UNSKILLED', workers: '۴۰' };
     const group = { workers: '۱۰', wageBill: '0' };
     const indirect = { unskilled: group, skilled: group, investment: '0' };
-    const employment = {
-      direct: { unskilled: '۴۰', skilled: '25' },
-      indirect: { inputSupplying: indirect, outputUsing: indirect },
-    };
-    const parsed = projectInputSchema.parse({ ...clone(), economic: { ...economic, employment } });
-    expect(parsed.economic?.employment?.direct.unskilled).toBe('40');
+    const employment = { inputSupplying: indirect, outputUsing: indirect };
+    const costs = [...economic.costs, crew];
+    const parsed = projectInputSchema.parse({
+      ...staffed(),
+      economic: { ...economic, costs, employment },
+    });
+    expect(parsed.economic?.costs[1]?.workers).toBe('40');
+    expect(parsed.economic?.employment?.outputUsing.skilled.workers).toBe('10');
     const engineInput: ProjectInput = parsed;
     const schedule = projectModel(engineInput).value.economic?.employment;
-    expect(schedule?.total.jobs).toEqual({ unskilled: '60', skilled: '45', total: '105' });
-    // Without it there is no employment schedule.
-    const bare = projectInputSchema.parse({ ...clone(), economic });
+    expect(schedule?.direct.jobs).toEqual({ unskilled: '40', skilled: '0', total: '40' });
+    expect(schedule?.total.jobs).toEqual({ unskilled: '60', skilled: '20', total: '80' });
+    // Without the employment around the project there is no employment schedule.
+    const bare = projectInputSchema.parse({ ...staffed(), economic: { ...economic, costs } });
     expect(projectModel(bare).value.economic?.employment).toBeUndefined();
     const issues = projectInputSchema
       .safeParse({
-        ...clone(),
+        ...staffed(),
         economic: {
           ...economic,
-          employment: {
-            ...employment,
-            direct: { unskilled: 'many' },
-            indirect: { inputSupplying: indirect },
-          },
+          costs: [...economic.costs, { ...crew, workers: 'many' }],
+          employment: { inputSupplying: { ...indirect, investment: undefined } },
         },
       })
       .error?.issues.map((i) => i.path.join('.'));
     expect(issues).toEqual([
-      'economic.employment.direct.unskilled',
-      'economic.employment.direct.skilled',
-      'economic.employment.indirect.outputUsing',
+      'economic.costs.1.workers',
+      'economic.employment.inputSupplying.investment',
+      'economic.employment.outputUsing',
     ]);
   });
 

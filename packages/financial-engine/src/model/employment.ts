@@ -1,6 +1,6 @@
 import { ZERO, toDecimal, toDecimalString, type Decimal, type DecimalString } from '../decimal';
 import { EngineInputError } from '../errors';
-import type { CalculationResult } from '../types';
+import type { CalculationResult, CalculationWarning } from '../types';
 import { MODEL_VERSION } from '../version';
 import {
   economicBase,
@@ -11,9 +11,10 @@ import {
 
 /**
  * Employment effect of the project (manual VIII.L, X.D.3, XII.C; comfar-model-spec §6.3): the jobs
- * the project creates itself and, as the user enters them, in the projects that supply its inputs
- * and use its outputs, with the investment and the wage bill behind them — all for the reference
- * year, in local currency — and the ratios of jobs, investment and wages.
+ * the project creates itself — the people its wage items employ — and, as the user enters them,
+ * in the projects that supply its inputs and use its outputs, with the investment and the wage
+ * bill behind them — all for the reference year, in local currency — and the ratios of jobs,
+ * investment and wages.
  */
 
 /** A value for unskilled labour, for skilled labour and for both. */
@@ -29,11 +30,11 @@ export interface EmploymentLine {
   investment: DecimalString;
   /** Wage bill of the reference year. */
   wages: BySkill<DecimalString>;
-  /** COMFAR's employment effect: jobs per unit of investment; null without investment. */
+  /** COMFAR's employment effect: jobs per unit of investment; null without a positive one. */
   jobsPerInvestment: BySkill<DecimalString | null>;
-  /** Investment per job; null without jobs. */
+  /** Investment per job; null without jobs or without a positive investment. */
   investmentPerJob: BySkill<DecimalString | null>;
-  /** Investment over the wage bill of the reference year; null without wages. */
+  /** Investment over the wage bill of the reference year; null without wages or investment. */
   investmentToWages: BySkill<DecimalString | null>;
 }
 
@@ -116,14 +117,15 @@ function employmentLine(amounts: Amounts): EmploymentLine {
     };
   };
   const { investment } = amounts;
-  const over = (value: Decimal) => (value.isZero() ? undefined : investment.div(value));
+  // Without a positive investment no ratio to it means anything.
+  const invested = investment.gt(0);
+  const over = (value: Decimal) =>
+    invested && !value.isZero() ? investment.div(value) : undefined;
   return {
     jobs: strings(jobs),
     investment: toDecimalString(investment),
     wages: strings(wages),
-    jobsPerInvestment: ratios(jobs, (value) =>
-      investment.isZero() ? undefined : value.div(investment),
-    ),
+    jobsPerInvestment: ratios(jobs, (value) => (invested ? value.div(investment) : undefined)),
     investmentPerJob: ratios(jobs, over),
     investmentToWages: ratios(wages, over),
   };
@@ -135,6 +137,7 @@ export function employmentEffect(
 ): CalculationResult<EmploymentSchedule> {
   const { horizon, statements, employment, referenceYear } = input;
   const { costs } = economicBase(input);
+  const warnings: CalculationWarning[] = [];
 
   // The wage bill of the reference year: the wages in the products sold, before any adjustment.
   const inReferenceYear = horizon.periods.map(
@@ -142,10 +145,22 @@ export function employmentEffect(
       period.phase !== 'CONSTRUCTION' &&
       horizon.balanceYears.findIndex((year) => year.period >= j) === referenceYear,
   );
+  const months = horizon.balanceYears[referenceYear]?.months ?? 12;
+  if (months < 12) {
+    warnings.push({ code: 'employment.partialReferenceYear', params: { months: String(months) } });
+  }
   let unskilledWages = ZERO;
   let wages = ZERO;
+  let unskilledJobs = ZERO;
+  let skilledJobs = ZERO;
   for (const cost of costs) {
     if (cost.nature !== 'WAGES') continue;
+    // The jobs within the project: the people its wage items employ.
+    if (cost.workers === undefined) {
+      throw new EngineInputError('economic.workersRequired', cost.workersField, { item: cost.key });
+    }
+    if (cost.skill === 'UNSKILLED') unskilledJobs = unskilledJobs.plus(cost.workers);
+    else skilledJobs = skilledJobs.plus(cost.workers);
     const ofYear = cost.sold.reduce(
       (s, v, j) => (inReferenceYear[j] === true ? s.plus(v) : s),
       ZERO,
@@ -154,27 +169,23 @@ export function employmentEffect(
     if (cost.skill === 'UNSKILLED') unskilledWages = unskilledWages.plus(ofYear);
   }
   // Total investment of the project: fixed investment, pre-production expenditures and the
-  // increases of the net working capital over the planning horizon.
+  // increases of the net working capital over the planning horizon. What an existing enterprise
+  // starts with is not invested by the project.
   const investment = statements.totalCapital.investment
     .slice(0, horizon.periods.length)
     .reduce((s, v) => s.plus(toDecimal(v)), ZERO);
 
   const direct: Amounts = {
-    unskilledJobs: amount(employment.direct.unskilled, 'employment.direct.unskilled'),
-    skilledJobs: amount(employment.direct.skilled, 'employment.direct.skilled'),
+    unskilledJobs,
+    skilledJobs,
     investment,
     unskilledWages,
     skilledWages: wages.minus(unskilledWages),
   };
-  const inputSupplying = indirectAmounts(
-    employment.indirect.inputSupplying,
-    'employment.indirect.inputSupplying',
-  );
-  const outputUsing = indirectAmounts(
-    employment.indirect.outputUsing,
-    'employment.indirect.outputUsing',
-  );
+  const inputSupplying = indirectAmounts(employment.inputSupplying, 'employment.inputSupplying');
+  const outputUsing = indirectAmounts(employment.outputUsing, 'employment.outputUsing');
   const indirect = plus(inputSupplying, outputUsing);
+  if (!investment.gt(0)) warnings.push({ code: 'employment.noInvestment' });
 
   const value: EmploymentSchedule = {
     referenceYear,
@@ -184,5 +195,5 @@ export function employmentEffect(
     indirect: employmentLine(indirect),
     total: employmentLine(plus(direct, indirect)),
   };
-  return { value, modelVersion: MODEL_VERSION, warnings: [], defaultsUsed: [] };
+  return { value, modelVersion: MODEL_VERSION, warnings, defaultsUsed: [] };
 }

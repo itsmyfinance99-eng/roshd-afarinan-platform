@@ -40,6 +40,12 @@ export interface EconomicCostAdjustment {
   /** Wages only; required for the labour category. Other wages count as skilled (X.D.1). */
   skill?: LabourSkill;
   /**
+   * People the item employs in the reference year (full-time equivalents; "0" for an item
+   * without jobs of its own, such as social costs). Wages only; required for every wage item
+   * when the employment effect is asked for.
+   */
+  workers?: DecimalString;
+  /**
    * Indirect taxes and duties included in the financial value, as a fraction of it (at most 1); a
    * negative fraction is a subsidy on the input, of any size. Materials and wages only; none when
    * absent.
@@ -92,13 +98,13 @@ export interface IndirectEmploymentInput {
   investment: DecimalString;
 }
 
+/**
+ * Employment around the project. The jobs within the project are the `workers` of its wage items;
+ * their wage bill and the investment come from the financial schedules.
+ */
 export interface EmploymentInput {
-  /**
-   * Jobs within the project in the reference year. Their wage bill and the investment come from
-   * the financial schedules.
-   */
-  direct: { unskilled: DecimalString; skilled: DecimalString };
-  indirect: { inputSupplying: IndirectEmploymentInput; outputUsing: IndirectEmploymentInput };
+  inputSupplying: IndirectEmploymentInput;
+  outputUsing: IndirectEmploymentInput;
 }
 
 /** How a local item would be traded without the project. */
@@ -247,6 +253,10 @@ export interface EconomicCost {
   origin: Origin;
   nature: InputNature;
   skill: LabourSkill | undefined;
+  /** People employed in the reference year, when entered. */
+  workers: Decimal | undefined;
+  /** Where the item's `workers` are, or would be, in the economic input. */
+  workersField: string;
   /** Taxes and duties included (negative: a subsidy on the input). */
   tax: Decimal;
   /** Part of the value net of taxes that is deducted as an intermediate input. */
@@ -355,12 +365,24 @@ export function economicBase(input: EconomicScheduleInput) {
     if (nature === 'OTHER' && entry?.taxesIncluded !== undefined) {
       throw new EngineInputError('economic.notApplicable', `${field}.taxesIncluded`);
     }
+    let workers: Decimal | undefined;
+    if (entry?.workers !== undefined) {
+      if (nature !== 'WAGES') {
+        throw new EngineInputError('economic.notApplicable', `${field}.workers`);
+      }
+      workers = toDecimal(entry.workers);
+      if (workers.isNegative() && !workers.isZero()) {
+        throw new EngineInputError('amount.negative', `${field}.workers`);
+      }
+    }
     const { tax, rest } = entry === undefined ? NO_ADJUSTMENT : adjustment(entry, field);
     return {
       key: cost.key,
       origin: cost.origin,
       nature,
       skill: entry?.skill,
+      workers,
+      workersField: found === undefined ? field : `${field}.workers`,
       tax,
       rest,
       sold: row(cost.sold),

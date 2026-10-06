@@ -347,10 +347,13 @@ const indirectEmployment = z.object({
   skilled: employmentGroup,
   investment: decimal,
 });
-/** Jobs of the reference year (ST-37.03); "0" is explicit. */
+/**
+ * Employment around the project in the reference year (ST-37.03); "0" is explicit. The jobs within
+ * the project are the `workers` of its wage items.
+ */
 const employmentSchema = z.object({
-  direct: z.object({ unskilled: decimal, skilled: decimal }),
-  indirect: z.object({ inputSupplying: indirectEmployment, outputUsing: indirectEmployment }),
+  inputSupplying: indirectEmployment,
+  outputUsing: indirectEmployment,
 });
 const economicSchema = z.object({
   discountRate: perPeriod,
@@ -359,6 +362,7 @@ const economicSchema = z.object({
       ...economicAdjustment,
       nature: choice(INPUT_NATURE_VALUES).optional(),
       skill: choice(LABOUR_SKILL_VALUES).optional(),
+      workers: decimal.optional(),
     }),
   ),
   investment: list(z.object(economicAdjustment)),
