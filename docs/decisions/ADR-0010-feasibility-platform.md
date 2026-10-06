@@ -51,6 +51,16 @@ Open business points: pricing (OQ-01), contract and staged payment (OQ-02), docu
 - **Files.** An answer to a file question and a document of the list are only described here: the answer holds file ids whose shape is checked. Uploading, ownership and access to these files arrive with ST-35.06.
 - **Content from the bank's guide.** The owner decided on 2026-10-03 that the questionnaires may follow the structure and the wording of the bank's guide for feasibility reports (kept in the git-ignored `references/`), but never carry the bank's name, logo or form code. The sample template of ST-35.04 and every later template follow this.
 
+## As built in ST-35.04
+
+- **Pages.** Holders of `feasibility:manage` have «قالب‌های پرسشنامه» in the dashboard (`/dashboard/manage/questionnaires`): the list of templates (active or archived) with the state of their versions, a form for a new template (title and sector, or general), and the page of one template with its facts (title, sector, archive), the editor of its content, a preview and the list of its versions.
+- **The editor works on the draft.** It starts from the draft, or from the published version when there is none, and changes nothing on the server until «ذخیره پیش‌نویس»; the first save after a publication starts the next version. «انتشار نسخه» saves what is unsaved, asks for confirmation and publishes; «کنار گذاشتن پیش‌نویس» goes back to the published version. Leaving the page with unsaved changes asks first. An archived template is shown and cannot be edited.
+- **Keyboard.** Sections, questions, table columns and documents are added, moved up and down and removed with ordinary buttons whose names say what they act on («بالا بردن سؤال ۲ از بخش ۱»). A part keeps the focus when it moves and the move is announced in a live region. There is no drag and drop.
+- **Keys are not typed.** The editor gives every section, question, option, column and document its key when it is added (`s1`, `q1`, `o1`, `c1`, `d1`) and never changes it afterwards, so relabelling or moving a part does not make it another one. Options and units are written one per line; one unit is a fixed unit and several are a choice.
+- **Errors.** The definition is checked in the browser with the schema of the API before it is sent, and what only the API finds is shown the same way: the message with the place in the words of the editor («بخش «…»، سؤال ۲»).
+- **Preview.** `QuestionnairePreview` draws the questionnaire as the applicant will read it (sections, questions with their type, units, options and table columns, and the documents) without working fields. The form the applicant fills in is ST-35.05.
+- **Sample template.** The demo seed (`pnpm --filter @roshd/api db:seed:demo`, never in production) publishes one general questionnaire marked `isDemo`, which the pages show with «نمونه نمایشی». Its sections follow the usual structure of a feasibility report (record of the applicant, shareholders, management, permits, product and project) and carry no name, logo or form code of a bank. The real templates per sector are written by the feasibility officer and the admin (OQ-36).
+
 ## Consequences
 
 - The applicant and the company work in one place with a full, audited history.
