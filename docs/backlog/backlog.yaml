@@ -2259,6 +2259,7 @@ epics:
         sprint: S20
         points: 5
         priority: high
+        status: done
         area: [api, web, security]
         depends: [ST-35.01]
         story: 'به‌عنوان متقاضی می‌خواهم مدارک خواسته‌شده را بارگذاری کنم و فقط افراد مجاز آن‌ها را ببینند.'
