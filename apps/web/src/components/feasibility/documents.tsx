@@ -63,7 +63,8 @@ function Slot({
   slot: DocumentSlot;
   base: string;
   canUpload: boolean;
-  onChanged: (data: ProjectDocumentsData) => void;
+  /** A request about this slot ended; `done` says what it did, `null` that it was refused. */
+  onChanged: (done: string | null) => void;
 }) {
   const id = `doc-${slot.kind}-${slot.key}`;
   const input = useRef<HTMLInputElement>(null);
@@ -86,8 +87,9 @@ function Slot({
     setBusy(true);
     const result = await apiFetch<ProjectDocumentsData>(base, { method: 'POST', body: form });
     setBusy(false);
-    if (result.ok) onChanged(result.data);
-    else setError(result.message);
+    if (!result.ok) setError(result.message);
+    // Also after a refusal: the project may have been locked or the slot filled meanwhile.
+    onChanged(result.ok ? `«${file.name}» بارگذاری شد.` : null);
   };
 
   const download = async (file: DocumentFile) => {
@@ -109,10 +111,10 @@ function Slot({
     });
     setBusy(false);
     if (result.ok) {
-      onChanged(result.data);
       // The button went with its file; the way to hand one in is the nearest thing left.
       requestAnimationFrame(() => document.getElementById(`${id}-upload`)?.focus());
     } else setError(result.message);
+    onChanged(result.ok ? `«${file.originalName}» برداشته شد.` : null);
   };
 
   return (
@@ -240,7 +242,7 @@ function Group({
   slots: DocumentSlot[];
   base: string;
   canUpload: boolean;
-  onChanged: (data: ProjectDocumentsData) => void;
+  onChanged: (done: string | null) => void;
 }) {
   if (slots.length === 0) return null;
   return (
@@ -283,10 +285,8 @@ export function ProjectDocuments({
 }) {
   const base = `/feasibility-projects/${encodeURIComponent(projectId)}/documents`;
   const { state, reload } = useApi<ProjectDocumentsData>(base);
-  // What an upload or a removal answered, until the list is read again for another reason.
-  const [changed, setChanged] = useState<{ revision: number; data: ProjectDocumentsData } | null>(
-    null,
-  );
+  /** What the last upload or removal did, for assistive technology. */
+  const [announcement, setAnnouncement] = useState('');
   const seen = useRef(revision);
   useEffect(() => {
     if (seen.current === revision) return;
@@ -312,15 +312,21 @@ export function ProjectDocuments({
       </div>
     );
   }
-  const data = changed?.revision === revision ? changed.data : state.data;
+  const data = state.data;
   if (data.slots.length === 0) return <EmptyState title={emptyText} />;
 
-  const accept = (next: ProjectDocumentsData) => {
-    setChanged({ revision, data: next });
+  // The list is always what the server holds: read again after every request, done or refused.
+  const accept = (done: string | null) => {
+    reload({ silent: true });
+    if (done === null) return;
+    setAnnouncement(done);
     onChanged?.();
   };
   return (
     <div className="flex flex-col gap-6">
+      <p role="status" aria-live="polite" className="sr-only">
+        {announcement}
+      </p>
       {data.access.upload ? (
         <p className="text-[13px] text-ink-3">
           فرمت‌های مجاز: {FILE_TYPES_LABEL} · حداکثر {formatSize(MAX_FILE_BYTES)} برای هر فایل.

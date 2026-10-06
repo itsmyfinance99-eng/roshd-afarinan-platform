@@ -50,8 +50,8 @@ export interface ProjectQuestionnaire {
   pinned: PinnedVersion | null;
   items: StoredProjectItem[];
   answers: { key: string; value: AnswerValue; updatedAt: Date }[];
-  /** Which documents and file questions have a file, one entry per file. */
-  files: { kind: ProjectDocumentKind; key: string }[];
+  /** Which documents and file questions have a file that is still there, one entry per file. */
+  files: { kind: ProjectDocumentKind; key: string; fileId: string }[];
 }
 
 /** Something of a project a file can be handed in for (ST-35.06). */
@@ -186,7 +186,12 @@ export class QuestionnaireReader {
           orderBy: { questionKey: 'asc' },
           select: { questionKey: true, value: true, updatedAt: true },
         },
-        documents: { select: { kind: true, slotKey: true } },
+        documents: {
+          // A file staff deleted through the files module is not handed in any more.
+          where: { file: { status: 'ACTIVE' } },
+          orderBy: { version: 'asc' },
+          select: { kind: true, slotKey: true, fileId: true },
+        },
       },
     });
     if (!project) return null;
@@ -206,7 +211,7 @@ export class QuestionnaireReader {
         value: answer.value as unknown as AnswerValue,
         updatedAt: answer.updatedAt,
       })),
-      files: documents.map((row) => ({ kind: row.kind, key: row.slotKey })),
+      files: documents.map((row) => ({ kind: row.kind, key: row.slotKey, fileId: row.fileId })),
     };
   }
 
@@ -234,11 +239,20 @@ export class QuestionnaireReader {
     if (!questionnaire) return [];
     const questions = questionsOfProject(questionnaire);
     const keys = new Set(questions.map((question) => question.key));
-    const answers = Object.fromEntries(
+    const answers: Record<string, AnswerValue> = Object.fromEntries(
       questionnaire.answers
         .filter((answer) => keys.has(answer.key))
         .map((answer) => [answer.key, answer.value]),
     );
+    // The answer of a file question is the files that are there now, whatever its row says.
+    for (const question of questions) {
+      if (question.type !== 'file') continue;
+      const ids = questionnaire.files
+        .filter((file) => file.kind === 'ANSWER' && file.key === question.key)
+        .map((file) => file.fileId);
+      if (ids.length > 0) answers[question.key] = ids;
+      else delete answers[question.key];
+    }
     const checked = validateAnswers(questions, answers, { complete: true });
     const documents = missingDocumentsOf(questionnaire).map((slot) => ({
       path: `documents.${slot.key}`,

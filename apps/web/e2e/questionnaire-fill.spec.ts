@@ -600,7 +600,9 @@ test.describe('the questionnaire of a project for its applicant', () => {
 
     page.once('dialog', (dialog) => void dialog.accept());
     await page.getByRole('button', { name: 'برداشتن جواز-2.pdf' }).click();
-    await expect(page.getByText('جواز-2.pdf')).toHaveCount(0);
+    await expect(page.getByText('جواز-2.pdf', { exact: true })).toHaveCount(0);
+    // The removal is said to assistive technology too.
+    await expect(page.getByRole('status').filter({ hasText: 'جواز-2.pdf' })).toHaveCount(1);
     expect(removed).toBe(1);
     await expect(page.getByRole('button', { name: 'بارگذاری نسخه تازه' })).toBeFocused();
 

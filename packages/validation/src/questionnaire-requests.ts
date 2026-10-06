@@ -119,6 +119,12 @@ export type ProjectDocumentKind = (typeof PROJECT_DOCUMENT_KINDS)[number];
 export const MAX_DOCUMENT_VERSIONS = 20;
 /** Files one project may hold in all its documents and file questions. */
 export const MAX_PROJECT_DOCUMENT_FILES = 300;
+/**
+ * Bytes all documents of one applicant may take, over all their projects. Documents are not
+ * loose uploads and so are outside the upload quota; without a ceiling of their own one account
+ * could fill the disk.
+ */
+export const MAX_APPLICANT_DOCUMENT_BYTES = 1024 * 1024 * 1024;
 
 /** Sent with the file: which document or file question of the project it is for. */
 export const projectDocumentSlotSchema = z.object({

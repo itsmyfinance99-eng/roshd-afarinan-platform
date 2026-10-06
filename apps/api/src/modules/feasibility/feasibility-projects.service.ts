@@ -269,8 +269,13 @@ export class FeasibilityProjectsService {
     if (count !== 1) {
       throw new ConflictError('فقط پیش‌نویسی که خودتان ساخته‌اید و هنوز ارسال نشده حذف می‌شود.');
     }
-    // The documents handed in for the draft have nothing left to belong to.
-    await this.files.removeOfEntity({ entityType: FILE_ENTITY, entityId: id }, principal, meta);
+    // The documents handed in for the draft have nothing left to belong to. The draft is gone
+    // either way; files that could not be removed now are collected by the sweep of the files.
+    await this.files
+      .removeOfEntity({ entityType: FILE_ENTITY, entityId: id }, principal, meta)
+      .catch((error: unknown) => {
+        this.logger.warn({ err: error, projectId: id }, 'files of a deleted draft not removed');
+      });
     await this.audit.record({
       action: 'feasibility_project.deleted',
       actorId: principal.userId,
@@ -418,7 +423,9 @@ export class FeasibilityProjectsService {
       sourceRequest: sourceRequestId && trackingCode ? { id: sourceRequestId, trackingCode } : null,
       // Listed for those who can open them; an expert gets the documents in ST-35.06.
       attachments:
-        relation.owner || relation.manager ? await this.files.listForEntity(FILE_ENTITY, id) : [],
+        relation.owner || relation.manager
+          ? await this.files.listForEntity(FILE_ENTITY, id, ['FEASIBILITY_DOCUMENT'])
+          : [],
     };
     const actors = actorsOf(relation);
     const access = {

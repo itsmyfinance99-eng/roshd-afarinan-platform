@@ -43,6 +43,10 @@ export function sanitizeFileName(name: string): string {
     // Control characters are matched on purpose: they must never reach headers or UIs.
     // eslint-disable-next-line no-control-regex
     .replace(/[\u0000-\u001f\u007f"<>|:*?]/g, '')
+    // Marks that reorder or hide text, so that a name reads as what it is (an override mark can
+    // make "\u2026fdp.exe" read as "\u2026exe.pdf"). The zero-width non-joiner and joiner stay: Persian
+    // names are written with them.
+    .replace(/[\u200b\u200e\u200f\u202a-\u202e\u2066-\u2069\ufeff]/g, '')
     .trim()
     .slice(0, 180);
   return cleaned || 'file';

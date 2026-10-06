@@ -223,7 +223,7 @@ export class ProjectQuestionnaireService {
       // The answer of a file question is the list of the files handed in for it, and only the
       // documents of the project write it: an id sent here would not have been checked.
       const files = questions.filter(
-        (question) => question.type === 'file' && question.key in input.answers,
+        (question) => question.type === 'file' && Object.hasOwn(input.answers, question.key),
       );
       if (files.length > 0) {
         throw new ValidationFailedError(
@@ -357,11 +357,15 @@ export class ProjectQuestionnaireService {
         select: { id: true },
       });
       await tx.questionnaireAnswer.deleteMany({ where: { projectId: id, questionKey: item.key } });
-      // The files handed in for a document or a file question go with it.
+      // The files handed in for a document or a file question go with it, unless the reviewers
+      // were already sent one of them: then the item stays (409).
       const fileIds = await this.documents.detach(tx, id, item.key);
       return { ...item, answered: answers.length > 0, fileIds };
     });
-    await this.documents.discard(id, principal, meta, removed.fileIds);
+    await this.documents.discard(id, principal, meta, removed.fileIds).catch((error: unknown) => {
+      // The item is gone; files that could not be removed now are collected by the sweep.
+      this.logger.warn({ err: error, projectId: id }, 'files of a removed item not removed');
+    });
     await this.audit.record({
       action: 'feasibility_project.questionnaire_item_removed',
       actorId: principal.userId,

@@ -262,6 +262,37 @@ export class FilesService {
     });
   }
 
+  /** Bytes of the owner's files of one purpose that are still there, whatever they belong to. */
+  async bytesOf(ownerId: string, purpose: StoredPurpose): Promise<number> {
+    const { _sum } = await this.prisma.fileObject.aggregate({
+      where: { ownerId, purpose, status: 'ACTIVE' },
+      _sum: { size: true },
+    });
+    return _sum.size ?? 0;
+  }
+
+  /** Name, type and size of the files that are still there, by id, for a record that lists them. */
+  async viewsOf(
+    fileIds: readonly string[],
+  ): Promise<Map<string, Pick<FileView, 'originalName' | 'mimeType' | 'size'>>> {
+    if (fileIds.length === 0) return new Map();
+    const rows = await this.prisma.fileObject.findMany({
+      where: { id: { in: [...fileIds] }, status: 'ACTIVE' },
+      select: { id: true, originalName: true, mimeType: true, size: true },
+    });
+    return new Map(rows.map(({ id, ...view }) => [id, view]));
+  }
+
+  /** Which of these files are still there (not deleted, by their owner's record or by staff). */
+  async activeIds(fileIds: readonly string[]): Promise<Set<string>> {
+    if (fileIds.length === 0) return new Set();
+    const rows = await this.prisma.fileObject.findMany({
+      where: { id: { in: [...fileIds] }, status: 'ACTIVE' },
+      select: { id: true },
+    });
+    return new Set(rows.map((row) => row.id));
+  }
+
   /** Uploads of this user that no record references yet; only these count against the quota. */
   async quotaUsage(userId: string): Promise<QuotaUsage> {
     const { _sum, _count } = await this.prisma.fileObject.aggregate({
@@ -285,15 +316,25 @@ export class FilesService {
   }
 
   /**
-   * Deletes uploads that were never attached to a record and are older than the retention
-   * window. Runs on a schedule; safe to call at any time.
+   * Deletes uploads that were never attached to a record, and documents of a project that have
+   * no row in it, when they are older than the retention window. Runs on a schedule; safe to
+   * call at any time.
    */
   async removeStaleUploads(now = new Date()): Promise<{ removed: number }> {
     const hours = this.config.UPLOAD_RETENTION_HOURS;
     if (hours === 0) return { removed: 0 };
     const cutoff = new Date(now.getTime() - hours * 3_600_000);
     const stale = await this.prisma.fileObject.findMany({
-      where: { status: 'ACTIVE', entityId: null, createdAt: { lt: cutoff } },
+      where: {
+        status: 'ACTIVE',
+        createdAt: { lt: cutoff },
+        OR: [
+          { entityId: null },
+          // A document of a project is stored before its row is written; if that row never came
+          // to be (the process died in between), nothing lists the file and nothing removes it.
+          { purpose: 'FEASIBILITY_DOCUMENT', projectDocument: { is: null } },
+        ],
+      },
       select: { id: true, storageKey: true },
       take: 500,
     });
@@ -535,9 +576,23 @@ export class FilesService {
     return count;
   }
 
-  listForEntity(entityType: string, entityId: string): Promise<FileView[]> {
+  /**
+   * The files attached to a business record. A record whose files have several purposes names
+   * the ones it does not mean here with `except` (the documents of a feasibility project are
+   * listed by the project's own documents service, not with its attachments).
+   */
+  listForEntity(
+    entityType: string,
+    entityId: string,
+    except: readonly StoredPurpose[] = [],
+  ): Promise<FileView[]> {
     return this.prisma.fileObject.findMany({
-      where: { entityType, entityId, status: 'ACTIVE' },
+      where: {
+        entityType,
+        entityId,
+        status: 'ACTIVE',
+        ...(except.length > 0 ? { purpose: { notIn: [...except] } } : {}),
+      },
       select: VIEW_SELECT,
       orderBy: { createdAt: 'asc' },
     });

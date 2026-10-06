@@ -2,6 +2,7 @@ import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { PrismaService } from '../src/modules/database/prisma.service';
+import { FilesService } from '../src/modules/files/files.service';
 import { createTestApp, registerUser } from './helpers';
 
 interface Account {
@@ -464,5 +465,155 @@ describe('Documents of a feasibility project (e2e)', () => {
     await http().delete(`${projects}/${project.id}`).set(auth(owner.token)).expect(200);
     expect((await files()).map((row) => [row.status, row._count._all])).toEqual([['DELETED', 2]]);
     expect(await prisma().projectDocument.count({ where: { projectId: project.id } })).toBe(0);
+  });
+
+  it('keeps the documents apart from the attachments of the project', async () => {
+    const owner = await registerUser(app);
+    const project = await startedProject(owner);
+    await upload(owner, project.id, LICENSE).expect(201);
+    for (const account of [owner, officer]) {
+      const detail = await http().get(`${projects}/${project.id}`).set(auth(account.token));
+      expect(detail.body.data.attachments).toEqual([]);
+    }
+    // And they are no loose uploads the owner could delete or attach elsewhere.
+    const row = await prisma().projectDocument.findFirstOrThrow({
+      where: { projectId: project.id },
+    });
+    await http().delete(`/api/v1/files/${row.fileId}`).set(auth(owner.token)).expect(409);
+    await http()
+      .post('/api/v1/tickets')
+      .set(auth(owner.token))
+      .send({ subject: 'پیوست مدرک', message: 'متن پیام تیکت', attachmentIds: [row.fileId] })
+      .expect(400);
+  });
+
+  it('does not let an item go once a file of it was submitted', async () => {
+    const owner = await registerUser(app);
+    const project = await startedProject(owner);
+    const item = async (actor: Account, body: object) => {
+      const res = await http()
+        .post(`${projects}/${project.id}/questionnaire/items`)
+        .set(auth(actor.token))
+        .send(body)
+        .expect(201);
+      return (res.body.data.items as { id: string; key: string }[]).at(-1)!;
+    };
+    const removeItem = (actor: Account, itemId: string) =>
+      http()
+        .delete(`${projects}/${project.id}/questionnaire/items/${itemId}`)
+        .set(auth(actor.token));
+    const mine = await item(owner, { kind: 'DOCUMENT', document: { label: 'قرارداد مشارکت' } });
+    const theirs = await item(officer, { kind: 'DOCUMENT', document: { label: 'استعلام برق' } });
+    const empty = await item(owner, { kind: 'DOCUMENT', document: { label: 'بدون فایل' } });
+    await upload(owner, project.id, { kind: 'DOCUMENT', key: mine.key }).expect(201);
+    await upload(owner, project.id, { kind: 'DOCUMENT', key: theirs.key }).expect(201);
+    await upload(owner, project.id, LICENSE).expect(201);
+    await upload(owner, project.id, DRAWINGS).expect(201);
+    await move(owner, project.id, 'SUBMITTED').expect(200);
+
+    // Staff may still change the questionnaire while they review, but not destroy what they were sent.
+    await removeItem(officer, theirs.id).expect(409);
+    await move(officer, project.id, 'INITIAL_REVIEW').expect(200);
+    await move(officer, project.id, 'NEEDS_MORE_INFO').expect(200);
+    await removeItem(owner, mine.id).expect(409);
+    // An item without a submitted file still goes.
+    await removeItem(owner, empty.id).expect(200);
+    expect(await prisma().projectDocument.count({ where: { projectId: project.id } })).toBe(4);
+    expect(
+      await prisma().fileObject.count({ where: { entityId: project.id, status: 'ACTIVE' } }),
+    ).toBe(4);
+  });
+
+  it('caps the bytes of all documents of one applicant', async () => {
+    const owner = await registerUser(app);
+    const project = await startedProject(owner);
+    await upload(owner, project.id, LICENSE).expect(201);
+    const row = await prisma().projectDocument.findFirstOrThrow({
+      where: { projectId: project.id },
+    });
+    // As if the applicant had filled their share, in whichever project.
+    await prisma().fileObject.update({
+      where: { id: row.fileId },
+      data: { size: 1024 * 1024 * 1024 - 10 },
+    });
+    const full = await upload(owner, project.id, LICENSE).expect(413);
+    expect(full.body.error.message).toContain('سقف');
+    expect(await prisma().projectDocument.count({ where: { projectId: project.id } })).toBe(1);
+    // Another applicant has their own share.
+    const other = await registerUser(app);
+    const theirs = await startedProject(other);
+    await upload(other, theirs.id, LICENSE).expect(201);
+  });
+
+  it('forgets a file that staff deleted through the files module', async () => {
+    const owner = await registerUser(app);
+    const admin = await registerUser(app, ['admin']);
+    const project = await startedProject(owner);
+    await upload(owner, project.id, LICENSE).expect(201);
+    await upload(owner, project.id, DRAWINGS).expect(201);
+    const rows = await prisma().projectDocument.findMany({ where: { projectId: project.id } });
+    const fileOf = (kind: string) => rows.find((row) => row.kind === kind)!.fileId;
+    // An admin sees the documents among all files and may remove unlawful content.
+    const browser = await http()
+      .get('/api/v1/files?purpose=FEASIBILITY_DOCUMENT&pageSize=100')
+      .set(auth(admin.token))
+      .expect(200);
+    expect((browser.body.data as { id: string }[]).map((file) => file.id)).toEqual(
+      expect.arrayContaining([fileOf('DOCUMENT'), fileOf('ANSWER')]),
+    );
+    await http()
+      .delete(`/api/v1/files/${fileOf('DOCUMENT')}`)
+      .set(auth(admin.token))
+      .expect(200);
+    await http()
+      .delete(`/api/v1/files/${fileOf('ANSWER')}`)
+      .set(auth(admin.token))
+      .expect(200);
+
+    // Neither is a file of the project any more: not listed, not opened, not counted as handed in.
+    const list = await documents(owner, project.id).expect(200);
+    expect(slotOf(list.body, 'license').files).toEqual([]);
+    expect(slotOf(list.body, 'drawings').files).toEqual([]);
+    const documentRow = rows.find((row) => row.kind === 'DOCUMENT')!;
+    await link(owner, project.id, documentRow.id).expect(404);
+    const questionnaire = await http()
+      .get(`${projects}/${project.id}/questionnaire`)
+      .set(auth(owner.token))
+      .expect(200);
+    expect(questionnaire.body.data.missingDocuments).toEqual([
+      { key: 'license', label: 'جواز تأسیس' },
+    ]);
+    const refused = await move(owner, project.id, 'SUBMITTED').expect(400);
+    expect(
+      (refused.body.error.details as { path: string }[]).map((detail) => detail.path).sort(),
+    ).toEqual(['answers.drawings', 'documents.license']);
+    // Handing them in again makes the project whole.
+    await upload(owner, project.id, LICENSE).expect(201);
+    await upload(owner, project.id, DRAWINGS).expect(201);
+    await move(owner, project.id, 'SUBMITTED').expect(200);
+  });
+
+  it('sweeps a document whose row never came to be', async () => {
+    const owner = await registerUser(app);
+    const project = await startedProject(owner);
+    await upload(owner, project.id, LICENSE).expect(201);
+    const kept = await prisma().projectDocument.findFirstOrThrow({
+      where: { projectId: project.id },
+      include: { file: true },
+    });
+    const old = new Date(Date.now() - 30 * 24 * 3_600_000);
+    // A file stored for the project whose row was never written, long ago.
+    const { id: _id, ...copy } = kept.file;
+    const orphan = await prisma().fileObject.create({
+      data: { ...copy, storageKey: `${kept.file.storageKey}-orphan`, createdAt: old },
+    });
+    // A real document of the same age stays.
+    await prisma().fileObject.update({ where: { id: kept.fileId }, data: { createdAt: old } });
+
+    await app.get(FilesService).removeStaleUploads();
+    const status = async (id: string) =>
+      (await prisma().fileObject.findUniqueOrThrow({ where: { id } })).status;
+    expect(await status(orphan.id)).toBe('DELETED');
+    expect(await status(kept.fileId)).toBe('ACTIVE');
   });
 });

@@ -1,12 +1,14 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import {
   FEASIBILITY_EDITABLE_STATUSES,
+  MAX_APPLICANT_DOCUMENT_BYTES,
   MAX_DOCUMENT_VERSIONS,
   MAX_PROJECT_DOCUMENT_FILES,
   QUESTIONNAIRE_LIMITS,
   type ProjectDocumentSlotInput,
 } from '@roshd/validation';
 import {
+  AppException,
   ConflictError,
   ForbiddenError,
   NotFoundError,
@@ -71,6 +73,8 @@ export interface ProjectDocumentsView {
  */
 @Injectable()
 export class ProjectDocumentsService {
+  private readonly logger = new Logger(ProjectDocumentsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
@@ -84,7 +88,7 @@ export class ProjectDocumentsService {
     const relation = await this.projects.relationOf(id, principal);
     const questionnaire = await this.reader.load(this.prisma, id);
     if (!questionnaire) throw new NotFoundError();
-    const rows = await this.prisma.projectDocument.findMany({
+    const all = await this.prisma.projectDocument.findMany({
       where: { projectId: id },
       orderBy: [{ version: 'desc' }, { id: 'desc' }],
       select: {
@@ -92,10 +96,16 @@ export class ProjectDocumentsService {
         kind: true,
         slotKey: true,
         version: true,
+        fileId: true,
         uploadedById: true,
         createdAt: true,
-        file: { select: { originalName: true, mimeType: true, size: true } },
       },
+    });
+    // A file staff deleted through the files module is no longer a version anybody can open.
+    const files = await this.files.viewsOf(all.map((row) => row.fileId));
+    const rows = all.flatMap((row) => {
+      const file = files.get(row.fileId);
+      return file ? [{ ...row, file }] : [];
     });
     const open = relation.owner && isOpen(questionnaire.status);
     const since = open ? await this.lastSubmission(this.prisma, id) : null;
@@ -110,7 +120,9 @@ export class ProjectDocumentsService {
           .map((row) => ({
             id: row.id,
             version: row.version,
-            ...row.file,
+            originalName: row.file.originalName,
+            mimeType: row.file.mimeType,
+            size: row.file.size,
             uploadedAt: row.createdAt,
             removable: open && (since === null || row.createdAt > since),
             ...(names ? { uploadedBy: staffRef(row.uploadedById, names) } : {}),
@@ -134,6 +146,13 @@ export class ProjectDocumentsService {
     const before = await this.reader.load(this.prisma, id);
     if (!before) throw new NotFoundError();
     await this.assertRoom(this.prisma, id, before, input);
+    const used = await this.files.bytesOf(principal.userId, 'FEASIBILITY_DOCUMENT');
+    if (used + (file?.size ?? 0) > MAX_APPLICANT_DOCUMENT_BYTES) {
+      throw new AppException(
+        'PAYLOAD_TOO_LARGE',
+        'حجم مدارک بارگذاری‌شده شما به سقف مجاز رسیده است. برای افزایش آن با پشتیبانی تماس بگیرید.',
+      );
+    }
 
     const stored = await this.files.uploadForEntity(
       principal,
@@ -164,10 +183,13 @@ export class ProjectDocumentsService {
         return next;
       });
     } catch (error) {
-      // The file was stored for a row that did not come to be.
-      await this.files.removeOfEntity({ entityType: FILE_ENTITY, entityId: id }, principal, meta, [
-        stored.id,
-      ]);
+      // The file was stored for a row that did not come to be. If it cannot be removed now, the
+      // sweep of the files collects it; either way the caller hears why the upload failed.
+      await this.files
+        .removeOfEntity({ entityType: FILE_ENTITY, entityId: id }, principal, meta, [stored.id])
+        .catch((cleanup: unknown) => {
+          this.logger.warn({ err: cleanup, fileId: stored.id }, 'refused document not removed');
+        });
       throw error;
     }
     await this.audit.record({
@@ -211,9 +233,12 @@ export class ProjectDocumentsService {
       if (row.kind === 'ANSWER') await this.syncAnswer(tx, id, row.slotKey, principal.userId);
       return row;
     });
-    await this.files.removeOfEntity({ entityType: FILE_ENTITY, entityId: id }, principal, meta, [
-      removed.fileId,
-    ]);
+    await this.files
+      .removeOfEntity({ entityType: FILE_ENTITY, entityId: id }, principal, meta, [removed.fileId])
+      .catch((error: unknown) => {
+        // The row is gone, so the file is no document any more; the sweep collects the bytes.
+        this.logger.warn({ err: error, fileId: removed.fileId }, 'removed document not deleted');
+      });
     await this.audit.record({
       action: 'feasibility_project.document_removed',
       actorId: principal.userId,
@@ -238,17 +263,21 @@ export class ProjectDocumentsService {
   ): Promise<{ url: string; expiresAt: Date }> {
     await this.projects.relationOf(id, principal);
     const row = await this.prisma.projectDocument.findFirst({
-      where: { id: documentId, projectId: id, file: { status: 'ACTIVE' } },
+      where: { id: documentId, projectId: id },
       select: { fileId: true },
     });
-    if (!row) throw new NotFoundError();
+    if (!row || !(await this.files.activeIds([row.fileId])).has(row.fileId)) {
+      throw new NotFoundError();
+    }
     return this.files.signedUrlOf(row.fileId);
   }
 
   /**
-   * The files of a document or file question that left the questionnaire of a project (its item
-   * was removed) go with it. Called inside the caller's transaction; returns the file ids for
-   * `discard`, which runs after the commit.
+   * The files of a document or file question that leaves the questionnaire of a project (its
+   * item is removed) go with it — unless one of them was already sent to the reviewers: what was
+   * submitted stays, so the removal of the item is refused (409). Called inside the caller's
+   * transaction, under the lock of the project; returns the file ids for `discard`, which runs
+   * after the commit.
    */
   async detach(
     tx: Prisma.TransactionClient,
@@ -257,8 +286,15 @@ export class ProjectDocumentsService {
   ): Promise<string[]> {
     const rows = await tx.projectDocument.findMany({
       where: { projectId, slotKey },
-      select: { fileId: true },
+      select: { fileId: true, createdAt: true },
     });
+    if (rows.length === 0) return [];
+    const since = await this.lastSubmission(tx, projectId);
+    if (since !== null && rows.some((row) => row.createdAt <= since)) {
+      throw new ConflictError(
+        'برای این مورد فایلی بارگذاری شده که برای بررسی ارسال شده است؛ چنین موردی برداشته نمی‌شود.',
+      );
+    }
     await tx.projectDocument.deleteMany({ where: { projectId, slotKey } });
     return rows.map((row) => row.fileId);
   }
@@ -330,11 +366,13 @@ export class ProjectDocumentsService {
     questionKey: string,
     userId: string,
   ): Promise<void> {
-    const rows = await tx.projectDocument.findMany({
+    const all = await tx.projectDocument.findMany({
       where: { projectId, kind: 'ANSWER', slotKey: questionKey },
       orderBy: { version: 'asc' },
       select: { fileId: true },
     });
+    const active = await this.files.activeIds(all.map((row) => row.fileId));
+    const rows = all.filter((row) => active.has(row.fileId));
     if (rows.length === 0) {
       await tx.questionnaireAnswer.deleteMany({ where: { projectId, questionKey } });
       return;
