@@ -38,6 +38,7 @@ import {
   type FeasibilityActor,
   type FeasibilityStatus,
 } from './domain/feasibility-status';
+import { QuestionnaireReader } from './questionnaire-reader';
 
 const MANAGE_PERMISSION = 'feasibility:manage';
 /** Permission an assigned expert must hold. */
@@ -114,7 +115,7 @@ const isEditable = (status: FeasibilityStatus): boolean =>
   (FEASIBILITY_EDITABLE_STATUSES as readonly FeasibilityStatus[]).includes(status);
 
 /** The caller's relations to a project; at least one holds for a visible project. */
-interface Relation {
+export interface ProjectRelation {
   owner: boolean;
   manager: boolean;
   expert: boolean;
@@ -142,6 +143,7 @@ export class FeasibilityProjectsService {
     private readonly users: UsersService,
     private readonly files: FilesService,
     private readonly requests: ServiceRequestsService,
+    private readonly questionnaire: QuestionnaireReader,
   ) {}
 
   async list(
@@ -223,7 +225,7 @@ export class FeasibilityProjectsService {
     principal: Principal,
     meta: RequestMeta,
   ): Promise<FeasibilityProjectDetail> {
-    const relation = await this.visible(id, principal);
+    const relation = await this.relationOf(id, principal);
     if (!relation.owner) {
       throw new ForbiddenError('فقط متقاضی مشخصات پروژه را تغییر می‌دهد.');
     }
@@ -259,7 +261,7 @@ export class FeasibilityProjectsService {
    * kept with its history, and one made from a request belongs to that request.
    */
   async remove(id: string, principal: Principal, meta: RequestMeta): Promise<void> {
-    const relation = await this.visible(id, principal);
+    const relation = await this.relationOf(id, principal);
     if (!relation.owner) throw new ForbiddenError('فقط متقاضی پیش‌نویس خودش را حذف می‌کند.');
     const { count } = await this.prisma.feasibilityProject.deleteMany({
       where: { id, status: 'DRAFT', sourceRequestId: null },
@@ -378,7 +380,7 @@ export class FeasibilityProjectsService {
   }
 
   async get(id: string, principal: Principal): Promise<FeasibilityProjectDetail> {
-    const relation = await this.visible(id, principal);
+    const relation = await this.relationOf(id, principal);
     const project = await this.prisma.feasibilityProject.findUnique({
       where: { id },
       select: {
@@ -458,7 +460,7 @@ export class FeasibilityProjectsService {
     principal: Principal,
     meta: RequestMeta,
   ): Promise<FeasibilityProjectDetail> {
-    const relation = await this.visible(id, principal);
+    const relation = await this.relationOf(id, principal);
     const current = await this.prisma.feasibilityProject.findUnique({
       where: { id },
       select: {
@@ -491,6 +493,14 @@ export class FeasibilityProjectsService {
 
     // Conditional update: a concurrent change makes this a no-op and is reported as a conflict.
     const updated = await this.prisma.$transaction(async (tx) => {
+      if (decision.to === 'SUBMITTED') {
+        // Under the lock the answers are saved with, so what is checked is what is submitted.
+        await this.lock(tx, id);
+        const open = await this.questionnaire.incomplete(tx, id);
+        if (open.length > 0) {
+          throw new ValidationFailedError(open, 'پرسشنامه پروژه کامل نیست.');
+        }
+      }
       const { count } = await tx.feasibilityProject.updateMany({
         where: {
           id,
@@ -683,7 +693,7 @@ export class FeasibilityProjectsService {
     id: string,
     actor: Principal,
   ): Promise<{ ownerId: string; code: string; title: string; status: FeasibilityStatus }> {
-    const relation = await this.visible(id, actor);
+    const relation = await this.relationOf(id, actor);
     if (relation.owner || !relation.manager) throw new ForbiddenError();
     const project = await this.prisma.feasibilityProject.findUnique({
       where: { id },
@@ -694,7 +704,7 @@ export class FeasibilityProjectsService {
   }
 
   /** Locks the project row until the transaction ends and returns its status; 404 when gone. */
-  private async lock(tx: Prisma.TransactionClient, id: string): Promise<FeasibilityStatus> {
+  async lock(tx: Prisma.TransactionClient, id: string): Promise<FeasibilityStatus> {
     const rows = await tx.$queryRaw<
       { status: FeasibilityStatus }[]
     >`SELECT "status"::text AS "status" FROM "feasibility_projects" WHERE "id" = ${id}::uuid FOR UPDATE`;
@@ -704,7 +714,7 @@ export class FeasibilityProjectsService {
   }
 
   /** The caller's relations to a project; 404 when there is none (the project may not exist). */
-  private async visible(id: string, principal: Principal): Promise<Relation> {
+  async relationOf(id: string, principal: Principal): Promise<ProjectRelation> {
     const expert = hasPermission(principal, EXPERT_PERMISSION);
     const project = await this.prisma.feasibilityProject.findUnique({
       where: { id },
@@ -718,7 +728,7 @@ export class FeasibilityProjectsService {
         },
       },
     });
-    const relation: Relation = {
+    const relation: ProjectRelation = {
       owner: project?.ownerId === principal.userId,
       manager: project !== null && hasPermission(principal, MANAGE_PERMISSION),
       expert: expert && (project?.experts.length ?? 0) > 0,

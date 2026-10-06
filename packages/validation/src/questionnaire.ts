@@ -54,6 +54,7 @@ export const QUESTIONNAIRE_LIMITS = {
 export const QUESTIONNAIRE_MESSAGES = {
   key: 'کلید فقط حروف کوچک انگلیسی، عدد و زیرخط دارد و با حرف شروع می‌شود.',
   duplicateKey: 'این کلید پیش‌تر در همین قالب به کار رفته است.',
+  reservedKey: 'کلیدهایی که با item_ شروع می‌شوند برای موارد اختصاصی پروژه‌ها نگه داشته شده‌اند.',
   duplicateOption: 'این گزینه تکراری است.',
   range: 'کمینه نباید از بیشینه بزرگ‌تر باشد.',
   required: MESSAGES.required,
@@ -84,6 +85,12 @@ const L = QUESTIONNAIRE_LIMITS;
 export const questionnaireKeySchema = z
   .string({ error: M.required })
   .regex(/^[a-z][a-z0-9_]{0,59}$/, { error: M.key });
+
+/**
+ * Keys of the questions and documents a project has beside its template start with this, and no
+ * key of a template does, so the two never meet whichever comes first.
+ */
+export const PROJECT_ITEM_KEY_PREFIX = 'item_';
 
 const isoDateSchema = z
   .string({ error: M.date })
@@ -257,6 +264,9 @@ function definitionIssues(definition: {
       total += 1;
       if (seen.has(question.key)) issues.push({ path: [...path, 'key'], message: M.duplicateKey });
       seen.add(question.key);
+      if (question.key.startsWith(PROJECT_ITEM_KEY_PREFIX)) {
+        issues.push({ path: [...path, 'key'], message: M.reservedKey });
+      }
       rules(question, path);
       if (question.type === 'table') {
         unique(
@@ -279,6 +289,11 @@ function definitionIssues(definition: {
     (i) => ['documents', i, 'key'],
     M.duplicateKey,
   );
+  definition.documents.forEach((document, d) => {
+    if (document.key.startsWith(PROJECT_ITEM_KEY_PREFIX)) {
+      issues.push({ path: ['documents', d, 'key'], message: M.reservedKey });
+    }
+  });
   return issues;
 }
 

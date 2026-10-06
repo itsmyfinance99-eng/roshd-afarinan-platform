@@ -19,3 +19,4 @@ export * from './financial-model-input';
 export * from './financial-model-labels';
 export * from './feasibility';
 export * from './questionnaire';
+export * from './questionnaire-requests';
