@@ -908,25 +908,35 @@ describe('Feasibility projects (e2e)', () => {
       // The second one is being reviewed: it stays in the queue, behind what waits longer.
       await move(officer, second.id, 'INITIAL_REVIEW').expect(200);
 
-      const queue = await http()
-        .get(`${base}?scope=all&queue=review&pageSize=100`)
-        .set(auth(officer.token))
-        .expect(200);
-      const mine = (queue.body.data as { id: string; status: string }[]).filter((item) =>
+      // The whole queue, however many projects the other tests left waiting in it.
+      const queued = async (filter = '') => {
+        const items: { id: string; status: string }[] = [];
+        for (let page = 1; ; page += 1) {
+          const res = await http()
+            .get(`${base}?scope=all&queue=review${filter}&pageSize=100&page=${page}`)
+            .set(auth(officer.token))
+            .expect(200);
+          const data = res.body.data as { id: string; status: string }[];
+          items.push(...data);
+          if (data.length < 100) return items;
+        }
+      };
+      const mine = (await queued()).filter((item) =>
         [first.id, second.id, draft.id, done.id].includes(item.id),
       );
       expect(mine.map((item) => [item.id, item.status])).toEqual([
         [first.id, 'SUBMITTED'],
         [second.id, 'INITIAL_REVIEW'],
       ]);
-      // A status narrows the queue further.
-      const waiting = await http()
-        .get(`${base}?scope=all&queue=review&status=SUBMITTED&pageSize=100`)
+      // A status narrows the queue further, and one outside the queue leaves nothing of it.
+      const waiting = (await queued('&status=SUBMITTED')).map((item) => item.id);
+      expect(waiting).toContain(first.id);
+      expect(waiting).not.toContain(second.id);
+      const outside = await http()
+        .get(`${base}?scope=all&queue=review&status=NEEDS_MORE_INFO`)
         .set(auth(officer.token))
         .expect(200);
-      expect((waiting.body.data as { id: string }[]).map((item) => item.id)).not.toContain(
-        second.id,
-      );
+      expect(outside.body.data).toEqual([]);
 
       // The queue is the staff's: not the applicant's list, not an expert's.
       await http().get(`${base}?queue=review`).set(auth(owner.token)).expect(400);
@@ -981,12 +991,46 @@ describe('Feasibility projects (e2e)', () => {
         .set(auth(owner.token))
         .send({ summary: 'ظرفیت اسمی: صد هزار تن در سال' })
         .expect(200);
+      // Closing what waits for the applicant is explained as well.
+      await move(officer, id, 'ARCHIVED').expect(400);
       await move(owner, id, 'SUBMITTED').expect(200);
 
       // Closing with a reason; the applicant cannot take the staff's steps.
       await move(officer, id, 'INITIAL_REVIEW').expect(200);
       await move(owner, id, 'ARCHIVED', 'منصرف شدم').expect(403);
       await move(officer, id, 'ARCHIVED', 'طرح در حوزه فعالیت ما نیست.').expect(200);
+      expect(await statusOf(id)).toBe('ARCHIVED');
+    });
+
+    it('cuts a long note in the notification between characters', async () => {
+      const owner = await registerUser(app);
+      const officer = await registerUser(app, ['feasibility_officer']);
+      const { id } = await createProject(owner);
+      await move(owner, id, 'SUBMITTED').expect(200);
+      await move(officer, id, 'INITIAL_REVIEW').expect(200);
+      // The cut would fall in the middle of the last sign if it counted code units.
+      const note = `${'م'.repeat(298)}📎📎 ادامه یادداشت`;
+      await move(officer, id, 'NEEDS_MORE_INFO', note).expect(200);
+      const { body } = await prisma().notification.findFirstOrThrow({
+        where: { userId: owner.id, kind: 'feasibility_project.status_changed' },
+        orderBy: { createdAt: 'desc' },
+      });
+      expect(body).toBe(`${'م'.repeat(298)}📎…`);
+      // The whole note stays on the project.
+      const mine = await http().get(`${base}/${id}`).set(auth(owner.token)).expect(200);
+      expect(mine.body.data.events.at(-1)).toMatchObject({ note });
+    });
+
+    it('lets the applicant decline the cost estimate without a note', async () => {
+      const owner = await registerUser(app);
+      const officer = await registerUser(app, ['feasibility_officer']);
+      const { id } = await createProject(owner);
+      await move(owner, id, 'SUBMITTED').expect(200);
+      await move(officer, id, 'INITIAL_REVIEW').expect(200);
+      await move(officer, id, 'COST_ESTIMATED').expect(200);
+      // The note is the staff's duty: they explain a closing, the applicant need not.
+      await move(officer, id, 'ARCHIVED').expect(400);
+      await move(owner, id, 'ARCHIVED').expect(200);
       expect(await statusOf(id)).toBe('ARCHIVED');
     });
   });

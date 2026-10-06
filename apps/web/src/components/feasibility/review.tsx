@@ -3,6 +3,7 @@
 import { Button, ErrorMessage, FieldShell, SuccessMessage, TextArea } from '@roshd/ui';
 import {
   FEASIBILITY_NOTE_MAX,
+  FEASIBILITY_REVIEW_QUEUE_STATUSES,
   FEASIBILITY_STAFF_NOTE_REQUIRED,
   type FeasibilityStatus,
 } from '@roshd/validation';
@@ -51,12 +52,18 @@ export function ReviewActions({
 
   if (steps.length === 0) return done ? <SuccessMessage>{done}</SuccessMessage> : null;
 
+  // After the intake only archiving is left here, and a delivered study needs no reason.
+  const intake = (FEASIBILITY_REVIEW_QUEUE_STATUSES as readonly FeasibilityStatus[]).includes(
+    project.status,
+  );
+  const noteOptional = project.status === 'DELIVERED';
+
   const take = async (step: (typeof STEPS)[number]) => {
     setError(null);
     setDone(null);
     const text = note.trim();
     // A delivered study is filed away without a reason; every other archive has one.
-    if (needsNote(step.to) && project.status !== 'DELIVERED' && text === '') {
+    if (needsNote(step.to) && !noteOptional && text === '') {
       setNoteError(
         step.to === 'NEEDS_MORE_INFO'
           ? 'بنویسید چه اطلاعات یا مدرکی لازم است.'
@@ -84,8 +91,10 @@ export function ReviewActions({
       onChanged();
       return;
     }
-    setNoteError(result.details.find((detail) => detail.path === 'note')?.message);
+    const refusedNote = result.details.find((detail) => detail.path === 'note')?.message;
+    setNoteError(refusedNote);
     setError(result.message);
+    if (refusedNote) document.getElementById('review-note')?.focus();
   };
 
   return (
@@ -96,12 +105,18 @@ export function ReviewActions({
       className="flex flex-col gap-3 rounded-card border border-line p-4"
     >
       <h2 id="review-title" className="text-base font-extrabold text-brand-900">
-        بررسی اولیه
+        {intake ? 'بررسی اولیه' : 'بایگانی پروژه'}
       </h2>
       <FieldShell
         id="review-note"
         label="یادداشت برای متقاضی"
-        hint="متقاضی این یادداشت را در روند پروژه و در اعلان می‌خواند. برای درخواست اطلاعات تکمیلی و بایگانی لازم است."
+        hint={
+          noteOptional
+            ? 'متقاضی این یادداشت را در روند پروژه و در اعلان می‌خواند. نوشتن آن اختیاری است.'
+            : intake
+              ? 'متقاضی این یادداشت را در روند پروژه و در اعلان می‌خواند. برای درخواست اطلاعات تکمیلی و بایگانی لازم است.'
+              : 'متقاضی این یادداشت را در روند پروژه و در اعلان می‌خواند. برای بایگانی لازم است.'
+        }
         error={noteError}
       >
         <TextArea

@@ -48,6 +48,13 @@ const EXPERT_PERMISSION = 'feasibility:work';
 const MAX_CODE_ATTEMPTS = 5;
 /** How much of the note of a step a notification carries; the whole note is on the project. */
 const NOTICE_NOTE_MAX = 300;
+/** The part of a note a notification carries: cut between characters, and marked as cut. */
+const noticeNote = (note: string): string => {
+  const characters = Array.from(note);
+  return characters.length > NOTICE_NOTE_MAX
+    ? `${characters.slice(0, NOTICE_NOTE_MAX - 1).join('')}…`
+    : note;
+};
 const ARCHIVED_PROJECT = 'پروژه بایگانی‌شده تغییر نمی‌کند.';
 
 /** Under which name the files of a project are attached to it. */
@@ -174,10 +181,13 @@ export class FeasibilityProjectsService {
         { path: 'queue', message: 'صف بررسی فقط برای همه پروژه‌ها (scope=all) است.' },
       ]);
     }
+    // A status narrows the queue and never widens it: one outside the queue matches nothing.
+    const queued = FEASIBILITY_REVIEW_QUEUE_STATUSES.filter(
+      (status) => !query.status || status === query.status,
+    );
     const where: Prisma.FeasibilityProjectWhereInput = {
       ...scope,
-      ...(queue ? { status: { in: [...FEASIBILITY_REVIEW_QUEUE_STATUSES] } } : {}),
-      ...(query.status ? { status: query.status } : {}),
+      ...(queue ? { status: { in: queued } } : query.status ? { status: query.status } : {}),
       ...(query.sourceRequestId ? { sourceRequestId: query.sourceRequestId } : {}),
     };
     const [rows, total] = await this.prisma.$transaction([
@@ -703,7 +713,7 @@ export class FeasibilityProjectsService {
       kind: 'feasibility_project.status_changed',
       title: `وضعیت پروژه ${project.code}: ${label}`,
       // The note of the step is written for the other parties; without one, the project is named.
-      body: note ? note.slice(0, NOTICE_NOTE_MAX) : project.title,
+      body: note ? noticeNote(note) : project.title,
     };
     if (project.ownerId !== actorId) {
       await this.inbox.notifyUsers(

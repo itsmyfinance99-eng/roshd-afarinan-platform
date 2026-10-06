@@ -196,6 +196,13 @@ test.describe('the intake review of feasibility projects', () => {
     await page.getByRole('button', { name: 'بایگانی پروژه' }).click();
     await expect(page.getByText('پروژه بایگانی شد.')).toBeVisible();
     expect(sent.at(-1)).toEqual({ to: 'ARCHIVED', note: 'طرح در حوزه فعالیت ما نیست.' });
+    // Nothing went out for the steps without a note or for the dismissed confirmation.
+    expect(sent.map((body) => body.to)).toEqual([
+      'INITIAL_REVIEW',
+      'NEEDS_MORE_INFO',
+      'NEEDS_MORE_INFO',
+      'ARCHIVED',
+    ]);
     // Nothing is left to do with an archived project.
     await expect(page.getByLabel('یادداشت برای متقاضی')).toHaveCount(0);
   });
