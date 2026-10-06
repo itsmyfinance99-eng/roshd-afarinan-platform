@@ -2246,6 +2246,7 @@ epics:
         sprint: S20
         points: 8
         priority: critical
+        status: done
         area: [web]
         depends: [ST-35.03, ST-35.02]
         story: 'به‌عنوان متقاضی می‌خواهم پرسشنامه را مرحله‌به‌مرحله پر کنم و کارم ذخیره شود.'

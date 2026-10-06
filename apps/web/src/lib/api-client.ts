@@ -38,7 +38,13 @@ function refreshSession(): Promise<boolean> {
   return refreshing;
 }
 
-async function send(path: string, method: Method, body: unknown, signal?: AbortSignal) {
+async function send(
+  path: string,
+  method: Method,
+  body: unknown,
+  signal?: AbortSignal,
+  keepalive?: boolean,
+) {
   const isForm = typeof FormData !== 'undefined' && body instanceof FormData;
   return fetch(`/api/v1${path}`, {
     method,
@@ -51,6 +57,8 @@ async function send(path: string, method: Method, body: unknown, signal?: AbortS
     },
     body: body === undefined ? undefined : isForm ? body : JSON.stringify(body),
     signal,
+    // Lets a last save finish although the page that sent it is going away.
+    ...(keepalive ? { keepalive: true } : {}),
   });
 }
 
@@ -60,14 +68,21 @@ async function send(path: string, method: Method, body: unknown, signal?: AbortS
  */
 export async function apiFetch<T>(
   path: string,
-  init: { method?: Method; body?: unknown; signal?: AbortSignal; retryAuth?: boolean } = {},
+  init: {
+    method?: Method;
+    body?: unknown;
+    signal?: AbortSignal;
+    retryAuth?: boolean;
+    keepalive?: boolean;
+  } = {},
 ): Promise<ApiResult<T>> {
   const method = init.method ?? 'GET';
   let response: Response;
   try {
-    response = await send(path, method, init.body, init.signal);
+    response = await send(path, method, init.body, init.signal, init.keepalive);
     if (response.status === 401 && init.retryAuth !== false && !path.startsWith('/auth/')) {
-      if (await refreshSession()) response = await send(path, method, init.body, init.signal);
+      if (await refreshSession())
+        response = await send(path, method, init.body, init.signal, init.keepalive);
     }
   } catch {
     return { ok: false, status: 0, code: 'NETWORK_ERROR', message: NETWORK_MESSAGE, details: [] };

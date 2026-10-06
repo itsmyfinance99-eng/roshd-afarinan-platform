@@ -13,6 +13,7 @@ import {
   ProjectTimeline,
 } from '@/components/feasibility/parts';
 import type { FeasibilityProjectDetail } from '@/components/feasibility/types';
+import { QuestionnaireCard } from '@/components/questionnaires/card';
 import { apiFetch } from '@/lib/api-client';
 import { useApi } from '@/lib/use-api';
 
@@ -124,6 +125,7 @@ function ProjectView({
               </p>
             ) : null}
             <ProjectAttachments project={project} />
+            <QuestionnaireCard key={project.status} projectId={project.id} />
             {message ? (
               message.ok ? (
                 <SuccessMessage>{message.text}</SuccessMessage>
@@ -183,12 +185,15 @@ function SubmitForReview({
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
+  /** The questionnaire still has open questions; the way to it is offered with the error. */
+  const [incomplete, setIncomplete] = useState(false);
   const again = project.status !== 'DRAFT';
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setBusy(true);
     setErrors([]);
+    setIncomplete(false);
     const result = await apiFetch(`/feasibility-projects/${project.id}/transitions`, {
       method: 'POST',
       body: { to: 'SUBMITTED', note: note.trim() || undefined },
@@ -198,7 +203,16 @@ function SubmitForReview({
       onDone();
       return;
     }
-    setErrors(result.details.length ? result.details.map((d) => d.message) : [result.message]);
+    const open = result.details.filter((d) => d.path.startsWith('answers.')).length;
+    const others = result.details.filter((d) => !d.path.startsWith('answers.'));
+    setIncomplete(open > 0);
+    setErrors(
+      open > 0
+        ? [result.message, ...others.map((d) => d.message)]
+        : others.length
+          ? others.map((d) => d.message)
+          : [result.message],
+    );
   };
 
   return (
@@ -234,6 +248,16 @@ function SubmitForReview({
             </ul>
           )}
         </ErrorMessage>
+      ) : null}
+      {incomplete ? (
+        <p className="text-sm">
+          <Link
+            href={`/dashboard/feasibility/${project.id}/questionnaire?check=1`}
+            className="font-bold"
+          >
+            رفتن به پرسشنامه و تکمیل سؤال‌های مانده ‹
+          </Link>
+        </p>
       ) : null}
       <div>
         <Button type="submit" disabled={busy}>
