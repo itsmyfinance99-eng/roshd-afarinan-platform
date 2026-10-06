@@ -937,6 +937,7 @@ describe('Feasibility projects (e2e)', () => {
         .set(auth(officer.token))
         .expect(200);
       expect(outside.body.data).toEqual([]);
+      expect(outside.body.meta.total).toBe(0);
 
       // The queue is the staff's: not the applicant's list, not an expert's.
       await http().get(`${base}?queue=review`).set(auth(owner.token)).expect(400);
