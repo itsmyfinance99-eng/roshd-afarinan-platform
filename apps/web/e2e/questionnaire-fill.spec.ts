@@ -166,7 +166,7 @@ test.describe('the questionnaire of a project for its applicant', () => {
     await expect(page.getByRole('heading', { name: 'متقاضی' })).toBeFocused();
     await page.getByLabel('سهامی خاص').check();
     await page.getByRole('button', { name: 'افزودن سطر به «سهامداران»' }).click();
-    const row = page.getByRole('listitem', { name: 'سطر ۱' });
+    const row = page.getByRole('group', { name: 'سطر ۱' });
     await row.getByLabel('نام سهامدار').fill('رضا کریمی');
     await row.getByLabel('درصد سهم').fill('60');
     await expect
@@ -207,7 +207,7 @@ test.describe('the questionnaire of a project for its applicant', () => {
     await expect(page.getByLabel('محصول اصلی')).toHaveValue('کنسانتره');
     await page.getByLabel(/^ظرفیت اسمی/).fill('-5');
     await expect(page.getByText('مقدار نباید کمتر از ۰ باشد.')).toBeVisible();
-    await expect(page.getByText('پاسخ‌های نادرست ذخیره نشد؛ آن‌ها را اصلاح کنید.')).toBeVisible();
+    await expect(page.getByText('۱ پاسخ نیاز به اصلاح دارد و ذخیره نشده است.')).toBeVisible();
     expect(saves).toEqual([]);
     await expect(page.getByRole('button', { name: /۱\. مشخصات طرح · خطا/ })).toBeVisible();
 
@@ -224,7 +224,7 @@ test.describe('the questionnaire of a project for its applicant', () => {
     // A cell of a table carries its own message.
     await page.getByRole('button', { name: 'مرحله بعد' }).click();
     await page.getByRole('button', { name: 'افزودن سطر به «سهامداران»' }).click();
-    const row = page.getByRole('listitem', { name: 'سطر ۱' });
+    const row = page.getByRole('group', { name: 'سطر ۱' });
     await row.getByLabel('درصد سهم').fill('140');
     await expect(row.getByText('مقدار نباید بیشتر از ۱۰۰ باشد.')).toBeVisible();
     await row.getByRole('button', { name: /حذف سطر ۱/ }).click();
@@ -324,6 +324,146 @@ test.describe('the questionnaire of a project for its applicant', () => {
     await expect(page.getByLabel('عنوان مدرک')).toBeVisible();
   });
 
+  test('loses no answer: not on leaving, not in a refused batch, not when the network fails', async ({
+    page,
+  }) => {
+    await signIn(page);
+    let current = questionnaire();
+    const saves: Record<string, unknown>[] = [];
+    let mode: 'ok' | 'refuse-goals' | 'offline' = 'ok';
+    await page.route(base, (route) => json(route, current));
+    await page.route(`${base}/answers`, (route) => {
+      if (mode === 'offline') return route.abort('connectionfailed');
+      const { answers } = route.request().postDataJSON() as { answers: Record<string, unknown> };
+      saves.push(answers);
+      if (mode === 'refuse-goals' && 'goals' in answers) {
+        return fail(route, 400, 'اطلاعات واردشده معتبر نیست.', [
+          { path: 'answers.goals', message: 'گزینه را از فهرست انتخاب کنید.' },
+        ]);
+      }
+      current = { ...current, answers: { ...current.answers, ...answers } };
+      return json(route, current);
+    });
+
+    await page.goto('/dashboard/feasibility/p1/questionnaire');
+    await expect(page.getByLabel('محصول اصلی')).toBeVisible();
+
+    // One answer of a request is refused: the other one of the same request is sent again.
+    mode = 'refuse-goals';
+    await page.getByLabel('محصول اصلی').fill('کنسانتره');
+    await page.getByLabel('هدف صادراتی').check();
+    await expect(page.getByText('گزینه را از فهرست انتخاب کنید.')).toBeVisible();
+    await expect.poll(() => saves.at(-1)).toEqual({ product: 'کنسانتره' });
+    await expect(page.getByText('۱ پاسخ نیاز به اصلاح دارد و ذخیره نشده است.')).toBeVisible();
+    await expect(page.getByText('۱ از ۵ سؤال پاسخ داده شده')).toBeVisible();
+    mode = 'ok';
+    await page.getByLabel('هدف صادراتی').uncheck();
+    await expect(page.getByText('همه تغییرها ذخیره شد.')).toBeVisible();
+
+    // The network fails: the answer stays queued, the form says so, and a retry sends it.
+    mode = 'offline';
+    await page.getByLabel(/^ظرفیت اسمی/).fill('500');
+    await expect(page.getByText('پاسخ‌های ذخیره‌نشده در فرم مانده‌اند.')).toBeVisible();
+    mode = 'ok';
+    await page.getByRole('button', { name: 'تلاش دوباره برای ذخیره' }).click();
+    await expect.poll(() => saves.at(-1)).toEqual({ capacity: { value: '500', unit: 'تن' } });
+    await expect(page.getByText('همه تغییرها ذخیره شد.')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'تلاش دوباره برای ذخیره' })).toHaveCount(0);
+
+    // Leaving through a link of the dashboard right after typing still sends the answer.
+    const before = saves.length;
+    await page.getByLabel('محصول اصلی').fill('گندله');
+    await page.getByRole('link', { name: /بازگشت به پروژه/ }).click();
+    await expect(page).toHaveURL(/\/dashboard\/feasibility\/p1$/);
+    await expect.poll(() => saves.slice(before)).toEqual([{ product: 'گندله' }]);
+  });
+
+  test('turns read-only when the project was submitted elsewhere meanwhile', async ({ page }) => {
+    await signIn(page);
+    let current = questionnaire();
+    await page.route(base, (route) => json(route, current));
+    await page.route(`${base}/answers`, (route) => {
+      current = questionnaire({ access: { start: false, answer: false, addItems: false } });
+      return fail(route, 409, 'پاسخ‌ها پس از ارسال پروژه قفل می‌شوند.');
+    });
+    await page.goto('/dashboard/feasibility/p1/questionnaire');
+    await page.getByLabel('محصول اصلی').fill('کنسانتره');
+    await expect(page.getByText(/پاسخ‌ها در این مرحله قفل است/)).toBeVisible();
+    await expect(page.getByText('پاسخ‌ها پس از ارسال پروژه قفل می‌شوند.')).toBeVisible();
+    await expect(page.getByLabel('محصول اصلی')).toBeDisabled();
+  });
+
+  test('says what a submission would still ask for, with every open place marked', async ({
+    page,
+  }) => {
+    await signIn(page);
+    let current = questionnaire({
+      answers: {
+        product: 'کنسانتره',
+        capacity: { value: '10', unit: 'تن' },
+        // A row without the name its column requires: only the submission minds.
+        shareholders: [{ name: null, percent: { value: '60' } }],
+      },
+    });
+    await page.route(base, (route) => json(route, current));
+    await page.route(`${base}/answers`, (route) => {
+      const { answers } = route.request().postDataJSON() as { answers: Record<string, unknown> };
+      current = { ...current, answers: { ...current.answers, ...answers } };
+      return json(route, current);
+    });
+
+    // The link of a refused submission opens the questionnaire with the check done.
+    await page.goto('/dashboard/feasibility/p1/questionnaire?check=1');
+    await expect(page.getByRole('heading', { name: 'متقاضی' })).toBeVisible();
+    await expect(page.getByRole('button', { name: /۲\. متقاضی · خطا/ })).toBeVisible();
+    await expect(page.getByText('۲ پاسخ نیاز به اصلاح دارد و ذخیره نشده است.')).toBeVisible();
+    const row = page.getByRole('group', { name: 'سطر ۱' });
+    await expect(row.getByLabel('نام سهامدار')).toHaveAttribute('aria-invalid', 'true');
+    await audit(page);
+
+    await page.getByLabel('سهامی خاص').check();
+    await row.getByLabel('نام سهامدار').fill('رضا کریمی');
+    await expect(page.getByText('همه تغییرها ذخیره شد.')).toBeVisible();
+    await page.getByRole('button', { name: 'بررسی کامل بودن پرسشنامه' }).click();
+    await expect(page.getByText('پرسشنامه کامل است.')).toBeVisible();
+    await expect(page.getByRole('button', { name: /· خطا/ })).toHaveCount(0);
+
+    // Without the link nothing is marked until it is asked for.
+    await page.getByRole('button', { name: /۱\. مشخصات طرح/ }).click();
+    await page.getByLabel('محصول اصلی').fill('');
+    await expect(page.getByText('همه تغییرها ذخیره شد.')).toBeVisible();
+    await page.getByRole('button', { name: 'بررسی کامل بودن پرسشنامه' }).click();
+    await expect(page.getByLabel('محصول اصلی')).toHaveAttribute('aria-invalid', 'true');
+    await expect(page.getByRole('button', { name: /۱\. مشخصات طرح · خطا/ })).toBeVisible();
+  });
+
+  test('shows the message of a date once, and says that files cannot be uploaded yet', async ({
+    page,
+  }) => {
+    await signIn(page);
+    const dated = {
+      sections: [
+        {
+          key: 'dates',
+          title: 'تاریخ‌ها',
+          questions: [
+            { key: 'founded', type: 'date', label: 'تاریخ ثبت', min: '2000-01-01' },
+            { key: 'license_scan', type: 'file', label: 'تصویر جواز', required: true },
+          ],
+        },
+      ],
+      documents: [],
+    };
+    await page.route(base, (route) =>
+      json(route, questionnaire({ definition: dated, answers: { founded: '1990-05-05' } })),
+    );
+    await page.goto('/dashboard/feasibility/p1/questionnaire?check=1');
+    await expect(page.getByText('تاریخ زودتر از بازه مجاز است.')).toHaveCount(1);
+    await expect(page.getByText(/بارگذاری فایل برای این سؤال هنوز فعال نیست/)).toBeVisible();
+    await expect(page.getByText(/پروژه‌ای که این سؤال الزامی را دارد ارسال نمی‌شود/)).toBeVisible();
+    await audit(page);
+  });
+
   test('is only read once the project is submitted', async ({ page }) => {
     await signIn(page);
     await page.route(base, (route) =>
@@ -392,7 +532,7 @@ test.describe('the questionnaire of a project for its applicant', () => {
     );
     await page.goto('/dashboard/feasibility/p1/questionnaire');
     await page.getByRole('button', { name: /۲\. متقاضی/ }).click();
-    await expect(page.getByRole('listitem', { name: 'سطر ۱' })).toBeVisible();
+    await expect(page.getByRole('group', { name: 'سطر ۱' })).toBeVisible();
     const overflow = await page.evaluate(
       () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
     );

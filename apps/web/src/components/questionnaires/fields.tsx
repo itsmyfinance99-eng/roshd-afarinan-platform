@@ -190,53 +190,64 @@ function TableAnswer({
       ) : (
         <ol className="flex flex-col gap-3">
           {rows.map((row, r) => (
-            <li
-              key={r}
-              aria-label={`سطر ${toPersianDigits(r + 1)}`}
-              className="rounded-control border border-line-strong p-3"
-            >
-              <div className="mb-2 flex items-center justify-between gap-2">
-                <span className="text-[13px] font-bold text-ink-3">
-                  سطر {toPersianDigits(r + 1)}
-                </span>
-                {disabled ? null : (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    aria-label={`حذف سطر ${toPersianDigits(r + 1)} از «${question.label}»`}
-                    onClick={() => onChange(rows.filter((_, i) => i !== r))}
-                  >
-                    حذف سطر
-                  </Button>
-                )}
-              </div>
-              <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,200px),1fr))] gap-3">
-                {question.columns.map((column) => {
-                  const cellId = `${id}-${r}-${column.key}`;
-                  const error = errors[`${question.key}.${r}.${column.key}`];
-                  return (
-                    <FieldShell
-                      key={column.key}
-                      id={cellId}
-                      label={column.label}
-                      required={column.required}
-                      error={error}
+            <li key={r}>
+              {/* A group with a name, so that the same labels in every row can be told apart. */}
+              <div
+                role="group"
+                aria-label={`سطر ${toPersianDigits(r + 1)}`}
+                className="rounded-control border border-line-strong p-3"
+              >
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <span className="text-[13px] font-bold text-ink-3">
+                    سطر {toPersianDigits(r + 1)}
+                  </span>
+                  {disabled ? null : (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      aria-label={`حذف سطر ${toPersianDigits(r + 1)} از «${question.label}»`}
+                      onClick={() => {
+                        onChange(rows.filter((_, i) => i !== r));
+                        // The button goes with its row; the way to add one is the nearest thing left.
+                        requestAnimationFrame(() =>
+                          document.getElementById(`${id}-add-row`)?.focus(),
+                        );
+                      }}
                     >
-                      <Cell
+                      حذف سطر
+                    </Button>
+                  )}
+                </div>
+                <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,200px),1fr))] gap-3">
+                  {question.columns.map((column) => {
+                    const cellId = `${id}-${r}-${column.key}`;
+                    const error = errors[`${question.key}.${r}.${column.key}`];
+                    return (
+                      <FieldShell
+                        key={column.key}
                         id={cellId}
-                        column={column}
-                        draft={row[column.key]}
-                        error={error}
-                        disabled={disabled}
-                        onChange={(cell) =>
-                          onChange(
-                            rows.map((old, i) => (i === r ? { ...old, [column.key]: cell } : old)),
-                          )
-                        }
-                      />
-                    </FieldShell>
-                  );
-                })}
+                        label={column.label}
+                        required={column.required}
+                        error={column.type === 'date' ? undefined : error}
+                      >
+                        <Cell
+                          id={cellId}
+                          column={column}
+                          draft={row[column.key]}
+                          error={error}
+                          disabled={disabled}
+                          onChange={(cell) =>
+                            onChange(
+                              rows.map((old, i) =>
+                                i === r ? { ...old, [column.key]: cell } : old,
+                              ),
+                            )
+                          }
+                        />
+                      </FieldShell>
+                    );
+                  })}
+                </div>
               </div>
             </li>
           ))}
@@ -245,6 +256,7 @@ function TableAnswer({
       {disabled ? null : (
         <div>
           <Button
+            id={`${id}-add-row`}
             variant="outline"
             size="sm"
             disabled={rows.length >= maxRows}
@@ -390,7 +402,12 @@ export function AnswerField({
     case 'file':
       return (
         <Choices id={id} legend={label} error={error}>
-          <Notice>بارگذاری فایل برای این سؤال در بخش مدارک پروژه انجام می‌شود.</Notice>
+          <Notice>
+            بارگذاری فایل برای این سؤال هنوز فعال نیست و با بخش مدارک پروژه اضافه می‌شود.
+            {question.required
+              ? ' تا آن زمان پروژه‌ای که این سؤال الزامی را دارد ارسال نمی‌شود؛ موضوع را با کارشناسان در میان بگذارید.'
+              : ''}
+          </Notice>
         </Choices>
       );
     default:
@@ -403,13 +420,15 @@ export function AnswerField({
       label={question.label}
       required={question.required}
       hint={question.help}
-      error={error}
+      // A date input shows its own message; twice would be two alerts with one id.
+      error={question.type === 'date' ? undefined : error}
     >
       {question.type === 'text' ? (
         <TextInput
           id={id}
           value={asText(draft)}
           maxLength={question.maxLength ?? QUESTIONNAIRE_LIMITS.text}
+          aria-required={question.required || undefined}
           error={error}
           hasHint={!!question.help}
           disabled={disabled}
@@ -421,6 +440,7 @@ export function AnswerField({
           rows={5}
           value={asText(draft)}
           maxLength={question.maxLength ?? QUESTIONNAIRE_LIMITS.longText}
+          aria-required={question.required || undefined}
           error={error}
           hasHint={!!question.help}
           disabled={disabled}

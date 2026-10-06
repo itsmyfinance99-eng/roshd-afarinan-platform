@@ -125,7 +125,7 @@ function ProjectView({
               </p>
             ) : null}
             <ProjectAttachments project={project} />
-            <QuestionnaireCard projectId={project.id} />
+            <QuestionnaireCard key={project.status} projectId={project.id} />
             {message ? (
               message.ok ? (
                 <SuccessMessage>{message.text}</SuccessMessage>
@@ -251,7 +251,10 @@ function SubmitForReview({
       ) : null}
       {incomplete ? (
         <p className="text-sm">
-          <Link href={`/dashboard/feasibility/${project.id}/questionnaire`} className="font-bold">
+          <Link
+            href={`/dashboard/feasibility/${project.id}/questionnaire?check=1`}
+            className="font-bold"
+          >
             رفتن به پرسشنامه و تکمیل سؤال‌های مانده ‹
           </Link>
         </p>

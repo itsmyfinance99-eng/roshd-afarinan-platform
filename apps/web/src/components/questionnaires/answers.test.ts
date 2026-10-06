@@ -2,6 +2,7 @@ import type { Question } from '@roshd/validation';
 import { describe, expect, it } from 'vitest';
 import {
   checkDrafts,
+  completeIssues,
   errorsFromDetails,
   firstOpenStep,
   OWN_STEP_KEY,
@@ -164,5 +165,34 @@ describe('problems the API reports', () => {
         { path: 'sector', message: 'حوزه طرح را انتخاب کنید.' },
       ]),
     ).toEqual({ capacity: 'واحد را انتخاب کنید.', 'partners.0.name': 'الزامی است.' });
+  });
+});
+
+describe('what a submission would still ask for', () => {
+  const questions = [product, capacity, background, partners, own];
+
+  it('is every required question, cell and row that is open, by what is saved', () => {
+    expect(
+      completeIssues(questions, {
+        capacity: { value: '10', unit: 'تن' },
+        partners: [{ name: null, share: { value: '40' } }],
+        // An answer to a question that is gone is nobody's problem.
+        removed_question: 'x',
+      }),
+    ).toEqual({
+      product: expect.any(String),
+      'partners.0.name': expect.any(String),
+      item_abc: expect.any(String),
+    });
+  });
+
+  it('is nothing when the questionnaire is complete', () => {
+    expect(
+      completeIssues(questions, {
+        product: 'کنسانتره',
+        capacity: { value: '10', unit: 'تن' },
+        item_abc: 'شرکت نمونه',
+      }),
+    ).toEqual({});
   });
 });

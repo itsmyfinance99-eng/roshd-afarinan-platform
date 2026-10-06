@@ -64,6 +64,10 @@ function Start({
 
 function Body({ projectId, initial }: { projectId: string; initial: ProjectQuestionnaire }) {
   const [questionnaire, setQuestionnaire] = useState(initial);
+  // The link of a refused submission asks for what is still open to be shown at once.
+  const [check] = useState(
+    () => typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('check'),
+  );
   const started = questionnaire.template !== null;
   const hasOwn = questionnaire.items.length > 0 || questionnaire.access.addItems;
   return (
@@ -72,11 +76,12 @@ function Body({ projectId, initial }: { projectId: string; initial: ProjectQuest
         <Start projectId={projectId} questionnaire={questionnaire} onStarted={setQuestionnaire} />
       )}
       {started || hasOwn ? (
+        // One form before and after the start, so that what was typed into it stays.
         <QuestionnaireForm
-          // The steps change when the questionnaire is started.
-          key={questionnaire.template?.id ?? 'own'}
           projectId={projectId}
-          initial={questionnaire}
+          questionnaire={questionnaire}
+          onQuestionnaire={setQuestionnaire}
+          checkOnOpen={check}
         />
       ) : null}
     </div>

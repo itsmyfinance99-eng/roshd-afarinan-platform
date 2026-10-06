@@ -1,5 +1,6 @@
 import {
   validateAnswer,
+  validateAnswers,
   type AnswerValue,
   type Question,
   type QuestionnaireDefinition,
@@ -155,4 +156,21 @@ export function firstOpenStep(
     ),
   );
   return index;
+}
+
+/**
+ * What a submission would still ask for, by what is saved: required questions without an
+ * answer, required cells and rows of a table, and answers that no longer fit their question.
+ * By path, like the errors of the form.
+ */
+export function completeIssues(
+  questions: readonly Question[],
+  answers: Record<string, AnswerValue>,
+): Record<string, string> {
+  const keys = new Set(questions.map((question) => question.key));
+  const known = Object.fromEntries(Object.entries(answers).filter(([key]) => keys.has(key)));
+  const checked = validateAnswers(questions, known, { complete: true });
+  return checked.ok
+    ? {}
+    : Object.fromEntries(checked.issues.map((issue) => [issue.path, issue.message]));
 }

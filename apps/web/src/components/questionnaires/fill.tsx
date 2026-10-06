@@ -19,12 +19,12 @@ import {
   PROJECT_NOTE_MAX,
   type AnswerValue,
   type ProjectItemKind,
-  type Question,
 } from '@roshd/validation';
 import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { apiFetch } from '@/lib/api-client';
 import {
   checkDrafts,
+  completeIssues,
   errorsFromDetails,
   firstOpenStep,
   progressOf,
@@ -39,18 +39,8 @@ import { AnswerField } from './fields';
 
 const SAVE_DELAY_MS = 1200;
 
-type SaveState =
-  | { status: 'idle' }
-  | { status: 'pending' }
-  | { status: 'saving' }
-  | { status: 'saved' }
-  | { status: 'error'; message: string };
-
-const SAVE_LABELS: Record<Exclude<SaveState['status'], 'error' | 'idle'>, string> = {
-  pending: 'تغییرها ذخیره نشده است…',
-  saving: 'در حال ذخیره…',
-  saved: 'همه تغییرها ذخیره شد.',
-};
+/** How often a save that the network or the server lost is tried again by itself. */
+const MAX_RETRIES = 4;
 
 const ORIGIN_LABELS = { applicant: 'افزوده شما', staff: 'افزوده کارشناسان' } as const;
 
@@ -62,9 +52,12 @@ const OWN_QUESTION_TYPES = [
 
 function AddItemForm({
   base,
+  before,
   onAdded,
 }: {
   base: string;
+  /** Sends what the form still holds, so that the answer of the server is about all of it. */
+  before: () => Promise<void>;
   onAdded: (next: ProjectQuestionnaire) => void;
 }) {
   const [kind, setKind] = useState<ProjectItemKind>('NOTE');
@@ -88,6 +81,7 @@ function AddItemForm({
     }
     setError(undefined);
     setBusy(true);
+    await before();
     const result = await apiFetch<ProjectQuestionnaire>(`${base}/items`, {
       method: 'POST',
       body,
@@ -197,136 +191,247 @@ function ItemHeader({ item, onRemove }: { item: ProjectItem; onRemove?: () => vo
 
 /**
  * The questionnaire of a project as a form in steps (ST-35.05): one step per section and a last
- * one for what belongs to this project only. Answers are saved on their own a moment after
- * they change; what does not fit its question stays in the form with its message and is not
- * sent. With `readOnly` (after the submission, or for a reader) nothing can be changed.
+ * one for what belongs to this project only.
+ *
+ * Saving. An answer is queued when it changes and sent a moment later, alone or with the others
+ * that changed. What does not fit its question is not sent: it stays in the form with its
+ * message until it is corrected. A queued answer leaves the queue only when the server has it,
+ * so one that was typed while a request was on its way, or that the network lost, is sent again;
+ * and what is still queued when the page is left goes out with a last request.
+ *
+ * With `access.answer` false (after the submission, or for a reader) nothing can be changed.
  */
 export function QuestionnaireForm({
   projectId,
-  initial,
-  onChanged,
+  questionnaire,
+  onQuestionnaire,
+  checkOnOpen = false,
 }: {
   projectId: string;
-  initial: ProjectQuestionnaire;
-  /** The saved state changed (progress, items); the page around may want to know. */
-  onChanged?: (questionnaire: ProjectQuestionnaire) => void;
+  /** What the server holds; the page owns it, so that starting the questionnaire keeps the form. */
+  questionnaire: ProjectQuestionnaire;
+  onQuestionnaire: (questionnaire: ProjectQuestionnaire) => void;
+  /** Opened from a refused submission: say at once what is still open. */
+  checkOnOpen?: boolean;
 }) {
   const base = `/feasibility-projects/${projectId}/questionnaire`;
-  const [questionnaire, setQuestionnaire] = useState(initial);
-  const [drafts, setDrafts] = useState<Record<string, Draft>>(() => ({ ...initial.answers }));
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [save, setSave] = useState<SaveState>({ status: 'idle' });
+  const [drafts, setDrafts] = useState<Record<string, Draft>>(() => ({
+    ...questionnaire.answers,
+  }));
+  // Opened from a refused submission: what is still open is marked from the start.
+  const [errors, setErrors] = useState<Record<string, string>>(() =>
+    checkOnOpen && questionnaire.access.answer
+      ? completeIssues(
+          stepsOf(questionnaire, true).flatMap((item) => item.questions),
+          questionnaire.answers,
+        )
+      : {},
+  );
+  /** Answers that wait to be sent, and whether a request is on its way. */
+  const [unsent, setUnsent] = useState(0);
+  const [saving, setSaving] = useState(false);
+  /** The last request failed for a reason that is not about an answer (network, server). */
+  const [failure, setFailure] = useState<string | null>(null);
+  const [touched, setTouched] = useState(false);
   const [itemError, setItemError] = useState<string | null>(null);
-  const dirty = useRef(new Set<string>());
-  const saving = useRef(false);
-  const draftsRef = useRef(drafts);
+  /** What the last check for completeness found, until something changes. */
+  const [verdict, setVerdict] = useState<'complete' | 'open' | null>(null);
 
   const readOnly = !questionnaire.access.answer;
   const withOwn = questionnaire.items.length > 0 || questionnaire.access.addItems;
   const steps = useMemo(() => stepsOf(questionnaire, withOwn), [questionnaire, withOwn]);
   const questions = useMemo(() => steps.flatMap((step) => step.questions), [steps]);
-  const questionsRef = useRef<Question[]>(questions);
-  // What a save reads is what is on the screen when it runs, not when it was scheduled.
-  useEffect(() => {
-    draftsRef.current = drafts;
-    questionsRef.current = questions;
-  }, [drafts, questions]);
   const [current, setCurrent] = useState(() =>
-    Math.max(0, firstOpenStep(stepsOf(initial, withOwn), initial.answers, {})),
+    Math.max(0, firstOpenStep(stepsOf(questionnaire, withOwn), questionnaire.answers, errors)),
   );
   const step: Step | undefined = steps[Math.min(current, steps.length - 1)];
   const heading = useRef<HTMLHeadingElement>(null);
 
-  const accept = useCallback(
-    (next: ProjectQuestionnaire) => {
-      setQuestionnaire(next);
-      onChanged?.(next);
-    },
-    [onChanged],
-  );
+  // The queue and what it reads live outside of rendering: a save runs when its timer fires.
+  const queue = useRef({
+    drafts,
+    questions,
+    /** Per queued question: how often it changed, to tell whether a sent answer is still the last. */
+    dirty: new Map<string, number>(),
+    saving: false,
+    retries: 0,
+    timer: undefined as ReturnType<typeof setTimeout> | undefined,
+    gone: false,
+  });
+  useEffect(() => {
+    queue.current.questions = questions;
+  }, [questions]);
 
-  /** Sends the answers that changed and are valid; the others wait for their correction. */
+  const refresh = useCallback(async () => {
+    const result = await apiFetch<ProjectQuestionnaire>(base);
+    if (result.ok) onQuestionnaire(result.data);
+  }, [base, onQuestionnaire]);
+
+  const flushRef = useRef<() => Promise<void>>(async () => {});
+  const schedule = useCallback((delay: number) => {
+    const q = queue.current;
+    clearTimeout(q.timer);
+    q.timer = setTimeout(() => void flushRef.current(), delay);
+  }, []);
+
+  /** Sends what is queued and valid; what is not valid waits in the form for its correction. */
   const flush = useCallback(async () => {
-    if (saving.current || dirty.current.size === 0) return;
-    const keys = [...dirty.current];
-    const checked = checkDrafts(questionsRef.current, draftsRef.current, keys);
-    setErrors((old) => {
-      const next = Object.fromEntries(
-        Object.entries(old).filter(([path]) => !keys.includes(questionOfPath(path))),
-      );
-      return { ...next, ...checked.errors };
-    });
-    const sendable = Object.keys(checked.valid);
-    for (const key of keys) dirty.current.delete(key);
-    if (sendable.length === 0) {
-      setSave(
-        Object.keys(checked.errors).length > 0
-          ? { status: 'error', message: 'پاسخ‌های نادرست ذخیره نشد؛ آن‌ها را اصلاح کنید.' }
-          : { status: 'saved' },
-      );
-      return;
+    const q = queue.current;
+    clearTimeout(q.timer);
+    if (q.saving || q.dirty.size === 0) return;
+    const sent = new Map(q.dirty);
+    const checked = checkDrafts(q.questions, q.drafts, sent.keys());
+    const wrong = new Set(Object.keys(checked.errors).map(questionOfPath));
+    // A wrong answer is out of the queue until it is changed again.
+    for (const key of sent.keys()) {
+      if (wrong.has(key) || !(key in checked.valid)) q.dirty.delete(key);
     }
-    saving.current = true;
-    setSave({ status: 'saving' });
+    setErrors((old) => ({
+      ...Object.fromEntries(
+        Object.entries(old).filter(([path]) => !sent.has(questionOfPath(path))),
+      ),
+      ...checked.errors,
+    }));
+    setUnsent(q.dirty.size);
+    if (Object.keys(checked.valid).length === 0) return;
+
+    q.saving = true;
+    setSaving(true);
     const result = await apiFetch<ProjectQuestionnaire>(`${base}/answers`, {
       method: 'PUT',
       body: { answers: checked.valid },
     });
-    saving.current = false;
+    q.saving = false;
+    if (q.gone) return;
+    setSaving(false);
+
     if (result.ok) {
-      accept(result.data);
-      setSave(
-        Object.keys(checked.errors).length > 0
-          ? { status: 'error', message: 'پاسخ‌های نادرست ذخیره نشد؛ آن‌ها را اصلاح کنید.' }
-          : dirty.current.size > 0
-            ? { status: 'pending' }
-            : { status: 'saved' },
-      );
-    } else {
+      // Saved, unless it was changed again meanwhile.
+      for (const key of Object.keys(checked.valid)) {
+        if (q.dirty.get(key) === sent.get(key)) q.dirty.delete(key);
+      }
+      q.retries = 0;
+      setFailure(null);
+      onQuestionnaire(result.data);
+    } else if (result.status === 400 && result.details.length > 0) {
+      // The whole request was refused for the answers the details name; the others go again.
       const fromApi = errorsFromDetails(result.details);
+      for (const path of Object.keys(fromApi)) q.dirty.delete(questionOfPath(path));
       setErrors((old) => ({ ...old, ...fromApi }));
-      // What the API refused for a reason of its own stays to be sent again.
-      if (Object.keys(fromApi).length === 0) for (const key of sendable) dirty.current.add(key);
-      setSave({ status: 'error', message: result.message });
+      setFailure(Object.keys(fromApi).length > 0 ? null : result.message);
+      // A question may be gone (the staff removed it): show what there is now.
+      void refresh();
+    } else if (result.status === 409 || result.status === 403 || result.status === 404) {
+      // The project was submitted or is no longer the caller's: nothing more can be saved.
+      q.dirty.clear();
+      setFailure(result.message);
+      void refresh();
+    } else {
+      // The network or the server: the answers stay queued and are tried again, a few times.
+      q.retries += 1;
+      setFailure(result.message);
+      setUnsent(q.dirty.size);
+      if (q.retries <= MAX_RETRIES) schedule(Math.min(30_000, 2000 * 2 ** (q.retries - 1)));
+      return;
     }
-  }, [accept, base]);
-
-  // Saves a moment after the last change.
+    setUnsent(q.dirty.size);
+    if (q.dirty.size > 0) schedule(300);
+  }, [base, onQuestionnaire, refresh, schedule]);
   useEffect(() => {
-    if (save.status !== 'pending') return;
-    const timer = setTimeout(() => void flush(), SAVE_DELAY_MS);
-    return () => clearTimeout(timer);
-  }, [save, drafts, flush]);
+    flushRef.current = flush;
+  }, [flush]);
 
-  // Leaving with unsaved answers asks first.
+  // Leaving the page: what is queued and valid goes out with a request that outlives the page.
   useEffect(() => {
-    if (save.status !== 'pending' && save.status !== 'saving') return;
+    const q = queue.current;
+    const last = () => {
+      clearTimeout(q.timer);
+      if (q.dirty.size === 0) return;
+      const checked = checkDrafts(q.questions, q.drafts, q.dirty.keys());
+      if (Object.keys(checked.valid).length === 0) return;
+      for (const key of Object.keys(checked.valid)) q.dirty.delete(key);
+      void apiFetch(`${base}/answers`, {
+        method: 'PUT',
+        body: { answers: checked.valid },
+        keepalive: true,
+      });
+    };
+    const hidden = () => {
+      if (document.visibilityState === 'hidden') void flushRef.current();
+    };
+    window.addEventListener('pagehide', last);
+    document.addEventListener('visibilitychange', hidden);
+    q.gone = false;
+    return () => {
+      window.removeEventListener('pagehide', last);
+      document.removeEventListener('visibilitychange', hidden);
+      q.gone = true;
+      last();
+    };
+  }, [base]);
+
+  // Closing the page while something is not saved yet asks first.
+  useEffect(() => {
+    if (unsent === 0 && !saving) return;
     const warn = (event: BeforeUnloadEvent) => event.preventDefault();
     window.addEventListener('beforeunload', warn);
     return () => window.removeEventListener('beforeunload', warn);
-  }, [save.status]);
+  }, [unsent, saving]);
 
   const change = (key: string, draft: Draft) => {
-    setDrafts((old) => ({ ...old, [key]: draft }));
-    dirty.current.add(key);
-    setSave({ status: 'pending' });
+    const q = queue.current;
+    q.drafts = { ...q.drafts, [key]: draft };
+    q.dirty.set(key, (q.dirty.get(key) ?? 0) + 1);
+    q.retries = 0;
+    setDrafts(q.drafts);
+    // Its old messages were about what it was; the new value is checked when it is saved.
+    setErrors((old) =>
+      Object.fromEntries(Object.entries(old).filter(([path]) => questionOfPath(path) !== key)),
+    );
+    setUnsent(q.dirty.size);
+    setTouched(true);
+    setFailure(null);
+    setVerdict(null);
+    schedule(SAVE_DELAY_MS);
   };
+
+  const focusHeading = () => requestAnimationFrame(() => heading.current?.focus());
 
   const go = (index: number) => {
     void flush();
     setCurrent(index);
     // The new step is read from its title on.
-    requestAnimationFrame(() => heading.current?.focus());
+    focusHeading();
   };
+
+  /** Says what a submission would still ask for, and opens the first step that has some. */
+  const checkComplete = () => {
+    const open = completeIssues(questions, questionnaire.answers);
+    setErrors(open);
+    const first = firstOpenStep(steps, questionnaire.answers, open);
+    if (first >= 0) setCurrent(first);
+    setVerdict(Object.keys(open).length === 0 ? 'complete' : 'open');
+    focusHeading();
+  };
+  // Called a moment after a save, when what it reads is what the server answered.
+  const checkRef = useRef(checkComplete);
+  useEffect(() => {
+    checkRef.current = checkComplete;
+  });
 
   const removeItem = async (item: ProjectItem) => {
     if (!window.confirm('این مورد و پاسخ آن حذف شود؟')) return;
     setItemError(null);
+    // What is queued goes first, so that the answer of the server is about all of it.
+    await flush();
     const result = await apiFetch<ProjectQuestionnaire>(`${base}/items/${item.id}`, {
       method: 'DELETE',
     });
-    if (result.ok) accept(result.data);
-    else setItemError(result.message);
+    if (result.ok) {
+      queue.current.dirty.delete(item.key);
+      onQuestionnaire(result.data);
+      focusHeading();
+    } else setItemError(result.message);
   };
 
   const saved: Record<string, AnswerValue> = questionnaire.answers;
@@ -343,9 +448,30 @@ export function QuestionnaireForm({
 
   const index = steps.indexOf(step);
   const wrong = new Set(Object.keys(errors).map(questionOfPath));
+  /** What the line under the form says; only its settled states are announced. */
+  const settled = failure
+    ? null
+    : wrong.size > 0
+      ? `${toPersianDigits(wrong.size)} پاسخ نیاز به اصلاح دارد و ذخیره نشده است.`
+      : verdict === 'complete' && unsent === 0
+        ? 'پرسشنامه کامل است.'
+        : touched
+          ? 'همه تغییرها ذخیره شد.'
+          : 'پاسخ‌ها خودکار ذخیره می‌شوند.';
+  const busyLine = saving
+    ? 'در حال ذخیره…'
+    : unsent > 0 && !failure
+      ? 'تغییرها ذخیره نشده است…'
+      : null;
 
   return (
-    <div className="flex flex-col gap-6">
+    <div
+      className="flex flex-col gap-6"
+      // Leaving a field sends what is queued, so little is ever waiting.
+      onBlur={() => {
+        if (queue.current.dirty.size > 0 && !failure) schedule(150);
+      }}
+    >
       {questionnaire.template ? (
         <p className="flex flex-wrap items-center gap-2 text-sm text-ink-3">
           {questionnaire.template.title}
@@ -396,7 +522,7 @@ export function QuestionnaireForm({
                   {toPersianDigits(i + 1)}. {item.title}
                   {hasError ? (
                     <span className="ms-1">· خطا</span>
-                  ) : progress.total > 0 && progress.missing === 0 ? (
+                  ) : progress.answered > 0 && progress.missing === 0 ? (
                     <span className="ms-1" aria-label="کامل">
                       ✓
                     </span>
@@ -440,7 +566,7 @@ export function QuestionnaireForm({
                   ))}
                 </ul>
                 <p className="mt-2 text-[13px] text-ink-3">
-                  بارگذاری مدارک در بخش مدارک پروژه انجام می‌شود.
+                  بارگذاری مدارک هنوز فعال نیست و با بخش مدارک پروژه اضافه می‌شود.
                 </p>
               </div>
             ) : null}
@@ -477,7 +603,15 @@ export function QuestionnaireForm({
               <p className="text-[15px] text-ink-5">هنوز مورد اختصاصی‌ای افزوده نشده است.</p>
             )}
             {itemError ? <ErrorMessage>{itemError}</ErrorMessage> : null}
-            {questionnaire.access.addItems ? <AddItemForm base={base} onAdded={accept} /> : null}
+            {questionnaire.access.addItems ? (
+              <AddItemForm
+                base={base}
+                before={flush}
+                onAdded={(next) => {
+                  onQuestionnaire(next);
+                }}
+              />
+            ) : null}
           </>
         ) : step.questions.length === 0 ? (
           <p className="text-[15px] text-ink-5">این بخش سؤالی ندارد.</p>
@@ -497,16 +631,24 @@ export function QuestionnaireForm({
         )}
       </section>
 
-      {readOnly ? null : (
-        <p role="status" aria-live="polite" className="min-h-6 text-sm text-ink-3">
-          {save.status === 'error' ? (
-            <span className="text-danger">{save.message}</span>
-          ) : save.status === 'idle' ? (
-            'پاسخ‌ها خودکار ذخیره می‌شوند.'
-          ) : (
-            SAVE_LABELS[save.status]
-          )}
-        </p>
+      {readOnly ? (
+        failure ? (
+          <ErrorMessage>{failure}</ErrorMessage>
+        ) : null
+      ) : (
+        <div className="min-h-6 text-sm text-ink-3">
+          {/* What is still moving is shown and not spoken; what has settled is spoken once. */}
+          {busyLine ? <p>{busyLine}</p> : null}
+          <p role="status" aria-live="polite" className={busyLine ? 'sr-only' : undefined}>
+            {busyLine ? '' : (settled ?? '')}
+          </p>
+          {failure ? (
+            <p role="alert" className="text-danger">
+              {failure}
+              {unsent > 0 ? ' پاسخ‌های ذخیره‌نشده در فرم مانده‌اند.' : ''}
+            </p>
+          ) : null}
+        </div>
       )}
 
       <div className="flex flex-wrap gap-3">
@@ -516,11 +658,22 @@ export function QuestionnaireForm({
         <Button disabled={index === steps.length - 1} onClick={() => go(index + 1)}>
           مرحله بعد
         </Button>
-        {save.status === 'error' && !readOnly ? (
+        {readOnly ? null : (
           <Button
             variant="ghost"
             onClick={() => {
-              for (const question of step.questions) dirty.current.add(question.key);
+              // What was just typed is part of what is checked.
+              void flush().then(() => requestAnimationFrame(() => checkRef.current()));
+            }}
+          >
+            بررسی کامل بودن پرسشنامه
+          </Button>
+        )}
+        {failure && unsent > 0 && !readOnly ? (
+          <Button
+            variant="ghost"
+            onClick={() => {
+              queue.current.retries = 0;
               void flush();
             }}
           >
