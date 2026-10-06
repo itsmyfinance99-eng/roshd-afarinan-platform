@@ -7,6 +7,7 @@ import {
   FEASIBILITY_ACTORS,
   FEASIBILITY_STATUS_LABELS_FA,
   FEASIBILITY_STATUSES,
+  feasibilityCostEstimateSchema,
   feasibilityTransitionSchema,
   listFeasibilityProjectsQuerySchema,
   updateFeasibilityProjectSchema,
@@ -64,6 +65,35 @@ describe('feasibility schemas', () => {
     expect(
       feasibilityTransitionSchema.safeParse({ to: 'SUBMITTED', note: 'ن'.repeat(2001) }).success,
     ).toBe(false);
+  });
+
+  it('takes a cost estimate in whole rials with what it covers and how long it takes', () => {
+    const estimate = {
+      amountRials: '۲٬۵۰۰٬۰۰۰٬۰۰۰',
+      scope: ' مطالعه بازار، فنی و مالی طرح ',
+      durationDays: 45,
+    };
+    expect(feasibilityCostEstimateSchema.parse(estimate)).toEqual({
+      amountRials: '2500000000',
+      scope: 'مطالعه بازار، فنی و مالی طرح',
+      durationDays: 45,
+    });
+    const refused = (over: object) =>
+      feasibilityCostEstimateSchema.safeParse({ ...estimate, ...over }).success;
+    // Money is whole and positive; it is never a JS number.
+    expect(refused({ amountRials: '0' })).toBe(false);
+    expect(refused({ amountRials: '-5' })).toBe(false);
+    expect(refused({ amountRials: '10.5' })).toBe(false);
+    expect(refused({ amountRials: 2500000000 })).toBe(false);
+    expect(refused({ amountRials: undefined })).toBe(false);
+    expect(refused({ scope: 'کوتاه' })).toBe(false);
+    expect(refused({ scope: 'ش'.repeat(5001) })).toBe(false);
+    expect(refused({ durationDays: 0 })).toBe(false);
+    expect(refused({ durationDays: 1.5 })).toBe(false);
+    expect(refused({ durationDays: 3651 })).toBe(false);
+    expect(refused({ durationDays: '45' })).toBe(false);
+    expect(refused({ note: 'ن'.repeat(2001) })).toBe(false);
+    expect(refused({ durationDays: 3650, note: ' با احترام ' })).toBe(true);
   });
 
   it('changes only the details that are sent and clears an optional one with null', () => {

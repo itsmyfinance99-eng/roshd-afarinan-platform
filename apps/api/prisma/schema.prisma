@@ -68,6 +68,7 @@ model User {
   questionnaireAnswersUpdated    QuestionnaireAnswer[]          @relation("QuestionnaireAnswerEditor")
   projectQuestionnaireItemsAdded ProjectQuestionnaireItem[]     @relation("ProjectQuestionnaireItemAuthor")
   projectDocumentsUploaded       ProjectDocument[]              @relation("ProjectDocumentUploader")
+  feasibilityCostEstimates       FeasibilityCostEstimate[]      @relation("FeasibilityCostEstimateAuthor")
 
   @@map("users")
 }
@@ -877,6 +878,7 @@ model FeasibilityProject {
   financialModel     FinancialModel?               @relation(fields: [financialModelId], references: [id], onDelete: Restrict)
   sourceRequest      ServiceRequest?               @relation(fields: [sourceRequestId], references: [id], onDelete: SetNull)
   events             FeasibilityStatusEvent[]
+  costEstimates      FeasibilityCostEstimate[]
   experts            ExpertAssignment[]
 
   @@index([ownerId, updatedAt])
@@ -904,6 +906,27 @@ model FeasibilityStatusEvent {
 
   @@index([projectId, createdAt])
   @@map("feasibility_status_events")
+}
+
+/// What the staff estimate a study to cost and to take (ST-35.08). Entered by hand, never
+/// computed; written once, together with the step to COST_ESTIMATED. The newest row of a
+/// project is its estimate.
+model FeasibilityCostEstimate {
+  id           String   @id @default(uuid(7)) @db.Uuid
+  projectId    String   @db.Uuid
+  /// Whole rials.
+  amountRials  Decimal  @db.Decimal(20, 0)
+  /// What the study covers for this amount.
+  scope        String
+  durationDays Int
+  createdById  String?  @db.Uuid
+  createdAt    DateTime @default(now())
+
+  project   FeasibilityProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy User?              @relation("FeasibilityCostEstimateAuthor", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([projectId, createdAt])
+  @@map("feasibility_cost_estimates")
 }
 
 enum QuestionnaireVersionStatus {

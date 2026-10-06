@@ -10,6 +10,7 @@ import {
   type AssignExpertInput,
   type ConvertRequestToProjectInput,
   type CreateFeasibilityProjectInput,
+  type FeasibilityCostEstimateInput,
   type FeasibilityTransitionInput,
   type ListFeasibilityProjectsQuery,
   type UpdateFeasibilityProjectInput,
@@ -96,6 +97,15 @@ export interface FeasibilityStatusEventView {
   by?: StaffRef | null;
 }
 
+/** The cost estimate of a study as the applicant and the staff read it. */
+export interface CostEstimateView {
+  /** Whole rials as digits; money never travels as a number. */
+  amountRials: string;
+  scope: string;
+  durationDays: number;
+  createdAt: Date;
+}
+
 export interface ProjectExpertView {
   expert: StaffRef;
   since: Date;
@@ -108,6 +118,11 @@ export interface FeasibilityProjectDetail extends FeasibilityProjectSummary {
   sourceRequest: { id: string; trackingCode: string } | null;
   /** Files that came with the request; empty for an expert, who cannot open them yet. */
   attachments: FileView[];
+  /**
+   * The cost estimate of the study, once the staff entered it. The applicant and the staff read
+   * it; for an expert it is always null.
+   */
+  costEstimate: CostEstimateView | null;
   /** What the caller may do with this project now. */
   access: {
     transitions: FeasibilityStatus[];
@@ -137,8 +152,11 @@ export interface ProjectRelation {
  *
  * - A project is visible to its applicant, to staff holding `feasibility:manage` and to the
  *   experts assigned to it; for anyone else it does not exist (404, so ids cannot be probed).
- * - The status changes only in `transition()`: the state machine decides, the change and its
- *   status event are written together, and it is audited and announced to the other parties.
+ * - The status changes only in `move()`, behind `transition()` and `estimate()`: the state
+ *   machine decides, the change and its status event are written together, and it is audited
+ *   and announced to the other parties.
+ * - The step to the cost estimate is taken only with an estimate (ST-35.08): the staff enter
+ *   the amount, nothing computes it, and the applicant accepts or declines it.
  * - On their own project a user is the applicant and nothing else: staff rights and an
  *   assignment do not count there.
  */
@@ -450,6 +468,8 @@ export class FeasibilityProjectsService {
         relation.owner || relation.manager
           ? await this.files.listForEntity(FILE_ENTITY, id, ['FEASIBILITY_DOCUMENT'])
           : [],
+      // The price is between the applicant and the staff; an expert works without it.
+      costEstimate: relation.owner || relation.manager ? await this.estimateOf(id) : null,
     };
     const actors = actorsOf(relation);
     const access = {
@@ -483,15 +503,41 @@ export class FeasibilityProjectsService {
     };
   }
 
-  /**
-   * The only way the status of a project changes. The caller acts in the capacities they have on
-   * this project; the first one the state machine accepts is recorded with the event.
-   */
+  /** A step of the project that needs nothing but the step itself (and its note). */
   async transition(
     id: string,
     input: FeasibilityTransitionInput,
     principal: Principal,
     meta: RequestMeta,
+  ): Promise<FeasibilityProjectDetail> {
+    return this.move(id, input, principal, meta);
+  }
+
+  /**
+   * The staff enter what the study costs, what it covers and how long it takes, and the project
+   * goes to the applicant to accept or decline (ST-35.08). The estimate and the step are
+   * written together; the amount is what the staff typed, nothing computes it.
+   */
+  async estimate(
+    id: string,
+    input: FeasibilityCostEstimateInput,
+    principal: Principal,
+    meta: RequestMeta,
+  ): Promise<FeasibilityProjectDetail> {
+    const { note, ...estimate } = input;
+    return this.move(id, { to: 'COST_ESTIMATED', note }, principal, meta, estimate);
+  }
+
+  /**
+   * The only way the status of a project changes. The caller acts in the capacities they have on
+   * this project; the first one the state machine accepts is recorded with the event.
+   */
+  private async move(
+    id: string,
+    input: FeasibilityTransitionInput,
+    principal: Principal,
+    meta: RequestMeta,
+    estimate?: Omit<FeasibilityCostEstimateInput, 'note'>,
   ): Promise<FeasibilityProjectDetail> {
     const relation = await this.relationOf(id, principal);
     const current = await this.prisma.feasibilityProject.findUnique({
@@ -529,6 +575,12 @@ export class FeasibilityProjectsService {
               ? 'بنویسید چه اطلاعات یا مدرکی لازم است تا متقاضی بداند چه چیزی را کامل کند.'
               : 'دلیل بایگانی پروژه را برای متقاضی بنویسید.',
         },
+      ]);
+    }
+    if (decision.to === 'COST_ESTIMATED' && !estimate) {
+      // The applicant decides on an estimate, so the step is not taken without one.
+      throw new ValidationFailedError([
+        { path: 'to', message: 'برای این مرحله، برآورد هزینه و مدت مطالعه را ثبت کنید.' },
       ]);
     }
     if (decision.to === 'SUBMITTED') {
@@ -572,6 +624,17 @@ export class FeasibilityProjectsService {
           note: input.note || null,
         },
       });
+      if (estimate) {
+        await tx.feasibilityCostEstimate.create({
+          data: {
+            projectId: id,
+            amountRials: estimate.amountRials,
+            scope: estimate.scope,
+            durationDays: estimate.durationDays,
+            createdById: principal.userId,
+          },
+        });
+      }
       return true;
     });
     if (!updated) {
@@ -583,7 +646,15 @@ export class FeasibilityProjectsService {
       actorId: principal.userId,
       entityType: 'feasibility_project',
       entityId: id,
-      metadata: { from: decision.from, to: decision.to, actor: decision.actor },
+      metadata: {
+        from: decision.from,
+        to: decision.to,
+        actor: decision.actor,
+        // What was estimated is part of the record of who estimated it.
+        ...(estimate
+          ? { amountRials: estimate.amountRials, durationDays: estimate.durationDays }
+          : {}),
+      },
       meta,
     });
     // Best effort: the status has changed, so a failed announcement must not fail the request.
@@ -744,6 +815,16 @@ export class FeasibilityProjectsService {
         { ...notification, link: staffLink(id) },
       );
     }
+  }
+
+  /** The estimate of a project: the newest one entered for it. */
+  private async estimateOf(id: string): Promise<CostEstimateView | null> {
+    const row = await this.prisma.feasibilityCostEstimate.findFirst({
+      where: { projectId: id },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      select: { amountRials: true, scope: true, durationDays: true, createdAt: true },
+    });
+    return row ? { ...row, amountRials: row.amountRials.toFixed(0) } : null;
   }
 
   /** The project for a staff action on it; staff do not manage a project of their own. */

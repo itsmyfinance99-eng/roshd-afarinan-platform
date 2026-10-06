@@ -14,8 +14,9 @@ import { QuestionnaireTemplatesService } from './questionnaire-templates.service
 /**
  * Feasibility platform (EPIC-35, ADR-0010): the project, its status history and its experts
  * (ST-35.01), and the questionnaires: templates with versions, and the questionnaire of a project
- * with its answers and its own items (ST-35.03), and the documents of a project (ST-35.06).
- * Estimates and deliverables join in later stories.
+ * with its answers and its own items (ST-35.03), the documents of a project (ST-35.06) and the
+ * cost estimate the applicant accepts or declines (ST-35.08). Contracts and deliverables join in
+ * later stories.
  */
 @Module({
   imports: [UsersModule, ServiceRequestsModule],

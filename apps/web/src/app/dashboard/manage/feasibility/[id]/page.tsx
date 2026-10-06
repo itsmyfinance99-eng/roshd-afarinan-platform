@@ -6,14 +6,15 @@ import { useParams } from 'next/navigation';
 import { useCan } from '@/components/dashboard/me-context';
 import { AsyncBoundary, PageTitle } from '@/components/dashboard/ui';
 import { ProjectDocuments } from '@/components/feasibility/documents';
+import { EstimateFacts, EstimateForm } from '@/components/feasibility/estimate';
 import { ReviewActions } from '@/components/feasibility/review';
 import { ProjectAttachments, ProjectFacts, ProjectTimeline } from '@/components/feasibility/parts';
 import type { FeasibilityProjectDetail } from '@/components/feasibility/types';
 import { useApi } from '@/lib/use-api';
 
 /**
- * A project as staff and its experts see it, with the steps of the intake review for staff
- * (ST-35.07). The later steps join in their own stories.
+ * A project as staff and its experts see it, with the steps of the intake review (ST-35.07)
+ * and the cost estimate (ST-35.08) for staff. The later steps join in their own stories.
  */
 export default function ManageFeasibilityProjectPage() {
   const { id } = useParams<{ id: string }>();
@@ -42,6 +43,8 @@ export default function ManageFeasibilityProjectPage() {
           <div className="grid gap-8 lg:grid-cols-[1fr_300px]">
             <div className="flex min-w-0 flex-col gap-6">
               <ProjectFacts project={project} />
+              {project.costEstimate ? <EstimateFacts estimate={project.costEstimate} /> : null}
+              <EstimateForm project={project} onChanged={() => reload({ silent: true })} />
               <ReviewActions project={project} onChanged={() => reload({ silent: true })} />
               <dl className="grid grid-cols-[auto_1fr] gap-x-5 gap-y-2 text-[15px]">
                 <dt className="text-ink-5">متقاضی</dt>

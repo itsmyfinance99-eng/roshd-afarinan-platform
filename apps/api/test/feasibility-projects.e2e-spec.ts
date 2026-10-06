@@ -37,6 +37,13 @@ describe('Feasibility projects (e2e)', () => {
   };
   const move = (actor: Account, id: string, to: string, note?: string) =>
     http().post(`${base}/${id}/transitions`).set(auth(actor.token)).send({ to, note });
+  const ESTIMATE = {
+    amountRials: '2500000000',
+    scope: 'مطالعه بازار، فنی و مالی طرح',
+    durationDays: 45,
+  };
+  const estimate = (actor: Account, id: string, body: object = ESTIMATE) =>
+    http().post(`${base}/${id}/cost-estimate`).set(auth(actor.token)).send(body);
   const assign = (actor: Account, id: string, expertId: string) =>
     http().post(`${base}/${id}/experts`).set(auth(actor.token)).send({ expertId });
   const statusOf = async (id: string) =>
@@ -217,7 +224,7 @@ describe('Feasibility projects (e2e)', () => {
     await move(officer, id, 'NEEDS_MORE_INFO', 'ظرفیت اسمی را بنویسید').expect(200);
     await move(owner, id, 'SUBMITTED').expect(200);
     await move(officer, id, 'INITIAL_REVIEW').expect(200);
-    await move(officer, id, 'COST_ESTIMATED').expect(200);
+    await estimate(officer, id).expect(200);
     await move(owner, id, 'CONTRACT_PENDING').expect(200);
     await assign(officer, id, expert.id).expect(200);
     const started = await move(officer, id, 'IN_PROGRESS').expect(200);
@@ -384,7 +391,7 @@ describe('Feasibility projects (e2e)', () => {
     expect(await prisma().expertAssignment.count({ where: { projectId: id } })).toBe(0);
 
     await move(both, id, 'INITIAL_REVIEW').expect(200);
-    await move(both, id, 'COST_ESTIMATED').expect(200);
+    await estimate(both, id).expect(200);
     await move(owner, id, 'CONTRACT_PENDING').expect(200);
     await move(both, id, 'IN_PROGRESS').expect(200);
     await move(both, id, 'EXPERT_REVIEW').expect(200);
@@ -1028,11 +1035,191 @@ describe('Feasibility projects (e2e)', () => {
       const { id } = await createProject(owner);
       await move(owner, id, 'SUBMITTED').expect(200);
       await move(officer, id, 'INITIAL_REVIEW').expect(200);
-      await move(officer, id, 'COST_ESTIMATED').expect(200);
+      await estimate(officer, id).expect(200);
       // The note is the staff's duty: they explain a closing, the applicant need not.
       await move(officer, id, 'ARCHIVED').expect(400);
       await move(owner, id, 'ARCHIVED').expect(200);
       expect(await statusOf(id)).toBe('ARCHIVED');
+    });
+  });
+
+  describe('the cost estimate (ST-35.08)', () => {
+    const reviewed = async () => {
+      const owner = await registerUser(app);
+      const officer = await registerUser(app, ['feasibility_officer']);
+      const project = await createProject(owner);
+      await move(owner, project.id, 'SUBMITTED').expect(200);
+      await move(officer, project.id, 'INITIAL_REVIEW').expect(200);
+      return { owner, officer, ...project };
+    };
+
+    it('is entered by staff with the step, and read by the applicant', async () => {
+      const { owner, officer, id, code } = await reviewed();
+      // The step is not taken without an estimate.
+      const bare = await move(officer, id, 'COST_ESTIMATED').expect(400);
+      expect(bare.body.error.details).toEqual([expect.objectContaining({ path: 'to' })]);
+      expect(await statusOf(id)).toBe('INITIAL_REVIEW');
+      const before = await http().get(`${base}/${id}`).set(auth(owner.token)).expect(200);
+      expect(before.body.data.costEstimate).toBeNull();
+
+      const note = 'برآورد بر پایه اطلاعات پرسشنامه است.';
+      const done = await estimate(officer, id, {
+        amountRials: '۲٬۵۰۰٬۰۰۰٬۰۰۰',
+        scope: ' مطالعه بازار، فنی و مالی طرح ',
+        durationDays: 45,
+        note,
+      }).expect(200);
+      expect(done.body.data.status).toBe('COST_ESTIMATED');
+      // Exactly what was typed, as whole rials; nothing is computed or rounded.
+      expect(done.body.data.costEstimate).toEqual({
+        amountRials: '2500000000',
+        scope: 'مطالعه بازار، فنی و مالی طرح',
+        durationDays: 45,
+        createdAt: expect.any(String),
+      });
+      expect(done.body.data.events.at(-1)).toMatchObject({
+        fromStatus: 'INITIAL_REVIEW',
+        toStatus: 'COST_ESTIMATED',
+        actor: 'staff',
+        note,
+        by: { id: officer.id },
+      });
+
+      const mine = await http().get(`${base}/${id}`).set(auth(owner.token)).expect(200);
+      expect(mine.body.data.costEstimate).toEqual(done.body.data.costEstimate);
+      expect(mine.body.data.access.transitions).toEqual(['CONTRACT_PENDING', 'ARCHIVED']);
+      // The applicant is told, with the words of the staff and without the amount.
+      const notice = await prisma().notification.findFirstOrThrow({
+        where: { userId: owner.id, kind: 'feasibility_project.status_changed' },
+        orderBy: { createdAt: 'desc' },
+      });
+      expect(notice).toMatchObject({
+        title: `وضعیت پروژه ${code}: برآورد هزینه`,
+        body: note,
+        link: `/dashboard/feasibility/${id}`,
+      });
+      // Who estimated what is on the record.
+      const [entry] = (await audits(id, 'feasibility_project.status_changed')).slice(-1);
+      expect(entry).toMatchObject({ actorId: officer.id });
+      expect(entry?.metadata).toMatchObject({
+        from: 'INITIAL_REVIEW',
+        to: 'COST_ESTIMATED',
+        actor: 'staff',
+        amountRials: '2500000000',
+        durationDays: 45,
+      });
+      // One estimate per step: the project has moved on, so a second one is refused.
+      await estimate(officer, id).expect(409);
+      expect(await prisma().feasibilityCostEstimate.count({ where: { projectId: id } })).toBe(1);
+    });
+
+    it('refuses an estimate that is not whole, positive and explained', async () => {
+      const { officer, id } = await reviewed();
+      const refusedAt = async (over: object, path: string) => {
+        const res = await estimate(officer, id, { ...ESTIMATE, ...over }).expect(400);
+        expect(res.body.error.details).toEqual([expect.objectContaining({ path })]);
+      };
+      await refusedAt({ amountRials: '0' }, 'amountRials');
+      await refusedAt({ amountRials: '10.5' }, 'amountRials');
+      await refusedAt({ amountRials: '-1' }, 'amountRials');
+      await refusedAt({ amountRials: 2500000000 }, 'amountRials');
+      await refusedAt({ amountRials: undefined }, 'amountRials');
+      await refusedAt({ scope: 'کوتاه' }, 'scope');
+      await refusedAt({ durationDays: 0 }, 'durationDays');
+      await refusedAt({ durationDays: 2.5 }, 'durationDays');
+      await refusedAt({ durationDays: 3651 }, 'durationDays');
+      expect(await statusOf(id)).toBe('INITIAL_REVIEW');
+      expect(await prisma().feasibilityCostEstimate.count({ where: { projectId: id } })).toBe(0);
+    });
+
+    it("is the staff's to enter: not the applicant's, an expert's or a stranger's", async () => {
+      const { owner, officer, id } = await reviewed();
+      const expert = await registerUser(app, ['expert']);
+      const stranger = await registerUser(app);
+      await assign(officer, id, expert.id).expect(200);
+
+      await http().post(`${base}/${id}/cost-estimate`).send(ESTIMATE).expect(401);
+      await estimate(owner, id).expect(403);
+      await estimate(expert, id).expect(403);
+      await estimate(stranger, id).expect(403);
+      expect(await statusOf(id)).toBe('INITIAL_REVIEW');
+
+      // Staff do not estimate a project of their own: there they are the applicant.
+      const own = await createProject(officer);
+      await move(officer, own.id, 'SUBMITTED').expect(200);
+      const colleague = await registerUser(app, ['feasibility_officer']);
+      await move(colleague, own.id, 'INITIAL_REVIEW').expect(200);
+      await estimate(officer, own.id).expect(403);
+      // And only out of the review: not before it, and not on a project that does not exist.
+      const early = await createProject(owner);
+      await move(owner, early.id, 'SUBMITTED').expect(200);
+      await estimate(officer, early.id).expect(409);
+      await estimate(officer, '00000000-0000-7000-8000-000000000000').expect(404);
+
+      await estimate(officer, id).expect(200);
+      // The price is between the applicant and the staff: the assigned expert does not read it.
+      const asExpert = await http().get(`${base}/${id}`).set(auth(expert.token)).expect(200);
+      expect(asExpert.body.data.costEstimate).toBeNull();
+      const asStaff = await http().get(`${base}/${id}`).set(auth(officer.token)).expect(200);
+      expect(asStaff.body.data.costEstimate).toMatchObject({ amountRials: '2500000000' });
+      await http().get(`${base}/${id}`).set(auth(stranger.token)).expect(404);
+    });
+
+    it('is accepted by the applicant, which opens the contract step', async () => {
+      const { owner, officer, id, code } = await reviewed();
+      await estimate(officer, id).expect(200);
+      // The decision is the applicant's; the staff cannot accept in their place.
+      await move(officer, id, 'CONTRACT_PENDING').expect(403);
+      const stranger = await registerUser(app);
+      await move(stranger, id, 'CONTRACT_PENDING').expect(404);
+
+      const accepted = await move(owner, id, 'CONTRACT_PENDING').expect(200);
+      expect(accepted.body.data.status).toBe('CONTRACT_PENDING');
+      expect(accepted.body.data.events.at(-1)).toMatchObject({
+        fromStatus: 'COST_ESTIMATED',
+        toStatus: 'CONTRACT_PENDING',
+        actor: 'applicant',
+      });
+      // The accepted estimate stays on the project.
+      expect(accepted.body.data.costEstimate).toMatchObject({ amountRials: '2500000000' });
+      const [entry] = (await audits(id, 'feasibility_project.status_changed')).slice(-1);
+      expect(entry).toMatchObject({ actorId: owner.id });
+      expect(entry?.metadata).toMatchObject({ to: 'CONTRACT_PENDING', actor: 'applicant' });
+      // The staff are told.
+      expect(await inbox(officer.token)).toContainEqual(
+        expect.objectContaining({
+          kind: 'feasibility_project.status_changed',
+          title: `وضعیت پروژه ${code}: در انتظار قرارداد`,
+          link: `/dashboard/manage/feasibility/${id}`,
+        }),
+      );
+      // Deciding twice is refused.
+      await move(owner, id, 'ARCHIVED').expect(403);
+    });
+
+    it('is declined by the applicant, which archives the project', async () => {
+      const { owner, officer, id, code } = await reviewed();
+      await estimate(officer, id).expect(200);
+      const declined = await move(owner, id, 'ARCHIVED', 'مبلغ برآورد برای ما زیاد است.').expect(
+        200,
+      );
+      expect(declined.body.data.status).toBe('ARCHIVED');
+      expect(declined.body.data.events.at(-1)).toMatchObject({
+        fromStatus: 'COST_ESTIMATED',
+        toStatus: 'ARCHIVED',
+        actor: 'applicant',
+        note: 'مبلغ برآورد برای ما زیاد است.',
+      });
+      expect(declined.body.data.access.transitions).toEqual([]);
+      const [entry] = (await audits(id, 'feasibility_project.status_changed')).slice(-1);
+      expect(entry?.metadata).toMatchObject({ to: 'ARCHIVED', actor: 'applicant' });
+      expect(await inbox(officer.token)).toContainEqual(
+        expect.objectContaining({
+          kind: 'feasibility_project.status_changed',
+          title: `وضعیت پروژه ${code}: بایگانی‌شده`,
+        }),
+      );
+      await move(owner, id, 'CONTRACT_PENDING').expect(409);
     });
   });
 });

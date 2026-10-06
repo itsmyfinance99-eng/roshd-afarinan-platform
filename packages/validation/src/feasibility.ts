@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { optionalText, paginationQuerySchema, text } from './common';
+import { priceRialsSchema } from './learning';
 import { FEASIBILITY_SECTORS } from './service-requests';
 
 /** Life cycle of a feasibility project (ADR-0010 §3); changed only by the state machine of the API. */
@@ -123,6 +124,29 @@ export const feasibilityTransitionSchema = z.object({
   note: optionalText(FEASIBILITY_NOTE_MAX).optional(),
 });
 export type FeasibilityTransitionInput = z.infer<typeof feasibilityTransitionSchema>;
+
+export const FEASIBILITY_ESTIMATE_SCOPE_MAX = 5000;
+/** The longest a study is estimated to take, in days (ten years: a bound against typos). */
+export const FEASIBILITY_ESTIMATE_MAX_DAYS = 3650;
+
+/**
+ * The cost estimate the staff enter for a study (ST-35.08): what it costs, what it covers and how
+ * long it takes. Nothing of it is computed.
+ */
+export const feasibilityCostEstimateSchema = z.object({
+  amountRials: priceRialsSchema.refine((value) => value !== '0', {
+    error: 'مبلغ باید بیشتر از صفر باشد.',
+  }),
+  scope: text(10, FEASIBILITY_ESTIMATE_SCOPE_MAX),
+  durationDays: z
+    .number({ error: 'مدت را به روز و با عدد صحیح بنویسید.' })
+    .int({ error: 'مدت را به روز و با عدد صحیح بنویسید.' })
+    .min(1, { error: 'مدت باید دست‌کم یک روز باشد.' })
+    .max(FEASIBILITY_ESTIMATE_MAX_DAYS, { error: 'مدت بیش از اندازه بلند است.' }),
+  /** A message for the applicant that goes with the estimate. */
+  note: optionalText(FEASIBILITY_NOTE_MAX).optional(),
+});
+export type FeasibilityCostEstimateInput = z.infer<typeof feasibilityCostEstimateSchema>;
 
 export const assignExpertSchema = z.object({
   expertId: z.uuid({ error: 'کارشناس انتخاب‌شده معتبر نیست.' }),

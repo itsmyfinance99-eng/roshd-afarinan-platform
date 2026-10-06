@@ -659,7 +659,15 @@ describe('Questionnaires (e2e)', () => {
         document: { label: 'استعلام شرکت برق', required: true },
       }).expect(201);
       const lateId = late.body.data.items.at(-1).id as string;
-      await move(officer, project.id, 'COST_ESTIMATED').expect(200);
+      await http()
+        .post(`${projects}/${project.id}/cost-estimate`)
+        .set(auth(officer.token))
+        .send({
+          amountRials: '2500000000',
+          scope: 'مطالعه بازار، فنی و مالی طرح',
+          durationDays: 45,
+        })
+        .expect(200);
       await addItem(officer, project.id, { kind: 'NOTE', text: 'توضیح' }).expect(409);
       await removeItem(officer, project.id, lateId).expect(409);
       expect((await questionnaire(officer, project.id)).body.data.access.addItems).toBe(false);

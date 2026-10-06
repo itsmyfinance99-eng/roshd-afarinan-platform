@@ -160,8 +160,8 @@ test.describe('the intake review of feasibility projects', () => {
     await page.getByRole('button', { name: 'شروع بررسی اولیه' }).click();
     await expect(page.getByText('بررسی اولیه شروع شد.')).toBeVisible();
     expect(sent).toEqual([{ to: 'INITIAL_REVIEW' }]);
-    // The step for the cost estimate belongs to its own story and is not offered here.
-    await expect(page.getByRole('button', { name: /برآورد/ })).toHaveCount(0);
+    // The step to the cost estimate has a form of its own next to these (ST-35.08).
+    await expect(page.getByRole('heading', { name: 'ثبت برآورد هزینه' })).toBeVisible();
 
     // Asking for more without saying what is caught before anything is sent.
     await page.getByRole('button', { name: 'درخواست اطلاعات تکمیلی' }).click();
