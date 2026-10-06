@@ -85,6 +85,15 @@ Open business points: pricing (OQ-01), contract and staged payment (OQ-02), docu
 - **Pages.** The last step of the applicant's questionnaire page lists the documents and the files of file questions with their versions, a button to hand in (a new version), download and — where allowed — «برداشتن»; a file question in the form says how many files it has and where they are handed in; the check for completeness counts missing documents. Staff and assigned experts read and download the same list on the project page of the dashboard.
 - **Defaults put to the owner (OQ-48).** That only the applicant hands in documents, that a submitted file cannot be taken back, and the limits above.
 
+## As built in ST-35.07
+
+- **Review queue.** `GET /api/v1/feasibility-projects?scope=all&queue=review` (staff with `feasibility:manage`) lists what waits for the intake — the projects that are `SUBMITTED` or in `INITIAL_REVIEW` — with the longest waiting first; a status narrows it further. The staff list of the dashboard opens on this queue («صف بررسی») and keeps the whole list and the expert's own list as its other views.
+- **Steps of the review.** The state machine and `POST …/transitions` are those of ST-35.01; the project page of the staff now offers the steps of the intake that the API gives the caller: start the review (`INITIAL_REVIEW`), ask for more information (`NEEDS_MORE_INFO`) and archive (`ARCHIVED`). The step to the cost estimate is not offered before its own story.
+- **Explained steps.** When staff ask for more information or archive a project, the note is required (400 with `note`); only filing a delivered study away needs none. The applicant reads the note on the timeline of the project, and the notification of the new status carries it (its first 300 characters) instead of the title of the project. The steps of the applicant and of experts stay as they were.
+- **Reopening.** `NEEDS_MORE_INFO` opens the whole project for its applicant again: the details, every answer of the questionnaire, the project's own items and the documents (new versions and new files; what was submitted stays). The note says which of them the reviewers mean; answers are not opened one by one. The resubmission checks the questionnaire and the required documents again.
+- **Reading the answers.** Staff and assigned experts read the questionnaire of a project with the applicant's answers at `/dashboard/manage/feasibility/[id]/questionnaire` — the form of the applicant, locked, in the words of a reader — together with the documents. While the intake lasts, staff add their own question, document or note there (ST-35.03), and the applicant is told.
+- **Not here.** Automatic archiving of a project that stays in `NEEDS_MORE_INFO` (the `system` actor of the state machine) is not scheduled yet; how long to wait is the owner's to say (OQ-49).
+
 ## Consequences
 
 - The applicant and the company work in one place with a full, audited history.
