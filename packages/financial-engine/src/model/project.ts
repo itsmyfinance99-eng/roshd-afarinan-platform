@@ -190,6 +190,18 @@ export function projectModel(input: ProjectInput): CalculationResult<ProjectMode
             costBenefit: analysis,
             localCurrency: input.localCurrency,
             exchangeRates: input.exchangeRates,
+            currencies: {
+              sales: Object.fromEntries(
+                input.operations.products.map((product) => [
+                  product.key,
+                  Object.fromEntries(product.sales.map((line) => [line.key, line.currency])),
+                ]),
+              ),
+              costs: Object.fromEntries(input.operations.costs.map((c) => [c.key, c.currency])),
+              investment: Object.fromEntries(
+                input.investment.items.map((i) => [i.key, i.currency]),
+              ),
+            },
           }),
         ),
       );

@@ -14,6 +14,7 @@ import { periodAmounts } from './asset-depreciation';
 import { discountedFlow } from './discounted-flow';
 import {
   NUMERAIRES,
+  TRADE_CLASSES,
   at,
   economicBase,
   entriesByItem,
@@ -40,7 +41,7 @@ import { discountRates } from './statements';
 /** A line of the schedule, at present value in the numeraire. */
 export interface CostBenefitLine {
   financialValue: DecimalString;
-  /** `AMV / FV`; null without a financial value. */
+  /** `AMV / FV`; null without a financial value, and for the net flow. */
   adjustmentFactor: DecimalString | null;
   adjustedMarketValue: DecimalString;
   /** Exposure of the line, weighted by the adjusted market values; null without a value. */
@@ -55,6 +56,11 @@ export interface CostBenefitLevel {
   /** One column per project period, plus the year after production when residual values return there. */
   net: DecimalString[];
   npv: DecimalString;
+  /**
+   * What an existing enterprise brings in, charged on the day before the first period at this
+   * level's value (expansion projects only): it is in the NPV and the IRR but in no column.
+   */
+  startingBalance?: DecimalString;
   /** Absent, with a warning of the level, when no single rate of return exists. */
   irr?: DecimalString;
   warnings: CalculationWarning[];
@@ -105,6 +111,13 @@ export interface CostBenefitScheduleInput extends EconomicScheduleInput {
   localCurrency: CurrencyCode;
   /** Local units per unit of each foreign currency, one rate per project period. */
   exchangeRates: Record<CurrencyCode, DecimalString[]>;
+  /** The currency every item is entered in: a foreign one is valued at the shadow rate. */
+  currencies: {
+    /** By product key and sales-line key. */
+    sales: Record<string, Record<string, CurrencyCode>>;
+    costs: Record<string, CurrencyCode>;
+    investment: Record<string, CurrencyCode>;
+  };
 }
 
 /** The three valuations of a line, per column, with the exposed part of its adjusted value. */
@@ -168,10 +181,26 @@ export function costBenefit(
     if (exposure.isNegative() || exposure.gt(1)) {
       throw new EngineInputError('share.outOfRange', `${at_}.foreignCurrencyExposure`);
     }
+    if (!(TRADE_CLASSES as readonly string[]).includes(entry.category)) {
+      throw new EngineInputError('costBenefit.category', `${at_}.category`);
+    }
+    // A non-traded item is priced at home: no part of it is a transaction in foreign currency.
+    if (entry.category === 'NON_TRADED' && !exposure.isZero()) {
+      throw new EngineInputError('costBenefit.nonTradedExposure', `${at_}.foreignCurrencyExposure`);
+    }
     return { factor, exposure };
   };
   const FINANCIAL = { factor: ONE, exposure: ZERO };
   const FOREIGN = { factor: ONE, exposure: ONE };
+  /**
+   * An item that is not taken into the analysis keeps its financial value; one entered in a
+   * foreign currency is foreign exchange in full and so valued at the shadow rate (X.D.4, XII.D).
+   */
+  const unlisted = (itemCurrency: CurrencyCode | undefined) =>
+    itemCurrency !== undefined && itemCurrency !== input.localCurrency ? FOREIGN : FINANCIAL;
+  const { currencies } = input;
+  const currencyOf = (map: Record<string, CurrencyCode>, key: string) =>
+    Object.hasOwn(map, key) ? map[key] : undefined;
   /** XII.D.3: border prices are raised to domestic prices, or domestic prices lowered to them. */
   const adjustmentOf = (adjusted: Decimal, exposure: Decimal) =>
     domestic
@@ -224,8 +253,12 @@ export function costBenefit(
   for (const product of operations.products) {
     for (const line of product.lines) {
       const found = outputs.get(JSON.stringify([product.key, line.key]));
-      if (found === undefined) put(salesRevenue, row(line.grossRevenue), FINANCIAL);
-      else put(salesRevenue, row(line.netRevenue), found);
+      if (found === undefined) {
+        const lines = Object.hasOwn(currencies.sales, product.key)
+          ? (currencies.sales[product.key] ?? {})
+          : {};
+        put(salesRevenue, row(line.grossRevenue), unlisted(currencyOf(lines, line.key)));
+      } else put(salesRevenue, row(line.netRevenue), found);
     }
   }
   const depositInterest = empty();
@@ -248,7 +281,9 @@ export function costBenefit(
     put(
       item.group === 'PRE_PRODUCTION' ? preProduction : fixedInvestment,
       row(item.amounts),
-      found === undefined ? FINANCIAL : valuation(found.entry, found.field),
+      found === undefined
+        ? unlisted(currencyOf(currencies.investment, item.key))
+        : valuation(found.entry, found.field),
     );
   }
   const costEntries = entriesByItem(
@@ -270,7 +305,9 @@ export function costBenefit(
           ? marketingCosts
           : operatingCosts,
       cost.sold,
-      found === undefined ? FINANCIAL : valuation(found.entry, found.field),
+      found === undefined
+        ? unlisted(currencyOf(currencies.costs, cost.key))
+        : valuation(found.entry, found.field),
     );
   }
   // The increase of the net working capital, as the cash flow of the total capital has it.
@@ -384,6 +421,9 @@ export function costBenefit(
     return {
       net: flow.result.net,
       npv: flow.result.npv,
+      ...(flow.result.startingBalance === undefined
+        ? {}
+        : { startingBalance: flow.result.startingBalance }),
       ...(flow.result.irr === undefined ? {} : { irr: flow.result.irr }),
       warnings: flow.warnings,
     };
@@ -404,12 +444,19 @@ export function costBenefit(
 
   const text = (value: Decimal) => toDecimalString(value);
   const ratio = (a: Decimal, b: Decimal) => (b.isZero() ? null : text(a.div(b)));
-  const lineOf = (
-    financial: Decimal,
-    adjusted: Decimal,
-    exposed: Decimal,
-    adjustment: Decimal,
-  ) => ({
+  interface Present {
+    financial: Decimal;
+    adjusted: Decimal;
+    exposed: Decimal;
+    adjustment: Decimal;
+  }
+  const presentOf = (amounts: Amounts): Present => ({
+    financial: present(amounts.financial),
+    adjusted: present(amounts.adjusted),
+    exposed: present(amounts.exposed),
+    adjustment: present(amounts.adjustment),
+  });
+  const lineOf = ({ financial, adjusted, exposed, adjustment }: Present): CostBenefitLine => ({
     financialValue: text(financial),
     adjustmentFactor: ratio(adjusted, financial),
     adjustedMarketValue: text(adjusted),
@@ -417,13 +464,7 @@ export function costBenefit(
     foreignExchangeAdjustment: text(adjustment),
     economicValue: text(adjusted.plus(adjustment)),
   });
-  const line = (amounts: Amounts): CostBenefitLine =>
-    lineOf(
-      present(amounts.financial),
-      present(amounts.adjusted),
-      present(amounts.exposed),
-      present(amounts.adjustment),
-    );
+  const line = (amounts: Amounts): CostBenefitLine => lineOf(presentOf(amounts));
   const openingPresent = (value: Decimal) => {
     if (value.isZero()) return ZERO;
     // The day before the first period: one period's factor earlier than its end.
@@ -433,37 +474,30 @@ export function costBenefit(
     })[0];
     return value.div(openingFirst).div(first ?? ONE);
   };
-  const startingBalance = lineOf(
-    openingPresent(opening),
-    openingPresent(opening),
-    ZERO,
-    openingPresent(openingAdjustment),
-  );
-  const totalOf = (...lines: CostBenefitLine[]): CostBenefitLine => {
-    const add = (name: keyof CostBenefitLine) =>
-      lines.reduce((s, l) => s.plus(toDecimal(l[name] ?? '0')), ZERO);
-    const adjusted = add('adjustedMarketValue');
-    const exposed = lines.reduce(
-      (s, l) =>
-        s.plus(toDecimal(l.adjustedMarketValue).times(toDecimal(l.foreignCurrencyExposure ?? '0'))),
-      ZERO,
-    );
-    return lineOf(add('financialValue'), adjusted, exposed, add('foreignExchangeAdjustment'));
+  const startingBalance: Present = {
+    financial: openingPresent(opening),
+    adjusted: openingPresent(opening),
+    exposed: ZERO,
+    adjustment: openingPresent(openingAdjustment),
   };
-  const inflowLine = line(inflow);
-  const outflowLine = totalOf(line(outflowOfPeriods), startingBalance);
-  const difference = (a: CostBenefitLine, b: CostBenefitLine): CostBenefitLine => {
-    const of = (name: 'financialValue' | 'adjustedMarketValue' | 'foreignExchangeAdjustment') =>
-      toDecimal(a[name]).minus(toDecimal(b[name]));
-    const adjusted = of('adjustedMarketValue');
-    return {
-      financialValue: text(of('financialValue')),
-      adjustmentFactor: ratio(adjusted, of('financialValue')),
-      adjustedMarketValue: text(adjusted),
-      foreignCurrencyExposure: null,
-      foreignExchangeAdjustment: text(of('foreignExchangeAdjustment')),
-      economicValue: text(adjusted.plus(of('foreignExchangeAdjustment'))),
-    };
+  const inflowTotal = presentOf(inflow);
+  const periodsOut = presentOf(outflowOfPeriods);
+  const outflowTotal: Present = {
+    financial: periodsOut.financial.plus(startingBalance.financial),
+    adjusted: periodsOut.adjusted.plus(startingBalance.adjusted),
+    exposed: periodsOut.exposed,
+    adjustment: periodsOut.adjustment.plus(startingBalance.adjustment),
+  };
+  // The net of the two totals: a factor or an exposure of a difference would mean nothing.
+  const netAdjustedValue = inflowTotal.adjusted.minus(outflowTotal.adjusted);
+  const netAdjustment = inflowTotal.adjustment.minus(outflowTotal.adjustment);
+  const netFlow: CostBenefitLine = {
+    financialValue: text(inflowTotal.financial.minus(outflowTotal.financial)),
+    adjustmentFactor: null,
+    adjustedMarketValue: text(netAdjustedValue),
+    foreignCurrencyExposure: null,
+    foreignExchangeAdjustment: text(netAdjustment),
+    economicValue: text(netAdjustedValue.plus(netAdjustment)),
   };
   const benefits = present(indirectBenefits);
   const indirectCost = present(indirectCosts);
@@ -478,21 +512,21 @@ export function costBenefit(
       otherIncome: line(otherIncome),
       foreignLoans: line(foreignLoans),
       residualValue: line(residualValue),
-      total: inflowLine,
+      total: lineOf(inflowTotal),
     },
     outflows: {
       fixedInvestment: line(fixedInvestment),
       preProduction: line(preProduction),
       workingCapitalIncrease: line(workingCapitalIncrease),
-      startingBalance,
+      startingBalance: lineOf(startingBalance),
       operatingCosts: line(operatingCosts),
       leasingCosts: line(leasingCosts),
       marketingCosts: line(marketingCosts),
       foreignDebtService: line(foreignDebtService),
       incomeTax: line(incomeTax),
-      total: outflowLine,
+      total: lineOf(outflowTotal),
     },
-    netFlow: difference(inflowLine, outflowLine),
+    netFlow,
     indirect: {
       benefits: text(benefits),
       costs: text(indirectCost),

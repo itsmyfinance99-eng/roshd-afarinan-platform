@@ -8,6 +8,7 @@ import {
   LABOUR_SKILLS,
   NUMERAIRES,
   TRADE_CATEGORIES,
+  TRADE_CLASSES,
   projectModel,
   type DepreciationMethod,
   type ProjectInput,
@@ -24,6 +25,7 @@ import {
   LABOUR_SKILL_VALUES,
   NUMERAIRE_VALUES,
   TRADE_CATEGORY_VALUES,
+  TRADE_CLASS_VALUES,
   createFinancialModelSchema,
   calculationSize,
   projectInputSchema,
@@ -144,6 +146,7 @@ describe('projectInputSchema', () => {
     expect(LABOUR_SKILL_VALUES).toEqual(LABOUR_SKILLS);
     expect(TRADE_CATEGORY_VALUES).toEqual(TRADE_CATEGORIES);
     expect(NUMERAIRE_VALUES).toEqual(NUMERAIRES);
+    expect(TRADE_CLASS_VALUES).toEqual(TRADE_CLASSES);
     const methods: readonly DepreciationMethod[] = DEPRECIATION_METHOD_VALUES;
     expect(methods).toHaveLength(4);
   });
@@ -392,7 +395,14 @@ describe('projectInputSchema: economic analysis', () => {
       standardConversionFactor: '۰٫۸',
       outputs: [],
       costs: [],
-      investment: [{ item: 'machinery', adjustmentFactor: '0.9', foreignCurrencyExposure: '1' }],
+      investment: [
+        {
+          item: 'machinery',
+          category: 'TRADED',
+          adjustmentFactor: '0.9',
+          foreignCurrencyExposure: '1',
+        },
+      ],
       foreignLoans: [],
       indirectBenefits: [{ key: 'training', currency: 'irr', amounts: ['0', '7', '7', '7'] }],
       indirectCosts: [],
@@ -418,7 +428,7 @@ describe('projectInputSchema: economic analysis', () => {
           costBenefit: {
             ...costBenefit,
             numeraire: 'GOLD',
-            investment: [{ item: 'machinery', adjustmentFactor: '0.9' }],
+            investment: [{ item: 'machinery', category: 'IMPORTED', adjustmentFactor: '0.9' }],
             foreignLoans: undefined,
           },
         },
@@ -426,6 +436,7 @@ describe('projectInputSchema: economic analysis', () => {
       .error?.issues.map((i) => i.path.join('.'));
     expect(issues).toEqual([
       'economic.costBenefit.numeraire',
+      'economic.costBenefit.investment.0.category',
       'economic.costBenefit.investment.0.foreignCurrencyExposure',
       'economic.costBenefit.foreignLoans',
     ]);

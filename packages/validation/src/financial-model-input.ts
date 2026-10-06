@@ -313,6 +313,8 @@ export const INPUT_NATURE_VALUES = ['MATERIALS', 'WAGES', 'OTHER'] as const;
 export const LABOUR_SKILL_VALUES = ['SKILLED', 'UNSKILLED'] as const;
 /** How a local item would be traded without the project (ST-37.02). */
 export const TRADE_CATEGORY_VALUES = ['IMPORTABLE', 'EXPORTABLE'] as const;
+/** Classification of an item for its economic price (ST-37.04). */
+export const TRADE_CLASS_VALUES = ['TRADED', 'TRADABLE', 'NON_TRADED'] as const;
 /** The unit of account of the cost-benefit analysis (ST-37.04). */
 export const NUMERAIRE_VALUES = [
   'LOCAL_DOMESTIC_PRICES',
@@ -361,7 +363,11 @@ const employmentSchema = z.object({
   inputSupplying: indirectEmployment,
   outputUsing: indirectEmployment,
 });
-const valuation = { adjustmentFactor: decimal, foreignCurrencyExposure: decimal };
+const valuation = {
+  category: choice(TRADE_CLASS_VALUES),
+  adjustmentFactor: decimal,
+  foreignCurrencyExposure: decimal,
+};
 /**
  * Cost-benefit analysis at economic prices (ST-37.04; the engine's `CostBenefitInput`). The
  * numeraire and the standard conversion factor are entered; every list is entered, empty or not.

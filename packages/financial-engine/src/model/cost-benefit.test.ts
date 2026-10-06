@@ -24,6 +24,8 @@ import { projectModel, type ProjectInput } from './project';
  *   spare parts       100   1      100   1           25
  *   ore               300   0.9    270   0            0
  *   machinery         900   0.9    810   1          202.5
+ *   foreign experts    80   —       80   1           20   (not listed, in dollars)
+ *   licence            30   —       30   1            7.5 (not listed, in dollars)
  *
  * The export credit of 500 is tied to the project: it comes in, and its service of 50, 300 and
  * 275 goes out, as foreign exchange. Training gives a benefit of 20 a year; pollution costs a
@@ -33,14 +35,38 @@ const analysis: CostBenefitInput = {
   numeraire: 'LOCAL_DOMESTIC_PRICES',
   standardConversionFactor: '0.8',
   outputs: [
-    { product: 'steel', line: 'export', adjustmentFactor: '1', foreignCurrencyExposure: '1' },
-    { product: 'steel', line: 'home', adjustmentFactor: '1.1', foreignCurrencyExposure: '0.4' },
+    {
+      product: 'steel',
+      line: 'export',
+      category: 'TRADED',
+      adjustmentFactor: '1',
+      foreignCurrencyExposure: '1',
+    },
+    {
+      product: 'steel',
+      line: 'home',
+      category: 'TRADED',
+      adjustmentFactor: '1.1',
+      foreignCurrencyExposure: '0.4',
+    },
   ],
   costs: [
-    { item: 'spare-parts', adjustmentFactor: '1', foreignCurrencyExposure: '1' },
-    { item: 'ore', adjustmentFactor: '0.9', foreignCurrencyExposure: '0' },
+    {
+      item: 'spare-parts',
+      category: 'TRADED',
+      adjustmentFactor: '1',
+      foreignCurrencyExposure: '1',
+    },
+    { item: 'ore', category: 'NON_TRADED', adjustmentFactor: '0.9', foreignCurrencyExposure: '0' },
   ],
-  investment: [{ item: 'machinery', adjustmentFactor: '0.9', foreignCurrencyExposure: '1' }],
+  investment: [
+    {
+      item: 'machinery',
+      category: 'TRADED',
+      adjustmentFactor: '0.9',
+      foreignCurrencyExposure: '1',
+    },
+  ],
   foreignLoans: ['export-credit'],
   indirectBenefits: [
     { key: 'training', currency: 'NCU', amounts: per({ 1: '20', 2: '20', 3: '20' }) },
@@ -129,7 +155,8 @@ describe('cost-benefit analysis at financial values', () => {
       amv: yearly('2070'),
       fea: D('0'),
       af: D('1'),
-      fce: D('0'),
+      // The export sales of 750 are in dollars: foreign exchange in full, listed or not.
+      fce: D('750').div('2070'),
     });
     expectLine(result?.inflows.otherIncome, {
       fv: present(['0', '0', '0', '100']),
@@ -198,10 +225,10 @@ describe('cost-benefit analysis at economic prices', () => {
   it('values the flow at each level', () => {
     expectNet(result?.levels.financial.net, ['-1400', '756', '506', '626', '0']);
     expectNet(result?.levels.adjusted.net, ['-1310', '906', '656', '776', '0']);
-    expectNet(result?.levels.economic.net, ['-1387.5', '1188', '875.5', '1001.75', '0']);
-    expectNet(result?.levels.withIndirect.net, ['-1387.5', '1195.5', '883', '1009.25', '0']);
-    close(result?.levels.economic.npv, present(['-1387.5', '1188', '875.5', '1001.75']));
-    close(result?.levels.withIndirect.npv, present(['-1387.5', '1195.5', '883', '1009.25']));
+    expectNet(result?.levels.economic.net, ['-1387.5', '1160.5', '848', '974.25', '0']);
+    expectNet(result?.levels.withIndirect.net, ['-1387.5', '1168', '855.5', '981.75', '0']);
+    close(result?.levels.economic.npv, present(['-1387.5', '1160.5', '848', '974.25']));
+    close(result?.levels.withIndirect.npv, present(['-1387.5', '1168', '855.5', '981.75']));
     expect(D(result?.levels.withIndirect.irr ?? 'NaN').gt('0.5')).toBe(true);
   });
 
@@ -220,8 +247,9 @@ describe('cost-benefit analysis at economic prices', () => {
     expectLine(result?.outflows.operatingCosts, {
       fv: yearly('1010'),
       amv: yearly('980'),
-      fea: yearly('25'),
-      fce: D('100').div('980'),
+      // Spare parts 25 and, not listed but paid in dollars, the experts 20.
+      fea: yearly('45'),
+      fce: D('180').div('980'),
     });
     expectLine(result?.outflows.fixedInvestment, {
       fv: D('1600'),
@@ -264,7 +292,7 @@ describe('cost-benefit analysis at economic prices', () => {
   it('adds up the lines', () => {
     const inflow = present(['625', '2389.5', '2389.5', '2489.5']);
     close(result?.inflows.total.economicValue, inflow);
-    const outflow = present(['2012.5', '1201.5', '1514', '1487.75']);
+    const outflow = present(['2012.5', '1229', '1541.5', '1515.25']);
     close(result?.outflows.total.economicValue, outflow);
     close(result?.netFlow.economicValue, inflow.minus(outflow));
     close(result?.netFlow.economicValue, result?.levels.economic.npv ?? 'NaN');
@@ -286,8 +314,8 @@ describe('cost-benefit analysis at economic prices', () => {
       fea: present(['0', '-8.8', '-8.8', '-9.8']),
     });
     // Every value is the one at domestic prices times the conversion factor.
-    expectNet(border?.levels.economic.net, ['-1110', '950.4', '700.4', '801.4', '0']);
-    expectNet(border?.levels.withIndirect.net, ['-1110', '956.4', '706.4', '807.4', '0']);
+    expectNet(border?.levels.economic.net, ['-1110', '928.4', '678.4', '779.4', '0']);
+    expectNet(border?.levels.withIndirect.net, ['-1110', '934.4', '684.4', '785.4', '0']);
     close(border?.levels.withIndirect.irr, result?.levels.withIndirect.irr ?? 'NaN');
     // The adjusted market values do not depend on the numeraire.
     expectNet(border?.levels.adjusted.net, ['-1310', '906', '656', '776', '0']);
@@ -296,9 +324,162 @@ describe('cost-benefit analysis at economic prices', () => {
   it('expresses the values in a foreign numeraire at the official rate', () => {
     const dollars = schedule(withAnalysis({ numeraire: 'FOREIGN_BORDER_PRICES', currency: 'USD' }));
     expect(dollars?.currency).toBe('USD');
-    expectNet(dollars?.levels.economic.net, ['-111', '95.04', '70.04', '80.14', '0']);
+    expectNet(dollars?.levels.economic.net, ['-111', '92.84', '67.84', '77.94', '0']);
     expectNet(dollars?.levels.financial.net, ['-140', '75.6', '50.6', '62.6', '0']);
     expectLine(dollars?.outflows.preProduction, { fv: D('30'), amv: D('30'), fea: D('-6') });
+  });
+});
+
+describe('cost-benefit analysis: boundaries', () => {
+  const stockedOre = (input: ProjectInput): ProjectInput => ({
+    ...input,
+    operations: {
+      ...input.operations,
+      costs: input.operations.costs.map((c) =>
+        c.key === 'ore' ? { ...c, stockCoverage: { days: '36' } } : c,
+      ),
+    },
+  });
+
+  it('has no foreign-exchange adjustment when the shadow rate is the official rate', () => {
+    const same = schedule(withAnalysis({ standardConversionFactor: '1' }));
+    expectNet(same?.levels.adjusted.net, ['-1310', '906', '656', '776', '0']);
+    expectNet(same?.levels.economic.net, ['-1310', '906', '656', '776', '0']);
+    close(same?.netFlow.foreignExchangeAdjustment, 0);
+  });
+
+  it('values foreign exchange below its official rate when the conversion factor is above one', () => {
+    // A dollar is worth a fifth less than its official rate: the export revenue of 750 loses 150.
+    const cheap = schedule(withAnalysis({ standardConversionFactor: '1.25' }));
+    expectLine(cheap?.inflows.foreignLoans, { fv: D('500'), amv: D('500'), fea: D('-100') });
+    // Sales: 750 × −0.2 and 1 320 × 0.4 × −0.2.
+    close(cheap?.inflows.salesRevenue.foreignExchangeAdjustment, yearly('-255.6'));
+  });
+
+  it('gives the rate of return of the economic flow', () => {
+    const level = schedule(withAnalysis())?.levels.withIndirect;
+    const rate = D(level?.irr ?? 'NaN');
+    const zero = (level?.net ?? []).reduce(
+      (s, a, j) => s.plus(D(a).div(rate.plus(1).pow(j))),
+      D('0'),
+    );
+    expect(zero.abs().lt('1e-9')).toBe(true);
+  });
+
+  it('gives no rate of return to a level whose flow never turns, and keeps the warning there', () => {
+    // Investment that costs the economy nothing: the adjusted flow has no outlay.
+    const free = projectModel(
+      withEconomic({
+        costBenefit: {
+          ...plain,
+          investment: ['machinery', 'building', 'studies', 'land'].map((item) => ({
+            item,
+            category: 'NON_TRADED' as const,
+            adjustmentFactor: '0',
+            foreignCurrencyExposure: '0',
+          })),
+        },
+      }),
+    );
+    const levels = free.value.economic?.costBenefit?.levels;
+    expectNet(levels?.adjusted.net, ['0', '926', '926', '1021', '0']);
+    expect(levels?.adjusted.irr).toBeUndefined();
+    expect(levels?.adjusted.warnings).toEqual([
+      { code: 'irr.noSignChange', params: { basis: 'totalCapital' } },
+    ]);
+    close(levels?.adjusted.npv, present(['0', '926', '926', '1021']));
+    expect(levels?.financial.irr).toBeDefined();
+    expect(levels?.financial.warnings).toEqual([]);
+    expect(free.warnings.map((w) => w.code)).not.toContain('irr.noSignChange');
+  });
+
+  it('returns residual values on the last day of production when asked', () => {
+    const base = stockedOre(withEconomic({ costBenefit: plain }));
+    const last = schedule({
+      ...base,
+      statements: { ...base.statements, residualValueTiming: 'END_OF_PRODUCTION' },
+    });
+    expect(last?.salvageColumn).toBe(false);
+    // The stock of 30 comes back with the last year's flow of 1 021.
+    expectNet(last?.levels.financial.net, ['-1900', '896', '926', '1051']);
+    close(last?.inflows.residualValue.financialValue, present(['0', '0', '0', '30']));
+    close(last?.netFlow.financialValue, last?.levels.financial.npv ?? 'NaN');
+  });
+
+  it('charges what an existing enterprise brings in on the day before the project', () => {
+    // A stock of spare parts of 50, used up in the first year of production.
+    const expansion = schedule({
+      ...withEconomic({ costBenefit: plain }),
+      startingBalances: {
+        fixedAssets: [],
+        materials: [{ cost: 'spare-parts', value: '50' }],
+        workInProgress: [],
+        finishedProducts: [],
+        receivables: { value: '0', collectionDays: 0 },
+        payables: { value: '0', paymentDays: 0 },
+        cashInHand: '0',
+        shortTermDeposits: '0',
+        cashSurplus: '0',
+        loans: [],
+        equity: [],
+      },
+    });
+    const level = expansion?.levels.financial;
+    expectNet(level?.net, ['-1900', '976', '926', '1021', '0']);
+    close(level?.startingBalance, '50');
+    // A year before the reference date: 50 × 1.08.
+    const net = present(['-1900', '976', '926', '1021']).minus(54);
+    close(level?.npv, net);
+    expectLine(expansion?.outflows.startingBalance, { fv: D('54'), amv: D('54'), fea: D('0') });
+    close(expansion?.netFlow.financialValue, net);
+    // At border prices the charge is lowered like every domestic value.
+    const border = schedule({
+      ...withEconomic({
+        costBenefit: {
+          ...plain,
+          numeraire: 'LOCAL_BORDER_PRICES',
+          standardConversionFactor: '0.8',
+        },
+      }),
+      startingBalances: {
+        fixedAssets: [],
+        materials: [{ cost: 'spare-parts', value: '50' }],
+        workInProgress: [],
+        finishedProducts: [],
+        receivables: { value: '0', collectionDays: 0 },
+        payables: { value: '0', paymentDays: 0 },
+        cashInHand: '0',
+        shortTermDeposits: '0',
+        cashSurplus: '0',
+        loans: [],
+        equity: [],
+      },
+    });
+    expectLine(border?.outflows.startingBalance, { fv: D('54'), amv: D('54'), fea: D('-10.8') });
+    close(border?.levels.economic.startingBalance, '40');
+    close(border?.netFlow.economicValue, border?.levels.economic.npv ?? 'NaN');
+  });
+
+  it('converts to a foreign numeraire at the official rate of each period', () => {
+    // The dollar rises from 10 to 12.5 in the second year of production.
+    const rates = ['10', '10', '12.5', '12.5'];
+    const moving = (change: Partial<CostBenefitInput>): ProjectInput => ({
+      ...stockedOre(withAnalysis(change)),
+      exchangeRates: { USD: rates },
+    });
+    const border = schedule(moving({ numeraire: 'LOCAL_BORDER_PRICES' }));
+    const dollars = schedule(moving({ numeraire: 'FOREIGN_BORDER_PRICES', currency: 'USD' }));
+    // The year after production is converted at the rate of the last period.
+    const perColumn = [...rates, '12.5'];
+    for (const name of ['financial', 'adjusted', 'economic', 'withIndirect'] as const) {
+      const local = border?.levels[name].net ?? [];
+      expect(local.length).toBe(5);
+      local.forEach((value, j) =>
+        close(dollars?.levels[name].net[j], D(value).div(perColumn[j] ?? 'NaN')),
+      );
+    }
+    // The stock of 30 returns in the last column, at 12.5.
+    close(dollars?.levels.financial.net[4], '2.4');
   });
 });
 
@@ -307,6 +488,7 @@ describe('cost-benefit input the engine refuses', () => {
   const output = analysis.outputs[0] ?? {
     product: '',
     line: '',
+    category: 'TRADED',
     adjustmentFactor: '',
     foreignCurrencyExposure: '',
   };
@@ -365,7 +547,14 @@ describe('cost-benefit input the engine refuses', () => {
       () =>
         projectModel(
           withAnalysis({
-            costs: [{ item: 'coal', adjustmentFactor: '1', foreignCurrencyExposure: '0' }],
+            costs: [
+              {
+                item: 'coal',
+                category: 'TRADED',
+                adjustmentFactor: '1',
+                foreignCurrencyExposure: '0',
+              },
+            ],
           }),
         ),
       'economic.unknownItem',
@@ -375,7 +564,14 @@ describe('cost-benefit input the engine refuses', () => {
       () =>
         projectModel(
           withAnalysis({
-            costs: [{ item: 'ore', adjustmentFactor: '-1', foreignCurrencyExposure: '0' }],
+            costs: [
+              {
+                item: 'ore',
+                category: 'TRADED',
+                adjustmentFactor: '-1',
+                foreignCurrencyExposure: '0',
+              },
+            ],
           }),
         ),
       'amount.negative',
@@ -385,11 +581,52 @@ describe('cost-benefit input the engine refuses', () => {
       () =>
         projectModel(
           withAnalysis({
-            investment: [{ item: 'land', adjustmentFactor: '1', foreignCurrencyExposure: '1.2' }],
+            investment: [
+              {
+                item: 'land',
+                category: 'TRADED',
+                adjustmentFactor: '1',
+                foreignCurrencyExposure: '1.2',
+              },
+            ],
           }),
         ),
       'share.outOfRange',
       `${at}.investment[0].foreignCurrencyExposure`,
+    );
+  });
+
+  it('needs a class for every listed item, and no exposure for a non-traded one', () => {
+    const ore = { item: 'ore', adjustmentFactor: '0.9', foreignCurrencyExposure: '0' };
+    fails(
+      () => projectModel(withAnalysis({ costs: [{ ...ore, category: 'LOCAL' as 'TRADED' }] })),
+      'costBenefit.category',
+      `${at}.costs[0].category`,
+    );
+    fails(
+      () =>
+        projectModel(
+          withAnalysis({
+            costs: [{ ...ore, category: 'NON_TRADED', foreignCurrencyExposure: '0.1' }],
+          }),
+        ),
+      'costBenefit.nonTradedExposure',
+      `${at}.costs[0].foreignCurrencyExposure`,
+    );
+    fails(
+      () =>
+        projectModel(
+          withAnalysis({
+            costs: [{ ...ore, category: 'TRADABLE', foreignCurrencyExposure: '-0.1' }],
+          }),
+        ),
+      'share.outOfRange',
+      `${at}.costs[0].foreignCurrencyExposure`,
+    );
+    fails(
+      () => projectModel(withAnalysis({ standardConversionFactor: '-0.8' })),
+      'costBenefit.conversionFactor',
+      `${at}.standardConversionFactor`,
     );
   });
 

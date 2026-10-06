@@ -94,8 +94,17 @@ export const NUMERAIRES = [
 ] as const;
 export type Numeraire = (typeof NUMERAIRES)[number];
 
+/** COMFAR's classification of an input or output for its economic price (VIII.B). */
+export const TRADE_CLASSES = ['TRADED', 'TRADABLE', 'NON_TRADED'] as const;
+export type TradeClass = (typeof TRADE_CLASSES)[number];
+
 /** How an item is taken from its financial to its economic value. */
 export interface EconomicValuation {
+  /**
+   * Traded (imported or exported), tradable (it would be traded without the project or without
+   * trade restrictions) or non-traded. A non-traded item has no foreign-currency exposure.
+   */
+  category: TradeClass;
   /** `AF`: adjusted market value (the economic efficiency price) over the financial value. */
   adjustmentFactor: DecimalString;
   /** `FCE`: part of the adjusted market value that is a transaction in foreign currency, 0 … 1. */
