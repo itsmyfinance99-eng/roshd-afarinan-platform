@@ -47,7 +47,14 @@ const MAX_RETRIES = 4;
 /** Browsers cut a request that outlives its page at about 64 KiB; stay well below. */
 const KEEPALIVE_LIMIT = 60_000;
 
-const ORIGIN_LABELS = { applicant: 'افزوده شما', staff: 'افزوده کارشناسان' } as const;
+/** Who reads the form: its applicant, or staff and experts who review it. */
+export type QuestionnaireViewer = 'applicant' | 'staff';
+
+/** Where an item came from, in the words of who reads it. */
+const ORIGIN_LABELS: Record<QuestionnaireViewer, Record<ProjectItem['origin'], string>> = {
+  applicant: { applicant: 'افزوده شما', staff: 'افزوده کارشناسان' },
+  staff: { applicant: 'افزوده متقاضی', staff: 'افزوده کارشناسان' },
+};
 
 /** Which simple questions the applicant may add to their own project. */
 const OWN_QUESTION_TYPES = [
@@ -58,9 +65,11 @@ const OWN_QUESTION_TYPES = [
 function AddItemForm({
   base,
   before,
+  viewer,
   onAdded,
 }: {
   base: string;
+  viewer: QuestionnaireViewer;
   /** Sends what the form still holds, so that the answer of the server is about all of it. */
   before: () => Promise<void>;
   onAdded: (next: ProjectQuestionnaire) => void;
@@ -112,7 +121,9 @@ function AddItemForm({
         افزودن مورد اختصاصی
       </h3>
       <p className="text-sm text-ink-3">
-        اگر نکته، سؤال یا مدرکی دارید که در پرسشنامه نیامده است، آن را به پروژه خودتان اضافه کنید.
+        {viewer === 'staff'
+          ? 'سؤال، مدرک یا توضیحی را که برای بررسی این پروژه لازم است به پرسشنامه آن اضافه کنید؛ متقاضی از آن باخبر می‌شود.'
+          : 'اگر نکته، سؤال یا مدرکی دارید که در پرسشنامه نیامده است، آن را به پروژه خودتان اضافه کنید.'}
       </p>
       <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,180px),1fr))] gap-3">
         <FieldShell id="item-kind" label="نوع مورد">
@@ -178,12 +189,20 @@ function AddItemForm({
   );
 }
 
-function ItemHeader({ item, onRemove }: { item: ProjectItem; onRemove?: () => void }) {
+function ItemHeader({
+  item,
+  viewer,
+  onRemove,
+}: {
+  item: ProjectItem;
+  viewer: QuestionnaireViewer;
+  onRemove?: () => void;
+}) {
   return (
     <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
       <span className="flex flex-wrap items-center gap-2">
         <Tag>{PROJECT_ITEM_KIND_LABELS_FA[item.kind]}</Tag>
-        <span className="text-[13px] text-ink-5">{ORIGIN_LABELS[item.origin]}</span>
+        <span className="text-[13px] text-ink-5">{ORIGIN_LABELS[viewer][item.origin]}</span>
       </span>
       {onRemove ? (
         <Button variant="ghost" size="sm" onClick={onRemove}>
@@ -211,6 +230,7 @@ export function QuestionnaireForm({
   questionnaire,
   onQuestionnaire,
   checkOnOpen = false,
+  viewer = 'applicant',
 }: {
   projectId: string;
   /** What the server holds; the page owns it, so that starting the questionnaire keeps the form. */
@@ -218,6 +238,8 @@ export function QuestionnaireForm({
   onQuestionnaire: (questionnaire: ProjectQuestionnaire) => void;
   /** Opened from a refused submission: say at once what is still open. */
   checkOnOpen?: boolean;
+  /** Staff and experts read the answers and never write them; the wording follows. */
+  viewer?: QuestionnaireViewer;
 }) {
   const base = `/feasibility-projects/${projectId}/questionnaire`;
   const [drafts, setDrafts] = useState<Record<string, Draft>>(() => ({
@@ -565,8 +587,9 @@ export function QuestionnaireForm({
       ) : null}
       {readOnly ? (
         <Notice>
-          پاسخ‌ها در این مرحله قفل است و فقط خوانده می‌شود. اگر کارشناسان اطلاعات تکمیلی بخواهند،
-          پرسشنامه دوباره باز می‌شود.
+          {viewer === 'staff'
+            ? 'پاسخ‌های متقاضی را می‌خوانید؛ فقط متقاضی آن‌ها را تغییر می‌دهد.'
+            : 'پاسخ‌ها در این مرحله قفل است و فقط خوانده می‌شود. اگر کارشناسان اطلاعات تکمیلی بخواهند، پرسشنامه دوباره باز می‌شود.'}
         </Notice>
       ) : null}
 
@@ -659,6 +682,7 @@ export function QuestionnaireForm({
                   <li key={item.id} className="rounded-panel border border-line-strong p-4">
                     <ItemHeader
                       item={item}
+                      viewer={viewer}
                       onRemove={item.removable ? () => void removeItem(item) : undefined}
                     />
                     {item.kind === 'NOTE' ? (
@@ -687,7 +711,7 @@ export function QuestionnaireForm({
             )}
             {itemError ? <ErrorMessage>{itemError}</ErrorMessage> : null}
             {questionnaire.access.addItems ? (
-              <AddItemForm base={base} before={flush} onAdded={accept} />
+              <AddItemForm base={base} before={flush} viewer={viewer} onAdded={accept} />
             ) : null}
           </>
         ) : step.questions.length === 0 ? (

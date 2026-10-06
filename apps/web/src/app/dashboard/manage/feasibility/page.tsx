@@ -2,6 +2,7 @@
 
 import { ChipGroup, ErrorMessage, FieldShell, Select } from '@roshd/ui';
 import {
+  FEASIBILITY_REVIEW_QUEUE_STATUSES,
   FEASIBILITY_STATUS_LABELS_FA,
   FEASIBILITY_STATUSES,
   type FeasibilityStatus,
@@ -14,14 +15,20 @@ import type { FeasibilityProjectItem } from '@/components/feasibility/types';
 import { useApi } from '@/lib/use-api';
 
 const PAGE_SIZE = 20;
-type Scope = 'all' | 'assigned';
-const SCOPE_LABELS: Record<Scope, string> = { all: 'همه پروژه‌ها', assigned: 'سپرده‌شده به من' };
+/** `review` is the queue of the intake: what is submitted or under review, oldest first. */
+type Scope = 'review' | 'all' | 'assigned';
+const SCOPE_LABELS: Record<Scope, string> = {
+  review: 'صف بررسی',
+  all: 'همه پروژه‌ها',
+  assigned: 'سپرده‌شده به من',
+};
+const REVIEW_STATUSES: readonly FeasibilityStatus[] = FEASIBILITY_REVIEW_QUEUE_STATUSES;
 
 export default function ManageFeasibilityProjectsPage() {
   const canManage = useCan('feasibility:manage');
   const canWork = useCan('feasibility:work');
   const scopes: Scope[] = [
-    ...(canManage ? (['all'] as const) : []),
+    ...(canManage ? (['review', 'all'] as const) : []),
     ...(canWork ? (['assigned'] as const) : []),
   ];
   const [chosen, setChosen] = useState<Scope | null>(null);
@@ -30,7 +37,7 @@ export default function ManageFeasibilityProjectsPage() {
   const scope = chosen ?? scopes[0];
   const { state, reload } = useApi<FeasibilityProjectItem[]>(
     scope
-      ? `/feasibility-projects?scope=${scope}&page=${page}&pageSize=${PAGE_SIZE}${status ? `&status=${status}` : ''}`
+      ? `/feasibility-projects?scope=${scope === 'review' ? 'all&queue=review' : scope}&page=${page}&pageSize=${PAGE_SIZE}${status ? `&status=${status}` : ''}`
       : null,
   );
 
@@ -47,6 +54,8 @@ export default function ManageFeasibilityProjectsPage() {
             value={scope}
             onChange={(value) => {
               setChosen(value);
+              // A status of another view may not exist in the queue.
+              setStatus('');
               setPage(1);
             }}
           />
@@ -61,7 +70,7 @@ export default function ManageFeasibilityProjectsPage() {
             }}
           >
             <option value="">همه وضعیت‌ها</option>
-            {FEASIBILITY_STATUSES.map((value) => (
+            {(scope === 'review' ? REVIEW_STATUSES : FEASIBILITY_STATUSES).map((value) => (
               <option key={value} value={value}>
                 {FEASIBILITY_STATUS_LABELS_FA[value]}
               </option>
@@ -78,9 +87,11 @@ export default function ManageFeasibilityProjectsPage() {
               empty={{
                 title: 'پروژه‌ای یافت نشد',
                 description:
-                  scope === 'assigned'
-                    ? 'پروژه‌هایی که به شما سپرده می‌شوند اینجا نمایش داده می‌شوند.'
-                    : 'پروژه‌های متقاضیان و پروژه‌های ساخته‌شده از درخواست‌ها اینجا نمایش داده می‌شوند.',
+                  scope === 'review'
+                    ? 'پروژه‌ای در انتظار بررسی اولیه نیست.'
+                    : scope === 'assigned'
+                      ? 'پروژه‌هایی که به شما سپرده می‌شوند اینجا نمایش داده می‌شوند.'
+                      : 'پروژه‌های متقاضیان و پروژه‌های ساخته‌شده از درخواست‌ها اینجا نمایش داده می‌شوند.',
               }}
             />
             {state.status === 'success' ? (
