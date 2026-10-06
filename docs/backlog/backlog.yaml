@@ -2233,6 +2233,7 @@ epics:
         sprint: S20
         points: 5
         priority: high
+        status: done
         area: [web, ui]
         depends: [ST-35.03]
         story: 'به‌عنوان کارشناس می‌خواهم قالب پرسشنامه هر بخش صنعتی را بسازم و نسخه جدید منتشر کنم.'

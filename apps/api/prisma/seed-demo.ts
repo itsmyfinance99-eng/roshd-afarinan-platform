@@ -7,8 +7,10 @@
  *   pnpm --filter @roshd/api db:seed:demo
  */
 import { PrismaPg } from '@prisma/adapter-pg';
+import { questionnaireDefinitionSchema } from '@roshd/validation';
 import { loadEnvFile } from '../src/config/load-env-file';
 import { PrismaClient } from '../src/generated/prisma/client';
+import { DEMO_QUESTIONNAIRE_DEFINITION, DEMO_QUESTIONNAIRE_TITLE } from './demo-questionnaire';
 
 if (process.env.NODE_ENV === 'production') {
   console.error('Refusing to seed demo content in production.');
@@ -415,12 +417,42 @@ ${r.summary}`,
         create: { slug: o.slug, ...data },
       });
     }
+    await seedQuestionnaire(prisma);
     console.warn(
       `Seeded ${entries.length} content entries, ${courses.length} courses, ${research.length} research projects and ${opportunities.length} opportunities (isDemo=true).`,
     );
   } finally {
     await prisma.$disconnect();
   }
+}
+
+/**
+ * The sample general questionnaire, published so that a demo project can start it. A published
+ * version never changes, so an existing sample is left as it is, whatever it was renamed to.
+ */
+async function seedQuestionnaire(prisma: PrismaClient): Promise<void> {
+  const definition = questionnaireDefinitionSchema.parse(DEMO_QUESTIONNAIRE_DEFINITION);
+  const existing = await prisma.questionnaireTemplate.findFirst({
+    where: { isDemo: true },
+    select: { id: true },
+  });
+  if (existing) return;
+  await prisma.questionnaireTemplate.create({
+    data: {
+      title: DEMO_QUESTIONNAIRE_TITLE,
+      sector: null,
+      isDemo: true,
+      versions: {
+        create: {
+          version: 1,
+          status: 'PUBLISHED',
+          definition: definition,
+          publishedAt: new Date(),
+        },
+      },
+    },
+  });
+  console.warn('Seeded the sample questionnaire template (isDemo=true).');
 }
 
 main().catch((error: unknown) => {
