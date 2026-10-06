@@ -312,9 +312,14 @@ export function describeIssuePath(
  */
 export interface TypeStash {
   question(question: Question, type: QuestionType): Question;
-  /** `scope` tells the columns of different tables apart. */
+  /** `scope` tells the columns of different tables apart: `<question key>.<column key>`. */
   column(scope: string, column: TableColumn, type: TableColumnType): TableColumn;
+  /** A question or a column was removed: its key may be given again, to something else. */
+  forget(scope: string): void;
 }
+
+const isChoice = (type: string): type is 'single_choice' | 'multiple_choice' =>
+  type === 'single_choice' || type === 'multiple_choice';
 
 export function createTypeStash(): TypeStash {
   const kept = new Map<string, Question | TableColumn>();
@@ -333,6 +338,18 @@ export function createTypeStash(): TypeStash {
       if (question.type === type) return question;
       kept.set(`${question.key}:${question.type}`, question);
       const before = kept.get(`${question.key}:${type}`) as Question | undefined;
+      if (isChoice(question.type) && isChoice(type)) {
+        // The options go along between the two kinds of choice, so the ones of now are the
+        // ones that count; only the limits of a multiple choice are given back.
+        const next = questionOfType(question, type);
+        return next.type === 'multiple_choice' && before?.type === 'multiple_choice'
+          ? {
+              ...next,
+              ...(before.minSelected !== undefined ? { minSelected: before.minSelected } : {}),
+              ...(before.maxSelected !== undefined ? { maxSelected: before.maxSelected } : {}),
+            }
+          : next;
+      }
       return before ? restored(before, question) : questionOfType(question, type);
     },
     column(scope, column, type) {
@@ -340,6 +357,11 @@ export function createTypeStash(): TypeStash {
       kept.set(`${scope}:${column.type}`, column);
       const before = kept.get(`${scope}:${type}`) as TableColumn | undefined;
       return before ? restored(before, column) : columnOfType(column, type);
+    },
+    forget(scope) {
+      for (const key of [...kept.keys()]) {
+        if (key.startsWith(`${scope}:`) || key.startsWith(`${scope}.`)) kept.delete(key);
+      }
     },
   };
 }

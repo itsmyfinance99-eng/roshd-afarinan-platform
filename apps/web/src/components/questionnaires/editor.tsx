@@ -14,7 +14,7 @@ import {
   type TableColumn,
   type TableColumnType,
 } from '@roshd/validation';
-import { createContext, type ReactNode, useContext, useMemo, useState } from 'react';
+import { createContext, type ReactNode, useContext, useState } from 'react';
 import {
   addColumn,
   addDocument,
@@ -243,7 +243,8 @@ function UnitsField<T extends { unit?: string; units?: string[] }>({
       initial={unitLines(rule)}
       onText={(text) => {
         const next = withUnits(rule, text);
-        if (!same(next, rule)) onChange(next);
+        // Compared as the lines they are: the order of the fields of a rule says nothing.
+        if (unitLines(next) !== unitLines(rule)) onChange(next);
       }}
     />
   );
@@ -258,6 +259,7 @@ function ColumnEditor({
   onMove,
   onRemove,
   focusAfterRemove,
+  scope,
 }: {
   id: string;
   column: TableColumn;
@@ -267,6 +269,8 @@ function ColumnEditor({
   onMove: (by: -1 | 1) => void;
   onRemove: () => void;
   focusAfterRemove: string;
+  /** Under which name the stash keeps what this column had: `<question key>.<column key>`. */
+  scope: string;
 }) {
   const stash = useContext(Stash);
   const name = `ستون ${fa(index)}`;
@@ -285,7 +289,9 @@ function ColumnEditor({
           <Select
             id={`${id}-type`}
             value={column.type}
-            onChange={(e) => onChange(stash.column(id, column, e.target.value as TableColumnType))}
+            onChange={(e) =>
+              onChange(stash.column(scope, column, e.target.value as TableColumnType))
+            }
           >
             {TABLE_COLUMN_TYPES.map((type) => (
               <option key={type} value={type}>
@@ -336,6 +342,7 @@ function TypeFields({
   question: Question;
   onChange: (question: Question) => void;
 }) {
+  const stash = useContext(Stash);
   switch (question.type) {
     case 'number':
       return (
@@ -400,9 +407,11 @@ function TypeFields({
                   })
                 }
                 onMove={(by) => onChange({ ...question, columns: moved(question.columns, c, by) })}
-                onRemove={() =>
-                  onChange({ ...question, columns: question.columns.filter((_, i) => i !== c) })
-                }
+                scope={`${question.key}.${column.key}`}
+                onRemove={() => {
+                  stash.forget(`${question.key}.${column.key}`);
+                  onChange({ ...question, columns: question.columns.filter((_, i) => i !== c) });
+                }}
                 focusAfterRemove={afterRemoval(
                   question.columns.map((other) => `${id}-${other.key}`),
                   c,
@@ -545,21 +554,21 @@ function DocumentEditor({
 export function DefinitionEditor({
   definition,
   revision,
+  stash,
   onChange,
   announce,
 }: {
   definition: QuestionnaireDefinition;
   /** Changes whenever `definition` is replaced from outside and not by an edit made here. */
   revision: number;
+  /** What was switched away from; it lives as long as the content it belongs to. */
+  stash: TypeStash;
   onChange: (definition: QuestionnaireDefinition) => void;
   /** Tells assistive technology what a button did. */
   announce: (message: string) => void;
 }) {
   const sections = definition.sections;
   const total = sections.reduce((sum, section) => sum + section.questions.length, 0);
-  // What was switched away from belongs to the content it was part of.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const stash = useMemo(() => createTypeStash(), [revision]);
   const sectionIds = sections.map((section) => `sec-${section.key}`);
   const documentIds = definition.documents.map((document) => `doc-${document.key}`);
 
@@ -614,6 +623,7 @@ export function DefinitionEditor({
                         ) {
                           return false;
                         }
+                        for (const question of section.questions) stash.forget(question.key);
                         onChange(removeSection(definition, s));
                         announce(`${sectionName} حذف شد.`);
                       }}
@@ -660,6 +670,7 @@ export function DefinitionEditor({
                                 announce(`${name} به جایگاه ${toPersianDigits(q + 1 + by)} رفت.`);
                               }}
                               onRemove={() => {
+                                stash.forget(question.key);
                                 onChange(removeQuestion(definition, s, q));
                                 announce(`${name} حذف شد.`);
                               }}

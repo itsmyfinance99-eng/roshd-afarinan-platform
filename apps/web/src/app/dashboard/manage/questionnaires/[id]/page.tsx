@@ -22,10 +22,14 @@ import {
 } from '@roshd/validation';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { type FormEvent, useEffect, useState } from 'react';
+import { type FormEvent, useEffect, useMemo, useState } from 'react';
 import { useCan } from '@/components/dashboard/me-context';
 import { AsyncBoundary, PageTitle } from '@/components/dashboard/ui';
-import { describeIssuePath, EMPTY_DEFINITION } from '@/components/questionnaires/definition-ops';
+import {
+  createTypeStash,
+  describeIssuePath,
+  EMPTY_DEFINITION,
+} from '@/components/questionnaires/definition-ops';
 import { DefinitionEditor } from '@/components/questionnaires/editor';
 import { QuestionnairePreview } from '@/components/questionnaires/preview';
 import type { QuestionnaireTemplateDetail } from '@/components/questionnaires/types';
@@ -50,9 +54,12 @@ const startingPoint = (template: QuestionnaireTemplateDetail): QuestionnaireDefi
 
 function Settings({
   template,
+  unsaved,
   onSaved,
 }: {
   template: QuestionnaireTemplateDetail;
+  /** The content has changes that are not saved; archiving drops them. */
+  unsaved: boolean;
   onSaved: (template: QuestionnaireTemplateDetail) => void;
 }) {
   const [title, setTitle] = useState(template.title);
@@ -131,7 +138,9 @@ function Settings({
             if (
               !archived &&
               !window.confirm(
-                'قالب بایگانی شود؟ پروژه‌های تازه دیگر با آن شروع نمی‌شوند؛ پروژه‌های شروع‌شده آن را نگه می‌دارند.',
+                `قالب بایگانی شود؟ پروژه‌های تازه دیگر با آن شروع نمی‌شوند؛ پروژه‌های شروع‌شده آن را نگه می‌دارند.${
+                  unsaved ? ' تغییرهای ذخیره‌نشده پرسشنامه از بین می‌رود.' : ''
+                }`,
               )
             ) {
               return;
@@ -185,6 +194,9 @@ function Workspace({ initial }: { initial: QuestionnaireTemplateDetail }) {
   const [announcement, setAnnouncement] = useState({ text: '', count: 0 });
   /** Bumped when the content is replaced by what the server holds, so the editor starts afresh. */
   const [revision, setRevision] = useState(0);
+  // What a question had under a type it left belongs to this content, in whichever view.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const stash = useMemo(() => createTypeStash(), [revision]);
   /** Says it again even when the words are the same as last time. */
   const announce = (text: string) => setAnnouncement((old) => ({ text, count: old.count + 1 }));
   const archived = template.archivedAt !== null;
@@ -317,6 +329,7 @@ function Workspace({ initial }: { initial: QuestionnaireTemplateDetail }) {
       <Settings
         key={`${template.title}|${template.sector}|${template.archivedAt}`}
         template={template}
+        unsaved={dirty}
         onSaved={(next) => {
           setTemplate(next);
           if (next.archivedAt !== null && dirty) {
@@ -352,12 +365,14 @@ function Workspace({ initial }: { initial: QuestionnaireTemplateDetail }) {
         {announcement.count % 2 === 1 ? '​' : ''}
       </p>
 
+      {/* Not editable while a request runs: its answer replaces the content, and with it what was typed. */}
       {view === 'edit' ? (
-        <fieldset disabled={archived} className="m-0 min-w-0 border-0 p-0">
+        <fieldset disabled={archived || busy} className="m-0 min-w-0 border-0 p-0">
           <legend className="sr-only">محتوای پرسشنامه</legend>
           <DefinitionEditor
             definition={definition}
             revision={revision}
+            stash={stash}
             onChange={(next) => {
               setDefinition(next);
               setDirty(true);

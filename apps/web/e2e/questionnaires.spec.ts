@@ -447,6 +447,18 @@ test.describe('questionnaire templates', () => {
     await expect(section.getByLabel('عنوان ستون ۲')).toHaveValue('درصد');
     await expect(section.getByLabel('واحد')).toHaveValue('درصد');
 
+    // Between the two kinds of choice the options go along as they are now.
+    await section.getByLabel('نوع پاسخ').selectOption('single_choice');
+    await section.getByLabel('گزینه‌ها').fill('الف\nب');
+    await section.getByLabel('نوع پاسخ').selectOption('multiple_choice');
+    await section.getByLabel('گزینه‌ها').fill('الف\nب\nج');
+    await section.getByLabel('نوع پاسخ').selectOption('single_choice');
+    await expect(section.getByLabel('گزینه‌ها')).toHaveValue('الف\nب\nج');
+    await page.getByRole('button', { name: 'پیش‌نمایش', exact: true }).click();
+    await expect(page.getByText('ج', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'ویرایش', exact: true }).click();
+    await section.getByLabel('نوع پاسخ').selectOption('table');
+
     // A table keeps its last column.
     await section.getByRole('button', { name: 'حذف ستون ۲' }).click();
     await expect(section.getByLabel('عنوان ستون ۲')).toHaveCount(0);

@@ -234,6 +234,53 @@ describe('a type that is switched away from and back', () => {
     });
   });
 
+  it('lets the options go along between the two kinds of choice, as they are now', () => {
+    const stash = createTypeStash();
+    const single: Question = {
+      key: 'q1',
+      type: 'single_choice',
+      label: 'نوع شرکت',
+      options: optionsFromLines('الف\nب', []),
+    };
+    const multiple = stash.question(single, 'multiple_choice');
+    if (multiple.type !== 'multiple_choice') throw new Error('expected a choice');
+    const longer: Question = {
+      ...multiple,
+      options: optionsFromLines('الف\nب\nج', multiple.options),
+      maxSelected: 2,
+    };
+    // Back to one choice: the option that was added stays, the limit of many does not.
+    const back = stash.question(longer, 'single_choice');
+    expect(back).toEqual({ ...single, options: longer.options });
+    // And to many again: the options of now with the limit it had.
+    expect(stash.question(back, 'multiple_choice')).toEqual(longer);
+  });
+
+  it('forgets what a removed question or column had, since its key may be given again', () => {
+    const stash = createTypeStash();
+    const table: Question = {
+      key: 'q3',
+      type: 'table',
+      label: 'سهامداران',
+      columns: [{ key: 'c1', type: 'number', label: 'درصد', unit: 'درصد' }],
+    };
+    const file = stash.question(table, 'file');
+    const column = table.columns[0];
+    if (!column) throw new Error('expected a column');
+    const asText = stash.column('q3.c1', column, 'text');
+    stash.forget('q3');
+    expect(stash.question(file, 'table')).toMatchObject({ columns: [{ label: 'ستون' }] });
+    expect(stash.column('q3.c1', asText, 'number')).toEqual({
+      key: 'c1',
+      type: 'number',
+      label: 'درصد',
+    });
+    // Another question whose key only starts the same is left alone.
+    const other = stash.question({ ...table, key: 'q30' }, 'file');
+    stash.forget('q3');
+    expect(stash.question(other, 'table')).toMatchObject({ columns: [{ label: 'درصد' }] });
+  });
+
   it('does the same for the columns of a table, each table apart', () => {
     const stash = createTypeStash();
     const choice = {
@@ -245,10 +292,10 @@ describe('a type that is switched away from and back', () => {
         { value: 'o2', label: 'بی‌نام' },
       ],
     };
-    const asText = stash.column('q1-c1', choice, 'text');
+    const asText = stash.column('q1.c1', choice, 'text');
     expect(asText).toEqual({ key: 'c1', type: 'text', label: 'نوع' });
-    expect(stash.column('q1-c1', asText, 'single_choice')).toEqual(choice);
-    expect(stash.column('q2-c1', asText, 'single_choice')).toMatchObject({
+    expect(stash.column('q1.c1', asText, 'single_choice')).toEqual(choice);
+    expect(stash.column('q2.c1', asText, 'single_choice')).toMatchObject({
       options: [{ label: 'گزینه ۱' }, { label: 'گزینه ۲' }],
     });
   });
