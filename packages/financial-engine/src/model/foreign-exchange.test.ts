@@ -90,7 +90,7 @@ describe('net foreign-exchange effect of a project', () => {
 
   it('gives no value added per unit of foreign exchange for a net earner', () => {
     expect(schedule?.valueAddedPerForeignExchange).toBeUndefined();
-    expect(warnings).toEqual([{ code: 'foreignExchange.netEarner' }]);
+    expect(warnings).toEqual([{ code: 'foreignExchange.noNetUse' }]);
   });
 
   it('relates the value added to the foreign exchange a net user spends', () => {
@@ -154,6 +154,7 @@ describe('net foreign-exchange effect of a project', () => {
     expectLine(changed?.outflows.debtService.interest, ['25', '52.5', '52.5', '26.25']);
     expectLine(changed?.outflows.debtService.repayment, ['0', '0', '262.5', '262.5']);
     expectLine(changed?.outflows.equityRefunds, ['0', '0', '0', '100']);
+    expectLine(changed?.inflows.total, ['925', '750', '750', '750']);
   });
 
   it('adds what is tied up in working capital for foreign costs', () => {
@@ -170,6 +171,93 @@ describe('net foreign-exchange effect of a project', () => {
     expect(stocked.operations.workingCapital.totals.foreign.map(Number)).toEqual([0, 10, 10, 10]);
     expectLine(stocked.economic?.foreignExchange.outflows.materials, ['0', '100', '100', '100']);
     expectLine(stocked.economic?.foreignExchange.outflows.others, ['0', '40', '30', '30']);
+  });
+
+  it('does not count the stock of foreign materials an existing enterprise starts with', () => {
+    const expansion = projectModel({
+      ...mill,
+      startingBalances: {
+        fixedAssets: [],
+        materials: [{ cost: 'spare-parts', value: '50' }],
+        workInProgress: [],
+        finishedProducts: [],
+        receivables: { value: '0', collectionDays: 0 },
+        payables: { value: '0', paymentDays: 0 },
+        cashInHand: '0',
+        shortTermDeposits: '0',
+        cashSurplus: '0',
+        loans: [],
+        equity: [],
+      },
+    }).value;
+    const working = expansion.operations.workingCapital;
+    expect(working.starting?.opening.foreign).toBe('50');
+    // No stock is needed: the 50 held at the start are used up in the first year of production.
+    expect(working.totals.foreign.map(Number)).toEqual([50, 0, 0, 0]);
+    const schedule = expansion.economic?.foreignExchange;
+    // The licence of 30 a year, less the spare parts of 50 that need not be bought in year 1.
+    expectLine(schedule?.outflows.others, ['0', '-20', '30', '30']);
+    expectLine(schedule?.netFlow, ['-10', '536.24', '236.24', '258.54']);
+  });
+
+  it('counts fixed foreign costs held in the stock of finished products a second time', () => {
+    // 36 days of sales are kept in stock: 165 units are produced in the first year, 150 sold.
+    const stocked = projectModel({
+      ...mill,
+      operations: {
+        ...mill.operations,
+        products: mill.operations.products.map((p) => ({
+          ...p,
+          finishedGoodsCoverage: { days: '36' },
+        })),
+      },
+    }).value;
+    const schedule = stocked.economic?.foreignExchange;
+    expectLine(schedule?.outflows.materials, ['0', '100', '100', '100']);
+    expectLine(schedule?.outflows.wages, ['0', '60', '60', '60']);
+    // The stock of 15 units carries 15/150 of the fixed foreign factory costs (spare parts 100
+    // and experts 80, before tax): 18, on top of the licence of 30. As in the cash flow for
+    // financial planning, this part of the fixed costs is counted in the costs and in the stock.
+    expectLine(schedule?.outflows.others, ['0', '48', '30', '30']);
+  });
+
+  it('has no foreign exchange to relate the value added to in a project without foreign flows', () => {
+    const local = <T extends { origin: string }>(item: T) => ({
+      ...item,
+      origin: 'LOCAL' as const,
+    });
+    const { value, warnings: domestic } = projectModel({
+      ...mill,
+      investment: { items: mill.investment.items.map(local) },
+      financing: {
+        equity: mill.financing.equity.map(local),
+        loans: mill.financing.loans.map(local),
+      },
+      operations: {
+        ...mill.operations,
+        products: mill.operations.products.map((p) => ({
+          ...p,
+          sales: p.sales.map((l) => ({ ...l, market: 'LOCAL' as const })),
+        })),
+        costs: mill.operations.costs.map(local),
+      },
+      statements: {
+        ...mill.statements,
+        profitDistribution: {
+          ...mill.statements.profitDistribution,
+          shareholders: mill.statements.profitDistribution.shareholders.map((s) => ({
+            ...s,
+            repatriatedShare: '0',
+          })),
+        },
+      },
+    });
+    const schedule = value.economic?.foreignExchange;
+    expectLine(schedule?.inflows.total, NONE);
+    expectLine(schedule?.outflows.total, NONE);
+    expectLine(schedule?.netEffect, NONE);
+    expect(schedule?.valueAddedPerForeignExchange).toBeUndefined();
+    expect(domestic).toEqual([{ code: 'foreignExchange.noNetUse' }]);
   });
 
   it('adds the indirect effects of tradable outputs and inputs and of entered items', () => {
@@ -291,6 +379,16 @@ describe('indirect foreign exchange the engine refuses', () => {
       () => projectModel(indirect({ inputs: [{ ...ore, trade: 'IMPORTED' as 'IMPORTABLE' }] })),
       'economic.trade',
       `${at}.inputs[0].trade`,
+    );
+    fails(
+      () => projectModel(indirect({ outputs: [{ ...output, trade: 'IMPORTED' as 'IMPORTABLE' }] })),
+      'economic.trade',
+      `${at}.outputs[0].trade`,
+    );
+    fails(
+      () => projectModel(indirect({ inputs: [{ ...ore, share: '-0.1' }] })),
+      'share.outOfRange',
+      `${at}.inputs[0].share`,
     );
     fails(
       () => projectModel(indirect({ outputs: [{ ...output, share: '1.1' }] })),

@@ -1,4 +1,4 @@
-import { ZERO, toDecimal, toDecimalString, type Decimal, type DecimalString } from '../decimal';
+import { toDecimal, toDecimalString, type Decimal, type DecimalString } from '../decimal';
 import { EngineInputError } from '../errors';
 import type { CalculationResult, CalculationWarning, CurrencyCode } from '../types';
 import { MODEL_VERSION } from '../version';
@@ -76,7 +76,8 @@ export interface ForeignExchangeSchedule {
   netEffect: EconomicLine;
   /**
    * `PV(NNVA) / PV(net use of foreign exchange)`: the value added per unit of foreign exchange the
-   * project uses. Absent, with a warning, for a project that earns more than it uses.
+   * project uses. Absent, with a warning, for a project that uses none on balance (a net earner,
+   * or a project without foreign flows).
    */
   valueAddedPerForeignExchange?: DecimalString;
 }
@@ -98,8 +99,6 @@ export function foreignExchangeEffect(
     economicBase(input);
   const warnings: CalculationWarning[] = [];
   const sumOf = (rows: Row[]) => (rows.length === 0 ? zero() : add(...rows));
-  const increase = (values: Row) =>
-    values.map((v, j) => v.minus(j === 0 ? ZERO : at(values, j - 1)));
 
   // Finance from abroad and its service.
   const foreignEquity = financing.equity.items.filter((e) => e.origin === 'FOREIGN');
@@ -148,8 +147,15 @@ export function foreignExchangeEffect(
   const repatriated = sumOf(statements.dividends.shareholders.map((s) => row(s.repatriated)));
   const dividends = repatriated.map((v) => v.minus(v.times(dividendTax.foreign)));
   // The costs above are those of the products sold; what is tied up in stocks, receivables and
-  // cash for foreign costs, less what is owed for them, is paid on top.
-  const others = add(otherCosts, increase(row(operations.workingCapital.totals.foreign)));
+  // cash for foreign costs, less what is owed for them, is paid on top. The stock of foreign
+  // materials an existing enterprise starts with was paid for before the project.
+  const working = operations.workingCapital;
+  const openingForeign = toDecimal(working.starting?.opening.foreign ?? '0');
+  const foreignWorkingCapital = row(working.totals.foreign);
+  const workingCapitalIncrease = foreignWorkingCapital.map((v, j) =>
+    v.minus(j === 0 ? openingForeign : at(foreignWorkingCapital, j - 1)),
+  );
+  const others = add(otherCosts, workingCapitalIncrease);
   const debtService = add(repayment, interest);
   const outflow = add(investment, materials, debtService, wages, equityRefunds, dividends, others);
   const netFlow = minus(inflow, outflow);
@@ -235,7 +241,7 @@ export function foreignExchangeEffect(
       toDecimal(input.netNationalValueAdded).div(used),
     );
   } else {
-    warnings.push({ code: 'foreignExchange.netEarner' });
+    warnings.push({ code: 'foreignExchange.noNetUse' });
   }
 
   const value: ForeignExchangeSchedule = {

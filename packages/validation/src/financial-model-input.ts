@@ -418,12 +418,23 @@ export function calculationSize(input: z.infer<typeof projectInputFieldsSchema>)
     costs.length +
     products.reduce((sum, product) => sum + product.sales.length, 0);
   const indirect = costs.filter((cost) => cost.product === undefined).length;
+  const tradables = input.economic?.indirectForeignExchange;
+  const economic =
+    input.economic === undefined
+      ? 0
+      : 70 +
+        (tradables === undefined
+          ? 0
+          : tradables.outputs.length +
+            tradables.inputs.length +
+            tradables.otherInflows.length +
+            tradables.otherOutflows.length);
   const perPeriod =
     lines +
     products.length +
     (costCentres?.length ?? 0) +
     20 +
-    (input.economic === undefined ? 0 : 70) +
+    economic +
     (indirect * products.length) / 10;
   return Math.ceil(horizonPeriods(input.horizon) * perPeriod);
 }

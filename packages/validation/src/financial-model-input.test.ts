@@ -348,6 +348,10 @@ describe('projectInputSchema: economic analysis', () => {
       economic: { ...economic, indirectForeignExchange },
     });
     expect(parsed.economic?.indirectForeignExchange?.outputs[0]?.share).toBe('0.5');
+    // The two entered items count in the size of the calculation, per period.
+    const bare = projectInputSchema.parse({ ...clone(), economic });
+    const periods = projectModel(bare).value.horizon.periods.length;
+    expect(calculationSize(parsed) - calculationSize(bare)).toBe(2 * periods);
     const engineInput: ProjectInput = parsed;
     const { value } = projectModel(engineInput);
     // Half of the sales at home of 1 000 000 000 a year replace imports.

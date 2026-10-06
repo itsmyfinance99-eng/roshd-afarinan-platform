@@ -30,7 +30,7 @@ const close = (actual: string | null | undefined, expected: Decimal | string | n
     `${actual} ≈ ${String(expected)}`,
   ).toBe(true);
 /** The mill exports more than it spends abroad: its only warning (see foreign-exchange.test). */
-const netEarner = [{ code: 'foreignExchange.netEarner' }];
+const netEarner = [{ code: 'foreignExchange.noNetUse' }];
 /** The line has these values, their sum and their present value. */
 const expectLine = (line: EconomicLine | undefined, expected: string[]) => {
   expect(line?.values.length).toBe(expected.length);
@@ -200,7 +200,7 @@ describe('value added of a project', () => {
     expect(noWages.warnings.map((w) => w.code)).toEqual([
       'valueAdded.noDomesticWages',
       'valueAdded.noSkilledLabour',
-      'foreignExchange.netEarner',
+      'foreignExchange.noNetUse',
     ]);
     const shares = noWages.value.economic?.valueAdded.distribution.shares;
     close(shares?.domesticWages.values[1], 0);
@@ -398,7 +398,7 @@ describe('value added: adjustments and special cases', () => {
     expect(schedule?.efficiency.absolute).toBeDefined();
     expect(warnings.map((w) => w.code)).toEqual([
       'valueAdded.noInvestment',
-      'foreignExchange.netEarner',
+      'foreignExchange.noNetUse',
     ]);
     // Nothing is produced or invested in the construction year.
     expect(schedule?.distribution.shares.domesticWages.values[0]).toBeNull();
