@@ -58,6 +58,11 @@ model User {
   assignedModels      FinancialModel[]         @relation("FinancialModelAssignee")
   calculationRuns     CalculationRun[]         @relation("CalculationRunCreator")
   approvedRuns        CalculationRun[]         @relation("CalculationRunApprover")
+  feasibilityProjects FeasibilityProject[]     @relation("FeasibilityProjectOwner")
+  feasibilityEvents   FeasibilityStatusEvent[]
+  expertAssignments   ExpertAssignment[]       @relation("ExpertAssignmentExpert")
+  expertsAssigned     ExpertAssignment[]       @relation("ExpertAssignmentAssigner")
+  expertsReleased     ExpertAssignment[]       @relation("ExpertAssignmentReleaser")
 
   @@map("users")
 }
@@ -249,6 +254,8 @@ model ServiceRequest {
   user     User?                       @relation("ServiceRequestOwner", fields: [userId], references: [id], onDelete: SetNull)
   assignee User?                       @relation("ServiceRequestAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
   events   ServiceRequestStatusEvent[]
+  /// The feasibility project this request was converted into (ST-35.02).
+  project  FeasibilityProject?
 
   @@index([userId, createdAt])
   @@index([assigneeId, createdAt])
@@ -749,7 +756,7 @@ model FinancialModel {
   id            String   @id @default(uuid(7)) @db.Uuid
   ownerId       String   @db.Uuid
   /// Expert working on the model (holds financial-models:work when assigned). Moves to the
-  /// feasibility project once that exists (ST-35.01).
+  /// experts of the feasibility project when a model is opened through its project (ST-35.10).
   assigneeId    String?  @db.Uuid
   title         String
   /// Draft inputs in the shape of the engine's ProjectInput (projectInputSchema in
@@ -762,9 +769,11 @@ model FinancialModel {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  owner    User             @relation("FinancialModelOwner", fields: [ownerId], references: [id], onDelete: Cascade)
-  assignee User?            @relation("FinancialModelAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  owner    User                @relation("FinancialModelOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  assignee User?               @relation("FinancialModelAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
   runs     CalculationRun[]
+  /// The feasibility project this model belongs to, if any; such a model cannot be deleted.
+  project  FeasibilityProject?
 
   @@index([ownerId, updatedAt])
   @@index([assigneeId, updatedAt])
@@ -801,4 +810,103 @@ model CalculationRun {
 
   @@unique([modelId, number])
   @@map("calculation_runs")
+}
+
+// ──────────────────────────────── Feasibility ────────────────────────────────
+// ADR-0010. The status of a project changes only through the state machine of the feasibility
+// module (`transition()`), which writes one status event per change.
+
+enum FeasibilityStatus {
+  DRAFT
+  SUBMITTED
+  INITIAL_REVIEW
+  NEEDS_MORE_INFO
+  COST_ESTIMATED
+  CONTRACT_PENDING
+  IN_PROGRESS
+  EXPERT_REVIEW
+  CLIENT_REVIEW
+  DELIVERED
+  ARCHIVED
+}
+
+/// In which capacity somebody changed the status of a project (FEASIBILITY_ACTORS in @roshd/validation).
+enum FeasibilityActor {
+  applicant
+  staff
+  expert
+  system
+}
+
+/// A feasibility study from the applicant's draft to the delivered report (ST-35.01).
+model FeasibilityProject {
+  id               String            @id @default(uuid(7)) @db.Uuid
+  /// Human-friendly reference, e.g. FP-7K3M9QPD.
+  code             String            @unique
+  /// The applicant.
+  ownerId          String            @db.Uuid
+  title            String
+  /// One of FEASIBILITY_SECTORS (@roshd/validation), as on the request form of the public site.
+  sector           String?
+  location         String?
+  summary          String?
+  status           FeasibilityStatus @default(DRAFT)
+  /// The financial model of the study (EPIC-34), linked when the experts start working (ST-35.10).
+  financialModelId String?           @unique @db.Uuid
+  /// The Phase 1 service request this project was converted from (ST-35.02).
+  sourceRequestId  String?           @unique @db.Uuid
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  owner          User                     @relation("FeasibilityProjectOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  financialModel FinancialModel?          @relation(fields: [financialModelId], references: [id], onDelete: Restrict)
+  sourceRequest  ServiceRequest?          @relation(fields: [sourceRequestId], references: [id], onDelete: SetNull)
+  events         FeasibilityStatusEvent[]
+  experts        ExpertAssignment[]
+
+  @@index([ownerId, updatedAt])
+  @@index([status, updatedAt])
+  @@index([updatedAt])
+  @@map("feasibility_projects")
+}
+
+/// Status history of a project: one row per transition, written once (see the migration).
+model FeasibilityStatusEvent {
+  id         String             @id @default(uuid(7)) @db.Uuid
+  projectId  String             @db.Uuid
+  /// Null for the event that records the creation of the project.
+  fromStatus FeasibilityStatus?
+  toStatus   FeasibilityStatus
+  actor      FeasibilityActor
+  actorId    String?            @db.Uuid
+  /// Message that goes with the transition; every party of the project reads it.
+  note       String?
+  createdAt  DateTime           @default(now())
+
+  project   FeasibilityProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  actorUser User?              @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([projectId, createdAt])
+  @@map("feasibility_status_events")
+}
+
+/// An expert working on a project. The assignment is active while `endedAt` is null; ending it
+/// keeps the row as history, and a later assignment of the same expert is a new row.
+model ExpertAssignment {
+  id           String    @id @default(uuid(7)) @db.Uuid
+  projectId    String    @db.Uuid
+  expertId     String    @db.Uuid
+  assignedById String?   @db.Uuid
+  createdAt    DateTime  @default(now())
+  endedAt      DateTime?
+  endedById    String?   @db.Uuid
+
+  project    FeasibilityProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  expert     User               @relation("ExpertAssignmentExpert", fields: [expertId], references: [id], onDelete: Restrict)
+  assignedBy User?              @relation("ExpertAssignmentAssigner", fields: [assignedById], references: [id], onDelete: SetNull)
+  endedBy    User?              @relation("ExpertAssignmentReleaser", fields: [endedById], references: [id], onDelete: SetNull)
+
+  @@index([projectId, endedAt])
+  @@index([expertId, endedAt])
+  @@map("expert_assignments")
 }

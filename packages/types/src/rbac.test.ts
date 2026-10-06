@@ -18,6 +18,17 @@ describe('rbac defaults', () => {
     expect(DEFAULT_ROLE_PERMISSIONS.guest).toHaveLength(0);
   });
 
+  it('keeps the final approval of a feasibility report with the admins (OQ-37)', () => {
+    const holders = ROLES.filter((r) =>
+      DEFAULT_ROLE_PERMISSIONS[r].includes('feasibility:final-approve'),
+    );
+    expect(holders).toEqual(['admin', 'super_admin']);
+    expect(DEFAULT_ROLE_PERMISSIONS.feasibility_officer).toEqual([
+      'feasibility:manage',
+      'feasibility:approve-report',
+    ]);
+  });
+
   it('marks admin roles as privileged', () => {
     expect(PRIVILEGED_ROLES).toEqual(['admin', 'super_admin']);
   });

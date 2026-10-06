@@ -1,27 +1,17 @@
+import { randomInt } from 'node:crypto';
+import {
+  FEASIBILITY_STATUSES,
+  type FeasibilityActor,
+  type FeasibilityStatus,
+} from '@roshd/validation';
+
 /**
- * Feasibility workflow state machine (roadmap §27). Phase 1 defines the contract only;
- * the full workflow (questionnaire, documents, experts) arrives in Phase 3 (EPIC-14).
+ * Feasibility workflow state machine (ADR-0010 §3). The statuses and actors are shared with the
+ * web app through `@roshd/validation`.
  *
  * Status changes must go through `transition()` — never a plain update of a status column.
  */
-export const FEASIBILITY_STATUSES = [
-  'DRAFT',
-  'SUBMITTED',
-  'INITIAL_REVIEW',
-  'NEEDS_MORE_INFO',
-  'COST_ESTIMATED',
-  'CONTRACT_PENDING',
-  'IN_PROGRESS',
-  'EXPERT_REVIEW',
-  'CLIENT_REVIEW',
-  'DELIVERED',
-  'ARCHIVED',
-] as const;
-
-export type FeasibilityStatus = (typeof FEASIBILITY_STATUSES)[number];
-
-/** Who may trigger a transition. Fine-grained permissions are mapped in Phase 3. */
-export type FeasibilityActor = 'applicant' | 'staff' | 'expert' | 'system';
+export { FEASIBILITY_STATUSES, type FeasibilityActor, type FeasibilityStatus };
 
 interface TransitionRule {
   to: FeasibilityStatus;
@@ -84,3 +74,51 @@ export function transition(
 }
 
 export const isTerminal = (status: FeasibilityStatus): boolean => RULES[status].length === 0;
+
+export type TransitionDecision =
+  | { ok: true; from: FeasibilityStatus; to: FeasibilityStatus; actor: FeasibilityActor }
+  | { ok: false; reason: 'invalid_transition' | 'actor_not_allowed' };
+
+/**
+ * The transition for somebody who may act in several capacities on a project (an expert who is
+ * also staff): the first capacity the rules accept is the one recorded.
+ */
+export function transitionAs(
+  from: FeasibilityStatus,
+  to: FeasibilityStatus,
+  actors: readonly FeasibilityActor[],
+): TransitionDecision {
+  let reason: 'invalid_transition' | 'actor_not_allowed' = 'actor_not_allowed';
+  for (const actor of actors) {
+    const result = transition(from, to, actor);
+    if (result.ok) return { ...result, actor };
+    reason = result.reason;
+  }
+  return { ok: false, reason };
+}
+
+/**
+ * The capacities of a user on a project. The applicant is only ever the applicant of their own
+ * project: staff rights and an assignment do not count there, so nobody reviews their own request.
+ */
+export function actorsOf(relation: {
+  owner: boolean;
+  manager: boolean;
+  expert: boolean;
+}): FeasibilityActor[] {
+  if (relation.owner) return ['applicant'];
+  return [
+    ...(relation.manager ? (['staff'] as const) : []),
+    ...(relation.expert ? (['expert'] as const) : []),
+  ];
+}
+
+/** Crockford-style alphabet without I, L, O, U (no look-alikes when read over the phone). */
+const ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
+
+/** Public reference of a project like FP-7K3M9QPD (uniqueness enforced by the DB). */
+export function generateProjectCode(): string {
+  let code = '';
+  for (let i = 0; i < 8; i++) code += ALPHABET[randomInt(ALPHABET.length)];
+  return `FP-${code}`;
+}

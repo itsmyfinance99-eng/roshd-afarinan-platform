@@ -17,6 +17,7 @@ import { skipUnlessStrictThrottled } from './common/http/strict-rate-limit';
 import { AuthModule } from './modules/auth/auth.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { DatabaseModule } from './modules/database/database.module';
+import { FeasibilityModule } from './modules/feasibility/feasibility.module';
 import { FilesModule } from './modules/files/files.module';
 import { FinancialModelModule } from './modules/financial-model/financial-model.module';
 import { InvestmentModule } from './modules/investment/investment.module';
@@ -110,6 +111,7 @@ import { MonitoringModule } from './modules/monitoring/monitoring.module';
     InvestmentModule,
     TicketsModule,
     FinancialModelModule,
+    FeasibilityModule,
     DashboardModule,
     OrdersModule,
     SearchModule,
