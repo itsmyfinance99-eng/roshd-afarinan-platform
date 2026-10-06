@@ -225,13 +225,19 @@ export { projectModel, type ProjectInput, type ProjectModel } from './model/proj
 export {
   INPUT_NATURES,
   LABOUR_SKILLS,
+  NUMERAIRES,
+  TRADE_CLASSES,
   TRADE_CATEGORIES,
   type EconomicCostAdjustment,
   type EconomicInput,
   type EconomicInvestmentAdjustment,
   type EconomicLine,
   type EconomicScheduleInput,
+  type CostBenefitInput,
   type EconomicShareLine,
+  type EconomicValuation,
+  type Numeraire,
+  type TradeClass,
   type EmploymentGroupInput,
   type EmploymentInput,
   type IndirectEmploymentInput,
@@ -244,6 +250,13 @@ export {
   type TradeCategory,
 } from './model/economic';
 export { valueAdded, type ValueAddedSchedule } from './model/value-added';
+export {
+  costBenefit,
+  type CostBenefitLevel,
+  type CostBenefitLine,
+  type CostBenefitSchedule,
+  type CostBenefitScheduleInput,
+} from './model/cost-benefit';
 export {
   employmentEffect,
   type BySkill,
