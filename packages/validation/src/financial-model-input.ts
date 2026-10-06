@@ -364,7 +364,7 @@ const employmentSchema = z.object({
   outputUsing: indirectEmployment,
 });
 const valuation = {
-  category: choice(TRADE_CLASS_VALUES),
+  tradeClass: choice(TRADE_CLASS_VALUES),
   adjustmentFactor: decimal,
   foreignCurrencyExposure: decimal,
 };

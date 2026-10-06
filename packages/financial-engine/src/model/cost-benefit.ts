@@ -44,7 +44,10 @@ export interface CostBenefitLine {
   /** `AMV / FV`; null without a financial value, and for the net flow. */
   adjustmentFactor: DecimalString | null;
   adjustedMarketValue: DecimalString;
-  /** Exposure of the line, weighted by the adjusted market values; null without a value. */
+  /**
+   * Exposure of the line, weighted by the adjusted market values; null without a value, and for
+   * the net flow.
+   */
   foreignCurrencyExposure: DecimalString | null;
   foreignExchangeAdjustment: DecimalString;
   /** `EV1 = AMV + FEA`. */
@@ -111,7 +114,10 @@ export interface CostBenefitScheduleInput extends EconomicScheduleInput {
   localCurrency: CurrencyCode;
   /** Local units per unit of each foreign currency, one rate per project period. */
   exchangeRates: Record<CurrencyCode, DecimalString[]>;
-  /** The currency every item is entered in: a foreign one is valued at the shadow rate. */
+  /**
+   * The currency every item is entered in: a foreign one is valued at the shadow rate. An item
+   * that is missing here counts as one in local currency.
+   */
   currencies: {
     /** By product key and sales-line key. */
     sales: Record<string, Record<string, CurrencyCode>>;
@@ -181,11 +187,11 @@ export function costBenefit(
     if (exposure.isNegative() || exposure.gt(1)) {
       throw new EngineInputError('share.outOfRange', `${at_}.foreignCurrencyExposure`);
     }
-    if (!(TRADE_CLASSES as readonly string[]).includes(entry.category)) {
-      throw new EngineInputError('costBenefit.category', `${at_}.category`);
+    if (!(TRADE_CLASSES as readonly string[]).includes(entry.tradeClass)) {
+      throw new EngineInputError('costBenefit.tradeClass', `${at_}.tradeClass`);
     }
     // A non-traded item is priced at home: no part of it is a transaction in foreign currency.
-    if (entry.category === 'NON_TRADED' && !exposure.isZero()) {
+    if (entry.tradeClass === 'NON_TRADED' && !exposure.isZero()) {
       throw new EngineInputError('costBenefit.nonTradedExposure', `${at_}.foreignCurrencyExposure`);
     }
     return { factor, exposure };
