@@ -18,6 +18,7 @@ import {
   RequestDetails,
   StatusTimeline,
 } from '@/components/dashboard/ui';
+import { ConvertRequestToProject } from '@/components/feasibility/request-project';
 import { apiFetch } from '@/lib/api-client';
 import { FileList } from '@/components/files/files';
 import { useApi } from '@/lib/use-api';
@@ -26,6 +27,7 @@ export default function ManageRequestDetailPage() {
   const { id } = useParams<{ id: string }>();
   const canRead = useCan('requests:read-all');
   const canManage = useCan('requests:manage');
+  const canConvert = useCan('feasibility:manage');
   const { state, reload } = useApi<ServiceRequestDetail>(
     canRead ? `/service-requests/${encodeURIComponent(id)}` : null,
   );
@@ -92,6 +94,12 @@ export default function ManageRequestDetailPage() {
                   <AssigneeName assignee={item.assignee} />
                 </p>
               )}
+              {canConvert && item.type === 'FEASIBILITY' ? (
+                <ConvertRequestToProject
+                  requestId={item.id}
+                  onConverted={() => reload({ silent: true })}
+                />
+              ) : null}
               <section aria-labelledby="timeline-title">
                 <h2 id="timeline-title" className="mb-4 text-base font-extrabold text-brand-900">
                   تاریخچه وضعیت

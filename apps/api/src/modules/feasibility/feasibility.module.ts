@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ServiceRequestsModule } from '../service-requests/service-requests.module';
 import { UsersModule } from '../users/users.module';
 import { FeasibilityProjectsController } from './feasibility-projects.controller';
 import { FeasibilityProjectsService } from './feasibility-projects.service';
@@ -8,7 +9,7 @@ import { FeasibilityProjectsService } from './feasibility-projects.service';
  * (ST-35.01). Questionnaires, documents, estimates and deliverables join in later stories.
  */
 @Module({
-  imports: [UsersModule],
+  imports: [UsersModule, ServiceRequestsModule],
   controllers: [FeasibilityProjectsController],
   providers: [FeasibilityProjectsService],
   exports: [FeasibilityProjectsService],

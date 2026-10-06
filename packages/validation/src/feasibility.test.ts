@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   assignExpertSchema,
+  convertRequestToProjectSchema,
   createFeasibilityProjectSchema,
   FEASIBILITY_ACTOR_LABELS_FA,
   FEASIBILITY_ACTORS,
@@ -8,6 +9,7 @@ import {
   FEASIBILITY_STATUSES,
   feasibilityTransitionSchema,
   listFeasibilityProjectsQuerySchema,
+  updateFeasibilityProjectSchema,
 } from './feasibility';
 
 describe('feasibility schemas', () => {
@@ -62,6 +64,44 @@ describe('feasibility schemas', () => {
     expect(
       feasibilityTransitionSchema.safeParse({ to: 'SUBMITTED', note: 'ن'.repeat(2001) }).success,
     ).toBe(false);
+  });
+
+  it('changes only the details that are sent and clears an optional one with null', () => {
+    expect(updateFeasibilityProjectSchema.parse({ title: ' طرح تازه ' })).toEqual({
+      title: 'طرح تازه',
+    });
+    expect(
+      updateFeasibilityProjectSchema.parse({ sector: null, location: null, summary: '' }),
+    ).toEqual({ sector: null, location: null, summary: '' });
+    expect(updateFeasibilityProjectSchema.safeParse({}).success).toBe(false);
+    expect(updateFeasibilityProjectSchema.safeParse({ title: null }).success).toBe(false);
+    expect(updateFeasibilityProjectSchema.safeParse({ sector: 'ناشناخته' }).success).toBe(false);
+    // Fields the applicant does not own are not taken over.
+    expect(
+      updateFeasibilityProjectSchema.parse({ title: 'طرح تازه', status: 'DELIVERED' }),
+    ).toEqual({ title: 'طرح تازه' });
+  });
+
+  it('needs the request and a title to make a project from it', () => {
+    const requestId = '0198c0de-0000-7000-8000-000000000000';
+    expect(convertRequestToProjectSchema.parse({ requestId, title: ' کارخانه مس ' })).toEqual({
+      requestId,
+      title: 'کارخانه مس',
+    });
+    expect(convertRequestToProjectSchema.safeParse({ requestId }).success).toBe(false);
+    expect(convertRequestToProjectSchema.safeParse({ requestId: 'r1', title: 'طرح' }).success).toBe(
+      false,
+    );
+  });
+
+  it('finds the project of a request by the id of the request', () => {
+    const sourceRequestId = '0198c0de-0000-7000-8000-000000000000';
+    expect(listFeasibilityProjectsQuerySchema.parse({ sourceRequestId }).sourceRequestId).toBe(
+      sourceRequestId,
+    );
+    expect(listFeasibilityProjectsQuerySchema.safeParse({ sourceRequestId: 'r1' }).success).toBe(
+      false,
+    );
   });
 
   it('needs the id of the expert', () => {

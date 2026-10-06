@@ -2206,6 +2206,7 @@ epics:
         sprint: S19
         points: 8
         priority: critical
+        status: done
         area: [api, web]
         depends: [ST-35.01]
         story: 'به‌عنوان متقاضی می‌خواهم پروژه امکان‌سنجی بسازم، پیش‌نویس کنم، ارسال کنم و وضعیتش را ببینم.'

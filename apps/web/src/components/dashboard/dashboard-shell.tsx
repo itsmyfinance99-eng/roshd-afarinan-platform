@@ -26,6 +26,7 @@ interface NavItem {
 const NAV: NavItem[] = [
   { href: '/dashboard', label: 'پیشخوان' },
   { href: '/dashboard/requests', label: 'درخواست‌های من' },
+  { href: '/dashboard/feasibility', label: 'پروژه‌های امکان‌سنجی' },
   { href: '/dashboard/tickets', label: 'پشتیبانی' },
   { href: '/dashboard/orders', label: 'سفارش‌های من' },
   { href: '/dashboard/notifications', label: 'اعلان‌ها' },
@@ -41,6 +42,11 @@ const NAV: NavItem[] = [
     href: '/dashboard/manage/requests',
     label: 'مدیریت درخواست‌ها',
     permission: 'requests:read-all',
+  },
+  {
+    href: '/dashboard/manage/feasibility',
+    label: 'مدیریت امکان‌سنجی',
+    anyOf: ['feasibility:manage', 'feasibility:work'],
   },
   { href: '/dashboard/manage/tickets', label: 'مدیریت تیکت‌ها', permission: 'tickets:read-all' },
   { href: '/dashboard/content', label: 'مدیریت محتوا', permission: 'cms:write' },

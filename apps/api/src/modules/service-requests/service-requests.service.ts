@@ -46,6 +46,17 @@ export interface ServiceRequestReceipt {
   createdAt: Date;
 }
 
+/** What a feasibility project takes over from the request it is made from (ST-35.02). */
+export interface ServiceRequestSource {
+  id: string;
+  trackingCode: string;
+  type: ServiceRequestType;
+  /** Null for a request sent without an account. */
+  userId: string | null;
+  message: string;
+  details: Prisma.JsonValue;
+}
+
 export interface ServiceRequestView extends ServiceRequestReceipt {
   fullName: string;
   mobile: string;
@@ -215,6 +226,36 @@ export class ServiceRequestsService {
   async isOwnedBy(id: string, userId: string): Promise<boolean> {
     const count = await this.prisma.serviceRequest.count({ where: { id, userId } });
     return count === 1;
+  }
+
+  /**
+   * For the feasibility module: the request a project is made from. Only staff who read every
+   * request get it; for anyone else it does not exist.
+   */
+  async sourceFor(id: string, principal: Principal): Promise<ServiceRequestSource> {
+    if (!hasPermission(principal, 'requests:read-all')) throw new NotFoundError();
+    const row = await this.prisma.serviceRequest.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        trackingCode: true,
+        type: true,
+        userId: true,
+        message: true,
+        details: true,
+      },
+    });
+    if (!row) throw new NotFoundError();
+    return row;
+  }
+
+  /** For other modules: the public reference of a request, or null when it is gone. */
+  async trackingCodeOf(id: string): Promise<string | null> {
+    const row = await this.prisma.serviceRequest.findUnique({
+      where: { id },
+      select: { trackingCode: true },
+    });
+    return row?.trackingCode ?? null;
   }
 
   async listMine(
