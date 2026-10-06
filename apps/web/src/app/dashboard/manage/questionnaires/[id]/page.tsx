@@ -81,7 +81,9 @@ function Settings({
     event.preventDefault();
     const parsed = updateQuestionnaireTemplateSchema.safeParse({ title, sector: sector || null });
     if (!parsed.success) {
-      setTitleError(parsed.error.issues.find((issue) => issue.path[0] === 'title')?.message);
+      const title = parsed.error.issues.find((issue) => issue.path[0] === 'title')?.message;
+      setTitleError(title);
+      if (!title) setError(parsed.error.issues[0]?.message ?? null);
       return;
     }
     setTitleError(undefined);
@@ -169,6 +171,8 @@ function Versions({ template }: { template: QuestionnaireTemplateDetail }) {
   );
 }
 
+const idle = 'aria-disabled:cursor-not-allowed aria-disabled:opacity-50';
+
 function Workspace({ initial }: { initial: QuestionnaireTemplateDetail }) {
   const [template, setTemplate] = useState(initial);
   const [definition, setDefinition] = useState(() => startingPoint(initial));
@@ -178,11 +182,15 @@ function Workspace({ initial }: { initial: QuestionnaireTemplateDetail }) {
   const [error, setError] = useState<string | null>(null);
   const [problems, setProblems] = useState<Problem[]>([]);
   const [success, setSuccess] = useState<string | null>(null);
-  const [announcement, setAnnouncement] = useState('');
+  const [announcement, setAnnouncement] = useState({ text: '', count: 0 });
+  /** Bumped when the content is replaced by what the server holds, so the editor starts afresh. */
+  const [revision, setRevision] = useState(0);
+  /** Says it again even when the words are the same as last time. */
+  const announce = (text: string) => setAnnouncement((old) => ({ text, count: old.count + 1 }));
   const archived = template.archivedAt !== null;
   const base = `/questionnaire-templates/${template.id}`;
 
-  // Leaving with unsaved changes asks first.
+  // Closing or reloading the page with unsaved changes asks first.
   useEffect(() => {
     if (!dirty) return;
     const warn = (event: BeforeUnloadEvent) => event.preventDefault();
@@ -193,6 +201,7 @@ function Workspace({ initial }: { initial: QuestionnaireTemplateDetail }) {
   const accept = (next: QuestionnaireTemplateDetail, message: string) => {
     setTemplate(next);
     setDefinition(startingPoint(next));
+    setRevision((old) => old + 1);
     setDirty(false);
     setProblems([]);
     setSuccess(message);
@@ -217,8 +226,8 @@ function Workspace({ initial }: { initial: QuestionnaireTemplateDetail }) {
     );
   };
 
-  /** Saves the draft; `false` when it could not be saved. */
-  const save = async (): Promise<boolean> => {
+  /** Saves the draft and returns the template as it is then; `null` when it was not saved. */
+  const save = async (): Promise<QuestionnaireTemplateDetail | null> => {
     setError(null);
     setSuccess(null);
     const parsed = questionnaireDefinitionSchema.safeParse(definition);
@@ -230,7 +239,7 @@ function Workspace({ initial }: { initial: QuestionnaireTemplateDetail }) {
           message: issue.message,
         })),
       );
-      return false;
+      return null;
     }
     setBusy(true);
     const result = await apiFetch<QuestionnaireTemplateDetail>(`${base}/draft`, {
@@ -240,17 +249,16 @@ function Workspace({ initial }: { initial: QuestionnaireTemplateDetail }) {
     setBusy(false);
     if (!result.ok) {
       fail(result, definition);
-      return false;
+      return null;
     }
     accept(result.data, 'پیش‌نویس ذخیره شد.');
-    return true;
+    return result.data;
   };
 
   const publish = async () => {
-    if (dirty && !(await save())) return;
-    const version = toPersianDigits(
-      template.draft?.version ?? (template.published?.version ?? 0) + 1,
-    );
+    const latest = dirty ? await save() : template;
+    if (!latest?.draft) return;
+    const version = toPersianDigits(latest.draft.version);
     if (
       !window.confirm(
         `نسخه ${version} منتشر شود؟ نسخه منتشرشده دیگر تغییر نمی‌کند و پروژه‌های تازه با آن شروع می‌شوند.`,
@@ -259,14 +267,19 @@ function Workspace({ initial }: { initial: QuestionnaireTemplateDetail }) {
       return;
     }
     setError(null);
+    setSuccess(null);
     setBusy(true);
     const result = await apiFetch<QuestionnaireTemplateDetail>(`${base}/publish`, {
       method: 'POST',
       body: {},
     });
     setBusy(false);
-    if (result.ok) accept(result.data, `نسخه ${version} منتشر شد.`);
-    else fail(result, definition);
+    if (result.ok) {
+      accept(
+        result.data,
+        `نسخه ${toPersianDigits(result.data.published?.version ?? latest.draft.version)} منتشر شد.`,
+      );
+    } else fail(result, definition);
   };
 
   const discard = async () => {
@@ -305,8 +318,14 @@ function Workspace({ initial }: { initial: QuestionnaireTemplateDetail }) {
         key={`${template.title}|${template.sector}|${template.archivedAt}`}
         template={template}
         onSaved={(next) => {
-          // The content being edited stays; only the facts of the template changed.
           setTemplate(next);
+          if (next.archivedAt !== null && dirty) {
+            // An archived template is not edited, so what was not saved cannot be saved any more.
+            setDefinition(startingPoint(next));
+            setRevision((old) => old + 1);
+            setDirty(false);
+          }
+          // Otherwise the content being edited stays; only the facts of the template changed.
           setSuccess('مشخصات قالب ذخیره شد.');
         }}
       />
@@ -328,20 +347,23 @@ function Workspace({ initial }: { initial: QuestionnaireTemplateDetail }) {
       />
 
       <p role="status" aria-live="polite" className="sr-only">
-        {announcement}
+        {announcement.text}
+        {/* The same words twice are still a new message. */}
+        {announcement.count % 2 === 1 ? '​' : ''}
       </p>
 
       {view === 'edit' ? (
-        <fieldset disabled={archived || busy} className="m-0 min-w-0 border-0 p-0">
+        <fieldset disabled={archived} className="m-0 min-w-0 border-0 p-0">
           <legend className="sr-only">محتوای پرسشنامه</legend>
           <DefinitionEditor
             definition={definition}
+            revision={revision}
             onChange={(next) => {
               setDefinition(next);
               setDirty(true);
               setSuccess(null);
             }}
-            announce={setAnnouncement}
+            announce={announce}
           />
         </fieldset>
       ) : null}
@@ -366,13 +388,23 @@ function Workspace({ initial }: { initial: QuestionnaireTemplateDetail }) {
 
       {archived ? null : (
         <div className="flex flex-wrap gap-3">
-          <Button disabled={busy || !dirty} onClick={() => void save()}>
+          {/* `aria-disabled`, not `disabled`: the button keeps the focus once its work is done. */}
+          <Button
+            className={idle}
+            aria-disabled={busy || !dirty || undefined}
+            onClick={() => {
+              if (!busy && dirty) void save();
+            }}
+          >
             {busy ? 'در حال ذخیره…' : 'ذخیره پیش‌نویس'}
           </Button>
           <Button
             variant="secondary"
-            disabled={busy || (!hasDraft && !dirty)}
-            onClick={() => void publish()}
+            className={idle}
+            aria-disabled={busy || (!hasDraft && !dirty) || undefined}
+            onClick={() => {
+              if (!busy && (hasDraft || dirty)) void publish();
+            }}
           >
             انتشار نسخه
           </Button>

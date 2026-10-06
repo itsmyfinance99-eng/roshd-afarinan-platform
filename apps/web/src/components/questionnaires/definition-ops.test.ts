@@ -2,6 +2,7 @@ import { questionnaireDefinitionSchema, type Question } from '@roshd/validation'
 import { describe, expect, it } from 'vitest';
 import {
   addColumn,
+  createTypeStash,
   addDocument,
   addQuestion,
   addSection,
@@ -32,7 +33,7 @@ const built = () => {
 };
 
 describe('keys of a questionnaire', () => {
-  it('are given once and never twice, whatever was removed in between', () => {
+  it('are one past the highest in use, so a gap below is not filled again', () => {
     expect(nextKey('q', [])).toBe('q1');
     expect(nextKey('q', ['q1', 'q2'])).toBe('q3');
     expect(nextKey('q', ['q1', 'q3'])).toBe('q4');
@@ -169,5 +170,86 @@ describe('where a problem is', () => {
     expect(describeIssuePath(['sections', 1, 'title'], definition)).toBe('بخش «بخش ۲»');
     expect(describeIssuePath(['documents', 0, 'label'], definition)).toBe('مدرک ۱');
     expect(describeIssuePath(['sections'], definition)).toBe('پرسشنامه');
+  });
+});
+
+describe('options whose lines change', () => {
+  const options = [
+    { value: 'o1', label: 'الف' },
+    { value: 'o2', label: 'ب' },
+    { value: 'o3', label: 'ج' },
+  ];
+
+  it('keep their values when a line above them goes or comes', () => {
+    expect(optionsFromLines('ب\nج', options)).toEqual([
+      { value: 'o2', label: 'ب' },
+      { value: 'o3', label: 'ج' },
+    ]);
+    expect(optionsFromLines('تازه\nالف\nب\nج', options)).toEqual([
+      { value: 'o4', label: 'تازه' },
+      { value: 'o1', label: 'الف' },
+      { value: 'o2', label: 'ب' },
+      { value: 'o3', label: 'ج' },
+    ]);
+    expect(optionsFromLines('ج\nالف\nب', options).map((option) => option.value)).toEqual([
+      'o3',
+      'o1',
+      'o2',
+    ]);
+  });
+
+  it('never give one value to two options', () => {
+    const values = optionsFromLines('الف\nالف\nد\nه', options).map((option) => option.value);
+    expect(new Set(values).size).toBe(values.length);
+  });
+});
+
+describe('a type that is switched away from and back', () => {
+  it('gets back what it had, with the label of now', () => {
+    const stash = createTypeStash();
+    const table: Question = {
+      key: 'q1',
+      type: 'table',
+      label: 'سهامداران',
+      minRows: 1,
+      columns: [
+        { key: 'c1', type: 'text', label: 'نام' },
+        { key: 'c2', type: 'number', label: 'درصد', unit: 'درصد' },
+      ],
+    };
+    const file = stash.question(table, 'file');
+    expect(file).toEqual({ key: 'q1', type: 'file', label: 'سهامداران' });
+    const renamed: Question = { ...file, label: 'فهرست سهامداران', required: true };
+    expect(stash.question(renamed, 'table')).toEqual({
+      ...table,
+      label: 'فهرست سهامداران',
+      required: true,
+    });
+    // Another question, and another stash, know nothing of it.
+    expect(stash.question({ ...file, key: 'q2' }, 'table')).toMatchObject({
+      columns: [{ key: 'c1', label: 'ستون' }],
+    });
+    expect(createTypeStash().question(file, 'table')).toMatchObject({
+      columns: [{ key: 'c1', label: 'ستون' }],
+    });
+  });
+
+  it('does the same for the columns of a table, each table apart', () => {
+    const stash = createTypeStash();
+    const choice = {
+      key: 'c1',
+      type: 'single_choice' as const,
+      label: 'نوع',
+      options: [
+        { value: 'o1', label: 'با نام' },
+        { value: 'o2', label: 'بی‌نام' },
+      ],
+    };
+    const asText = stash.column('q1-c1', choice, 'text');
+    expect(asText).toEqual({ key: 'c1', type: 'text', label: 'نوع' });
+    expect(stash.column('q1-c1', asText, 'single_choice')).toEqual(choice);
+    expect(stash.column('q2-c1', asText, 'single_choice')).toMatchObject({
+      options: [{ label: 'گزینه ۱' }, { label: 'گزینه ۲' }],
+    });
   });
 });

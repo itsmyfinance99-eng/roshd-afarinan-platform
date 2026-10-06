@@ -17,10 +17,19 @@ import {
 
 export const EMPTY_DEFINITION: QuestionnaireDefinition = { sections: [], documents: [] };
 
-/** The next free key with this prefix: `q1`, `q2`, … whatever was removed in between. */
+/**
+ * A key with this prefix that is not in use: one past the highest number there is, so a key that
+ * was removed below it is not given again.
+ */
 export function nextKey(prefix: string, taken: readonly string[]): string {
+  let highest = 0;
+  for (const key of taken) {
+    if (!key.startsWith(prefix)) continue;
+    const n = Number(key.slice(prefix.length));
+    if (Number.isInteger(n) && n > highest) highest = n;
+  }
   const used = new Set(taken);
-  for (let n = taken.length + 1; ; n++) {
+  for (let n = highest + 1; ; n++) {
     const key = `${prefix}${n}`;
     if (!used.has(key)) return key;
   }
@@ -215,8 +224,9 @@ export const optionLines = (options: readonly { label: string }[]): string =>
   options.map((option) => option.label).join('\n');
 
 /**
- * Options from the lines of the editor. A line keeps the value of the option that stood in its
- * place, so that relabelling an option does not make it another one.
+ * Options from the lines of the editor. A line whose label is unchanged keeps its value wherever
+ * it now stands; a line with a new label takes the value of the option that stood in its place
+ * (it was relabelled), if that value is still free; anything else is a new option.
  */
 export function optionsFromLines(
   text: string,
@@ -226,9 +236,30 @@ export function optionsFromLines(
     .split('\n')
     .map((line) => line.trim())
     .filter((line) => line !== '');
-  const values = previous.slice(0, labels.length).map((option) => option.value);
-  while (values.length < labels.length) values.push(nextKey('o', values));
-  return labels.map((label, i) => ({ value: values[i] as string, label }));
+  const values: (string | undefined)[] = labels.map(() => undefined);
+  const free = new Map(previous.map((option) => [option.value, option.label]));
+  labels.forEach((label, i) => {
+    const kept = [...free].find(([, old]) => old === label);
+    if (!kept) return;
+    values[i] = kept[0];
+    free.delete(kept[0]);
+  });
+  labels.forEach((_, i) => {
+    const before = previous[i]?.value;
+    if (values[i] === undefined && before !== undefined && free.has(before)) {
+      values[i] = before;
+      free.delete(before);
+    }
+  });
+  const taken = [...previous.map((option) => option.value)];
+  return labels.map((label, i) => {
+    let value = values[i];
+    if (value === undefined) {
+      value = nextKey('o', taken);
+      taken.push(value);
+    }
+    return { value, label };
+  });
 }
 
 type UnitRule = { unit?: string; units?: string[] };
@@ -272,4 +303,43 @@ export function describeIssuePath(
   const name = section?.title ? `بخش «${section.title}»` : `بخش ${n(first)}`;
   if (part !== 'questions' || typeof second !== 'number') return name;
   return `${name}، سؤال ${n(second)}`;
+}
+
+/**
+ * Remembers what a question or a table column had under a type it is switched away from, and
+ * gives it back when it is switched to that type again: one wrong key on the type list must not
+ * cost the columns of a table or the options of a choice.
+ */
+export interface TypeStash {
+  question(question: Question, type: QuestionType): Question;
+  /** `scope` tells the columns of different tables apart. */
+  column(scope: string, column: TableColumn, type: TableColumnType): TableColumn;
+}
+
+export function createTypeStash(): TypeStash {
+  const kept = new Map<string, Question | TableColumn>();
+  /** What was kept for the new type, with the label, help and required flag of now. */
+  const restored = <T extends Question | TableColumn>(before: T, now: T): T => {
+    const { help: _help, required: _required, ...rest } = before;
+    return {
+      ...rest,
+      label: now.label,
+      ...(now.help !== undefined ? { help: now.help } : {}),
+      ...(now.required !== undefined ? { required: now.required } : {}),
+    } as T;
+  };
+  return {
+    question(question, type) {
+      if (question.type === type) return question;
+      kept.set(`${question.key}:${question.type}`, question);
+      const before = kept.get(`${question.key}:${type}`) as Question | undefined;
+      return before ? restored(before, question) : questionOfType(question, type);
+    },
+    column(scope, column, type) {
+      if (column.type === type) return column;
+      kept.set(`${scope}:${column.type}`, column);
+      const before = kept.get(`${scope}:${type}`) as TableColumn | undefined;
+      return before ? restored(before, column) : columnOfType(column, type);
+    },
+  };
 }

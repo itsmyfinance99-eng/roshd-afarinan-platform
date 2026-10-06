@@ -107,7 +107,11 @@ const numberRules = {
   /** One fixed unit shown next to the value, e.g. «تن در سال». */
   unit: text(1, 40).optional(),
   /** Units the answer chooses from; the chosen one is stored with the value. */
-  units: z.array(text(1, 40)).min(2).max(L.units).optional(),
+  units: z
+    .array(text(1, 40))
+    .min(2, { error: 'برای انتخاب واحد دست‌کم دو واحد لازم است.' })
+    .max(L.units, { error: `حداکثر ${toPersianDigits(L.units)} واحد مجاز است.` })
+    .optional(),
   min: decimalStringSchema.optional(),
   max: decimalStringSchema.optional(),
   integer: z.boolean().optional(),
@@ -158,7 +162,10 @@ export const questionSchema = z.discriminatedUnion('type', [
     .object({
       ...base,
       type: z.literal('table'),
-      columns: z.array(tableColumnSchema).min(1).max(L.columns),
+      columns: z
+        .array(tableColumnSchema)
+        .min(1, { error: 'جدول دست‌کم یک ستون می‌خواهد.' })
+        .max(L.columns, { error: `حداکثر ${toPersianDigits(L.columns)} ستون مجاز است.` }),
       minRows: count(L.rows).optional(),
       maxRows: count(L.rows).min(1).optional(),
     })

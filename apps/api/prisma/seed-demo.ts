@@ -428,12 +428,12 @@ ${r.summary}`,
 
 /**
  * The sample general questionnaire, published so that a demo project can start it. A published
- * version never changes, so an existing sample is left as it is.
+ * version never changes, so an existing sample is left as it is, whatever it was renamed to.
  */
 async function seedQuestionnaire(prisma: PrismaClient): Promise<void> {
   const definition = questionnaireDefinitionSchema.parse(DEMO_QUESTIONNAIRE_DEFINITION);
   const existing = await prisma.questionnaireTemplate.findFirst({
-    where: { title: DEMO_QUESTIONNAIRE_TITLE, isDemo: true },
+    where: { isDemo: true },
     select: { id: true },
   });
   if (existing) return;

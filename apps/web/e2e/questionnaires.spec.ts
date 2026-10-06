@@ -259,6 +259,7 @@ test.describe('questionnaire templates', () => {
     // Publishing asks first; declining publishes nothing.
     page.once('dialog', (dialog) => void dialog.dismiss());
     await page.getByRole('button', { name: 'انتشار نسخه' }).click();
+    await expect(page.getByText('پیش‌نویس ذخیره شد.')).toBeVisible();
     expect(publishedCalls).toBe(0);
     page.once('dialog', (dialog) => {
       expect(dialog.message()).toContain('نسخه ۱ منتشر شود؟');
@@ -376,6 +377,152 @@ test.describe('questionnaire templates', () => {
     await page.getByRole('button', { name: 'بازگرداندن از بایگانی' }).click();
     await expect(page.getByLabel('متن سؤال ۱')).toBeEnabled();
     expect(patches[2]).toEqual({ archived: false });
+  });
+
+  test('keeps the focus with the part that moves or goes, and gives back what a type had', async ({
+    page,
+  }) => {
+    await signIn(page);
+    const three = {
+      sections: [
+        {
+          key: 's1',
+          title: 'مشخصات طرح',
+          questions: [
+            { key: 'q1', type: 'text', label: 'محصول اصلی' },
+            {
+              key: 'q2',
+              type: 'table',
+              label: 'سهامداران',
+              columns: [
+                { key: 'c1', type: 'text', label: 'نام' },
+                { key: 'c2', type: 'number', label: 'درصد', unit: 'درصد' },
+              ],
+            },
+            { key: 'q3', type: 'long_text', label: 'سابقه' },
+          ],
+        },
+      ],
+      documents: [],
+    };
+    await page.route('**/api/v1/questionnaire-templates/t1', (route) =>
+      json(route, template({ draftDefinition: three })),
+    );
+    await page.goto('/dashboard/manage/questionnaires/t1');
+    const section = page.getByRole('region', { name: 'بخش ۱' });
+
+    // Down twice with the keyboard: the focus goes with the question each time.
+    await section.getByRole('button', { name: 'پایین بردن سؤال ۱ از بخش ۱' }).focus();
+    await page.keyboard.press('Enter');
+    await expect(section.getByRole('button', { name: 'پایین بردن سؤال ۲ از بخش ۱' })).toBeFocused();
+    await page.keyboard.press('Enter');
+    const last = section.getByRole('button', { name: 'پایین بردن سؤال ۳ از بخش ۱' });
+    await expect(last).toBeFocused();
+    await expect(section.getByLabel('متن سؤال ۳')).toHaveValue('محصول اصلی');
+    // At the end the button says so and still holds the focus; pressing it changes nothing.
+    await expect(last).toHaveAttribute('aria-disabled', 'true');
+    await page.keyboard.press('Enter');
+    await expect(section.getByLabel('متن سؤال ۳')).toHaveValue('محصول اصلی');
+    await expect(last).toBeFocused();
+
+    // Up, and the same holds.
+    await section.getByRole('button', { name: 'بالا بردن سؤال ۳ از بخش ۱' }).focus();
+    await page.keyboard.press('Enter');
+    await expect(section.getByRole('button', { name: 'بالا بردن سؤال ۲ از بخش ۱' })).toBeFocused();
+    await expect(section.getByLabel('متن سؤال ۲')).toHaveValue('محصول اصلی');
+
+    // A removed question hands the focus to its neighbour.
+    await section.getByRole('button', { name: 'حذف سؤال ۲ از بخش ۱' }).focus();
+    await page.keyboard.press('Enter');
+    await expect(section.getByLabel('متن سؤال ۲')).toHaveValue('سابقه');
+    await expect(section.getByRole('button', { name: 'حذف سؤال ۲ از بخش ۱' })).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(section.getByRole('button', { name: 'حذف سؤال ۱ از بخش ۱' })).toBeFocused();
+
+    // One wrong key on the type list does not cost the columns of the table.
+    await expect(section.getByLabel('عنوان ستون ۲')).toHaveValue('درصد');
+    await section.getByLabel('نوع پاسخ').selectOption('file');
+    await expect(section.getByLabel('عنوان ستون ۱')).toHaveCount(0);
+    await section.getByLabel('نوع پاسخ').selectOption('table');
+    await expect(section.getByLabel('عنوان ستون ۲')).toHaveValue('درصد');
+    await expect(section.getByLabel('واحد')).toHaveValue('درصد');
+
+    // A table keeps its last column.
+    await section.getByRole('button', { name: 'حذف ستون ۲' }).click();
+    await expect(section.getByLabel('عنوان ستون ۲')).toHaveCount(0);
+    const only = section.getByRole('button', { name: 'حذف ستون ۱' });
+    await expect(only).toHaveAttribute('aria-disabled', 'true');
+    await only.click({ force: true });
+    await expect(section.getByLabel('عنوان ستون ۱')).toHaveValue('نام');
+  });
+
+  test('starts the fields afresh when the draft is dropped for the published version', async ({
+    page,
+  }) => {
+    await signIn(page);
+    const withOptions = (labels: string[]) => ({
+      sections: [
+        {
+          key: 's1',
+          title: 'متقاضی',
+          questions: [
+            {
+              key: 'q1',
+              type: 'single_choice',
+              label: 'نوع شرکت',
+              options: labels.map((label, i) => ({ value: `o${i + 1}`, label })),
+            },
+          ],
+        },
+      ],
+      documents: [],
+    });
+    const published = withOptions(['سهامی خاص', 'سهامی عام']);
+    let saved: unknown;
+    const state = {
+      draft: { version: 2, updatedAt: '2026-10-02T08:00:00Z' },
+      published: { version: 1, publishedAt: '2026-10-01T08:00:00Z' },
+      publishedDefinition: published,
+    };
+    await page.route('**/api/v1/questionnaire-templates/t1', (route) =>
+      json(route, template({ ...state, draftDefinition: published })),
+    );
+    await page.route('**/api/v1/questionnaire-templates/t1/draft', (route) => {
+      if (route.request().method() === 'DELETE') {
+        return json(route, template({ ...state, draft: null, draftDefinition: null }));
+      }
+      saved = (route.request().postDataJSON() as { definition: unknown }).definition;
+      return json(route, template({ ...state, draftDefinition: saved }));
+    });
+
+    await page.goto('/dashboard/manage/questionnaires/t1');
+    const options = page.getByLabel('گزینه‌ها');
+    await expect(options).toHaveValue('سهامی خاص\nسهامی عام');
+    // Typing is a change at once, without leaving the field.
+    await options.fill('سهامی خاص\nسهامی عام\nتعاونی');
+    await expect(page.getByText('تغییرهای ذخیره‌نشده دارید')).toBeVisible();
+    const save = page.getByRole('button', { name: 'ذخیره پیش‌نویس' });
+    await save.focus();
+    await page.keyboard.press('Enter');
+    await expect(page.getByText('پیش‌نویس ذخیره شد.')).toBeVisible();
+    expect(saved).toEqual(withOptions(['سهامی خاص', 'سهامی عام', 'تعاونی']));
+    // The button has done its work and keeps the focus.
+    await expect(save).toBeFocused();
+    await expect(save).toHaveAttribute('aria-disabled', 'true');
+
+    // Walking through the field changes nothing.
+    await options.focus();
+    await options.blur();
+    await expect(page.getByText('تغییرهای ذخیره‌نشده دارید')).toHaveCount(0);
+    await expect(page.getByText('پیش‌نویس ذخیره شد.')).toBeVisible();
+
+    page.once('dialog', (dialog) => void dialog.accept());
+    await page.getByRole('button', { name: 'کنار گذاشتن پیش‌نویس' }).click();
+    await expect(page.getByText('پیش‌نویس کنار گذاشته شد.')).toBeVisible();
+    await expect(options).toHaveValue('سهامی خاص\nسهامی عام');
+    await options.focus();
+    await options.blur();
+    await expect(page.getByText('تغییرهای ذخیره‌نشده دارید')).toHaveCount(0);
   });
 
   test('works on a phone', async ({ page }) => {
