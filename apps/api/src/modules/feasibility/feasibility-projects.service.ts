@@ -94,7 +94,7 @@ export interface FeasibilityProjectDetail extends FeasibilityProjectSummary {
   events: FeasibilityStatusEventView[];
   /** The Phase 1 request the project was made from, if any. */
   sourceRequest: { id: string; trackingCode: string } | null;
-  /** Files that came with the request the project was made from. */
+  /** Files that came with the request; empty for an expert, who cannot open them yet. */
   attachments: FileView[];
   /** What the caller may do with this project now. */
   access: {
@@ -412,7 +412,9 @@ export class FeasibilityProjectsService {
     const view = {
       ...rest,
       sourceRequest: sourceRequestId && trackingCode ? { id: sourceRequestId, trackingCode } : null,
-      attachments: await this.files.listForEntity(FILE_ENTITY, id),
+      // Listed for those who can open them; an expert gets the documents in ST-35.06.
+      attachments:
+        relation.owner || relation.manager ? await this.files.listForEntity(FILE_ENTITY, id) : [],
     };
     const actors = actorsOf(relation);
     const access = {

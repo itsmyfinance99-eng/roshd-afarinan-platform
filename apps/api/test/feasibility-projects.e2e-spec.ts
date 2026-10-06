@@ -781,6 +781,35 @@ describe('Feasibility projects (e2e)', () => {
       // With the request it left the reach of the request staff and entered that of the officer.
       await link(officer).expect(200);
       await link(support).expect(404);
+
+      // An assigned expert reads the project, but is not offered files they cannot open yet.
+      const expert = await registerUser(app, ['expert']);
+      const projectId = (
+        await prisma().feasibilityProject.findUniqueOrThrow({ where: { sourceRequestId: req.id } })
+      ).id;
+      await assign(officer, projectId, expert.id).expect(200);
+      const asExpert = await http().get(`${base}/${projectId}`).set(auth(expert.token)).expect(200);
+      expect(asExpert.body.data.attachments).toEqual([]);
+      await link(expert).expect(404);
+      const asOfficer = await http()
+        .get(`${base}/${projectId}`)
+        .set(auth(officer.token))
+        .expect(200);
+      expect(asOfficer.body.data.attachments).toHaveLength(1);
+      // The details and the draft itself stay the applicant's.
+      await http()
+        .patch(`${base}/${projectId}`)
+        .set(auth(expert.token))
+        .send({ title: 'عنوان کارشناس' })
+        .expect(403);
+      await http().delete(`${base}/${projectId}`).set(auth(expert.token)).expect(403);
+      // The project of a request is found only by those who see the project.
+      const stranger = await registerUser(app);
+      const none = await http()
+        .get(`${base}?sourceRequestId=${req.id}`)
+        .set(auth(stranger.token))
+        .expect(200);
+      expect(none.body.data).toEqual([]);
     });
 
     it('converts a request only once', async () => {

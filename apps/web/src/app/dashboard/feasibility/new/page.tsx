@@ -20,8 +20,7 @@ export default function NewFeasibilityProjectPage() {
         }
       />
       <p className="mb-6 max-w-2xl text-[15px] leading-loose text-ink-3">
-        پروژه به‌صورت پیش‌نویس ذخیره می‌شود و تا وقتی آن را ارسال نکرده‌اید فقط خودتان آن را
-        می‌بینید.
+        پروژه به‌صورت پیش‌نویس ذخیره می‌شود و بررسی آن پس از ارسال شما آغاز می‌شود.
       </p>
       <ProjectForm
         initial={{ title: '', sector: '', location: '', summary: '' }}
