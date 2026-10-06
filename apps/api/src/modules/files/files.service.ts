@@ -185,6 +185,8 @@ export class FilesService {
       /** Narrower allowlist than the general document types. */
       allowed?: readonly AllowedMimeType[];
       typeError?: string;
+      /** The record the file belongs to from the start; such an upload is not a loose one. */
+      entity?: { entityType: string; entityId: string };
     },
   ): Promise<FileView> {
     const { purpose } = options;
@@ -192,7 +194,8 @@ export class FilesService {
       throw new ValidationFailedError([{ path: 'file', message: 'فایلی انتخاب نشده است.' }]);
     }
     if (file.size > MAX_FILE_BYTES) throw new AppException('PAYLOAD_TOO_LARGE');
-    await this.assertWithinQuota(owner.userId, file.size);
+    // The quota is about uploads nothing owns; a file of a record is limited by that record.
+    if (!options.entity) await this.assertWithinQuota(owner.userId, file.size);
 
     const originalName = sanitizeFileName(
       Buffer.from(file.originalname, 'latin1').toString('utf8'),
@@ -224,6 +227,7 @@ export class FilesService {
         size: file.size,
         checksum: createHash('sha256').update(file.buffer).digest('hex'),
         storageKey,
+        ...options.entity,
       },
       select: VIEW_SELECT,
     });
@@ -236,6 +240,57 @@ export class FilesService {
       meta,
     });
     return created;
+  }
+
+  /**
+   * A private file that belongs to a business record from the start (a document of a feasibility
+   * project). The caller has checked that `owner` may add to that record and limits how many
+   * files it takes; the file is then read through the record, see `signedUrlOf`.
+   */
+  uploadForEntity(
+    owner: Principal,
+    file: UploadedFile | undefined,
+    purpose: StoredPurpose,
+    entity: { entityType: string; entityId: string },
+    meta: RequestMeta,
+  ): Promise<FileView> {
+    return this.store(owner, file, meta, {
+      purpose,
+      accessLevel: 'PRIVATE',
+      prefix: 'files',
+      entity,
+    });
+  }
+
+  /** Bytes of the owner's files of one purpose that are still there, whatever they belong to. */
+  async bytesOf(ownerId: string, purpose: StoredPurpose): Promise<number> {
+    const { _sum } = await this.prisma.fileObject.aggregate({
+      where: { ownerId, purpose, status: 'ACTIVE' },
+      _sum: { size: true },
+    });
+    return _sum.size ?? 0;
+  }
+
+  /** Name, type and size of the files that are still there, by id, for a record that lists them. */
+  async viewsOf(
+    fileIds: readonly string[],
+  ): Promise<Map<string, Pick<FileView, 'originalName' | 'mimeType' | 'size'>>> {
+    if (fileIds.length === 0) return new Map();
+    const rows = await this.prisma.fileObject.findMany({
+      where: { id: { in: [...fileIds] }, status: 'ACTIVE' },
+      select: { id: true, originalName: true, mimeType: true, size: true },
+    });
+    return new Map(rows.map(({ id, ...view }) => [id, view]));
+  }
+
+  /** Which of these files are still there (not deleted, by their owner's record or by staff). */
+  async activeIds(fileIds: readonly string[]): Promise<Set<string>> {
+    if (fileIds.length === 0) return new Set();
+    const rows = await this.prisma.fileObject.findMany({
+      where: { id: { in: [...fileIds] }, status: 'ACTIVE' },
+      select: { id: true },
+    });
+    return new Set(rows.map((row) => row.id));
   }
 
   /** Uploads of this user that no record references yet; only these count against the quota. */
@@ -261,15 +316,25 @@ export class FilesService {
   }
 
   /**
-   * Deletes uploads that were never attached to a record and are older than the retention
-   * window. Runs on a schedule; safe to call at any time.
+   * Deletes uploads that were never attached to a record, and documents of a project that have
+   * no row in it, when they are older than the retention window. Runs on a schedule; safe to
+   * call at any time.
    */
   async removeStaleUploads(now = new Date()): Promise<{ removed: number }> {
     const hours = this.config.UPLOAD_RETENTION_HOURS;
     if (hours === 0) return { removed: 0 };
     const cutoff = new Date(now.getTime() - hours * 3_600_000);
     const stale = await this.prisma.fileObject.findMany({
-      where: { status: 'ACTIVE', entityId: null, createdAt: { lt: cutoff } },
+      where: {
+        status: 'ACTIVE',
+        createdAt: { lt: cutoff },
+        OR: [
+          { entityId: null },
+          // A document of a project is stored before its row is written; if that row never came
+          // to be (the process died in between), nothing lists the file and nothing removes it.
+          { purpose: 'FEASIBILITY_DOCUMENT', projectDocument: { is: null } },
+        ],
+      },
       select: { id: true, storageKey: true },
       take: 500,
     });
@@ -354,12 +419,63 @@ export class FilesService {
 
   async createDownloadUrl(id: string, principal: Principal) {
     await this.getVisible(id, principal);
+    return this.signedUrlOf(id);
+  }
+
+  /**
+   * A signed, expiring URL for a file the caller has already authorised through the record it
+   * belongs to (an assigned expert reads the documents of a project this way). Never call it
+   * with an id that came from a request without that check.
+   */
+  signedUrlOf(id: string): { url: string; expiresAt: Date } {
     const expiresAt = Math.floor(Date.now() / 1000) + this.config.SIGNED_URL_TTL_SECONDS;
     const sig = signFileUrl(this.config.FILE_URL_SECRET, id, expiresAt);
     return {
       url: `/api/v1/files/${id}/content?exp=${expiresAt}&sig=${sig}`,
       expiresAt: new Date(expiresAt * 1000),
     };
+  }
+
+  /**
+   * Removes files of a business record on behalf of that record (a document taken back, a draft
+   * project deleted). The caller has authorised the removal; it is audited here per file.
+   */
+  async removeOfEntity(
+    entity: { entityType: string; entityId: string },
+    actor: Principal,
+    meta: RequestMeta,
+    fileIds?: readonly string[],
+  ): Promise<number> {
+    const files = await this.prisma.fileObject.findMany({
+      where: {
+        entityType: entity.entityType,
+        entityId: entity.entityId,
+        status: 'ACTIVE',
+        ...(fileIds ? { id: { in: [...fileIds] } } : {}),
+      },
+      select: { id: true, storageKey: true },
+    });
+    for (const file of files) {
+      // The row is marked first: a storage failure must not leave it advertised as available.
+      await this.prisma.fileObject.update({
+        where: { id: file.id },
+        data: { status: 'DELETED', deletedAt: new Date() },
+      });
+      try {
+        await this.storage.delete(file.storageKey);
+      } catch (error) {
+        this.logger.warn({ err: error, fileId: file.id }, 'file not removed from storage');
+      }
+      await this.audit.record({
+        action: 'file.deleted',
+        actorId: actor.userId,
+        entityType: 'file',
+        entityId: file.id,
+        metadata: { attachedTo: entity.entityType, attachedId: entity.entityId },
+        meta,
+      });
+    }
+    return files.length;
   }
 
   /** Streams file bytes for a valid, unexpired signature (no session needed). */
@@ -460,9 +576,23 @@ export class FilesService {
     return count;
   }
 
-  listForEntity(entityType: string, entityId: string): Promise<FileView[]> {
+  /**
+   * The files attached to a business record. A record whose files have several purposes names
+   * the ones it does not mean here with `except` (the documents of a feasibility project are
+   * listed by the project's own documents service, not with its attachments).
+   */
+  listForEntity(
+    entityType: string,
+    entityId: string,
+    except: readonly StoredPurpose[] = [],
+  ): Promise<FileView[]> {
     return this.prisma.fileObject.findMany({
-      where: { entityType, entityId, status: 'ACTIVE' },
+      where: {
+        entityType,
+        entityId,
+        status: 'ACTIVE',
+        ...(except.length > 0 ? { purpose: { notIn: [...except] } } : {}),
+      },
       select: VIEW_SELECT,
       orderBy: { createdAt: 'asc' },
     });

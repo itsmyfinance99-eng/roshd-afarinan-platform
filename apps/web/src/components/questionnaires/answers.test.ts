@@ -5,6 +5,7 @@ import {
   completeIssues,
   errorsFromDetails,
   firstOpenStep,
+  hasOwnStep,
   OWN_STEP_KEY,
   progressOf,
   stepsOf,
@@ -68,6 +69,7 @@ const questionnaire = (over: Partial<ProjectQuestionnaire> = {}): ProjectQuestio
   ],
   answers: {},
   answeredAt: null,
+  missingDocuments: [],
   access: { start: false, answer: true, addItems: true },
   ...over,
 });
@@ -194,5 +196,35 @@ describe('what a submission would still ask for', () => {
         item_abc: 'شرکت نمونه',
       }),
     ).toEqual({});
+  });
+});
+
+describe('the last step of the form', () => {
+  const locked = { start: false, answer: false, addItems: false };
+
+  it('is there when the project has something of its own or something can be added', () => {
+    expect(hasOwnStep(questionnaire())).toBe(true);
+    expect(hasOwnStep(questionnaire({ items: [], access: locked }))).toBe(false);
+  });
+
+  it('is there for the documents and files a questionnaire asks for, also when locked', () => {
+    const base = questionnaire({ items: [], access: locked });
+    expect(
+      hasOwnStep({
+        ...base,
+        definition: { sections: [], documents: [{ key: 'license', label: 'جواز' }] },
+      }),
+    ).toBe(true);
+    expect(
+      hasOwnStep({
+        ...base,
+        definition: {
+          sections: [
+            { key: 'a', title: 'الف', questions: [{ key: 'scan', type: 'file', label: 'تصویر' }] },
+          ],
+          documents: [],
+        },
+      }),
+    ).toBe(true);
   });
 });

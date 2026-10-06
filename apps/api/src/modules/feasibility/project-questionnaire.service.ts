@@ -26,9 +26,11 @@ import { staffRef, type StaffRef } from '../users/staff-ref';
 import { UsersService } from '../users/users.service';
 import type { FeasibilityStatus } from './domain/feasibility-status';
 import { FeasibilityProjectsService, type ProjectRelation } from './feasibility-projects.service';
+import { ProjectDocumentsService } from './project-documents.service';
 import {
   answerIssues,
   generateItemKey,
+  missingDocumentsOf,
   QuestionnaireReader,
   questionsOfProject,
   type ProjectItemContent,
@@ -69,6 +71,8 @@ export interface ProjectQuestionnaireView {
   answers: Record<string, AnswerValue>;
   /** When an answer was last saved. */
   answeredAt: Date | null;
+  /** Required documents of the list that have no file yet; a submission asks for them. */
+  missingDocuments: { key: string; label: string }[];
   access: {
     /** Start the questionnaire: a published version exists and none is pinned yet. */
     start: boolean;
@@ -111,6 +115,7 @@ export class ProjectQuestionnaireService {
     private readonly users: UsersService,
     private readonly projects: FeasibilityProjectsService,
     private readonly reader: QuestionnaireReader,
+    private readonly documents: ProjectDocumentsService,
   ) {}
 
   async get(id: string, principal: Principal): Promise<ProjectQuestionnaireView> {
@@ -145,6 +150,10 @@ export class ProjectQuestionnaireService {
         (latest, answer) => (latest && latest > answer.updatedAt ? latest : answer.updatedAt),
         null,
       ),
+      missingDocuments: missingDocumentsOf(questionnaire).map(({ key, label }) => ({
+        key,
+        label,
+      })),
       access: {
         start:
           answering &&
@@ -210,7 +219,21 @@ export class ProjectQuestionnaireService {
       if (!APPLICANT_STATUSES.includes(status)) throw new ConflictError(LOCKED_ANSWERS);
       const questionnaire = await this.reader.load(tx, id);
       if (!questionnaire) throw new NotFoundError();
-      const checked = validateAnswers(questionsOfProject(questionnaire), input.answers);
+      const questions = questionsOfProject(questionnaire);
+      // The answer of a file question is the list of the files handed in for it, and only the
+      // documents of the project write it: an id sent here would not have been checked.
+      const files = questions.filter(
+        (question) => question.type === 'file' && Object.hasOwn(input.answers, question.key),
+      );
+      if (files.length > 0) {
+        throw new ValidationFailedError(
+          files.map((question) => ({
+            path: `answers.${question.key}`,
+            message: 'فایل این سؤال از بخش مدارک پروژه بارگذاری می‌شود.',
+          })),
+        );
+      }
+      const checked = validateAnswers(questions, input.answers);
       if (!checked.ok) throw new ValidationFailedError(answerIssues(checked.issues));
       for (const [questionKey, value] of Object.entries(checked.answers)) {
         if (value === null) {
@@ -334,7 +357,14 @@ export class ProjectQuestionnaireService {
         select: { id: true },
       });
       await tx.questionnaireAnswer.deleteMany({ where: { projectId: id, questionKey: item.key } });
-      return { ...item, answered: answers.length > 0 };
+      // The files handed in for a document or a file question go with it, unless the reviewers
+      // were already sent one of them: then the item stays (409).
+      const fileIds = await this.documents.detach(tx, id, item.key);
+      return { ...item, answered: answers.length > 0, fileIds };
+    });
+    await this.documents.discard(id, principal, meta, removed.fileIds).catch((error: unknown) => {
+      // The item is gone; files that could not be removed now are collected by the sweep.
+      this.logger.warn({ err: error, projectId: id }, 'files of a removed item not removed');
     });
     await this.audit.record({
       action: 'feasibility_project.questionnaire_item_removed',
@@ -349,6 +379,7 @@ export class ProjectQuestionnaireService {
         origin: removed.origin,
         definition: removed.definition,
         answered: removed.answered,
+        files: removed.fileIds.length,
       },
       meta,
     });

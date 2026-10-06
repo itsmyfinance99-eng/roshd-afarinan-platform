@@ -29,7 +29,7 @@ const definition = (extra: Record<string, unknown>[] = []) => ({
       ],
     },
   ],
-  documents: [{ key: 'license', label: 'جواز تأسیس', required: true }],
+  documents: [{ key: 'license', label: 'جواز تأسیس' }],
 });
 
 describe('Questionnaires (e2e)', () => {

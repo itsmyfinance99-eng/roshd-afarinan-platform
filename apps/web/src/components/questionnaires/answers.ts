@@ -34,6 +34,8 @@ export interface ProjectQuestionnaire {
   items: ProjectItem[];
   answers: Record<string, AnswerValue>;
   answeredAt: string | null;
+  /** Required documents without a file yet; a submission asks for them. */
+  missingDocuments: { key: string; label: string }[];
   access: { start: boolean; answer: boolean; addItems: boolean };
 }
 
@@ -173,4 +175,19 @@ export function completeIssues(
   return checked.ok
     ? {}
     : Object.fromEntries(checked.issues.map((issue) => [issue.path, issue.message]));
+}
+
+/**
+ * Whether the form has its last step: there is something of the project's own, something can be
+ * added, or the questionnaire asks for documents or files, which are handed in there.
+ */
+export function hasOwnStep(questionnaire: ProjectQuestionnaire): boolean {
+  return (
+    questionnaire.items.length > 0 ||
+    questionnaire.access.addItems ||
+    (questionnaire.definition?.documents.length ?? 0) > 0 ||
+    (questionnaire.definition?.sections ?? []).some((section) =>
+      section.questions.some((question) => question.type === 'file'),
+    )
+  );
 }

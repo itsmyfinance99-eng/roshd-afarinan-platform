@@ -399,17 +399,20 @@ export function AnswerField({
           />
         </Choices>
       );
-    case 'file':
+    case 'file': {
+      const count = asList(draft).length;
       return (
         <Choices id={id} legend={label} error={error}>
+          {question.help ? <span className="text-[12.5px] text-ink-3">{question.help}</span> : null}
           <Notice>
-            بارگذاری فایل برای این سؤال هنوز فعال نیست و با بخش مدارک پروژه اضافه می‌شود.
-            {question.required
-              ? ' تا آن زمان پروژه‌ای که این سؤال الزامی را دارد ارسال نمی‌شود؛ موضوع را با کارشناسان در میان بگذارید.'
-              : ''}
+            {count > 0
+              ? `${toPersianDigits(count)} فایل برای این سؤال بارگذاری شده است. `
+              : 'هنوز فایلی برای این سؤال بارگذاری نشده است. '}
+            فایل‌های این سؤال در مرحله «موارد اختصاصی و مدارک» بارگذاری و دیده می‌شوند.
           </Notice>
         </Choices>
       );
+    }
     default:
       break;
   }

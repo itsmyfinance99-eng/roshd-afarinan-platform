@@ -67,3 +67,12 @@ describe('signed URLs', () => {
     expect(verifyFileSignature(secret, 'f1', now + 60, '', now)).toBe('invalid');
   });
 });
+
+describe('names that are not what they look like', () => {
+  it('lose the marks that reorder or hide text', () => {
+    expect(sanitizeFileName('report‮fdp.exe')).toBe('reportfdp.exe');
+    expect(sanitizeFileName('⁦a⁩​b‏.pdf﻿')).toBe('ab.pdf');
+    // A half-space inside a Persian name is part of the name.
+    expect(sanitizeFileName('صورت‌جلسه.pdf')).toBe('صورت‌جلسه.pdf');
+  });
+});

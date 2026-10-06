@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useState } from 'react';
 import { AsyncBoundary, PageTitle } from '@/components/dashboard/ui';
-import type { ProjectQuestionnaire } from '@/components/questionnaires/answers';
+import { hasOwnStep, type ProjectQuestionnaire } from '@/components/questionnaires/answers';
 import { QuestionnaireForm } from '@/components/questionnaires/fill';
 import { apiFetch } from '@/lib/api-client';
 import { useApi } from '@/lib/use-api';
@@ -69,7 +69,7 @@ function Body({ projectId, initial }: { projectId: string; initial: ProjectQuest
     () => typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('check'),
   );
   const started = questionnaire.template !== null;
-  const hasOwn = questionnaire.items.length > 0 || questionnaire.access.addItems;
+  const hasOwn = hasOwnStep(questionnaire);
   return (
     <div className="flex flex-col gap-6">
       {started ? null : (
