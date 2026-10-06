@@ -250,7 +250,7 @@ export class FinancialModelsService {
     return this.get(id, principal);
   }
 
-  /** Owner or staff; a model with an approved run is kept. */
+  /** Owner or staff; a model with an approved run or of a feasibility project is kept. */
   async remove(id: string, principal: Principal, meta: RequestMeta): Promise<void> {
     const relation = await this.visible(id, principal);
     if (!relation.owner && !relation.manager) throw new ForbiddenError();
@@ -268,6 +268,10 @@ export class FinancialModelsService {
         // An approval that landed in between: the database refuses to delete an approved run.
         if (error instanceof Error && error.message.includes(APPROVED_RUN_KEPT)) {
           throw new ConflictError(kept);
+        }
+        // The model of a feasibility project belongs to the study (foreign key, ADR-0010 §6).
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2003') {
+          throw new ConflictError('مدل مالی یک پروژه امکان‌سنجی حذف نمی‌شود.');
         }
         throw error;
       });

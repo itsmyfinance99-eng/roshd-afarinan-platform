@@ -2191,6 +2191,7 @@ epics:
         sprint: S19
         points: 8
         priority: critical
+        status: done
         area: [api, db, docs]
         depends: [ST-34.06]
         story: 'به‌عنوان معمار می‌خواهم پروژه امکان‌سنجی، تاریخچه وضعیت و انتساب کارشناس مدل‌سازی شود و فقط از state machine تغییر وضعیت دهد.'

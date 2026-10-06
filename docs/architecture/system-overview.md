@@ -69,7 +69,7 @@ infra/            docker, nginx, scripts, ci
 | `research`                                                                    | Implemented (portfolio + editorial API)          |
 | `investment`                                                                  | Implemented (presentation only, no transactions) |
 | `notifications`                                                               | Port + console/log adapter                       |
-| `feasibility`                                                                 | Skeleton: state machine contract + ports         |
+| `feasibility`                                                                 | In progress: projects, status history, experts   |
 | `financial-engine`                                                            | Interfaces only                                  |
 | `iran-sahamdar`                                                               | Client interface + mock provider                 |
 | `ai`                                                                          | Interfaces only                                  |

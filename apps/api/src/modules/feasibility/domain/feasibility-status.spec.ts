@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
+  actorsOf,
   allowedTransitions,
   FEASIBILITY_STATUSES,
   type FeasibilityStatus,
+  generateProjectCode,
   isTerminal,
   transition,
+  transitionAs,
 } from './feasibility-status';
 
 describe('feasibility status machine', () => {
@@ -62,5 +65,44 @@ describe('feasibility status machine', () => {
             }
     }
     expect([...reachable].sort()).toEqual([...FEASIBILITY_STATUSES].sort());
+  });
+
+  it('records the capacity that makes a transition legal', () => {
+    expect(transitionAs('IN_PROGRESS', 'EXPERT_REVIEW', ['staff', 'expert'])).toEqual({
+      ok: true,
+      from: 'IN_PROGRESS',
+      to: 'EXPERT_REVIEW',
+      actor: 'staff',
+    });
+    expect(transitionAs('EXPERT_REVIEW', 'CLIENT_REVIEW', ['staff', 'expert'])).toMatchObject({
+      ok: true,
+      actor: 'expert',
+    });
+  });
+
+  it('tells a step that does not exist from one the caller may not take', () => {
+    expect(transitionAs('DRAFT', 'DELIVERED', ['applicant'])).toEqual({
+      ok: false,
+      reason: 'invalid_transition',
+    });
+    expect(transitionAs('SUBMITTED', 'INITIAL_REVIEW', ['applicant'])).toEqual({
+      ok: false,
+      reason: 'actor_not_allowed',
+    });
+    expect(transitionAs('SUBMITTED', 'INITIAL_REVIEW', [])).toEqual({
+      ok: false,
+      reason: 'actor_not_allowed',
+    });
+  });
+
+  it('lets nobody act as staff or expert on their own project', () => {
+    expect(actorsOf({ owner: true, manager: true, expert: true })).toEqual(['applicant']);
+    expect(actorsOf({ owner: false, manager: true, expert: true })).toEqual(['staff', 'expert']);
+    expect(actorsOf({ owner: false, manager: false, expert: true })).toEqual(['expert']);
+    expect(actorsOf({ owner: false, manager: false, expert: false })).toEqual([]);
+  });
+
+  it('generates readable project codes', () => {
+    expect(generateProjectCode()).toMatch(/^FP-[0-9A-HJKMNP-TV-Z]{8}$/);
   });
 });
