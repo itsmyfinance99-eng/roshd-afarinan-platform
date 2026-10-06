@@ -40,29 +40,33 @@ model User {
   createdAt         DateTime   @default(now())
   updatedAt         DateTime   @updatedAt
 
-  roles               UserRole[]               @relation("UserRoles")
-  assignedRoles       UserRole[]               @relation("RoleAssigner")
-  refreshTokens       RefreshToken[]
-  passwordResets      PasswordResetToken[]
-  emailVerifications  EmailVerificationToken[]
-  notifications       Notification[]
-  auditLogs           AuditLog[]
-  serviceRequests     ServiceRequest[]         @relation("ServiceRequestOwner")
-  assignedRequests    ServiceRequest[]         @relation("ServiceRequestAssignee")
-  files               FileObject[]
-  tickets             Ticket[]                 @relation("TicketOwner")
-  assignedTickets     Ticket[]                 @relation("TicketAssignee")
-  orders              Order[]
-  assumptionTemplates AssumptionTemplate[]     @relation("AssumptionTemplateOwner")
-  financialModels     FinancialModel[]         @relation("FinancialModelOwner")
-  assignedModels      FinancialModel[]         @relation("FinancialModelAssignee")
-  calculationRuns     CalculationRun[]         @relation("CalculationRunCreator")
-  approvedRuns        CalculationRun[]         @relation("CalculationRunApprover")
-  feasibilityProjects FeasibilityProject[]     @relation("FeasibilityProjectOwner")
-  feasibilityEvents   FeasibilityStatusEvent[]
-  expertAssignments   ExpertAssignment[]       @relation("ExpertAssignmentExpert")
-  expertsAssigned     ExpertAssignment[]       @relation("ExpertAssignmentAssigner")
-  expertsReleased     ExpertAssignment[]       @relation("ExpertAssignmentReleaser")
+  roles                          UserRole[]                     @relation("UserRoles")
+  assignedRoles                  UserRole[]                     @relation("RoleAssigner")
+  refreshTokens                  RefreshToken[]
+  passwordResets                 PasswordResetToken[]
+  emailVerifications             EmailVerificationToken[]
+  notifications                  Notification[]
+  auditLogs                      AuditLog[]
+  serviceRequests                ServiceRequest[]               @relation("ServiceRequestOwner")
+  assignedRequests               ServiceRequest[]               @relation("ServiceRequestAssignee")
+  files                          FileObject[]
+  tickets                        Ticket[]                       @relation("TicketOwner")
+  assignedTickets                Ticket[]                       @relation("TicketAssignee")
+  orders                         Order[]
+  assumptionTemplates            AssumptionTemplate[]           @relation("AssumptionTemplateOwner")
+  financialModels                FinancialModel[]               @relation("FinancialModelOwner")
+  assignedModels                 FinancialModel[]               @relation("FinancialModelAssignee")
+  calculationRuns                CalculationRun[]               @relation("CalculationRunCreator")
+  approvedRuns                   CalculationRun[]               @relation("CalculationRunApprover")
+  feasibilityProjects            FeasibilityProject[]           @relation("FeasibilityProjectOwner")
+  feasibilityEvents              FeasibilityStatusEvent[]
+  expertAssignments              ExpertAssignment[]             @relation("ExpertAssignmentExpert")
+  expertsAssigned                ExpertAssignment[]             @relation("ExpertAssignmentAssigner")
+  expertsReleased                ExpertAssignment[]             @relation("ExpertAssignmentReleaser")
+  questionnaireTemplatesCreated  QuestionnaireTemplate[]        @relation("QuestionnaireTemplateCreator")
+  questionnaireVersionsPublished QuestionnaireTemplateVersion[] @relation("QuestionnaireVersionPublisher")
+  questionnaireAnswersUpdated    QuestionnaireAnswer[]          @relation("QuestionnaireAnswerEditor")
+  projectQuestionnaireItemsAdded ProjectQuestionnaireItem[]     @relation("ProjectQuestionnaireItemAuthor")
 
   @@map("users")
 }
@@ -840,33 +844,40 @@ enum FeasibilityActor {
 
 /// A feasibility study from the applicant's draft to the delivered report (ST-35.01).
 model FeasibilityProject {
-  id               String            @id @default(uuid(7)) @db.Uuid
+  id                String            @id @default(uuid(7)) @db.Uuid
   /// Human-friendly reference, e.g. FP-7K3M9QPD.
-  code             String            @unique
+  code              String            @unique
   /// The applicant.
-  ownerId          String            @db.Uuid
-  title            String
+  ownerId           String            @db.Uuid
+  title             String
   /// One of FEASIBILITY_SECTORS (@roshd/validation), as on the request form of the public site.
-  sector           String?
-  location         String?
-  summary          String?
-  status           FeasibilityStatus @default(DRAFT)
+  sector            String?
+  location          String?
+  summary           String?
+  status            FeasibilityStatus @default(DRAFT)
   /// The financial model of the study (EPIC-34), linked when the experts start working (ST-35.10).
-  financialModelId String?           @unique @db.Uuid
+  financialModelId  String?           @unique @db.Uuid
   /// The Phase 1 service request this project was converted from (ST-35.02).
-  sourceRequestId  String?           @unique @db.Uuid
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
+  sourceRequestId   String?           @unique @db.Uuid
+  /// The version of the questionnaire the project started with (ST-35.03); later versions of the
+  /// template never change the questions of this project.
+  templateVersionId String?           @db.Uuid
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
 
-  owner          User                     @relation("FeasibilityProjectOwner", fields: [ownerId], references: [id], onDelete: Restrict)
-  financialModel FinancialModel?          @relation(fields: [financialModelId], references: [id], onDelete: Restrict)
-  sourceRequest  ServiceRequest?          @relation(fields: [sourceRequestId], references: [id], onDelete: SetNull)
-  events         FeasibilityStatusEvent[]
-  experts        ExpertAssignment[]
+  owner              User                          @relation("FeasibilityProjectOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  templateVersion    QuestionnaireTemplateVersion? @relation(fields: [templateVersionId], references: [id], onDelete: Restrict)
+  answers            QuestionnaireAnswer[]
+  questionnaireItems ProjectQuestionnaireItem[]
+  financialModel     FinancialModel?               @relation(fields: [financialModelId], references: [id], onDelete: Restrict)
+  sourceRequest      ServiceRequest?               @relation(fields: [sourceRequestId], references: [id], onDelete: SetNull)
+  events             FeasibilityStatusEvent[]
+  experts            ExpertAssignment[]
 
   @@index([ownerId, updatedAt])
   @@index([status, updatedAt])
   @@index([updatedAt])
+  @@index([templateVersionId])
   @@map("feasibility_projects")
 }
 
@@ -888,6 +899,108 @@ model FeasibilityStatusEvent {
 
   @@index([projectId, createdAt])
   @@map("feasibility_status_events")
+}
+
+enum QuestionnaireVersionStatus {
+  DRAFT
+  PUBLISHED
+}
+
+/// Where a project-specific item of a questionnaire came from (OQ-36).
+enum QuestionnaireItemOrigin {
+  applicant
+  staff
+}
+
+enum QuestionnaireItemKind {
+  QUESTION
+  DOCUMENT
+  NOTE
+}
+
+/// A questionnaire of the feasibility platform (ST-35.03, ADR-0010 §4): data, not code. Its
+/// content lives in its versions.
+model QuestionnaireTemplate {
+  id          String    @id @default(uuid(7)) @db.Uuid
+  title       String
+  /// One of FEASIBILITY_SECTORS, or null for the general questionnaire of every sector.
+  sector      String?
+  /// Sample content until the real questionnaires arrive; shown with «نمونه نمایشی».
+  isDemo      Boolean   @default(false)
+  createdById String?   @db.Uuid
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  /// An archived template is not offered to new projects; projects that started with it keep it.
+  archivedAt  DateTime?
+
+  createdBy User?                          @relation("QuestionnaireTemplateCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  versions  QuestionnaireTemplateVersion[]
+
+  @@index([sector, archivedAt])
+  @@map("questionnaire_templates")
+}
+
+/// One version of a template. A draft is edited freely; a published version never changes
+/// (see the migration), because projects are pinned to it.
+model QuestionnaireTemplateVersion {
+  id            String                     @id @default(uuid(7)) @db.Uuid
+  templateId    String                     @db.Uuid
+  version       Int
+  status        QuestionnaireVersionStatus @default(DRAFT)
+  /// questionnaireDefinitionSchema of @roshd/validation: sections, questions, documents.
+  definition    Json
+  createdAt     DateTime                   @default(now())
+  updatedAt     DateTime                   @updatedAt
+  publishedAt   DateTime?
+  publishedById String?                    @db.Uuid
+
+  template    QuestionnaireTemplate @relation(fields: [templateId], references: [id], onDelete: Restrict)
+  publishedBy User?                 @relation("QuestionnaireVersionPublisher", fields: [publishedById], references: [id], onDelete: SetNull)
+  projects    FeasibilityProject[]
+
+  @@unique([templateId, version])
+  @@index([templateId, status])
+  @@map("questionnaire_template_versions")
+}
+
+/// The answer of a project to one question, of the pinned version or of the project's own
+/// items; stored in the form validateAnswer() of @roshd/validation returns.
+model QuestionnaireAnswer {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  projectId   String   @db.Uuid
+  questionKey String
+  value       Json
+  updatedById String?  @db.Uuid
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  project   FeasibilityProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  updatedBy User?              @relation("QuestionnaireAnswerEditor", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@unique([projectId, questionKey])
+  @@map("questionnaire_answers")
+}
+
+/// A question, a document to hand in or a note that belongs to one project only (OQ-36), added
+/// by the applicant or by staff; the origin is kept with it.
+model ProjectQuestionnaireItem {
+  id         String                  @id @default(uuid(7)) @db.Uuid
+  projectId  String                  @db.Uuid
+  kind       QuestionnaireItemKind
+  /// Unique in the project, and never the key of a question of the pinned version.
+  key        String
+  /// A question (questionSchema), a document (requiredDocumentSchema) or `{ text }` for a note.
+  definition Json
+  origin     QuestionnaireItemOrigin
+  addedById  String?                 @db.Uuid
+  createdAt  DateTime                @default(now())
+
+  project FeasibilityProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  addedBy User?              @relation("ProjectQuestionnaireItemAuthor", fields: [addedById], references: [id], onDelete: SetNull)
+
+  @@unique([projectId, key])
+  @@index([projectId, createdAt])
+  @@map("project_questionnaire_items")
 }
 
 /// An expert working on a project. The assignment is active while `endedAt` is null; ending it
