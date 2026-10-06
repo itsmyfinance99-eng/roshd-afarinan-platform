@@ -232,6 +232,9 @@ export {
   type EconomicLine,
   type EconomicScheduleInput,
   type EconomicShareLine,
+  type EmploymentGroupInput,
+  type EmploymentInput,
+  type IndirectEmploymentInput,
   type IndirectForeignExchangeInput,
   type IndirectForeignExchangeItem,
   type InputNature,
@@ -241,6 +244,13 @@ export {
   type TradeCategory,
 } from './model/economic';
 export { valueAdded, type ValueAddedSchedule } from './model/value-added';
+export {
+  employmentEffect,
+  type BySkill,
+  type EmploymentEffectInput,
+  type EmploymentLine,
+  type EmploymentSchedule,
+} from './model/employment';
 export {
   foreignExchangeEffect,
   type ForeignExchangeInput,

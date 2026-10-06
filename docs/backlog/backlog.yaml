@@ -2456,6 +2456,7 @@ epics:
         sprint: S17
         points: 3
         priority: medium
+        status: done
         area: [api]
         depends: [ST-34.03]
         story: 'به‌عنوان کارشناس می‌خواهم اشتغال‌زایی طرح و سرمایه‌گذاری لازم برای هر شغل را گزارش کنم.'

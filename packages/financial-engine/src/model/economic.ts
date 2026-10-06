@@ -74,6 +74,31 @@ export interface EconomicInput {
    * and other indirect inflows and outflows of foreign exchange. None when absent.
    */
   indirectForeignExchange?: IndirectForeignExchangeInput;
+  /** Jobs created by the project and around it (VIII.L); no employment schedule when absent. */
+  employment?: EmploymentInput;
+}
+
+/** Jobs and their wage bill in the reference year, in local currency. */
+export interface EmploymentGroupInput {
+  workers: DecimalString;
+  wageBill: DecimalString;
+}
+
+/** Employment in the projects that supply the inputs or use the outputs of the project. */
+export interface IndirectEmploymentInput {
+  unskilled: EmploymentGroupInput;
+  skilled: EmploymentGroupInput;
+  /** Additional investment these jobs need, in local currency. */
+  investment: DecimalString;
+}
+
+export interface EmploymentInput {
+  /**
+   * Jobs within the project in the reference year. Their wage bill and the investment come from
+   * the financial schedules.
+   */
+  direct: { unskilled: DecimalString; skilled: DecimalString };
+  indirect: { inputSupplying: IndirectEmploymentInput; outputUsing: IndirectEmploymentInput };
 }
 
 /** How a local item would be traded without the project. */

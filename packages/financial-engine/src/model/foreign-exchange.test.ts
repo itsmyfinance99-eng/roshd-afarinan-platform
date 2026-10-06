@@ -249,6 +249,8 @@ describe('net foreign-exchange effect of a project', () => {
     const working = expansion.operations.workingCapital;
     // A starting stock of finished products counts as local: nothing of it is of foreign origin.
     expect(working.starting?.opening.foreign).toBe('0');
+    // Until then it stands at the value it was entered with, 15 units at 6.
+    expect(Number(working.totals.finishedProducts[0])).toBe(90);
     // From the first year of sales the stock is valued like the production of the year, and
     // 15/150 of the fixed foreign factory costs (180) are in it: 18, shown as an outflow of that
     // year on top of the licence of 30, although the stock was there before the project.
