@@ -342,9 +342,11 @@ export function QuestionnaireForm({
     const result = await apiFetch<ProjectQuestionnaire>(`${base}/answers`, {
       method: 'PUT',
       body: { answers: checked.valid },
+    }).finally(() => {
+      // Whatever comes of the request, the form does not stay "saving".
+      if (!q.gone) setSaving(false);
     });
     if (q.gone) return;
-    setSaving(false);
     /** Out of the queue, unless it was changed again while the request was on its way. */
     const settle = (key: string) => {
       if (q.dirty.get(key) === sent.get(key)) q.dirty.delete(key);
@@ -419,7 +421,9 @@ export function QuestionnaireForm({
         body,
         // Only a page that is really going away needs the request to outlive it, and such a
         // request may not be large; a larger one is sent the usual way and may be cut off.
-        keepalive: unloading && JSON.stringify(body).length < KEEPALIVE_LIMIT,
+        // The limit is in bytes, and Persian text takes two for a letter.
+        keepalive:
+          unloading && new TextEncoder().encode(JSON.stringify(body)).length < KEEPALIVE_LIMIT,
       });
     };
     // The queue is left as it is: if the page comes back, the answers are simply sent again.
