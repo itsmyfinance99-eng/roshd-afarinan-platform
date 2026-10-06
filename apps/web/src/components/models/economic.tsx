@@ -16,6 +16,7 @@ import {
   emptyEconomic,
   emptyEmployment,
   emptyIndirectForeignExchange,
+  foreignLoanChoices,
   natureOf,
   naturesOf,
   setItemEntry,
@@ -245,7 +246,7 @@ function CostAdjustments() {
   return (
     <Block
       title="تعدیل اقلام هزینه"
-      hint="برای جدول ارزش افزوده، هر قلم هزینه «مواد و خدمات»، «دستمزد» یا «سایر» است. دسته بیشتر اقلام نوع را روشن می‌کند؛ برای سربار کارخانه، سربار اداری و هزینه‌های بازاریابی باید نوع را انتخاب کنید و برای دستمزد مستقیم، مهارت نیروی کار را. قلمی که تعدیلی ندارد با همان مبلغ مالی‌اش می‌آید."
+      hint="برای جدول ارزش افزوده، هر قلم هزینه «مواد و خدمات»، «دستمزد» یا «سایر هزینه‌ها» است. دسته بیشتر اقلام نوع را روشن می‌کند؛ برای سربار کارخانه، سربار اداری و هزینه‌های بازاریابی باید نوع را انتخاب کنید و برای دستمزد مستقیم، مهارت نیروی کار را. قلمی که تعدیلی ندارد با همان مبلغ مالی‌اش می‌آید."
     >
       {costs.length === 0 ? (
         <p className="text-sm text-ink-3">هنوز قلم هزینه‌ای با نام در بخش «هزینه‌ها» نیست.</p>
@@ -537,12 +538,12 @@ function TradableFields({ base }: { base: Path }) {
         path={[...base, 'share']}
         label="بخش قابل‌مبادله"
         percent
-        hint="چه سهمی از این قلم جانشین واردات یا قابل صادرات است."
+        hint="چه سهمی از این قلم قابل واردات یا قابل صادرات است."
       />
       <NumberField
         path={[...base, 'borderPriceFactor']}
         label="قیمت مرزی به قیمت مالی (ضریب)"
-        hint="قیمت سیف برای جانشین واردات و فوب برای قابل صادرات، تقسیم بر قیمت مالی."
+        hint="قیمت سیف برای قلم قابل واردات و فوب برای قلم قابل صادرات، تقسیم بر قیمت مالی."
       />
     </>
   );
@@ -550,11 +551,14 @@ function TradableFields({ base }: { base: Path }) {
 
 function IndirectForeignExchange() {
   const { draft } = useEditor();
+  const natures = new Map(
+    listAt(draft, COSTS).map((entry) => [textAt(entry, ['item']), getIn(entry, ['nature'])]),
+  );
   const materials = namesOf(
     listAt(draft, ['operations', 'costs']).filter(
       (cost) =>
         textAt(cost, ['origin']) === 'LOCAL' &&
-        naturesOf(textAt(cost, ['category'])).includes('MATERIALS'),
+        natureOf(textAt(cost, ['category']), natures.get(textAt(cost, ['key']))) === 'MATERIALS',
     ),
   );
   return (
@@ -700,10 +704,8 @@ function CostBenefit() {
   const foreign = currenciesOf(draft).filter((code) => code !== local);
   const costs = namesOf(listAt(draft, ['operations', 'costs']));
   const investment = namesOf(listAt(draft, ['investment', 'items']));
-  const loans = named(listAt(draft, ['financing', 'loans'])).filter(
-    (loan) => textAt(loan, ['origin']) === 'FOREIGN',
-  );
   const chosen = listAt(draft, [...COST_BENEFIT, 'foreignLoans']);
+  const loans = foreignLoanChoices(draft);
   return (
     <Block
       title="تحلیل هزینه-فایده به قیمت‌های اقتصادی"
@@ -797,12 +799,11 @@ function CostBenefit() {
             </p>
           ) : (
             <div className="flex flex-wrap gap-4">
-              {loans.map((loan) => {
-                const name = textAt(loan, ['key']);
+              {loans.map(({ name, foreign: stillForeign }) => {
                 return (
                   <CheckField
                     key={name}
-                    label={name}
+                    label={stillForeign ? name : `${name} (دیگر تسهیلات خارجی نیست)`}
                     checked={chosen.includes(name)}
                     onChange={(checked) =>
                       change((current) => {

@@ -6,6 +6,7 @@ import {
   costBenefitIndirect,
   costBenefitLevelsTable,
   costBenefitTable,
+  economicPart,
   economicScheduleOfWarning,
   employmentTable,
   foreignExchangeTable,
@@ -71,14 +72,18 @@ export function EconomicPart({
       </>
     );
   }
-  const { valueAdded, foreignExchange, employment, costBenefit } = economic as Economic;
+  const { valueAdded } = economic as Economic;
+  // Absent or a record; a part of any other shape ends in the boundary's message.
+  const foreignExchange = economicPart((economic as Partial<Economic>).foreignExchange);
+  const employment = economicPart((economic as Economic).employment);
+  const costBenefit = economicPart((economic as Economic).costBenefit);
   const about = (key: EconomicScheduleKey) =>
     unique(warnings.filter((w) => economicScheduleOfWarning(w) === key).map(warningMessage));
   // A run of an older engine, or one whose input leaves the part out, has no such schedule.
   const missing = [
-    isRecord(foreignExchange) ? '' : 'اثر ارزی',
-    isRecord(employment) ? '' : 'اشتغال',
-    isRecord(costBenefit) ? '' : 'هزینه-فایده',
+    foreignExchange ? '' : 'اثر ارزی',
+    employment ? '' : 'اشتغال',
+    costBenefit ? '' : 'هزینه-فایده',
   ].filter((name) => name !== '');
   return (
     <>
@@ -92,7 +97,7 @@ export function EconomicPart({
         />
         <Warnings items={about('valueAdded')} />
       </Section>
-      {isRecord(foreignExchange) ? (
+      {foreignExchange ? (
         <Section title="اثر ارزی">
           {schedule(() => foreignExchangeTable(foreignExchange))}
           <Figures
@@ -103,7 +108,7 @@ export function EconomicPart({
           <Warnings items={about('foreignExchange')} />
         </Section>
       ) : null}
-      {isRecord(employment) ? (
+      {employment ? (
         <Section title="اشتغال">
           <MatrixTableView
             table={employmentTable(employment, unit, label)}
@@ -113,7 +118,7 @@ export function EconomicPart({
           <Warnings items={about('employment')} />
         </Section>
       ) : null}
-      {isRecord(costBenefit) ? (
+      {costBenefit ? (
         <CostBenefitSection
           analysis={costBenefit}
           unit={unit}

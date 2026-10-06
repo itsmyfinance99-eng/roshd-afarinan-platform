@@ -380,6 +380,24 @@ export function removeItem(draft: Draft, kind: NamedKind, index: number): Draft 
   return next;
 }
 
+/**
+ * The loans that can be taken into the cost-benefit analysis: those of foreign origin, and those
+ * already chosen that are no longer foreign (or no longer there) — still listed, so that they can
+ * be taken out again, because the calculation refuses them.
+ */
+export function foreignLoanChoices(draft: Draft): { name: string; foreign: boolean }[] {
+  const foreign = listAt(draft, LISTS.loan)
+    .filter((loan) => textAt(loan, ['key']) !== '' && getIn(loan, ['origin']) === 'FOREIGN')
+    .map((loan) => textAt(loan, ['key']));
+  const stale = listAt(draft, FOREIGN_LOANS).filter(
+    (name): name is string => typeof name === 'string' && !foreign.includes(name),
+  );
+  return [
+    ...foreign.map((name) => ({ name, foreign: true })),
+    ...[...new Set(stale)].map((name) => ({ name, foreign: false })),
+  ];
+}
+
 const salesPath = (product: number): Path => ['operations', 'products', product, 'sales'];
 
 /** Names of the other sales lines of a product. */
@@ -404,6 +422,16 @@ export function renameSalesLine(draft: Draft, product: number, row: number, name
     next = mapList(next, list, (entry) => (about(entry) ? { ...entry, line: name } : entry));
   }
   return next;
+}
+
+/** What else goes when a sales line is removed, in words for the confirmation. */
+export function salesLineRemovalNote(draft: Draft, product: number, row: number): string {
+  const old = textAt(draft, [...salesPath(product), row, 'key']);
+  if (otherLineNames(draft, product, row).includes(old)) return '';
+  const about = isLine(textAt(draft, ['operations', 'products', product, 'key']), old);
+  return ECONOMIC_OUTPUTS.some((list) => listAt(draft, list).some(about))
+    ? 'ورودی‌های تحلیل اقتصادی آن هم حذف می‌شود.'
+    : '';
 }
 
 /** Removes a sales line and the entries of the economic analysis that are about it. */
@@ -508,6 +536,8 @@ export function currencyUses(draft: Draft, code: string): number {
     if (item.currency === code) uses += 1;
     return item;
   });
+  // The numeraire of the cost-benefit analysis is in a currency too.
+  if (getIn(draft, [...COST_BENEFIT, 'currency']) === code) uses += 1;
   return uses;
 }
 

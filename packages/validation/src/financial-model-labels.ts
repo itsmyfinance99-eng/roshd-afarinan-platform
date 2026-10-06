@@ -128,7 +128,7 @@ export const LABOUR_SKILL_LABELS_FA: Record<(typeof LABOUR_SKILL_VALUES)[number]
 };
 
 export const TRADE_CATEGORY_LABELS_FA: Record<(typeof TRADE_CATEGORY_VALUES)[number], string> = {
-  IMPORTABLE: 'جانشین واردات',
+  IMPORTABLE: 'قابل واردات',
   EXPORTABLE: 'قابل صادرات',
 };
 

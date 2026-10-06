@@ -6,6 +6,7 @@ import {
   emptyEconomic,
   emptyEmployment,
   emptyIndirectForeignExchange,
+  foreignLoanChoices,
   natureOf,
   naturesOf,
   removalNote,
@@ -13,6 +14,7 @@ import {
   removeSalesLine,
   renameItem,
   renameSalesLine,
+  salesLineRemovalNote,
   setItemEntry,
   setLocalCurrency,
   tidyEconomicCost,
@@ -257,6 +259,7 @@ describe('economic analysis of a draft', () => {
     expect(economic(renamed, 'indirectForeignExchange', 'outputs', 0, 'line')).toBe('domestic');
     expect(economic(renamed, 'costBenefit', 'outputs', 0, 'line')).toBe('domestic');
     expect(checkDraft(renamed).ok).toBe(true);
+    expect(salesLineRemovalNote(complete(), 0, 0)).toContain('تحلیل اقتصادی');
     const removed = removeSalesLine(complete(), 0, 0);
     expect(economic(removed, 'indirectForeignExchange', 'outputs')).toEqual([]);
     expect(economic(removed, 'costBenefit', 'outputs')).toEqual([]);
@@ -269,7 +272,47 @@ describe('economic analysis of a draft', () => {
     expect(economic(two, 'costBenefit', 'outputs', 0, 'line')).toBe('home');
   });
 
+  it('keeps a chosen loan in the list when it is no longer foreign', () => {
+    let draft = setIn(
+      complete(),
+      ['financing', 'loans'],
+      [
+        { key: 'credit', origin: 'FOREIGN' },
+        { key: 'bank', origin: 'LOCAL' },
+        { key: '', origin: 'FOREIGN' },
+      ],
+    );
+    expect(foreignLoanChoices(draft)).toEqual([{ name: 'credit', foreign: true }]);
+    draft = setIn(draft, ['economic', 'costBenefit', 'foreignLoans'], ['credit', 'bank', 'gone']);
+    // The calculation refuses «bank» and «gone»: they stay listed so that they can be taken out.
+    expect(foreignLoanChoices(draft)).toEqual([
+      { name: 'credit', foreign: true },
+      { name: 'bank', foreign: false },
+      { name: 'gone', foreign: false },
+    ]);
+    expect(foreignLoanChoices(setIn(draft, ['economic'], undefined))).toEqual([
+      { name: 'credit', foreign: true },
+    ]);
+  });
+
   it('follows the code of the local currency and counts its uses', () => {
+    // A sales line without economic entries is removed without a note about them.
+    const plain = setIn(complete(), ['economic', 'costBenefit', 'outputs'], []);
+    expect(
+      salesLineRemovalNote(
+        setIn(plain, ['economic', 'indirectForeignExchange', 'outputs'], []),
+        0,
+        0,
+      ),
+    ).toBe('');
+    // The numeraire of the cost-benefit analysis is a use of its currency.
+    expect(currencyUses(complete(), 'USD')).toBe(1);
+    const numeraire = setIn(
+      setIn(complete(), ['economic', 'costBenefit', 'numeraire'], 'FOREIGN_BORDER_PRICES'),
+      ['economic', 'costBenefit', 'currency'],
+      'USD',
+    );
+    expect(currencyUses(numeraire, 'USD')).toBe(2);
     expect(currencyUses(complete(), 'IRR')).toBe(6);
     const renamed = setLocalCurrency(complete(), 'IRT', frameOf(complete()));
     expect(economic(renamed, 'indirectForeignExchange', 'otherInflows', 0, 'currency')).toBe('IRT');
@@ -359,24 +402,37 @@ describe('economic analysis of a draft', () => {
     expect(natureOf('DIRECT_MARKETING', 'OTHER')).toBe('OTHER');
     expect(naturesOf('')).toEqual([]);
     for (const value of COST_CATEGORY_VALUES) {
-      // The same item, in every category, without any economic entry of its own.
+      // The same item, in every category, with every nature and with none.
       let draft = setIn(complete(), ['operations', 'costs', 0, 'category'], value);
       if (!naturesOf(value).includes('MATERIALS') || naturesOf(value).length > 1) {
         draft = setIn(draft, ['operations', 'costs', 0, 'stockCoverage'], undefined);
       }
-      draft = setIn(
-        draft,
-        ['economic', 'costs'],
-        [{ item: 'workers', skill: 'SKILLED', workers: '1' }],
-      );
       draft = setIn(draft, ['economic', 'indirectForeignExchange', 'inputs'], []);
-      const check = checkDraft(draft);
-      if (!check.ok) throw new Error(`${value}: ${check.issues[0]?.message}`);
-      const outcome = calculate(check.input);
-      const asked = !outcome.ok && /مواد و خدمات است، دستمزد یا سایر/.test(outcome.message);
-      expect(asked, value).toBe(naturesOf(value).length > 1);
+      const outcome = (nature?: string) => {
+        const entry = { item: 'ore', ...(nature === undefined ? {} : { nature }) };
+        const check = checkDraft(
+          setIn(
+            draft,
+            ['economic', 'costs'],
+            [entry, { item: 'workers', skill: 'SKILLED', workers: '1' }],
+          ),
+        );
+        if (!check.ok) throw new Error(`${value}: ${check.issues[0]?.message}`);
+        const result = calculate(check.input);
+        return result.ok ? '' : result.message;
+      };
+      // Without a nature the engine asks for one exactly when the category leaves it open.
+      expect(/مواد و خدمات است، دستمزد یا سایر/.test(outcome()), value).toBe(
+        naturesOf(value).length > 1,
+      );
+      // And it takes exactly the natures the form offers.
+      for (const nature of ['MATERIALS', 'WAGES', 'OTHER']) {
+        const refused = /این نوع برای گروه هزینه این قلم مجاز نیست/.test(outcome(nature));
+        expect(refused, `${value} as ${nature}`).toBe(!naturesOf(value).includes(nature));
+      }
     }
-  });
+    // Four calculations of the whole model for each of the twelve categories.
+  }, 60_000);
 
   it('places what the calculation needs in the section, in words', () => {
     const draft = complete();

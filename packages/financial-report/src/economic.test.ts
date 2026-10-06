@@ -18,7 +18,7 @@ import { reportHtml } from './html';
 import { reportPdf } from './render/pdf';
 import { reportXlsx, sheetNames } from './render/xlsx';
 import { roundSignificant } from './numbers';
-import { runReport, type RunReportSource } from './report';
+import { runReport, UNREADABLE_PART, type RunReportSource } from './report';
 import { cellNumber, columnsOf } from './tables';
 import { sampleInput } from './testing/sample-input';
 
@@ -276,6 +276,50 @@ describe('economic analysis in the report of a run', () => {
     expect(titled(report, 'table', 'ارزش افزوده طرح')).toBeDefined();
     expect(titled(report, 'table', 'اثر ارزی خالص طرح')).toBeUndefined();
     expect(titled(report, 'grid', 'اثر اشتغال')).toBeUndefined();
+  });
+
+  it('says so, in every format, when a schedule has another shape', () => {
+    /** The report of the run with the stored value at `path` replaced, or removed. */
+    const unreadable = (path: string[], value?: unknown) => {
+      const results = stored(outcome.value);
+      let node = results.economic as unknown as Record<string, unknown>;
+      for (const key of path.slice(0, -1)) node = node[key] as Record<string, unknown>;
+      const last = path.at(-1) ?? '';
+      if (value === undefined) delete node[last];
+      else node[last] = value;
+      const report = runReport(source({ results }));
+      // Written without failing, and the other parts stay.
+      expect(reportHtml(report)).toContain('صورت سود و زیان');
+      expect(reportXlsx(report, new Date('2026-10-06T08:00:00Z')).length).toBeGreaterThan(1000);
+      return blocks(report, 'economic');
+    };
+    const message = [{ kind: 'text', text: UNREADABLE_PART }];
+    // A figure of a line is missing: not shown as «—» beside the others.
+    expect(unreadable(['costBenefit', 'inflows', 'salesRevenue', 'adjustmentFactor'])).toEqual(
+      message,
+    );
+    expect(unreadable(['employment', 'direct', 'jobs', 'unskilled'])).toEqual(message);
+    expect(unreadable(['costBenefit', 'levels', 'economic', 'npv'])).toEqual(message);
+    expect(unreadable(['costBenefit', 'indirect', 'net'])).toEqual(message);
+    expect(unreadable(['valueAdded', 'efficiency', 'absolute'], 12)).toEqual(message);
+    // A part that is neither absent nor a record.
+    for (const part of ['foreignExchange', 'employment', 'costBenefit']) {
+      expect(unreadable([part], null), part).toEqual(message);
+    }
+  });
+
+  it('keeps the warning of a cost-benefit level with that level', () => {
+    const results = stored(outcome.value);
+    const level = results.economic?.costBenefit?.levels.adjusted;
+    if (level === undefined) throw new Error('no level');
+    delete level.irr;
+    level.warnings = [{ code: 'irr.noSignChange' }];
+    const report = blocks(runReport(source({ results })), 'economic');
+    const adjusted = titled(report, 'pairs', 'شاخص‌های هزینه-فایده: ارزش بازار تعدیل‌شده');
+    expect(adjusted?.rows[1]).toMatchObject({ value: { text: 'ندارد' } });
+    expect(adjusted?.rows[1]?.notes?.join()).toContain('تغییر علامت ندارد');
+    const financial = titled(report, 'pairs', 'شاخص‌های هزینه-فایده: ارزش مالی');
+    expect(financial?.rows[1]?.notes).toBeUndefined();
   });
 
   it('lists the economic inputs as they were entered', () => {

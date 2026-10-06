@@ -1,7 +1,12 @@
 'use client';
 
 import { MARKET_LABELS_FA } from '@roshd/validation';
-import { otherLineNames, removeSalesLine, renameSalesLine } from '@/lib/model-editor/draft-ops';
+import {
+  otherLineNames,
+  removeSalesLine,
+  renameSalesLine,
+  salesLineRemovalNote,
+} from '@/lib/model-editor/draft-ops';
 import { fit } from '@/lib/model-editor/frame';
 import { append, getIn, listAt, setIn, textAt, type Path } from '@/lib/model-editor/paths';
 import {
@@ -105,7 +110,12 @@ function ProductCard({ index, name }: { index: number; name: string }) {
                 type="button"
                 className="text-sm text-accent underline"
                 onClick={() => {
-                  if (confirmRemoval(itemTitle('سطر فروش', textAt(line, ['key']), row))) {
+                  if (
+                    confirmRemoval(
+                      itemTitle('سطر فروش', textAt(line, ['key']), row),
+                      salesLineRemovalNote(draft, index, row),
+                    )
+                  ) {
                     change((current) => removeSalesLine(current, index, row));
                   }
                 }}

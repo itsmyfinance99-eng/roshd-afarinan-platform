@@ -128,24 +128,42 @@ export interface EconomicFigure {
   kind: MatrixKind;
 }
 
+const CANONICAL = /^-?\d+(\.\d+)?$/;
+const isNumber = (value: unknown): value is string =>
+  typeof value === 'string' && CANONICAL.test(value);
+
+/**
+ * Figures as the engine gives them: a number, or none. A stored run may be older than this code;
+ * a value of another shape is refused, so that it is never shown as if it were missing.
+ */
+function checkedFigures(figures: EconomicFigure[]): EconomicFigure[] {
+  for (const figure of figures) {
+    if (figure.value !== undefined && !isNumber(figure.value)) {
+      throw new Error(`unexpected shape of «${figure.label}»`);
+    }
+  }
+  return figures;
+}
+
 /** The efficiency tests of the value added, at present value. */
-export const valueAddedTests = (schedule: ValueAddedSchedule): EconomicFigure[] => [
-  {
-    label: 'آزمون کارایی مطلق: ارزش افزوده خالص ملی به دستمزد داخلی (پذیرفته از ۱ به بالا)',
-    value: schedule.efficiency.absolute,
-    kind: 'factor',
-  },
-  {
-    label: 'ارزش افزوده خالص ملی به سرمایه‌گذاری',
-    value: schedule.efficiency.perInvestment,
-    kind: 'factor',
-  },
-  {
-    label: 'ارزش افزوده خالص ملی به دستمزد نیروی ماهر',
-    value: schedule.efficiency.perSkilledLabour,
-    kind: 'factor',
-  },
-];
+export const valueAddedTests = (schedule: ValueAddedSchedule): EconomicFigure[] =>
+  checkedFigures([
+    {
+      label: 'آزمون کارایی مطلق: ارزش افزوده خالص ملی به دستمزد داخلی (پذیرفته از ۱ به بالا)',
+      value: schedule.efficiency.absolute,
+      kind: 'factor',
+    },
+    {
+      label: 'ارزش افزوده خالص ملی به سرمایه‌گذاری',
+      value: schedule.efficiency.perInvestment,
+      kind: 'factor',
+    },
+    {
+      label: 'ارزش افزوده خالص ملی به دستمزد نیروی ماهر',
+      value: schedule.efficiency.perSkilledLabour,
+      kind: 'factor',
+    },
+  ]);
 
 export function foreignExchangeTable(schedule: ForeignExchangeSchedule): StatementTable {
   const { inflows, outflows, indirect } = schedule;
@@ -183,7 +201,7 @@ export function foreignExchangeTable(schedule: ForeignExchangeSchedule): Stateme
       {
         title: 'آثار غیرمستقیم: ورود ارز',
         rows: [
-          amount('صرفه‌جویی ارزی ستانده‌های جانشین واردات', indirect.inflows.importableOutputs),
+          amount('صرفه‌جویی ارزی ستانده‌های قابل واردات', indirect.inflows.importableOutputs),
           amount('درآمد ارزی ستانده‌های قابل صادرات', indirect.inflows.exportableOutputs),
           amount('سایر منافع ارزی', indirect.inflows.others),
           amount('جمع ورود غیرمستقیم', indirect.inflows.total, true),
@@ -192,7 +210,7 @@ export function foreignExchangeTable(schedule: ForeignExchangeSchedule): Stateme
       {
         title: 'آثار غیرمستقیم: خروج ارز',
         rows: [
-          amount('واردات ناشی از نهاده‌های جانشین واردات', indirect.outflows.importableInputs),
+          amount('واردات ناشی از نهاده‌های قابل واردات', indirect.outflows.importableInputs),
           amount('صادرات ازدست‌رفته نهاده‌های قابل صادرات', indirect.outflows.exportableInputs),
           amount('سایر هزینه‌های ارزی', indirect.outflows.others),
           amount('جمع خروج غیرمستقیم', indirect.outflows.total, true),
@@ -207,13 +225,14 @@ export function foreignExchangeTable(schedule: ForeignExchangeSchedule): Stateme
   };
 }
 
-export const foreignExchangeTests = (schedule: ForeignExchangeSchedule): EconomicFigure[] => [
-  {
-    label: 'ارزش افزوده خالص ملی به ازای هر واحد ارز مصرف‌شده (به ارزش فعلی)',
-    value: schedule.valueAddedPerForeignExchange,
-    kind: 'factor',
-  },
-];
+export const foreignExchangeTests = (schedule: ForeignExchangeSchedule): EconomicFigure[] =>
+  checkedFigures([
+    {
+      label: 'ارزش افزوده خالص ملی به ازای هر واحد ارز مصرف‌شده (به ارزش فعلی)',
+      value: schedule.valueAddedPerForeignExchange,
+      kind: 'factor',
+    },
+  ]);
 
 // ---------------------------------------------------------------------------------------------
 // Tables whose columns are not the periods
@@ -241,6 +260,20 @@ export interface MatrixTable {
   corner: string;
   head: string[];
   sections: { title?: string; rows: MatrixRow[] }[];
+}
+
+/**
+ * A matrix whose every row has one cell per column, each a number or null (no value). Anything
+ * else is a stored result of another shape and is refused, like a line of a statement table.
+ */
+function checkedMatrix(table: MatrixTable): MatrixTable {
+  for (const row of table.sections.flatMap((section) => section.rows)) {
+    const ok =
+      row.cells.length === table.head.length &&
+      row.cells.every((cell) => cell.value === null || isNumber(cell.value));
+    if (!ok) throw new Error(`unexpected shape of «${row.label}»`);
+  }
+  return table;
 }
 
 /** The number a cell of a matrix shows, as a canonical decimal string; null without a value. */
@@ -292,8 +325,8 @@ export function employmentTable(
     cells: lines.map((line) => ({ value: pick(line), kind })),
   });
   const perUnit = (value: string | null) =>
-    value === null ? null : shiftDecimal(value, UNIT_DIGITS[unit]);
-  return {
+    typeof value === 'string' ? shiftDecimal(value, UNIT_DIGITS[unit]) : value;
+  return checkedMatrix({
     id: 'employment',
     title: 'اثر اشتغال در سال مرجع',
     corner: 'شرح',
@@ -339,7 +372,7 @@ export function employmentTable(
         ),
       },
     ],
-  };
+  });
 }
 
 const isZero = (value: string) => /^-?0*\.?0*$/.test(value);
@@ -359,7 +392,7 @@ export function costBenefitTable(schedule: CostBenefitSchedule): MatrixTable {
       { value: line.economicValue, kind: 'amount' },
     ],
   });
-  return {
+  return checkedMatrix({
     id: 'cost-benefit',
     title: 'تحلیل هزینه-فایده به قیمت‌های اقتصادی (ارزش فعلی)',
     corner: 'شرح',
@@ -404,7 +437,7 @@ export function costBenefitTable(schedule: CostBenefitSchedule): MatrixTable {
       },
       { title: 'نتیجه', rows: [row('جریان خالص', schedule.netFlow, true)] },
     ],
-  };
+  });
 }
 
 export const COST_BENEFIT_LEVELS = ['financial', 'adjusted', 'economic', 'withIndirect'] as const;
@@ -447,6 +480,10 @@ export interface CostBenefitIndicators {
 export const costBenefitIndicators = (schedule: CostBenefitSchedule): CostBenefitIndicators[] =>
   COST_BENEFIT_LEVELS.map((key) => {
     const level: CostBenefitLevel = schedule.levels[key];
+    const numbers = [level.npv, level.irr ?? '0', level.startingBalance ?? '0'];
+    if (!numbers.every(isNumber) || !Array.isArray(level.warnings)) {
+      throw new Error(`unexpected shape of level «${key}»`);
+    }
     return {
       key,
       title: COST_BENEFIT_LEVEL_LABELS_FA[key],
@@ -461,17 +498,34 @@ export const costBenefitIndicators = (schedule: CostBenefitSchedule): CostBenefi
   });
 
 /** The indirect effects of the cost-benefit analysis at their economic value. */
-export const costBenefitIndirect = (schedule: CostBenefitSchedule): EconomicFigure[] => [
-  { label: 'منافع و آثار مثبت غیرمستقیم', value: schedule.indirect.benefits, kind: 'amount' },
-  { label: 'هزینه‌ها و آثار منفی غیرمستقیم', value: schedule.indirect.costs, kind: 'amount' },
-  { label: 'خالص آثار غیرمستقیم', value: schedule.indirect.net, kind: 'amount' },
-];
+export function costBenefitIndirect(schedule: CostBenefitSchedule): EconomicFigure[] {
+  const { benefits, costs, net } = schedule.indirect;
+  // All three are always given.
+  if (![benefits, costs, net].every(isNumber)) throw new Error('unexpected shape of «indirect»');
+  return [
+    { label: 'منافع و آثار مثبت غیرمستقیم', value: benefits, kind: 'amount' },
+    { label: 'هزینه‌ها و آثار منفی غیرمستقیم', value: costs, kind: 'amount' },
+    { label: 'خالص آثار غیرمستقیم', value: net, kind: 'amount' },
+  ];
+}
 
 // ---------------------------------------------------------------------------------------------
 // Warnings
 
 export const ECONOMIC_SCHEDULES = ['valueAdded', 'foreignExchange', 'employment'] as const;
 export type EconomicScheduleKey = (typeof ECONOMIC_SCHEDULES)[number];
+
+/**
+ * A part of the stored economic result: absent (the input leaves it out, or an older engine wrote
+ * the run) or a record. Anything else is a shape this code does not know and is refused.
+ */
+export function economicPart<T>(value: T | undefined): T | undefined {
+  if (value === undefined) return undefined;
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error('unexpected shape of an economic schedule');
+  }
+  return value;
+}
 
 /** The economic schedule a warning of a run is about; null for every other warning. */
 export function economicScheduleOfWarning(warning: Warning): EconomicScheduleKey | null {

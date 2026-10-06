@@ -17,6 +17,7 @@ import {
   costBenefitIndirect,
   costBenefitLevelsTable,
   costBenefitTable,
+  economicPart,
   economicScheduleOfWarning,
   employmentTable,
   foreignExchangeTable,
@@ -329,20 +330,24 @@ function economicBlocks(
     ...notices('valueAdded', 'هشدارهای ارزش افزوده'),
   ];
   // Runs of the first version with an economic analysis have the value added alone.
-  if (isRecord(economic.foreignExchange)) {
+  const foreignExchange = economicPart(
+    economic.foreignExchange as typeof economic.foreignExchange | undefined,
+  );
+  if (foreignExchange !== undefined) {
     blocks.push(
-      table(foreignExchangeTable(economic.foreignExchange)),
-      figures('کارایی ارزی', foreignExchangeTests(economic.foreignExchange), unit),
+      table(foreignExchangeTable(foreignExchange)),
+      figures('کارایی ارزی', foreignExchangeTests(foreignExchange), unit),
       ...notices('foreignExchange', 'هشدارهای اثر ارزی'),
     );
   }
-  if (economic.employment !== undefined) {
+  const employment = economicPart(economic.employment);
+  if (employment !== undefined) {
     blocks.push(
-      matrixBlock(employmentTable(economic.employment, unit, amounts), unit, note),
+      matrixBlock(employmentTable(employment, unit, amounts), unit, note),
       ...notices('employment', 'هشدارهای اشتغال'),
     );
   }
-  const analysis = economic.costBenefit;
+  const analysis = economicPart(economic.costBenefit);
   if (analysis !== undefined) {
     const numeraire = unitLabel(unit, isolate(analysis.currency));
     const analysisNote = `مبلغ‌ها به ${numeraire}`;

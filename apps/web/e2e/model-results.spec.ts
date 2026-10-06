@@ -1014,6 +1014,20 @@ test.describe('financial model results', () => {
     await page.reload();
     await openTab(page, 'تحلیل اقتصادی');
     await expect(page.getByText(/با این نسخه از برنامه قابل نمایش نیست/)).toBeVisible();
+
+    // So does a line of the cost-benefit schedule with a figure missing: no «—» beside the rest.
+    const partial = JSON.parse(JSON.stringify(economicRun.value)) as typeof economicRun.value;
+    delete (partial.economic?.costBenefit?.inflows.salesRevenue as { economicValue?: string })
+      .economicValue;
+    await page.unroute('**/api/v1/financial-models/m1/runs/r1');
+    await serveRun(page, run({ input: economicInput, results: partial }));
+    await page.reload();
+    await openTab(page, 'تحلیل اقتصادی');
+    await expect(page.getByText(/با این نسخه از برنامه قابل نمایش نیست/)).toBeVisible();
+    await expect(page.getByRole('region', { name: 'ارزش افزوده طرح' })).toHaveCount(0);
+    // The other parts of the run stay.
+    await openTab(page, 'سود و زیان');
+    await expect(page.getByRole('region', { name: 'صورت سود و زیان' })).toBeVisible();
   });
 
   test('has no serious accessibility violations in any part', async ({ page }) => {
