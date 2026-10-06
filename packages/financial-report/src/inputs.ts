@@ -6,12 +6,17 @@ import {
   DEPRECIATION_METHOD_LABELS_FA,
   DISCOUNT_REFERENCE_LABELS_FA,
   EQUITY_CLASS_LABELS_FA,
+  INPUT_NATURE_LABELS_FA,
   INVESTMENT_GROUP_LABELS_FA,
+  LABOUR_SKILL_LABELS_FA,
   LOAN_TYPE_LABELS_FA,
   MARKET_LABELS_FA,
+  NUMERAIRE_LABELS_FA,
   ORIGIN_LABELS_FA,
   PERIOD_LABELS_FA,
   RESIDUAL_VALUE_TIMING_LABELS_FA,
+  TRADE_CATEGORY_LABELS_FA,
+  TRADE_CLASS_LABELS_FA,
   toPersianDigits,
   type ProjectInputData,
 } from '@roshd/validation';
@@ -97,6 +102,7 @@ const table = (
 };
 
 const NOTE_LABELS: Record<string, string> = {
+  'economic.discountRate': 'نرخ تنزیل اقتصادی',
   'statements.discounting': 'نرخ تنزیل',
   'statements.tax': 'مالیات بر درآمد',
 };
@@ -747,6 +753,213 @@ function startingBalances(input: ProjectInputData): ReportBlock[] {
   ];
 }
 
+type Economic = NonNullable<ProjectInputData['economic']>;
+type IndirectItem = NonNullable<Economic['costBenefit']>['indirectBenefits'][number];
+
+/** Shares of up to three rounds of decomposition, in percent: «۲۰ ← ۱۰». */
+const rounds = (values: string[] | undefined): ReportValue =>
+  values === undefined || values.length === 0
+    ? NONE
+    : text(values.map((value) => numberValue(value, 'enteredPercent', UNIT).text).join(' ← '));
+
+const indirectItems = (items: IndirectItem[]): StatementRow[] =>
+  items.map((item) => series(`${isolate(item.key)} (${isolate(item.currency)})`, item.amounts));
+
+/** The inputs of the economic analysis (comfar-model-spec §6); none without the section. */
+function economic(input: ProjectInputData, frame: Frame): ReportBlock[] {
+  const entered_ = input.economic;
+  if (entered_ === undefined) return [];
+  const { indirectForeignExchange: indirect, employment, costBenefit } = entered_;
+  const rate = entered_.discountRate;
+  return [
+    {
+      kind: 'pairs',
+      title: 'تحلیل اقتصادی: پارامترها',
+      rows: [
+        ...(Array.isArray(rate)
+          ? []
+          : [{ label: 'نرخ تنزیل اقتصادی سالانه (درصد)', value: percent(rate) }]),
+        {
+          label: 'مالیات سود سهام سهامداران داخلی (درصد)',
+          value: percent(entered_.dividendTax.local),
+        },
+        {
+          label: 'مالیات سود سهام سهامداران خارجی (درصد)',
+          value: percent(entered_.dividendTax.foreign),
+        },
+      ],
+    },
+    ...(Array.isArray(rate)
+      ? table('نرخ تنزیل اقتصادی سالانه', frame.periods, [
+          { rows: [series('نرخ تنزیل اقتصادی', rate, 'enteredPercent')] },
+        ])
+      : []),
+    ...grid(
+      'تعدیل اقتصادی اقلام هزینه',
+      [
+        'قلم هزینه',
+        'نوع',
+        'مهارت نیروی کار',
+        'شاغلان سال مرجع (نفر)',
+        'مالیات و عوارض داخل قیمت (درصد)',
+        'ارزش افزوده داخل قیمت، مرحله به مرحله (درصد)',
+      ],
+      entered_.costs.map((cost) => [
+        text(cost.item),
+        cost.nature === undefined ? NONE : text(INPUT_NATURE_LABELS_FA[cost.nature]),
+        cost.skill === undefined ? NONE : text(LABOUR_SKILL_LABELS_FA[cost.skill]),
+        entered(cost.workers),
+        percent(cost.taxesIncluded),
+        rounds(cost.valueAddedIncluded),
+      ]),
+    ),
+    ...grid(
+      'تعدیل اقتصادی اقلام سرمایه‌گذاری',
+      [
+        'قلم سرمایه‌گذاری',
+        'مالیات و عوارض داخل قیمت (درصد)',
+        'ارزش افزوده داخل قیمت، مرحله به مرحله (درصد)',
+      ],
+      entered_.investment.map((item) => [
+        text(item.item),
+        percent(item.taxesIncluded),
+        rounds(item.valueAddedIncluded),
+      ]),
+    ),
+    ...(indirect === undefined
+      ? []
+      : [
+          ...grid(
+            'آثار ارزی غیرمستقیم: ستانده‌ها و نهاده‌های قابل‌مبادله',
+            [
+              'نوع',
+              'محصول یا قلم هزینه',
+              'سطر فروش',
+              'نوع مبادله',
+              'بخش قابل‌مبادله (درصد)',
+              'قیمت مرزی به قیمت مالی (ضریب)',
+            ],
+            [
+              ...indirect.outputs.map((output) => [
+                text('ستانده'),
+                text(output.product),
+                text(output.line),
+                text(TRADE_CATEGORY_LABELS_FA[output.trade]),
+                percent(output.share),
+                entered(output.borderPriceFactor),
+              ]),
+              ...indirect.inputs.map((item) => [
+                text('نهاده'),
+                text(item.item),
+                NONE,
+                text(TRADE_CATEGORY_LABELS_FA[item.trade]),
+                percent(item.share),
+                entered(item.borderPriceFactor),
+              ]),
+            ],
+          ),
+          ...table(
+            'آثار ارزی غیرمستقیم: سایر ورود و خروج ارز',
+            frame.periods,
+            [
+              { title: 'منافع (ورود ارز)', rows: indirectItems(indirect.otherInflows) },
+              { title: 'هزینه‌ها (خروج ارز)', rows: indirectItems(indirect.otherOutflows) },
+            ],
+            'هر سطر به ارز خودش',
+          ),
+        ]),
+    ...(employment === undefined
+      ? []
+      : grid(
+          'اشتغال پیرامون طرح در سال مرجع (به پول محلی)',
+          [
+            'گروه',
+            'شاغلان ساده (نفر)',
+            'دستمزد نیروی ساده',
+            'شاغلان ماهر (نفر)',
+            'دستمزد نیروی ماهر',
+            'سرمایه‌گذاری لازم',
+          ],
+          (
+            [
+              ['تأمین‌کنندگان نهاده', employment.inputSupplying],
+              ['مصرف‌کنندگان ستانده', employment.outputUsing],
+            ] as const
+          ).map(([label, group]) => [
+            text(label),
+            entered(group.unskilled.workers),
+            entered(group.unskilled.wageBill),
+            entered(group.skilled.workers),
+            entered(group.skilled.wageBill),
+            entered(group.investment),
+          ]),
+        )),
+    ...(costBenefit === undefined
+      ? []
+      : [
+          {
+            kind: 'pairs' as const,
+            title: 'تحلیل هزینه-فایده: واحد سنجش و نرخ سایه‌ای ارز',
+            rows: [
+              { label: 'واحد سنجش', value: text(NUMERAIRE_LABELS_FA[costBenefit.numeraire]) },
+              ...(costBenefit.currency === undefined
+                ? []
+                : [{ label: 'ارزِ واحد سنجش', value: code(costBenefit.currency) }]),
+              {
+                label: 'ضریب تبدیل استاندارد (نرخ رسمی به نرخ سایه‌ای ارز)',
+                value: entered(costBenefit.standardConversionFactor),
+              },
+              {
+                label: 'تسهیلات خارجی واردشده در تحلیل',
+                value:
+                  costBenefit.foreignLoans.length === 0
+                    ? NONE
+                    : text(costBenefit.foreignLoans.map(isolate).join('، ')),
+              },
+            ],
+          },
+          ...grid(
+            'تحلیل هزینه-فایده: ارزش‌گذاری اقلام به قیمت اقتصادی',
+            ['نوع', 'محصول یا قلم', 'سطر فروش', 'طبقه', 'ضریب تعدیل', 'سهم ارزی (درصد)'],
+            [
+              ...costBenefit.outputs.map((output) => [
+                text('فروش'),
+                text(output.product),
+                text(output.line),
+                text(TRADE_CLASS_LABELS_FA[output.tradeClass]),
+                entered(output.adjustmentFactor),
+                percent(output.foreignCurrencyExposure),
+              ]),
+              ...(
+                [
+                  ['هزینه', costBenefit.costs],
+                  ['سرمایه‌گذاری', costBenefit.investment],
+                ] as const
+              ).flatMap(([label, items]) =>
+                items.map((item) => [
+                  text(label),
+                  text(item.item),
+                  NONE,
+                  text(TRADE_CLASS_LABELS_FA[item.tradeClass]),
+                  entered(item.adjustmentFactor),
+                  percent(item.foreignCurrencyExposure),
+                ]),
+              ),
+            ],
+          ),
+          ...table(
+            'تحلیل هزینه-فایده: آثار غیرمستقیم',
+            frame.periods,
+            [
+              { title: 'منافع و آثار مثبت', rows: indirectItems(costBenefit.indirectBenefits) },
+              { title: 'هزینه‌ها و آثار منفی', rows: indirectItems(costBenefit.indirectCosts) },
+            ],
+            'هر سطر به ارز خودش',
+          ),
+        ]),
+  ];
+}
+
 /** Every input of the run, section by section as in the editor. */
 export function inputBlocks(input: ProjectInputData, frame: Frame): ReportBlock[] {
   return [
@@ -756,6 +969,7 @@ export function inputBlocks(input: ProjectInputData, frame: Frame): ReportBlock[
     ...financing(input, frame),
     ...operations(input, frame),
     ...startingBalances(input),
+    ...economic(input, frame),
     ...pricesAndNotes(input, frame),
   ];
 }

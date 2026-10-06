@@ -22,6 +22,10 @@
       "types": "./dist/tables.d.ts",
       "default": "./dist/tables.js"
     },
+    "./economic": {
+      "types": "./dist/economic.d.ts",
+      "default": "./dist/economic.js"
+    },
     "./warnings": {
       "types": "./dist/warnings.d.ts",
       "default": "./dist/warnings.js"

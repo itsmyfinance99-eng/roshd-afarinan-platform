@@ -43,6 +43,11 @@ export interface StatementTable {
    * balances of an existing enterprise (expansion and rehabilitation projects).
    */
   openingColumn?: boolean;
+  /**
+   * The table ends with two more columns: the sum of the periods and their present value (the
+   * schedules of the economic analysis).
+   */
+  totalColumns?: boolean;
 }
 
 type Statements = ProjectModel['statements'];
@@ -541,16 +546,32 @@ function debtServiceSection(
 }
 
 /**
- * The columns of a table: the periods, the year after production when values return there, and
- * the day before the project when the table starts with the starting balances.
+ * The columns of a table: the periods, the year after production when values return there, the
+ * day before the project when the table starts with the starting balances, and the total and the
+ * present value of a line of the economic analysis.
  */
-export function tableColumns(frame: Frame, salvageColumn = false, openingColumn = false): Column[] {
+export function tableColumns(
+  frame: Frame,
+  salvageColumn = false,
+  openingColumn = false,
+  totalColumns = false,
+): Column[] {
   return [
     ...(openingColumn ? [{ label: 'پیش از طرح', group: 'مانده آغازین' }] : []),
     ...frame.periods,
     ...(salvageColumn ? [{ label: 'پس از تولید', group: 'ارزش باقی‌مانده' }] : []),
+    ...(totalColumns
+      ? [
+          { label: 'جمع', group: 'همه دوره‌ها' },
+          { label: 'ارزش فعلی', group: 'با نرخ تنزیل اقتصادی' },
+        ]
+      : []),
   ];
 }
+
+/** The columns of a table of a run. */
+export const columnsOf = (frame: Frame, table: StatementTable): Column[] =>
+  tableColumns(frame, table.salvageColumn, table.openingColumn, table.totalColumns);
 
 const UNIT_DIGITS: Record<ReportingUnit, number> = {
   '1': 0,

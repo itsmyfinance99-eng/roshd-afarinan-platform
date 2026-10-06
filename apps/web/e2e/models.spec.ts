@@ -646,6 +646,226 @@ test.describe('financial model editor', () => {
     await expect.poll(balances).toBeUndefined();
   });
 
+  test('enters the economic analysis and keeps it in step with the model', async ({ page }) => {
+    await signIn(page);
+    const saves = await serveModel(page);
+    await page.goto('/dashboard/models/m1');
+    await openSection(page, 'تحلیل اقتصادی');
+    const economic = () =>
+      (saves.at(-1)?.inputs as { economic?: Record<string, unknown> } | undefined)?.economic;
+    const tab = page.getByRole('tab', { name: /تحلیل اقتصادی/ });
+
+    // The analysis is optional; turned on, it asks for its rate and taxes and suggests no value.
+    await expect(page.getByLabel(/^نرخ تنزیل اقتصادی سالانه/)).toHaveCount(0);
+    await page.getByLabel('این مدل تحلیل اقتصادی دارد').check();
+    await expect(page.getByLabel(/^نرخ تنزیل اقتصادی سالانه/)).toHaveValue('');
+    await expect(tab).toContainText('۳');
+    await page.getByLabel(/^نرخ تنزیل اقتصادی سالانه/).fill('۱۰');
+    await page.getByLabel(/^مالیات سود سهام سهامداران داخلی/).fill('0');
+    await page.getByLabel(/^مالیات سود سهام سهامداران خارجی/).fill('۵');
+
+    // A raw material is «مواد و خدمات» by its category; its adjustments are optional.
+    const ore = page.getByRole('heading', { name: 'هزینه «سنگ آهن»' }).locator('..');
+    await expect(ore.getByText(/نوع: مواد و خدمات/)).toBeVisible();
+    await ore.getByLabel(/^مالیات و عوارض داخل قیمت/).fill('10');
+    const round = ore.getByLabel('ارزش افزوده داخل قیمت، مرحله ۱ (درصد)');
+    await round.fill('20');
+    await round.blur();
+    await expect.poll(economic).toMatchObject({
+      discountRate: '0.1',
+      dividendTax: { local: '0', foreign: '0.05' },
+      costs: [{ item: 'سنگ آهن', taxesIncluded: '0.1', valueAddedIncluded: ['0.2'] }],
+      investment: [],
+    });
+    await expect(tab).not.toContainText('۳');
+    await expect(page.getByText(/برای محاسبه هنوز/)).toHaveCount(0);
+
+    // The cost-benefit analysis is a part of its own: numeraire, conversion factor, valuations.
+    await page.getByLabel('تحلیل هزینه-فایده ساخته شود').check();
+    await page.getByLabel('واحد سنجش').selectOption('LOCAL_BORDER_PRICES');
+    await page.getByLabel(/^ضریب تبدیل استاندارد/).fill('۰٫۸');
+    await page.getByRole('button', { name: 'افزودن سطر فروش' }).click();
+    await page.getByLabel(/^سطر فروش/).selectOption('میلگرد › داخلی');
+    await page.getByLabel(/^طبقه قلم/).selectOption('TRADABLE');
+    await page.getByLabel(/^ضریب تعدیل/).fill('0.9');
+    await page.getByLabel(/^سهم ارزی/).fill('50');
+    await page.getByLabel(/^سهم ارزی/).blur();
+    await expect
+      .poll(() => economic()?.costBenefit)
+      .toMatchObject({
+        numeraire: 'LOCAL_BORDER_PRICES',
+        standardConversionFactor: '0.8',
+        outputs: [
+          {
+            product: 'میلگرد',
+            line: 'داخلی',
+            tradeClass: 'TRADABLE',
+            adjustmentFactor: '0.9',
+            foreignCurrencyExposure: '0.5',
+          },
+        ],
+        costs: [],
+        foreignLoans: [],
+      });
+    await expect(page.getByText(/برای محاسبه هنوز/)).toHaveCount(0);
+
+    // An input the engine refuses is shown at its field: a non-traded item has no exposure.
+    await page.getByLabel(/^طبقه قلم/).selectOption('NON_TRADED');
+    await expect(page.getByText(/قلم غیرمبادله‌ای سهم ارزی ندارد/).first()).toBeVisible();
+    await expect(page.getByLabel(/^سهم ارزی/)).toHaveAttribute('aria-invalid', 'true');
+    await page.getByLabel(/^طبقه قلم/).selectOption('TRADABLE');
+    await expect(page.getByText(/برای محاسبه هنوز/)).toHaveCount(0);
+
+    // Renaming a cost item or a sales line keeps the economic entries with it.
+    await openSection(page, 'هزینه‌ها');
+    const cost = page.getByLabel(/^نام قلم هزینه/);
+    await cost.fill('گندله');
+    await cost.blur();
+    await expect
+      .poll(() => (economic()?.costs as { item: string }[] | undefined)?.[0]?.item)
+      .toBe('گندله');
+    await openSection(page, 'تولید و فروش');
+    const line = page.getByLabel(/^نام سطر فروش/);
+    await line.fill('عمده');
+    await line.blur();
+    await expect
+      .poll(() => (economic()?.costBenefit as { outputs: { line: string }[] }).outputs[0]?.line)
+      .toBe('عمده');
+    await expect(page.getByText(/برای محاسبه هنوز/)).toHaveCount(0);
+
+    // Leaving the analysis asks first and removes all of it.
+    await openSection(page, 'تحلیل اقتصادی');
+    page.once('dialog', (dialog) => void dialog.accept());
+    await page.getByLabel('این مدل تحلیل اقتصادی دارد').uncheck();
+    await expect.poll(economic).toBeUndefined();
+  });
+
+  test('asks for what the economic schedules need, item by item', async ({ page }) => {
+    await signIn(page);
+    const loaded = inputs();
+    loaded.operations.costs.push({
+      key: 'سرپرستان',
+      category: 'FACTORY_OVERHEADS',
+      currency: 'IRR',
+      origin: 'LOCAL',
+      adjustments: {
+        quantities: at({ 1: '1', 2: '1', 3: '1' }),
+        prices: at({ 1: '50000000', 2: '50000000', 3: '50000000' }),
+        variableShares: at({}),
+      },
+      payablesCoverage: none,
+    } as never);
+    Object.assign(loaded, {
+      economic: {
+        discountRate: '0.1',
+        costs: [],
+        investment: [],
+        dividendTax: { local: '0', foreign: '0' },
+      },
+    });
+    const saves = await serveModel(page, model({ inputs: loaded }));
+    await page.goto('/dashboard/models/m1');
+    const costs = () =>
+      (saves.at(-1)?.inputs as { economic?: { costs: unknown[] } } | undefined)?.economic?.costs;
+
+    // A factory overhead may be materials or wages: the calculation asks, and names the item.
+    const live = page.getByRole('region', { name: 'نتیجه زنده' });
+    await expect(live.getByText(/برای قلم «سرپرستان» مشخص کنید/)).toBeVisible();
+    await live.getByRole('button', { name: /تحلیل اقتصادی/ }).click();
+    const staff = page.getByRole('heading', { name: 'هزینه «سرپرستان»' }).locator('..');
+    await expect(staff.getByLabel(/شاغلان این قلم/)).toHaveCount(0);
+    await staff.getByLabel(/^نوع قلم/).selectOption('WAGES');
+    await expect.poll(costs).toEqual([{ item: 'سرپرستان', nature: 'WAGES' }]);
+    await expect(page.getByText(/برای محاسبه هنوز/)).toHaveCount(0);
+
+    // With the employment schedule, every wage item needs its headcount.
+    await page.getByLabel('جدول اشتغال ساخته شود').check();
+    for (const group of ['طرح‌های تأمین‌کننده نهاده', 'طرح‌های مصرف‌کننده ستانده']) {
+      const fields = page.getByRole('region', { name: group }).getByRole('textbox');
+      for (let i = 0; i < 5; i += 1) await fields.nth(i).fill('0');
+    }
+    await expect(live.getByText(/تعداد شاغلان قلم دستمزد «سرپرستان»/)).toBeVisible();
+    await expect(staff.getByLabel(/شاغلان این قلم/)).toHaveAttribute('aria-invalid', 'true');
+    await staff.getByLabel(/شاغلان این قلم/).fill('۶');
+    await expect.poll(costs).toEqual([{ item: 'سرپرستان', nature: 'WAGES', workers: '6' }]);
+    await expect(page.getByText(/برای محاسبه هنوز/)).toHaveCount(0);
+
+    // Changing the nature drops what the new one does not take.
+    await staff.getByLabel(/^نوع قلم/).selectOption('MATERIALS');
+    await expect.poll(costs).toEqual([{ item: 'سرپرستان', nature: 'MATERIALS' }]);
+    await expect(staff.getByLabel(/شاغلان این قلم/)).toHaveCount(0);
+  });
+
+  test('has no serious accessibility violations in the economic section', async ({ page }) => {
+    await signIn(page);
+    const loaded = inputs();
+    Object.assign(loaded, {
+      economic: {
+        discountRate: ['0.1', '0.1', '0.1', '0.1'],
+        costs: [{ item: 'سنگ آهن', taxesIncluded: '0.1' }],
+        investment: [],
+        dividendTax: { local: '0', foreign: '0' },
+        indirectForeignExchange: {
+          outputs: [
+            {
+              product: 'میلگرد',
+              line: 'داخلی',
+              trade: 'IMPORTABLE',
+              share: '1',
+              borderPriceFactor: '0.9',
+            },
+          ],
+          inputs: [{ item: 'سنگ آهن', trade: 'EXPORTABLE', share: '0.5', borderPriceFactor: '1' }],
+          otherInflows: [{ key: 'گردشگری', currency: 'IRR', amounts: at({ 2: '1000' }) }],
+          otherOutflows: [],
+        },
+        employment: {
+          inputSupplying: {
+            unskilled: { workers: '5', wageBill: '100' },
+            skilled: { workers: '1', wageBill: '50' },
+            investment: '1000',
+          },
+          outputUsing: {
+            unskilled: { workers: '0', wageBill: '0' },
+            skilled: { workers: '0', wageBill: '0' },
+            investment: '0',
+          },
+        },
+        costBenefit: {
+          numeraire: 'FOREIGN_BORDER_PRICES',
+          currency: 'USD',
+          standardConversionFactor: '0.8',
+          outputs: [],
+          costs: [
+            {
+              item: 'سنگ آهن',
+              tradeClass: 'TRADABLE',
+              adjustmentFactor: '0.9',
+              foreignCurrencyExposure: '0.5',
+            },
+          ],
+          investment: [],
+          foreignLoans: [],
+          indirectBenefits: [],
+          indirectCosts: [{ key: 'آلودگی', currency: 'IRR', amounts: at({ 1: '500' }) }],
+        },
+      },
+    });
+    await serveModel(page, model({ inputs: loaded }));
+    await page.goto('/dashboard/models/m1');
+    await expect(page.getByRole('heading', { name: 'کل سرمایه' })).toBeVisible();
+    await openSection(page, 'تحلیل اقتصادی');
+    await expect(page.getByLabel('ارزِ واحد سنجش')).toHaveValue('USD');
+    await expect(page.getByRole('region', { name: 'مبلغ هر دوره «آلودگی»' })).toBeVisible();
+    const results = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+      .analyze();
+    const blocking = results.violations
+      .filter((v) => v.impact === 'serious' || v.impact === 'critical' || v.id === 'heading-order')
+      .map((v) => ({ rule: v.id, nodes: v.nodes.slice(0, 3).map((n) => n.target.join(' ')) }));
+    expect(blocking).toEqual([]);
+  });
+
   test('has no serious accessibility violations in any section', async ({ page }) => {
     await signIn(page);
     await serveModel(page);
@@ -659,6 +879,7 @@ test.describe('financial model editor', () => {
       'هزینه‌ها',
       'سرمایه در گردش',
       'ترازنامه آغازین',
+      'تحلیل اقتصادی',
     ]) {
       await openSection(page, name);
       const results = await new AxeBuilder({ page })

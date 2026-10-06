@@ -6,6 +6,7 @@ import {
   COST_CENTRE_GROUP_LABELS_FA,
   MATERIAL_COST_CATEGORIES,
 } from '@roshd/validation';
+import { tidyEconomicCost } from '@/lib/model-editor/draft-ops';
 import { fit } from '@/lib/model-editor/frame';
 import {
   append,
@@ -162,7 +163,8 @@ function CostCard({
           options={optionsOf(COST_CATEGORY_LABELS_FA)}
           onCommit={(value) =>
             change((current) => {
-              const next = setIn(current, [...base, 'category'], value);
+              // Economic adjustments the new category does not take go with the old one.
+              const next = tidyEconomicCost(setIn(current, [...base, 'category'], value), name);
               // Only materials keep a stock.
               return MATERIALS.includes(String(value))
                 ? next

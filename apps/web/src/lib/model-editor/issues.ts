@@ -14,6 +14,7 @@ export const SECTIONS = [
   'costs',
   'workingCapital',
   'startingBalance',
+  'economic',
 ] as const;
 export type SectionId = (typeof SECTIONS)[number];
 
@@ -25,6 +26,7 @@ export const SECTION_LABELS_FA: Record<SectionId, string> = {
   costs: 'هزینه‌ها',
   workingCapital: 'سرمایه در گردش',
   startingBalance: 'ترازنامه آغازین',
+  economic: 'تحلیل اقتصادی',
 };
 
 export interface Issue {
@@ -43,6 +45,7 @@ function sectionOf(parts: string[]): SectionId {
   if (head === 'investment') return 'investment';
   if (head === 'financing') return 'financing';
   if (head === 'startingBalances') return 'startingBalance';
+  if (head === 'economic') return 'economic';
   if (head === 'statements') {
     if (second === 'profitDistribution') return 'financing';
     if (second === 'assetSales' || second === 'allowances') return 'investment';
@@ -195,13 +198,55 @@ const FIELD_LABELS_FA: Record<string, string> = {
   value: 'مبلغ',
   balance: 'مانده',
   cost: 'قلم هزینه',
+  economic: 'تحلیل اقتصادی',
+  discountRate: 'نرخ تنزیل اقتصادی',
+  dividendTax: 'مالیات سود سهام',
+  local: 'سهامداران داخلی',
+  foreign: 'سهامداران خارجی',
+  nature: 'نوع قلم',
+  skill: 'مهارت نیروی کار',
+  workers: 'تعداد شاغلان',
+  taxesIncluded: 'مالیات و عوارض داخل قیمت',
+  valueAddedIncluded: 'ارزش افزوده داخل قیمت',
+  indirectForeignExchange: 'آثار ارزی غیرمستقیم',
+  outputs: 'ستانده‌ها',
+  inputs: 'نهاده‌ها',
+  otherInflows: 'سایر منافع ارزی',
+  otherOutflows: 'سایر هزینه‌های ارزی',
+  trade: 'نوع مبادله',
+  share: 'بخش قابل‌مبادله',
+  borderPriceFactor: 'ضریب قیمت مرزی',
+  line: 'سطر فروش',
+  employment: 'اشتغال',
+  inputSupplying: 'تأمین‌کنندگان نهاده',
+  outputUsing: 'مصرف‌کنندگان ستانده',
+  unskilled: 'نیروی ساده',
+  skilled: 'نیروی ماهر',
+  wageBill: 'دستمزد سالانه',
+  costBenefit: 'هزینه-فایده',
+  numeraire: 'واحد سنجش',
+  standardConversionFactor: 'ضریب تبدیل استاندارد',
+  tradeClass: 'طبقه',
+  adjustmentFactor: 'ضریب تعدیل',
+  foreignCurrencyExposure: 'سهم ارزی',
+  foreignLoans: 'تسهیلات خارجی',
+  indirectBenefits: 'منافع غیرمستقیم',
+  indirectCosts: 'هزینه‌های غیرمستقیم',
   notes: 'منبع فرض‌ها',
   source: 'منبع',
   asOf: 'تاریخ اعتبار',
 };
 
 /** Parts of a path that only group fields and add nothing for the reader. */
-const SILENT = new Set(['items', 'operations', 'statements', 'investment', 'financing', 'loan']);
+const SILENT = new Set([
+  'items',
+  'operations',
+  'statements',
+  'investment',
+  'financing',
+  'loan',
+  'economic',
+]);
 /** Series whose numbered values are columns of a table (the others are rows of a list). */
 const SERIES = new Set([
   'amounts',
@@ -220,6 +265,7 @@ const SERIES = new Set([
   'totalCapitalRate',
   'equityRate',
   'retainedShare',
+  'discountRate',
 ]);
 
 const asKey = (part: string): string | number => (/^\d+$/.test(part) ? Number(part) : part);
@@ -231,10 +277,15 @@ function labelOf(parts: string[], draft: Draft): string {
       const node = getIn(draft, parts.slice(0, i + 1).map(asKey));
       // A row is named by its own name; a row that has none by nature (dividend conditions, a
       // sale of an asset, a starting balance) by the item it belongs to.
-      const referring = parts[0] === 'startingBalances' || parts[i - 1] === 'assetSales';
-      const name = ['key', 'equity', ...(referring ? ['item', 'cost', 'product', 'loan'] : [])]
-        .map((property) => textAt(node, [property]))
-        .find((text) => text !== '');
+      const referring =
+        parts[0] === 'startingBalances' || parts[0] === 'economic' || parts[i - 1] === 'assetSales';
+      // A list of names (the loans of the cost-benefit analysis) names its rows itself.
+      const name =
+        typeof node === 'string' && node !== '' && parts[i - 1] === 'foreignLoans'
+          ? node
+          : ['key', 'equity', ...(referring ? ['item', 'cost', 'product', 'loan'] : [])]
+              .map((property) => textAt(node, [property]))
+              .find((text) => text !== '');
       const number = toPersianDigits(Number(part) + 1);
       if (name !== undefined) words.push(`«${name}»`);
       else if (SERIES.has(parts[i - 1] ?? '') || SERIES.has(parts[i - 2] ?? '')) {

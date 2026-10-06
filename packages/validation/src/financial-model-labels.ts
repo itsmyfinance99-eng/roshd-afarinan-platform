@@ -4,7 +4,12 @@ import type {
   COST_CENTRE_GROUP_VALUES,
   DEPRECIATION_METHOD_VALUES,
   EQUITY_CLASS_VALUES,
+  INPUT_NATURE_VALUES,
   INVESTMENT_GROUP_VALUES,
+  LABOUR_SKILL_VALUES,
+  NUMERAIRE_VALUES,
+  TRADE_CATEGORY_VALUES,
+  TRADE_CLASS_VALUES,
 } from './financial-model-input';
 
 /**
@@ -109,6 +114,35 @@ export const RESIDUAL_VALUE_TIMING_LABELS_FA = {
   YEAR_AFTER_PRODUCTION: 'سال پس از پایان تولید',
   END_OF_PRODUCTION: 'پایان تولید',
 } as const;
+
+/** Economic analysis (comfar-model-spec §6): the value lists of its inputs. */
+export const INPUT_NATURE_LABELS_FA: Record<(typeof INPUT_NATURE_VALUES)[number], string> = {
+  MATERIALS: 'مواد و خدمات',
+  WAGES: 'دستمزد',
+  OTHER: 'سایر هزینه‌ها',
+};
+
+export const LABOUR_SKILL_LABELS_FA: Record<(typeof LABOUR_SKILL_VALUES)[number], string> = {
+  SKILLED: 'نیروی ماهر',
+  UNSKILLED: 'نیروی ساده',
+};
+
+export const TRADE_CATEGORY_LABELS_FA: Record<(typeof TRADE_CATEGORY_VALUES)[number], string> = {
+  IMPORTABLE: 'قابل واردات',
+  EXPORTABLE: 'قابل صادرات',
+};
+
+export const TRADE_CLASS_LABELS_FA: Record<(typeof TRADE_CLASS_VALUES)[number], string> = {
+  TRADED: 'مبادله‌ای',
+  TRADABLE: 'قابل‌مبادله',
+  NON_TRADED: 'غیرمبادله‌ای',
+};
+
+export const NUMERAIRE_LABELS_FA: Record<(typeof NUMERAIRE_VALUES)[number], string> = {
+  LOCAL_DOMESTIC_PRICES: 'پول داخلی به قیمت داخلی',
+  LOCAL_BORDER_PRICES: 'پول داخلی به قیمت مرزی',
+  FOREIGN_BORDER_PRICES: 'ارز به قیمت مرزی',
+};
 
 /** COMFAR conventions the engine applies when the user leaves the choice open. */
 export const ENGINE_DEFAULT_LABELS_FA: Record<string, string> = {

@@ -2480,6 +2480,7 @@ epics:
         sprint: S18
         points: 5
         priority: high
+        status: done
         area: [web, ui]
         depends: [ST-37.04, ST-34.08]
         story: 'به‌عنوان کارشناس می‌خواهم پارامترهای اقتصادی را وارد کنم و جدول‌ها و نمودارهای تحلیل اقتصادی را ببینم.'

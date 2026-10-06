@@ -5,12 +5,31 @@ import {
   numberValue,
   tableBlock,
   text,
+  type GridBlock,
   type PairsBlock,
   type ReportBlock,
   type ReportDocument,
   type ReportPart,
   type ReportValue,
 } from './document';
+import {
+  costBenefitIndicators,
+  costBenefitIndirect,
+  costBenefitLevelsTable,
+  costBenefitTable,
+  economicPart,
+  economicScheduleOfWarning,
+  employmentTable,
+  foreignExchangeTable,
+  foreignExchangeTests,
+  matrixNumber,
+  valueAddedTable,
+  valueAddedTests,
+  type EconomicFigure,
+  type EconomicScheduleKey,
+  type MatrixCell,
+  type MatrixTable,
+} from './economic';
 import { frameOfHorizon, type Frame } from './frame';
 import { durationText, INDICATOR_LABELS_FA, unitLabel, type IndicatorRowKey } from './indicators';
 import { inputBlocks } from './inputs';
@@ -27,9 +46,9 @@ import {
   cashFlowTable,
   discountedCashFlowTable,
   incomeStatementTable,
+  columnsOf,
   ratiosTable,
   shareholderFlowTables,
-  tableColumns,
   type StatementTable,
 } from './tables';
 import {
@@ -256,6 +275,126 @@ function otherIndicators(statements: ProjectModel['statements'], frame: Frame): 
   };
 }
 
+const matrixValue = (cell: MatrixCell, unit: ReportingUnit): ReportValue => {
+  const number = matrixNumber(cell, unit);
+  return number === null ? text('—') : { text: formatDecimalFa(number), number };
+};
+
+/** A table with its own columns; the title of a group of rows is a row of its own. */
+function matrixBlock(table: MatrixTable, unit: ReportingUnit, note: string): GridBlock {
+  return {
+    kind: 'grid',
+    title: `${table.title} (${note})`,
+    head: [table.corner, ...table.head],
+    rows: table.sections.flatMap((section) => [
+      ...(section.title === undefined
+        ? []
+        : [[text(section.title), ...table.head.map(() => text(''))]]),
+      ...section.rows.map((row) => [
+        text(row.label),
+        ...row.cells.map((cell) => matrixValue(cell, unit)),
+      ]),
+    ]),
+  };
+}
+
+const figures = (title: string, list: EconomicFigure[], unit: ReportingUnit): PairsBlock => ({
+  kind: 'pairs',
+  title,
+  rows: list.map(({ label, value, kind }) => ({
+    label,
+    value: value === undefined ? NOT_AVAILABLE : matrixValue({ value, kind }, unit),
+  })),
+});
+
+/** The economic analysis of a run (ST-37.05); each schedule only when the run has it. */
+function economicBlocks(
+  economic: NonNullable<ProjectModel['economic']>,
+  frame: Frame,
+  unit: ReportingUnit,
+  note: string,
+  amounts: string,
+  warnings: Warning[],
+): ReportBlock[] {
+  const table = (built: StatementTable, tableNote = note) =>
+    tableBlock(built, columnsOf(frame, built), unit, tableNote);
+  const notices = (schedule: EconomicScheduleKey, title: string): ReportBlock[] => {
+    const items = unique(
+      warnings.filter((w) => economicScheduleOfWarning(w) === schedule).map(warningMessage),
+    );
+    return items.length > 0 ? [{ kind: 'list', title, items }] : [];
+  };
+  const blocks: ReportBlock[] = [
+    table(valueAddedTable(economic.valueAdded)),
+    figures('آزمون‌های کارایی ارزش افزوده', valueAddedTests(economic.valueAdded), unit),
+    ...notices('valueAdded', 'هشدارهای ارزش افزوده'),
+  ];
+  // Runs of the first version with an economic analysis have the value added alone.
+  const foreignExchange = economicPart(
+    economic.foreignExchange as typeof economic.foreignExchange | undefined,
+  );
+  if (foreignExchange !== undefined) {
+    blocks.push(
+      table(foreignExchangeTable(foreignExchange)),
+      figures('کارایی ارزی', foreignExchangeTests(foreignExchange), unit),
+      ...notices('foreignExchange', 'هشدارهای اثر ارزی'),
+    );
+  }
+  const employment = economicPart(economic.employment);
+  if (employment !== undefined) {
+    blocks.push(
+      matrixBlock(employmentTable(employment, unit, amounts), unit, note),
+      ...notices('employment', 'هشدارهای اشتغال'),
+    );
+  }
+  const analysis = economicPart(economic.costBenefit);
+  if (analysis !== undefined) {
+    const numeraire = unitLabel(unit, isolate(analysis.currency));
+    const analysisNote = `مبلغ‌ها به ${numeraire}`;
+    blocks.push(
+      matrixBlock(costBenefitTable(analysis), unit, analysisNote),
+      figures(`آثار غیرمستقیم به ارزش اقتصادی، ${numeraire}`, costBenefitIndirect(analysis), unit),
+      table(costBenefitLevelsTable(analysis), analysisNote),
+      ...costBenefitIndicators(analysis).map((level): PairsBlock => {
+        const levelWarnings = records<Warning>(level.warnings, (w) => typeof w.code === 'string');
+        const notes = (key: IndicatorRowKey) => {
+          const texts = unique(
+            levelWarnings.flatMap((w) =>
+              indicatorOfWarning(w) === key ? [warningMessage(w)] : [],
+            ),
+          );
+          return texts.length > 0 ? { notes: texts } : {};
+        };
+        return {
+          kind: 'pairs',
+          title: `شاخص‌های هزینه-فایده: ${level.title}`,
+          rows: [
+            {
+              label: `${INDICATOR_LABELS_FA.npv}، ${numeraire}`,
+              value: numberValue(level.npv, 'amount', unit),
+            },
+            {
+              label: `${INDICATOR_LABELS_FA.irr}، درصد`,
+              value:
+                level.irr === undefined ? NOT_AVAILABLE : numberValue(level.irr, 'percent', unit),
+              ...notes('irr'),
+            },
+            ...(level.startingBalance === undefined
+              ? []
+              : [
+                  {
+                    label: `مانده آغازین شرکت موجود که پیش از دوره اول منظور شده، ${numeraire}`,
+                    value: numberValue(level.startingBalance, 'amount', unit),
+                  },
+                ]),
+          ],
+        };
+      }),
+    );
+  }
+  return blocks;
+}
+
 /** The report of a run. `unit` is the display unit of the amounts in local currency. */
 export function runReport(source: RunReportSource): ReportDocument {
   const { unit, results } = source;
@@ -284,17 +423,10 @@ export function runReport(source: RunReportSource): ReportDocument {
     };
   }
 
-  const { statements, investment, financing, operations } = results;
+  const { statements, investment, financing, operations, economic } = results;
   const tables = (id: string, name: string, build: () => StatementTable[], tableNote = note) =>
     part(id, name, () =>
-      build().map((table) =>
-        tableBlock(
-          table,
-          tableColumns(frame, table.salvageColumn, table.openingColumn),
-          unit,
-          tableNote,
-        ),
-      ),
+      build().map((table) => tableBlock(table, columnsOf(frame, table), unit, tableNote)),
     );
 
   return {
@@ -308,7 +440,9 @@ export function runReport(source: RunReportSource): ReportDocument {
           (d) => typeof d.key === 'string',
         );
         const general = unique(
-          warnings.filter((warning) => warningPlace(warning) === null).map(warningText),
+          warnings
+            .filter((w) => warningPlace(w) === null && economicScheduleOfWarning(w) === null)
+            .map(warningText),
         );
         const used = unique(defaults.map(defaultText));
         return [
@@ -372,6 +506,21 @@ export function runReport(source: RunReportSource): ReportDocument {
       tables('income', 'سود و زیان', () => [incomeStatementTable(statements)]),
       tables('balance', 'ترازنامه', () => [balanceSheetTable(statements)]),
       tables('ratios', 'نسبت‌ها', () => [ratiosTable(statements)], note),
+      // Only a run whose input asks for the economic analysis has it.
+      ...(economic === undefined
+        ? []
+        : [
+            part('economic', 'تحلیل اقتصادی', () =>
+              economicBlocks(
+                economic,
+                frame,
+                unit,
+                note,
+                amounts,
+                records<Warning>(source.warnings, (w) => typeof w.code === 'string'),
+              ),
+            ),
+          ]),
     ],
   };
 }

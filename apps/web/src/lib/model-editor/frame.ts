@@ -1,6 +1,14 @@
 import { frameOfHorizon, type Frame, type FramePeriod } from '@roshd/financial-report/frame';
 import { getIn, listAt, recordAt, setIn, type Draft, type Path } from './paths';
 
+/** Amounts per period in a currency that the economic analysis adds to the model. */
+export const ECONOMIC_SERIES_LISTS: readonly Path[] = [
+  ['economic', 'indirectForeignExchange', 'otherInflows'],
+  ['economic', 'indirectForeignExchange', 'otherOutflows'],
+  ['economic', 'costBenefit', 'indirectBenefits'],
+  ['economic', 'costBenefit', 'indirectCosts'],
+];
+
 export {
   frameOfHorizon,
   PHASE_LABELS_FA,
@@ -165,5 +173,9 @@ export function resizeDraft(draft: Draft, frame: Frame, previous?: Frame | null)
   );
   productionYear([...statements, 'referenceYear']);
   productionYear([...statements, 'breakEvenYear']);
+  optionalPeriods(['economic', 'discountRate']);
+  for (const list of ECONOMIC_SERIES_LISTS) {
+    each(list, (item) => periodSeries([...item, 'amounts'], '0'));
+  }
   return next;
 }

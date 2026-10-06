@@ -1,16 +1,14 @@
 'use client';
 
 import { MARKET_LABELS_FA } from '@roshd/validation';
-import { fit } from '@/lib/model-editor/frame';
 import {
-  append,
-  getIn,
-  listAt,
-  removeAt,
-  setIn,
-  textAt,
-  type Path,
-} from '@/lib/model-editor/paths';
+  otherLineNames,
+  removeSalesLine,
+  renameSalesLine,
+  salesLineRemovalNote,
+} from '@/lib/model-editor/draft-ops';
+import { fit } from '@/lib/model-editor/frame';
+import { append, getIn, listAt, setIn, textAt, type Path } from '@/lib/model-editor/paths';
 import {
   AddButton,
   Block,
@@ -112,8 +110,13 @@ function ProductCard({ index, name }: { index: number; name: string }) {
                 type="button"
                 className="text-sm text-accent underline"
                 onClick={() => {
-                  if (confirmRemoval(itemTitle('سطر فروش', textAt(line, ['key']), row))) {
-                    change((current) => removeAt(current, [...base, 'sales'], row));
+                  if (
+                    confirmRemoval(
+                      itemTitle('سطر فروش', textAt(line, ['key']), row),
+                      salesLineRemovalNote(draft, index, row),
+                    )
+                  ) {
+                    change((current) => removeSalesLine(current, index, row));
                   }
                 }}
               >
@@ -121,7 +124,16 @@ function ProductCard({ index, name }: { index: number; name: string }) {
               </button>
             </div>
             <FieldGrid>
-              <TextField path={[...path, 'key']} label="نام سطر فروش" />
+              <TextField
+                path={[...path, 'key']}
+                label="نام سطر فروش"
+                refuse={(text) =>
+                  text !== '' && otherLineNames(draft, index, row).includes(text)
+                    ? 'این نام برای سطر فروش دیگری از همین محصول به کار رفته است.'
+                    : undefined
+                }
+                onCommit={(text) => change((current) => renameSalesLine(current, index, row, text))}
+              />
               <ChoiceField
                 path={[...path, 'market']}
                 label="بازار"

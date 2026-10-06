@@ -122,6 +122,81 @@ const input: ProjectInput & { horizon: { calendar: string } } = {
 // The run as the API stores it: the engine's own result of that input.
 const calculated = projectModel(input);
 
+// The same project with a wage item and the whole economic analysis.
+const economicInput: ProjectInput & { horizon: { calendar: string } } = {
+  ...input,
+  operations: {
+    ...input.operations,
+    costs: [
+      ...input.operations.costs,
+      {
+        key: 'کارگران',
+        category: 'LABOUR',
+        product: 'میلگرد',
+        currency: 'IRR',
+        origin: 'LOCAL',
+        standard: { mode: 'PER_UNIT', quantity: '1', price: '1000000', fixedCost: '0' },
+        payablesCoverage: none,
+      },
+    ],
+  },
+  economic: {
+    discountRate: '0.1',
+    costs: [
+      { item: 'سنگ آهن', taxesIncluded: '0.1' },
+      { item: 'کارگران', skill: 'UNSKILLED', workers: '12' },
+    ],
+    investment: [],
+    dividendTax: { local: '0', foreign: '0' },
+    indirectForeignExchange: {
+      outputs: [
+        {
+          product: 'میلگرد',
+          line: 'داخلی',
+          trade: 'IMPORTABLE',
+          share: '1',
+          borderPriceFactor: '0.9',
+        },
+      ],
+      inputs: [],
+      otherInflows: [],
+      otherOutflows: [],
+    },
+    employment: {
+      inputSupplying: {
+        unskilled: { workers: '5', wageBill: '100000000' },
+        skilled: { workers: '1', wageBill: '50000000' },
+        investment: '1000000000',
+      },
+      outputUsing: {
+        unskilled: { workers: '0', wageBill: '0' },
+        skilled: { workers: '0', wageBill: '0' },
+        investment: '0',
+      },
+    },
+    costBenefit: {
+      numeraire: 'FOREIGN_BORDER_PRICES',
+      currency: 'USD',
+      standardConversionFactor: '0.8',
+      outputs: [
+        {
+          product: 'میلگرد',
+          line: 'داخلی',
+          tradeClass: 'TRADABLE',
+          adjustmentFactor: '0.9',
+          foreignCurrencyExposure: '0.5',
+        },
+      ],
+      costs: [],
+      investment: [],
+      foreignLoans: [],
+      indirectBenefits: [{ key: 'آموزش', currency: 'IRR', amounts: at({ 2: '6000000' }) }],
+      indirectCosts: [],
+    },
+  },
+};
+const economicRun = projectModel(economicInput);
+
 const run = (extra: Record<string, unknown> = {}) => ({
   id: 'r1',
   number: 4,
@@ -798,6 +873,163 @@ test.describe('financial model results', () => {
     await expect(page.getByRole('heading', { name: 'اثر طرح بر کل سرمایه' })).toHaveCount(0);
   });
 
+  test('shows the economic analysis of a run, each warning with its schedule', async ({ page }) => {
+    await signIn(page);
+    await serveRun(
+      page,
+      run({
+        input: economicInput,
+        results: economicRun.value,
+        warnings: [
+          ...economicRun.warnings,
+          { code: 'cash.underFinanced', params: { periods: '۲' } },
+        ],
+      }),
+    );
+    await page.goto('/dashboard/models/m1/runs/r1');
+    // The warnings of the economic schedules are not among the general ones.
+    await expect(page.getByText(/طرح در دوره‌های ۲ کسری نقد دارد/)).toBeVisible();
+    await expect(page.getByText(/نسبت ارزش افزوده به نیروی ماهر قابل محاسبه نیست/)).toHaveCount(0);
+
+    await openTab(page, 'تحلیل اقتصادی');
+    const added = page.getByRole('region', { name: 'ارزش افزوده طرح' });
+    await expect(added.locator('thead').getByRole('columnheader')).toHaveText([
+      'شرح',
+      /ساخت.*۱۴۰۶\/۱۲/,
+      /تولید.*۱۴۰۷\/۱۲/,
+      /تولید.*۱۴۰۸\/۱۲/,
+      /تولید.*۱۴۰۹\/۱۲/,
+      /همه دوره‌ها.*جمع/,
+      /با نرخ تنزیل اقتصادی.*ارزش فعلی/,
+    ]);
+    // 100 units at 10 000 000 in each production year, their sum, and its present value at 10 %
+    // from the end of the first year: 1 000 000 000 × (1/1.1 + 1/1.21 + 1/1.331).
+    await expect(
+      added.getByRole('row', { name: /^درآمد ناخالص فروش/ }).getByRole('cell'),
+    ).toHaveText([
+      '۰',
+      '۱٬۰۰۰٬۰۰۰٬۰۰۰',
+      '۱٬۰۰۰٬۰۰۰٬۰۰۰',
+      '۱٬۰۰۰٬۰۰۰٬۰۰۰',
+      '۳٬۰۰۰٬۰۰۰٬۰۰۰',
+      '۲٬۴۸۶٬۸۵۱٬۹۹۱',
+    ]);
+    const addedPart = page.getByRole('heading', { name: 'ارزش افزوده', exact: true }).locator('..');
+    await expect(
+      addedPart.getByText(/نسبت ارزش افزوده به نیروی ماهر قابل محاسبه نیست/),
+    ).toBeVisible();
+    await expect(addedPart.getByText('ندارد')).toBeVisible();
+
+    await expect(page.getByRole('region', { name: 'اثر ارزی خالص طرح' })).toBeVisible();
+    const jobs = page.getByRole('region', { name: 'اثر اشتغال در سال مرجع' });
+    await expect(jobs.locator('thead').getByRole('columnheader')).toHaveCount(6);
+    // 12 people in the project, 6 with its suppliers, none downstream.
+    await expect(jobs.getByRole('row', { name: /^جمع ۱۲/ }).getByRole('cell')).toHaveText([
+      '۱۲',
+      '۶',
+      '۰',
+      '۶',
+      '۱۸',
+    ]);
+
+    // The cost-benefit analysis is in its numeraire: dollars here.
+    const analysis = page
+      .getByRole('heading', { name: 'هزینه-فایده به قیمت‌های اقتصادی' })
+      .locator('..');
+    await expect(analysis.getByText(/واحد سنجش: ارز به قیمت مرزی/)).toBeVisible();
+    const last = analysis
+      .getByRole('heading', { name: 'ارزش اقتصادی با آثار غیرمستقیم' })
+      .locator('..');
+    await expect(last.getByText('ارزش فعلی خالص (NPV)')).toBeVisible();
+    await expect(last.getByText(/USD$/)).toBeVisible();
+    const lines = page.getByRole('region', { name: /^تحلیل هزینه-فایده به قیمت‌های اقتصادی/ });
+    await expect(lines.getByText('(مبلغ‌ها به USD)')).toBeVisible();
+    await expect(lines.locator('thead').getByRole('columnheader')).toHaveText([
+      'شرح',
+      'ارزش مالی',
+      'ضریب تعدیل',
+      'ارزش بازار تعدیل‌شده',
+      'سهم ارزی (درصد)',
+      'تعدیل ارزی',
+      'ارزش اقتصادی',
+    ]);
+    // The net flow has neither a factor nor an exposure.
+    await expect(
+      lines
+        .getByRole('row', { name: /^جریان خالص/ })
+        .getByRole('cell')
+        .nth(1),
+    ).toHaveText('—');
+    const levels = page.getByRole('region', {
+      name: 'جریان خالص کل سرمایه در چهار سطح ارزش‌گذاری',
+    });
+    await expect(levels.getByRole('row')).toHaveCount(5);
+    await expect(levels.getByRole('columnheader').last()).toContainText('پس از تولید');
+
+    const results = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+      .analyze();
+    const blocking = results.violations
+      .filter((v) => v.impact === 'serious' || v.impact === 'critical' || v.id === 'heading-order')
+      .map((v) => ({ rule: v.id, nodes: v.nodes.slice(0, 3).map((n) => n.target.join(' ')) }));
+    expect(blocking).toEqual([]);
+  });
+
+  test('says what a run has of the economic analysis', async ({ page }) => {
+    await signIn(page);
+    // A run without the analysis.
+    await serveRun(page);
+    await page.goto('/dashboard/models/m1/runs/r1');
+    await openTab(page, 'تحلیل اقتصادی');
+    await expect(page.getByText(/این اجرا تحلیل اقتصادی ندارد/)).toBeVisible();
+    await expect(page.getByRole('region', { name: 'ارزش افزوده طرح' })).toHaveCount(0);
+
+    // A run of the first engine that had the value added, and nothing else.
+    await page.unroute('**/api/v1/financial-models/m1/runs/r1');
+    await serveRun(
+      page,
+      run({
+        input: economicInput,
+        engineVersion: '0.4.0',
+        results: {
+          ...economicRun.value,
+          economic: { valueAdded: economicRun.value.economic?.valueAdded },
+        },
+      }),
+    );
+    await page.reload();
+    await openTab(page, 'تحلیل اقتصادی');
+    await expect(page.getByRole('region', { name: 'ارزش افزوده طرح' })).toBeVisible();
+    await expect(page.getByText(/در این اجرا نیست: اثر ارزی، اشتغال، هزینه-فایده/)).toBeVisible();
+
+    // Stored results of a shape this page does not know end in a plain message.
+    await page.unroute('**/api/v1/financial-models/m1/runs/r1');
+    await serveRun(
+      page,
+      run({
+        input: economicInput,
+        results: { ...economicRun.value, economic: { valueAdded: { materialInput: {} } } },
+      }),
+    );
+    await page.reload();
+    await openTab(page, 'تحلیل اقتصادی');
+    await expect(page.getByText(/با این نسخه از برنامه قابل نمایش نیست/)).toBeVisible();
+
+    // So does a line of the cost-benefit schedule with a figure missing: no «—» beside the rest.
+    const partial = JSON.parse(JSON.stringify(economicRun.value)) as typeof economicRun.value;
+    delete (partial.economic?.costBenefit?.inflows.salesRevenue as { economicValue?: string })
+      .economicValue;
+    await page.unroute('**/api/v1/financial-models/m1/runs/r1');
+    await serveRun(page, run({ input: economicInput, results: partial }));
+    await page.reload();
+    await openTab(page, 'تحلیل اقتصادی');
+    await expect(page.getByText(/با این نسخه از برنامه قابل نمایش نیست/)).toBeVisible();
+    await expect(page.getByRole('region', { name: 'ارزش افزوده طرح' })).toHaveCount(0);
+    // The other parts of the run stay.
+    await openTab(page, 'سود و زیان');
+    await expect(page.getByRole('region', { name: 'صورت سود و زیان' })).toBeVisible();
+  });
+
   test('has no serious accessibility violations in any part', async ({ page }) => {
     await signIn(page);
     await serveRun(page);
@@ -813,6 +1045,7 @@ test.describe('financial model results', () => {
       'ترازنامه',
       'جریان نقدی تنزیل‌شده',
       'نسبت‌ها',
+      'تحلیل اقتصادی',
       'سناریو و حساسیت',
       'تحلیل افزایشی',
     ]) {
