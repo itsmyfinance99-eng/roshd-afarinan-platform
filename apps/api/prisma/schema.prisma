@@ -77,6 +77,7 @@ model User {
   feasibilityReports             FeasibilityReport[]            @relation("FeasibilityReportCreator")
   feasibilityReportChapters      FeasibilityReportChapter[]     @relation("FeasibilityReportChapterEditor")
   feasibilityReportVersions      FeasibilityReportVersion[]     @relation("FeasibilityReportVersionIssuer")
+  feasibilityReportApprovals     FeasibilityReportApproval[]    @relation("FeasibilityReportApprover")
   feasibilityReviewThreadsDone   FeasibilityReviewThread[]      @relation("FeasibilityReviewThreadHandler")
   feasibilityReviewComments      FeasibilityReviewComment[]     @relation("FeasibilityReviewCommentAuthor")
 
@@ -1133,6 +1134,7 @@ model FeasibilityReportVersion {
   calculationRun CalculationRun?    @relation("FeasibilityReportVersionRun", fields: [calculationRunId], references: [id], onDelete: Restrict)
   issuedBy       User?              @relation("FeasibilityReportVersionIssuer", fields: [issuedById], references: [id], onDelete: SetNull)
   file           FeasibilityReportFile?
+  approvals      FeasibilityReportApproval[]
 
   @@unique([projectId, number])
   @@index([calculationRunId])
@@ -1150,12 +1152,46 @@ model FeasibilityReportFile {
   size      Int
   /// The display unit of the amounts in local currency the file was written with.
   unit      String
+  /// How many approvals of the version the file shows; a file that shows fewer than the
+  /// version has is written again (ST-35.14).
+  approvals Int      @default(0)
   createdAt DateTime @default(now())
 
   version FeasibilityReportVersion @relation(fields: [versionId], references: [id], onDelete: Restrict)
   file    FileObject               @relation(fields: [fileId], references: [id], onDelete: Cascade)
 
   @@map("feasibility_report_files")
+}
+
+enum ReportApprovalStep {
+  OFFICER
+  ADMIN
+}
+
+enum ReportApprovalDecision {
+  APPROVED
+  REJECTED
+}
+
+/// A decision on a version of a report (ST-35.14, OQ-37): the approval of the feasibility
+/// officer, then that of an admin, or a refusal at either step. Written once, one per step.
+model FeasibilityReportApproval {
+  id            String                 @id @default(uuid(7)) @db.Uuid
+  versionId     String                 @db.Uuid
+  step          ReportApprovalStep
+  decision      ReportApprovalDecision
+  /// Why the version was refused, or a remark; for those who work on the study.
+  note          String?
+  decidedById   String?                @db.Uuid
+  /// The name of who decided, as it was then: it stands on the report.
+  decidedByName String
+  createdAt     DateTime               @default(now())
+
+  version   FeasibilityReportVersion @relation(fields: [versionId], references: [id], onDelete: Restrict)
+  decidedBy User?                    @relation("FeasibilityReportApprover", fields: [decidedById], references: [id], onDelete: SetNull)
+
+  @@unique([versionId, step])
+  @@map("feasibility_report_approvals")
 }
 
 enum QuestionnaireVersionStatus {

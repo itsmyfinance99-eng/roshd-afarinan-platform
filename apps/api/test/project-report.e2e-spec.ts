@@ -736,7 +736,12 @@ describe('The report of a feasibility project (e2e)', () => {
       ]);
       const listed = (await versions(owner, id).expect(200)).body.data;
       expect(listed).toEqual([
-        { number: 2, contentHash: expect.any(String), createdAt: expect.any(String) },
+        {
+          number: 2,
+          contentHash: expect.any(String),
+          createdAt: expect.any(String),
+          approval: { state: 'pending', steps: [] },
+        },
       ]);
       const mine = (await version(owner, id, 2).expect(200)).body.data;
       expect(mine.chapters[0]).toMatchObject({ key: 'executive_summary', body: 'خلاصه دوم' });

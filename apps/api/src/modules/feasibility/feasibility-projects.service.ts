@@ -694,6 +694,23 @@ export class FeasibilityProjectsService {
           throw new ValidationFailedError(open, 'پرسشنامه پروژه کامل نیست.');
         }
       }
+      if (decision.to === 'DELIVERED') {
+        // Under the lock versions are issued and decided on with: what is delivered is the
+        // newest version, and it has both of its approvals (ST-35.14, OQ-37).
+        await this.lock(tx, id);
+        const newest = await tx.feasibilityReportVersion.findFirst({
+          where: { projectId: id },
+          orderBy: { number: 'desc' },
+          select: { approvals: { select: { step: true, decision: true } } },
+        });
+        const approved = (step: 'OFFICER' | 'ADMIN') =>
+          newest?.approvals.some((a) => a.step === step && a.decision === 'APPROVED') ?? false;
+        if (!approved('OFFICER') || !approved('ADMIN')) {
+          throw new ConflictError(
+            'گزارش پس از تأیید مسئول امکان‌سنجی و تأیید نهایی مدیر تحویل می‌شود. آخرین نسخه گزارش هنوز هر دو تأیید را ندارد.',
+          );
+        }
+      }
       const { count } = await tx.feasibilityProject.updateMany({
         where: {
           id,

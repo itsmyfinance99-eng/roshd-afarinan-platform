@@ -270,6 +270,23 @@ describe('Feasibility projects (e2e)', () => {
     // Staff alone do not pass the expert's review.
     await move(officer, id, 'CLIENT_REVIEW').expect(403);
     await move(expert, id, 'CLIENT_REVIEW').expect(200);
+    // The study is delivered with a report that has both of its approvals (ST-35.14); their
+    // own suite takes them, here they are simply there.
+    await move(owner, id, 'DELIVERED').expect(409);
+    await app.get(PrismaService).feasibilityReportVersion.create({
+      data: {
+        projectId: id,
+        number: 1,
+        content: {},
+        contentHash: 'f'.repeat(64),
+        approvals: {
+          create: [
+            { step: 'OFFICER', decision: 'APPROVED', decidedByName: 'مسئول' },
+            { step: 'ADMIN', decision: 'APPROVED', decidedByName: 'مدیر' },
+          ],
+        },
+      },
+    });
     await move(owner, id, 'DELIVERED').expect(200);
     const done = await move(officer, id, 'ARCHIVED').expect(200);
     expect(done.body.data.status).toBe('ARCHIVED');

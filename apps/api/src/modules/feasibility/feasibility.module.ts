@@ -10,6 +10,7 @@ import { ProjectDocumentsController } from './project-documents.controller';
 import { ProjectDocumentsService } from './project-documents.service';
 import { ProjectQuestionnaireController } from './project-questionnaire.controller';
 import { ProjectQuestionnaireService } from './project-questionnaire.service';
+import { ProjectReportApprovalService } from './project-report-approval.service';
 import { ProjectReportFileService } from './project-report-file.service';
 import { ProjectReportController } from './project-report.controller';
 import { ProjectReportService } from './project-report.service';
@@ -32,7 +33,8 @@ import { ReportTemplatesService } from './report-templates.service';
  * financial model of the study and their internal notes (ST-35.10), and the comments of the review
  * of a study, in threads on its parts (ST-35.11), and the report of the study: templates of its
  * chapters, the draft the experts write and the versions it is issued in (ST-35.12), and the PDF
- * of a version (ST-35.13). The approvals of a version join in a later story.
+ * of a version (ST-35.13), and the two approvals a version needs before the study is delivered
+ * (ST-35.14).
  */
 @Module({
   imports: [UsersModule, ServiceRequestsModule, FinancialModelModule],
@@ -52,6 +54,7 @@ import { ReportTemplatesService } from './report-templates.service';
     ProjectContractService,
     ProjectDocumentsService,
     ProjectQuestionnaireService,
+    ProjectReportApprovalService,
     ProjectReportFileService,
     ProjectReportService,
     ProjectReviewService,
