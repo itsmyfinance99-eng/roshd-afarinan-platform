@@ -42,6 +42,8 @@ export interface ReportChapterContent {
 /** The run a report takes its figures from, as the report names it. */
 export interface ReportRunRef {
   id: string;
+  /** The title the financial model had when the version was issued. */
+  modelTitle: string;
   number: number;
   modelVersion: number;
   engineVersion: string;
@@ -160,6 +162,7 @@ export interface Composition {
  * - The economic chapter is in the report when the run has an economic analysis or the experts
  *   wrote something for it; otherwise it is left out, because not every study has one.
  * - A quoted question that is not in the questionnaire any more is dropped.
+ * - A report needs at least one chapter that stays in it.
  */
 export function composeChapters(
   drafts: DraftChapter[],
@@ -195,6 +198,9 @@ export function composeChapters(
       });
     }
     composition.chapters.push({ key: draft.key, kind, title: draft.title, body, answers: quoted });
+  }
+  if (composition.chapters.length === 0) {
+    composition.issues.push({ path: 'chapters', message: 'گزارش هیچ فصلی برای صدور ندارد.' });
   }
   return composition;
 }

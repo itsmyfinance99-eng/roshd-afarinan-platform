@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { runReport, UNREADABLE_PART, type ReportPart } from '@roshd/financial-report';
+import { runReport, type ReportPart } from '@roshd/financial-report';
 import {
   DEFAULT_REPORT_STRUCTURE,
   FEASIBILITY_REPORT_READ_STATUSES,
@@ -56,6 +56,7 @@ const NO_REPORT = 'گزارش این پروژه هنوز شروع نشده اس�
 const NO_TEMPLATE = 'این قالب گزارش در دسترس نیست.';
 const STALE_CHAPTER =
   'این فصل پس از بازشدن در ویرایشگر شما تغییر کرده است. صفحه را تازه کنید و دوباره ذخیره کنید.';
+const UNREADABLE_RUN = 'جدول‌های اجرای محاسبه این نسخه اکنون قابل نمایش نیست.';
 /** The part of a run's report that holds its economic analysis. */
 const ECONOMIC_PART = 'economic';
 
@@ -425,7 +426,7 @@ export class ProjectReportService {
           select: { financialModelId: true },
         });
         const run = financialModelId
-          ? await this.models.approvedRunSource(financialModelId, input.runId)
+          ? await this.models.approvedRunSource(financialModelId, input.runId, tx)
           : null;
         if (!run) {
           // A run of another model does not exist here, and neither does one nobody approved.
@@ -456,12 +457,12 @@ export class ProjectReportService {
   /** The draft as it would be issued now, with what is still missing. Nothing is stored. */
   async preview(id: string, principal: Principal, query: ReportViewQuery): Promise<ReportView> {
     await this.workerOf(id, principal);
-    const { content, composition, parts } = await this.compose(this.prisma, id);
+    const { content, composition, parts } = await this.compose(this.prisma, id, query.unit);
     return {
       number: null,
       issuedAt: null,
       contentHash: null,
-      ...(await this.read(id, content, query.unit, parts)),
+      ...this.shown(content, parts),
       omitted: composition.omitted,
       issues: composition.issues,
     };
@@ -567,7 +568,7 @@ export class ProjectReportService {
       number: row.number,
       issuedAt: row.createdAt,
       contentHash: row.contentHash,
-      ...(await this.read(id, content, query.unit)),
+      ...this.shown(content, await this.partsOf(id, content, query.unit)),
       ...(viewer.applicant
         ? {}
         : {
@@ -582,11 +583,13 @@ export class ProjectReportService {
 
   /**
    * The content the draft has now. The chapters are put together from the draft, the answers of
-   * the questionnaire and the chosen run; `parts` is the report of that run, read once.
+   * the questionnaire and the chosen run; `parts` is the report of that run in `unit`. Every
+   * read goes through `db`, so inside a transaction no second connection is waited for.
    */
   private async compose(
     db: Db,
     id: string,
+    unit: ReportingUnit = '1',
   ): Promise<{ content: ReportContent; composition: Composition; parts: ReportPart[] | null }> {
     const project = await db.feasibilityProject.findUnique({
       where: { id },
@@ -604,9 +607,9 @@ export class ProjectReportService {
     if (!report) throw new ConflictError(NO_REPORT);
     const source =
       financialModelId && report.calculationRunId
-        ? await this.models.approvedRunSource(financialModelId, report.calculationRunId)
+        ? await this.models.approvedRunSource(financialModelId, report.calculationRunId, db)
         : null;
-    const parts = source ? runReport({ ...source, unit: '1' }).parts : null;
+    const parts = source ? runReport({ ...source, unit }).parts : null;
     const questionnaire = await this.questionnaire.load(db, id);
     const composition = composeChapters(
       report.chapters
@@ -633,6 +636,7 @@ export class ProjectReportService {
       run: run
         ? {
             id: run.id,
+            modelTitle: source.modelTitle,
             number: run.number,
             modelVersion: run.modelVersion,
             engineVersion: run.engineVersion,
@@ -647,29 +651,34 @@ export class ProjectReportService {
   }
 
   /**
-   * A stored content as it is read: the chapters with the schedules of the run in `unit`. The
-   * schedules are built from the stored run on every read, and nothing is recalculated.
+   * The schedules of the run of a version in `unit`, built from the stored run on every read;
+   * nothing is recalculated. The title of the model is the one the version was issued with.
    */
-  private async read(
+  private async partsOf(
     id: string,
     content: ReportContent,
     unit: ReportingUnit,
-    known?: ReportPart[] | null,
-  ): Promise<Pick<ReportView, 'project' | 'run' | 'chapters'>> {
-    let parts: ReportPart[] | null = unit === '1' && known ? known : null;
-    if (!parts && content.run) {
-      const { financialModelId } = await this.prisma.feasibilityProject.findUniqueOrThrow({
-        where: { id },
-        select: { financialModelId: true },
-      });
-      const source = financialModelId
-        ? await this.models.approvedRunSource(financialModelId, content.run.id)
-        : null;
-      parts = source
-        ? runReport({ ...source, unit }).parts
-        : // The run of a version is kept by the database; this is for a row nobody expects.
-          [{ id: 'summary', title: 'نتایج', blocks: [{ kind: 'text', text: UNREADABLE_PART }] }];
-    }
+  ): Promise<ReportPart[] | null> {
+    if (!content.run) return null;
+    const { financialModelId } = await this.prisma.feasibilityProject.findUniqueOrThrow({
+      where: { id },
+      select: { financialModelId: true },
+    });
+    const source = financialModelId
+      ? await this.models.approvedRunSource(financialModelId, content.run.id)
+      : null;
+    return source
+      ? runReport({ ...source, modelTitle: content.run.modelTitle ?? source.modelTitle, unit })
+          .parts
+      : // The run of a version is kept by the database; this is for a row nobody expects.
+        [{ id: 'summary', title: 'نتایج', blocks: [{ kind: 'text', text: UNREADABLE_RUN }] }];
+  }
+
+  /** A content as it is read: its chapters, the financial and the economic one with `parts`. */
+  private shown(
+    content: ReportContent,
+    parts: ReportPart[] | null,
+  ): Pick<ReportView, 'project' | 'run' | 'chapters'> {
     const partsOf = (kind: FeasibilityReportChapterKind): ReportPart[] | undefined =>
       kind === 'text' || !parts
         ? undefined

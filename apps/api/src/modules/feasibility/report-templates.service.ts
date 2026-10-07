@@ -80,10 +80,13 @@ export class ReportTemplatesService {
     actor: Principal,
     meta: RequestMeta,
   ): Promise<ReportTemplateView> {
-    const count = await this.prisma.feasibilityReportTemplate.count();
+    // Archived templates are history and take no place.
+    const count = await this.prisma.feasibilityReportTemplate.count({
+      where: { archivedAt: null },
+    });
     if (count >= MAX_REPORT_TEMPLATES) {
       throw new ConflictError(
-        'حداکثر تعداد قالب‌های گزارش ساخته شده است. یکی از قالب‌های موجود را تغییر دهید.',
+        'حداکثر تعداد قالب‌های فعال گزارش ساخته شده است. یکی از قالب‌های موجود را تغییر دهید یا بایگانی کنید.',
       );
     }
     const row = await this.prisma.feasibilityReportTemplate.create({

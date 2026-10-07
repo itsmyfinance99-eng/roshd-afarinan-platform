@@ -55,6 +55,10 @@ describe('reportStructureSchema', () => {
     expect(reportStructureSchema.safeParse([{ key: 'general', title: 'کل' }]).success).toBe(false);
     expect(reportStructureSchema.safeParse([{ ...market, title: 'ب' }]).success).toBe(false);
     expect(reportStructureSchema.safeParse([{ ...market, body: 'متن' }]).success).toBe(false);
+    expect(
+      reportStructureSchema.safeParse([{ ...market, guidance: `a${String.fromCharCode(0)}` }])
+        .success,
+    ).toBe(false);
   });
 });
 
@@ -94,6 +98,10 @@ describe('saveReportChapterSchema', () => {
     ).toBe(false);
     expect(saveReportChapterSchema.safeParse({ body: '', answerKeys: [] }).success).toBe(false);
     expect(saveReportChapterSchema.safeParse({ ...base, version: 0 }).success).toBe(false);
+    expect(saveReportChapterSchema.safeParse({ ...base, version: 2 ** 31 }).success).toBe(false);
+    expect(
+      saveReportChapterSchema.safeParse({ ...base, body: `a${String.fromCharCode(0)}b` }).success,
+    ).toBe(false);
     expect(saveReportChapterSchema.safeParse({ ...base, answerKeys: ['a', 'a'] }).success).toBe(
       false,
     );

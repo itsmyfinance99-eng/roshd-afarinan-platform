@@ -41,13 +41,20 @@ export const MAX_REPORT_TEMPLATES = 50;
 /** Versions one project's report is issued in (a bound against runaway use). */
 export const MAX_REPORT_VERSIONS = 50;
 
+/** PostgreSQL stores no NUL character in a text. */
+const NUL = String.fromCharCode(0);
+const withoutNul = (value: string): boolean => !value.includes(NUL);
+const NUL_ERROR = 'متن نویسه نامعتبر دارد.';
+
 /** A chapter of a report template: which chapter, under which title, with what guidance. */
 export const reportTemplateChapterSchema = z
   .object({
     key: z.enum(FEASIBILITY_REPORT_CHAPTERS, { error: 'فصل گزارش معتبر نیست.' }),
     title: text(2, REPORT_CHAPTER_TITLE_MAX),
     /** What the experts are expected to write in the chapter; never part of the report. */
-    guidance: optionalText(REPORT_CHAPTER_GUIDANCE_MAX).optional(),
+    guidance: optionalText(REPORT_CHAPTER_GUIDANCE_MAX)
+      .refine(withoutNul, { error: NUL_ERROR })
+      .optional(),
   })
   .strict();
 export type ReportTemplateChapter = z.infer<typeof reportTemplateChapterSchema>;
@@ -122,10 +129,12 @@ export const saveReportChapterSchema = z.object({
   version: z
     .number({ error: 'نسخه فصل را بفرستید.' })
     .int({ error: 'نسخه فصل را بفرستید.' })
-    .min(1, { error: 'نسخه فصل را بفرستید.' }),
+    .min(1, { error: 'نسخه فصل را بفرستید.' })
+    .max(2_147_483_647, { error: 'نسخه فصل معتبر نیست.' }),
   body: z
     .string({ error: 'متن معتبر وارد کنید.' })
-    .max(REPORT_CHAPTER_BODY_MAX, { error: 'متن این فصل بیش از اندازه بلند است.' }),
+    .max(REPORT_CHAPTER_BODY_MAX, { error: 'متن این فصل بیش از اندازه بلند است.' })
+    .refine(withoutNul, { error: NUL_ERROR }),
   answerKeys: z
     .array(questionnaireKeySchema, { error: 'پاسخ‌های منتخب معتبر نیست.' })
     .max(MAX_REPORT_CHAPTER_ANSWERS, { error: 'تعداد پاسخ‌های منتخب این فصل بیش از اندازه است.' })

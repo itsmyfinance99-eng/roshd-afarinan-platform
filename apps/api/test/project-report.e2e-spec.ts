@@ -1,6 +1,7 @@
 import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { canonicalHash } from '../src/common/json/canonical-json';
 import { PrismaService } from '../src/modules/database/prisma.service';
 import { modelInputs } from './fixtures/model-inputs';
 import { createTestApp, registerUser } from './helpers';
@@ -233,6 +234,10 @@ describe('The report of a feasibility project (e2e)', () => {
       ]);
 
       expect((await start(officer, id).expect(409)).body.error.message).toContain('شروع شده');
+      // Staff who own a project are its applicant there and nothing else.
+      const mine = await projectAt(officer, 'IN_PROGRESS');
+      await draft(officer, mine.id).expect(403);
+      await start(officer, mine.id).expect(403);
       expect(await prisma().feasibilityReport.count({ where: { projectId: id } })).toBe(1);
     });
 
@@ -566,6 +571,8 @@ describe('The report of a feasibility project (e2e)', () => {
         where: { projectId: id },
       });
       expect(row.contentHash).toBe(issued.contentHash);
+      // The hash is that of the content as it is stored.
+      expect(canonicalHash(row.content)).toBe(row.contentHash);
       await expect(
         prisma().feasibilityReportVersion.update({
           where: { id: row.id },

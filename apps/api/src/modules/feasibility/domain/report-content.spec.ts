@@ -160,11 +160,20 @@ describe('composeChapters', () => {
       selected: true,
       economic: false,
     });
+    // A report of nothing but that chapter has nothing left to issue.
     expect(left).toEqual({
       chapters: [],
       omitted: [{ key: 'economic', title: 'فصل economic' }],
-      issues: [],
+      issues: [{ path: 'chapters', message: expect.stringContaining('هیچ فصلی') }],
     });
+    const beside = composeChapters(
+      [chapter('market', 'متن'), chapter('economic')],
+      questions,
+      answers,
+      noRun,
+    );
+    expect(beside.issues).toEqual([]);
+    expect(beside.omitted).toHaveLength(1);
     const analysed = composeChapters([chapter('economic')], questions, answers, {
       selected: true,
       economic: true,

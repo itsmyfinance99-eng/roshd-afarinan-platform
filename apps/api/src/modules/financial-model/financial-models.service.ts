@@ -492,10 +492,13 @@ export class FinancialModelsService {
   /**
    * The approved runs of a model that belongs to something else, newest first: what a
    * deliverable of that thing may be built from (ST-35.12). The module that owns the link asks,
-   * after it has checked who is asking.
+   * after it has checked who is asking; inside a transaction it passes that transaction.
    */
-  async approvedRuns(modelId: string): Promise<ApprovedRunSummary[]> {
-    const runs = await this.prisma.calculationRun.findMany({
+  async approvedRuns(
+    modelId: string,
+    db: Prisma.TransactionClient | PrismaService = this.prisma,
+  ): Promise<ApprovedRunSummary[]> {
+    const runs = await db.calculationRun.findMany({
       where: { modelId, approvedAt: { not: null } },
       select: APPROVED_RUN_SELECT,
       orderBy: { number: 'desc' },
@@ -511,8 +514,9 @@ export class FinancialModelsService {
   async approvedRunSource(
     modelId: string,
     runId: string,
+    db: Prisma.TransactionClient | PrismaService = this.prisma,
   ): Promise<(Omit<RunReportSource, 'unit'> & { summary: ApprovedRunSummary }) | null> {
-    const run = await this.prisma.calculationRun.findFirst({
+    const run = await db.calculationRun.findFirst({
       where: { id: runId, modelId, approvedAt: { not: null } },
       select: {
         ...APPROVED_RUN_SELECT,
