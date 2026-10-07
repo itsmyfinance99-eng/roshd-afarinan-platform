@@ -1,6 +1,5 @@
 'use client';
 
-import type { Permission } from '@roshd/types';
 import { Button, cn, ErrorMessage, Skeleton } from '@roshd/ui';
 import { ROLE_LABELS_FA } from '@roshd/types';
 import Link from 'next/link';
@@ -11,66 +10,9 @@ import { apiFetch } from '@/lib/api-client';
 import { notifySessionChange } from '@/lib/session';
 import { useApi } from '@/lib/use-api';
 import { MeProvider } from './me-context';
+import { visibleNav } from './nav';
 import { NotificationBell } from './notifications';
 import type { Me } from './types';
-
-interface NavItem {
-  href: string;
-  label: string;
-  permission?: Permission;
-  /** Shown to holders of any of these permissions. */
-  anyOf?: readonly Permission[];
-}
-
-/** One shell for every role; items appear according to permissions (roadmap §28). */
-const NAV: NavItem[] = [
-  { href: '/dashboard', label: 'پیشخوان' },
-  { href: '/dashboard/requests', label: 'درخواست‌های من' },
-  { href: '/dashboard/feasibility', label: 'پروژه‌های امکان‌سنجی' },
-  { href: '/dashboard/tickets', label: 'پشتیبانی' },
-  { href: '/dashboard/orders', label: 'سفارش‌های من' },
-  { href: '/dashboard/notifications', label: 'اعلان‌ها' },
-  { href: '/dashboard/files', label: 'فایل‌های من' },
-  { href: '/dashboard/profile', label: 'پروفایل' },
-  {
-    // The financial analysis tool is for experts and staff until OQ-38 decides about members.
-    href: '/dashboard/models',
-    label: 'مدل‌های مالی',
-    anyOf: ['financial-models:work', 'financial-models:manage'],
-  },
-  {
-    href: '/dashboard/manage/requests',
-    label: 'مدیریت درخواست‌ها',
-    permission: 'requests:read-all',
-  },
-  {
-    href: '/dashboard/manage/feasibility',
-    label: 'مدیریت امکان‌سنجی',
-    anyOf: ['feasibility:manage', 'feasibility:work'],
-  },
-  {
-    href: '/dashboard/manage/questionnaires',
-    label: 'قالب‌های پرسشنامه',
-    permission: 'feasibility:manage',
-  },
-  {
-    href: '/dashboard/manage/report-templates',
-    label: 'قالب‌های گزارش',
-    permission: 'feasibility:manage',
-  },
-  { href: '/dashboard/manage/tickets', label: 'مدیریت تیکت‌ها', permission: 'tickets:read-all' },
-  { href: '/dashboard/content', label: 'مدیریت محتوا', permission: 'cms:write' },
-  { href: '/dashboard/pages', label: 'صفحات سازمانی', permission: 'cms:write' },
-  { href: '/dashboard/catalog', label: 'مدیریت کاتالوگ', permission: 'catalog:manage' },
-  {
-    href: '/dashboard/manage/orders',
-    label: 'سفارش‌ها و پرداخت‌ها',
-    permission: 'orders:read-all',
-  },
-  { href: '/dashboard/manage/files', label: 'فایل‌های کاربران', permission: 'files:read-all' },
-  { href: '/dashboard/manage/users', label: 'مدیریت کاربران', permission: 'users:read' },
-  { href: '/dashboard/manage/audit', label: 'گزارش رویدادها', permission: 'audit:read' },
-];
 
 export function DashboardShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -110,11 +52,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   }
 
   const me = state.data;
-  const items = NAV.filter(
-    (item) =>
-      (!item.permission || me.permissions.includes(item.permission)) &&
-      (!item.anyOf || item.anyOf.some((permission) => me.permissions.includes(permission))),
-  );
+  const items = visibleNav(me.permissions);
   const isActive = (href: string) =>
     href === '/dashboard'
       ? pathname === href

@@ -6,9 +6,11 @@
  *
  *   pnpm --filter @roshd/api db:seed:demo
  */
+import { hash } from '@node-rs/argon2';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { questionnaireDefinitionSchema } from '@roshd/validation';
 import { loadEnvFile } from '../src/config/load-env-file';
+import { ARGON2_OPTIONS } from '../src/modules/auth/argon2-options';
 import { PrismaClient } from '../src/generated/prisma/client';
 import { DEMO_QUESTIONNAIRE_DEFINITION, DEMO_QUESTIONNAIRE_TITLE } from './demo-questionnaire';
 
@@ -418,6 +420,7 @@ ${r.summary}`,
       });
     }
     await seedQuestionnaire(prisma);
+    await seedDemoAccounts(prisma);
     console.warn(
       `Seeded ${entries.length} content entries, ${courses.length} courses, ${research.length} research projects and ${opportunities.length} opportunities (isDemo=true).`,
     );
@@ -453,6 +456,56 @@ async function seedQuestionnaire(prisma: PrismaClient): Promise<void> {
     },
   });
   console.warn('Seeded the sample questionnaire template (isDemo=true).');
+}
+
+/** One sample account per role that has a part of the dashboard of its own. */
+export const DEMO_ACCOUNTS = [
+  { role: 'user', name: 'عضو' },
+  { role: 'applicant', name: 'متقاضی' },
+  { role: 'expert', name: 'کارشناس' },
+  { role: 'feasibility_officer', name: 'مسئول امکان‌سنجی' },
+  { role: 'editor', name: 'ویراستار' },
+  { role: 'support', name: 'پشتیبانی' },
+  { role: 'finance', name: 'مالی' },
+  { role: 'admin', name: 'مدیر' },
+  { role: 'super_admin', name: 'مدیر ارشد' },
+] as const;
+
+/** The address of the sample account of a role, e.g. `feasibility-officer@demo.roshd.test`. */
+export const demoAccountEmail = (role: string): string =>
+  `${role.replaceAll('_', '-')}@demo.roshd.test`;
+
+/**
+ * Sample accounts for trying the dashboard of every role, created when SEED_DEMO_PASSWORD is set
+ * (at least 12 characters; all sample accounts share it). The password is never written anywhere
+ * else and an existing account keeps the one it has. The names say «نمونه نمایشی», and the
+ * addresses end in the reserved `.test` domain, so no mail ever leaves for them.
+ */
+async function seedDemoAccounts(prisma: PrismaClient): Promise<void> {
+  const password = process.env.SEED_DEMO_PASSWORD;
+  if (!password) return;
+  if (password.length < 12) throw new Error('SEED_DEMO_PASSWORD must be at least 12 characters');
+  const passwordHash = await hash(password, ARGON2_OPTIONS);
+  const roles = new Map((await prisma.role.findMany()).map((role) => [role.key, role.id]));
+  for (const account of DEMO_ACCOUNTS) {
+    const email = demoAccountEmail(account.role);
+    const user = await prisma.user.upsert({
+      where: { email },
+      update: {},
+      create: {
+        email,
+        fullName: `${account.name} (نمونه نمایشی)`,
+        passwordHash,
+        emailVerifiedAt: new Date(),
+      },
+    });
+    const roleIds = [...new Set(['user', account.role])].flatMap((key) => roles.get(key) ?? []);
+    await prisma.userRole.createMany({
+      data: roleIds.map((roleId) => ({ userId: user.id, roleId })),
+      skipDuplicates: true,
+    });
+  }
+  console.warn(`Ensured ${DEMO_ACCOUNTS.length} sample accounts (@demo.roshd.test).`);
 }
 
 main().catch((error: unknown) => {

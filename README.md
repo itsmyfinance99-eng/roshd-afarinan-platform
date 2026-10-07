@@ -55,7 +55,7 @@ pnpm dev                                      # API on http://localhost:4000
 3. `cp .env.example .env` and set `JWT_ACCESS_SECRET` and `FILE_URL_SECRET` (each `openssl rand -base64 48`).
 4. `docker compose up -d`, then `pnpm --filter @roshd/api db:migrate:deploy` and `pnpm --filter @roshd/api db:seed`.
 5. `pnpm dev`: web on <http://localhost:3000>, API on <http://localhost:4000>.
-6. Optional: `pnpm --filter @roshd/api db:seed:demo` for labelled demo content. To try online payment locally, keep `PAYMENT_PROVIDER` empty (mock gateway outside production).
+6. Optional: `pnpm --filter @roshd/api db:seed:demo` for labelled demo content. With `SEED_DEMO_PASSWORD` set in `.env` it also creates one sample account per role (`<role>@demo.roshd.test`, e.g. `admin@demo.roshd.test`, `feasibility-officer@demo.roshd.test`) for trying each dashboard. To try online payment locally, keep `PAYMENT_PROVIDER` empty (mock gateway outside production).
 
 ## Docker images
 
