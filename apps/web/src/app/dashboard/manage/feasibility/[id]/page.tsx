@@ -51,7 +51,8 @@ export default function ManageFeasibilityProjectPage() {
               {canManage ? (
                 <ProjectContract
                   project={project}
-                  side="staff"
+                  // On a project of their own, staff are its applicant and nothing else.
+                  side={project.applicant === undefined ? 'applicant' : 'staff'}
                   onChanged={() => reload({ silent: true })}
                 />
               ) : null}

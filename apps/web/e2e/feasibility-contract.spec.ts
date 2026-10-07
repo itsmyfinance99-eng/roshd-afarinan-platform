@@ -265,6 +265,21 @@ test.describe('the contract of a feasibility study', () => {
     expect(asked).toBe(0);
   });
 
+  test('speaks to staff as the applicant on a project of their own', async ({ page }) => {
+    await signIn(page, ['feasibility:manage']);
+    // The API gives the owner no `applicant`: there they are the applicant and nothing else.
+    await page.route('**/api/v1/feasibility-projects/p1', (route) =>
+      json(route, project('CONTRACT_PENDING', [], { experts: [] })),
+    );
+    await page.route('**/api/v1/feasibility-projects/p1/contract', (route) =>
+      json(route, { files: [copy(1)], access: { upload: true, confirm: false } }),
+    );
+    await page.goto('/dashboard/manage/feasibility/p1');
+    await expect(page.getByText(/پس از تأیید کارشناسان، کار مطالعه آغاز می‌شود/)).toBeVisible();
+    await expect(page.getByText(/با تأیید یک نسخه، پروژه وارد مرحله/)).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /تأیید نسخه/ })).toHaveCount(0);
+  });
+
   test('stays readable for the applicant once the work has started', async ({ page }) => {
     await signIn(page, []);
     await page.route('**/api/v1/feasibility-projects/p1', (route) =>

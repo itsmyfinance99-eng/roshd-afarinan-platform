@@ -347,6 +347,18 @@ describe('The contract of a feasibility project (e2e)', () => {
         where: { entityId: id, purpose: 'FEASIBILITY_CONTRACT', status: 'ACTIVE' },
       }),
     ).toBe(2);
+
+    // A later return to the work is a plain step: the confirmation neither takes it nor marks
+    // another copy.
+    await move(expert, id, 'EXPERT_REVIEW').expect(200);
+    await move(expert, id, 'CLIENT_REVIEW').expect(200);
+    await confirm(officer, id, copiesOf(after)[1]!.id).expect(409);
+    expect(await statusOf(id)).toBe('CLIENT_REVIEW');
+    expect(
+      await prisma().feasibilityContract.count({
+        where: { projectId: id, confirmedAt: { not: null } },
+      }),
+    ).toBe(1);
   });
 
   it('is handed in only while the project waits for its contract', async () => {

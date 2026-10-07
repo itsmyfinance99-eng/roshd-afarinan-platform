@@ -73,7 +73,7 @@ export function ProjectContract({
 }: {
   project: FeasibilityProjectDetail;
   side: 'applicant' | 'staff';
-  /** The contract was confirmed, so the project has a new status. */
+  /** The contract was confirmed, or a confirmation was refused: the project is read again. */
   onChanged: () => void;
 }) {
   const waiting = !BEFORE_CONTRACT.includes(project.status);
@@ -178,6 +178,8 @@ export function ProjectContract({
     setBusy(null);
     setError(result.message);
     reload({ silent: true });
+    // A colleague may have confirmed or archived meanwhile: the project is read again too.
+    onChanged();
   };
 
   return (
@@ -251,7 +253,7 @@ export function ProjectContract({
         <FieldShell
           id="contract-note"
           label="پیام برای متقاضی (اختیاری)"
-          hint="با تأیید قرارداد فرستاده می‌شود؛ متقاضی آن را در روند پروژه و در اعلان می‌خواند."
+          hint="با تأیید قرارداد در روند پروژه ثبت می‌شود؛ متقاضی و کارشناسان منتسب آن را می‌خوانند، پس جزئیات قرارداد را اینجا ننویسید."
         >
           <TextArea
             id="contract-note"
