@@ -5,6 +5,7 @@ import { REPORTING_UNIT_LABELS_FA, REPORTING_UNITS, type ReportingUnit } from '@
 import { useEffect, useState } from 'react';
 import { AsyncBoundary } from '@/components/dashboard/ui';
 import { useApi } from '@/lib/use-api';
+import { ReportFileDownload } from './report-file';
 import type { ReportDocument } from './report-types';
 import { ReportDocumentView } from './report-view';
 import { hasReview, ReviewThreads } from './review-cycle';
@@ -59,6 +60,9 @@ export function ReportReader({
                 این فصل‌ها در گزارش نمی‌آید، چون اجرای محاسبه تحلیل اقتصادی ندارد و متنی هم برایشان
                 نوشته نشده است: {report.omitted.map((chapter) => `«${chapter.title}»`).join('، ')}
               </Notice>
+            ) : null}
+            {report.number !== null ? (
+              <ReportFileDownload path={path} number={report.number} />
             ) : null}
             {report.run ? (
               <FieldShell id="report-unit" label="واحد نمایش مبلغ‌ها" className="max-w-xs">
