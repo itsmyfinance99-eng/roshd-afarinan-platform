@@ -38,12 +38,15 @@ export interface VersionApprovalView {
 
 const STEP_ORDER: Record<ApprovalRecord['step'], number> = { OFFICER: 0, ADMIN: 1 };
 
-const of = (records: readonly ApprovalRecord[], step: ApprovalRecord['step']) =>
+/** What the state of an approval is read from. */
+type Decided = Pick<ApprovalRecord, 'step' | 'decision'>;
+
+const of = <T extends Decided>(records: readonly T[], step: ApprovalRecord['step']) =>
   records.find((record) => record.step === step);
 
 /** Where the approval of a version stands. */
 export function approvalState(
-  records: readonly ApprovalRecord[],
+  records: readonly Decided[],
 ): Exclude<ReportApprovalState, 'pending'> {
   if (records.some((record) => record.decision === 'REJECTED')) return 'rejected';
   if (!of(records, 'OFFICER')) return 'pending_officer';
@@ -51,7 +54,7 @@ export function approvalState(
 }
 
 /** Whether both approvals were given: only such a version is delivered. */
-export const isFinallyApproved = (records: readonly ApprovalRecord[]): boolean =>
+export const isFinallyApproved = (records: readonly Decided[]): boolean =>
   approvalState(records) === 'approved';
 
 export type ApprovalRefusal =

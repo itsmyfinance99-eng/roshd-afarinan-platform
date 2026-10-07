@@ -95,7 +95,7 @@ export class ProjectReportApprovalService {
     const name = (await this.users.namesByIds([principal.userId])).get(principal.userId) ?? '';
     const approved = input.decision === 'approved';
 
-    const { records, issuedById } = await this.prisma.$transaction(async (tx) => {
+    const { records, issuedById, officerId } = await this.prisma.$transaction(async (tx) => {
       // Under the lock versions are issued with: the newest version stays the newest meanwhile.
       const status = await this.projects.lock(tx, id);
       if (!(FEASIBILITY_WORK_STATUSES as readonly FeasibilityStatus[]).includes(status)) {
@@ -128,7 +128,12 @@ export class ProjectReportApprovalService {
         },
         select: APPROVAL_SELECT,
       });
-      return { records: [...version.approvals, row], issuedById: version.issuedById };
+      return {
+        records: [...version.approvals, row],
+        issuedById: version.issuedById,
+        officerId:
+          version.approvals.find((approval) => approval.step === 'OFFICER')?.decidedById ?? null,
+      };
     });
 
     await this.audit.record({
@@ -142,23 +147,26 @@ export class ProjectReportApprovalService {
       meta,
     });
     // Best effort: the decision stands, so a failed announcement must not fail the request.
-    await this.announce(id, number, input, principal.userId, issuedById).catch((error: unknown) => {
-      this.logger.warn({ err: error, projectId: id }, 'approval announcement failed');
-    });
+    await this.announce(id, number, input, principal.userId, { issuedById, officerId }).catch(
+      (error: unknown) => {
+        this.logger.warn({ err: error, projectId: id }, 'approval announcement failed');
+      },
+    );
     return approvalView(records, false);
   }
 
   /**
-   * Tells those who work on the study: its experts and who issued the version, and — once the
-   * officer approved — the admins whose approval is next. Never the applicant: they hear of the
-   * report when it is delivered.
+   * Tells those who work on the study and can still open it: its experts, who issued the
+   * version, the officer whose approval the admin decided after, and — once the officer
+   * approved — the admins whose approval is next. Never the applicant: they hear of the report
+   * when it is delivered.
    */
   private async announce(
     id: string,
     number: number,
     input: DecideReportVersionInput,
     actorId: string,
-    issuedById: string | null,
+    version: { issuedById: string | null; officerId: string | null },
   ): Promise<void> {
     const project = await this.prisma.feasibilityProject.findUnique({
       where: { id },
@@ -174,22 +182,25 @@ export class ProjectReportApprovalService {
       approved && input.step === 'officer'
         ? await this.rbac.userIdsWithPermission(STEP_PERMISSION.admin)
         : [];
-    const able = new Set([
-      ...(await this.rbac.userIdsWithPermission('feasibility:work')),
-      ...(await this.rbac.userIdsWithPermission('feasibility:manage')),
-    ]);
+    const assigned = new Set(project.experts.map((expert) => expert.expertId));
+    const staff = new Set(await this.rbac.userIdsWithPermission('feasibility:manage'));
+    const experts = new Set(await this.rbac.userIdsWithPermission('feasibility:work'));
+    // The link opens for the staff of the project and for its assigned experts only.
+    const opens = (userId: string) =>
+      staff.has(userId) || (assigned.has(userId) && experts.has(userId));
     const told = new Set(
-      [...project.experts.map((expert) => expert.expertId), ...(issuedById ?? []), ...next].filter(
-        (userId) => userId !== actorId && userId !== project.ownerId && able.has(userId),
+      [...assigned, version.issuedById, version.officerId, ...next].filter(
+        (userId): userId is string =>
+          userId !== null && userId !== actorId && userId !== project.ownerId && opens(userId),
       ),
     );
     const who = REPORT_APPROVAL_STEP_LABELS_FA[input.step];
-    const version = number.toLocaleString('fa-IR');
+    const label = number.toLocaleString('fa-IR');
     await this.inbox.notifyUsers([...told], {
       kind: 'feasibility_project.report_approval',
       title: approved
-        ? `گزارش پروژه ${project.code}: ${who} نسخه ${version} را تأیید کرد`
-        : `گزارش پروژه ${project.code}: ${who} نسخه ${version} را رد کرد`,
+        ? `گزارش پروژه ${project.code}: ${who} نسخه ${label} را تأیید کرد`
+        : `گزارش پروژه ${project.code}: ${who} نسخه ${label} را رد کرد`,
       body: approved
         ? input.step === 'officer'
           ? 'این نسخه منتظر تأیید نهایی مدیر است.'

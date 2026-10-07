@@ -207,6 +207,36 @@ describe('The approval of a report version (e2e)', () => {
     await decide(admin, id, 99, { step: 'officer', decision: 'approved' }).expect(404);
   });
 
+  it('tells of a decision only who can open the project', async () => {
+    const owner = await registerUser(app);
+    const expert = await registerUser(app, ['expert']);
+    const released = await registerUser(app, ['expert']);
+    const { id, code } = await projectWithVersion(owner, expert, 'CLIENT_REVIEW');
+    // An expert who was on the project and is not any more.
+    await http()
+      .post(`${projects}/${id}/experts`)
+      .set(auth(officer.token))
+      .send({ expertId: released.id })
+      .expect(200);
+    await http()
+      .delete(`${projects}/${id}/experts/${released.id}`)
+      .set(auth(officer.token))
+      .expect(200);
+    await approve(officer, id, 1, 'officer').expect(200);
+    await approve(admin, id, 1, 'admin').expect(200);
+    const told = await prisma().notification.findMany({
+      where: { kind: 'feasibility_project.report_approval', title: { contains: code } },
+    });
+    const ids = told.map((n) => n.userId);
+    expect(ids).toContain(expert.id);
+    expect(ids).not.toContain(released.id);
+    expect(ids).not.toContain(owner.id);
+    // The officer hears what the admin decided after their approval.
+    expect(told.filter((n) => n.userId === officer.id).map((n) => n.title)).toEqual([
+      expect.stringContaining('مدیر'),
+    ]);
+  });
+
   it('is only that of the applicant for staff who own the project', async () => {
     const owningOfficer = await registerUser(app, ['feasibility_officer']);
     const owningAdmin = await registerUser(app, ['admin']);
@@ -290,6 +320,11 @@ describe('The approval of a report version (e2e)', () => {
     const expert = await registerUser(app, ['expert']);
     const { id } = await projectWithVersion(owner, expert, 'CLIENT_REVIEW');
 
+    const offered = async (actor: Account) =>
+      (await http().get(`${projects}/${id}`).set(auth(actor.token)).expect(200)).body.data.access
+        .transitions as string[];
+    expect(await offered(officer)).toEqual(['IN_PROGRESS']);
+    expect(await offered(owner)).toEqual(['IN_PROGRESS']);
     const early = await move(officer, id, 'DELIVERED').expect(409);
     expect(early.body.error.message).toContain('تأیید نهایی');
     await move(owner, id, 'DELIVERED').expect(409);
@@ -304,6 +339,8 @@ describe('The approval of a report version (e2e)', () => {
     await approve(officer, id, 2, 'officer').expect(200);
     await approve(admin, id, 2, 'admin').expect(200);
 
+    expect(await offered(officer)).toEqual(['IN_PROGRESS', 'DELIVERED']);
+    expect(await offered(owner)).toEqual(['IN_PROGRESS', 'DELIVERED']);
     const delivered = await move(officer, id, 'DELIVERED').expect(200);
     expect(delivered.body.data.status).toBe('DELIVERED');
     // What the applicant now holds is the approved version; nothing is decided or issued any more.
@@ -381,7 +418,25 @@ describe('The approval of a report version (e2e)', () => {
     await approve(admin, id, 1, 'admin').expect(200);
   });
 
-  it('writes the file of a version again once it has an approval to show', async () => {
+  it('leaves the file of a refused version as it is', async () => {
+    const owner = await registerUser(app);
+    const expert = await registerUser(app, ['expert']);
+    const { id } = await projectWithVersion(owner, expert, 'CLIENT_REVIEW');
+    const before = (await file(expert, id, 1).expect(200)).body.data as {
+      sha256: string;
+      url: string;
+    };
+    await approve(officer, id, 1, 'officer').expect(200);
+    await decide(admin, id, 1, { step: 'admin', decision: 'rejected', note: 'ناقص' }).expect(200);
+    const after = (await file(owner, id, 1).expect(200)).body.data as {
+      sha256: string;
+      url: string;
+    };
+    expect(after.sha256).toBe(before.sha256);
+    expect(after.url.split('?')[0]).toBe(before.url.split('?')[0]);
+  }, 60_000);
+
+  it('writes the file of a version again once the version is approved', async () => {
     const owner = await registerUser(app);
     const expert = await registerUser(app, ['expert']);
     const { id } = await projectWithVersion(owner, expert, 'CLIENT_REVIEW');
@@ -405,13 +460,15 @@ describe('The approval of a report version (e2e)', () => {
 
     const draft = await hashOf(expert);
     expect(await hashOf(owner)).toBe(draft);
+    // One approval is not on the cover: the applicant reads the same file as before, with
+    // nothing of who approved so far.
     await approve(officer, id, 1, 'officer').expect(200);
-    const half = await hashOf(expert);
-    expect(half).not.toBe(draft);
-    // A refusal is not on the cover: the file stays.
+    expect(await hashOf(owner)).toBe(draft);
+    expect(await hashOf(expert)).toBe(draft);
+    // With both approvals the file is written again: it is the approved report now.
     await approve(admin, id, 1, 'admin').expect(200);
     const final = await hashOf(owner);
-    expect(final).not.toBe(half);
+    expect(final).not.toBe(draft);
     expect(await hashOf(expert)).toBe(final);
     // One file is kept for the version; the earlier ones are gone.
     expect(await active()).toBe(1);

@@ -669,14 +669,13 @@ export class ProjectReportService {
         number: row.number,
         issuedAt: row.createdAt,
         contentHash: row.contentHash,
-        // The approvals that were given stand on the cover; a refusal is not for the reader.
-        approvals: approvalView(row.approvals, false)
-          .steps.filter((step) => step.decision === 'approved')
-          .map((step) => ({
-            role: REPORT_APPROVAL_STEP_LABELS_FA[step.step],
-            name: step.by,
-            at: step.at,
-          })),
+        // The file is the same for every reader, the applicant included: like them it names
+        // the two approvals of an approved version and nothing of one that is still decided on.
+        approvals: approvalView(row.approvals, true).steps.map((step) => ({
+          role: REPORT_APPROVAL_STEP_LABELS_FA[step.step],
+          name: step.by,
+          at: step.at,
+        })),
         approved: approvalState(row.approvals) === 'approved',
       },
       chapters: chapters.map(({ title, body, answers, parts }) => ({

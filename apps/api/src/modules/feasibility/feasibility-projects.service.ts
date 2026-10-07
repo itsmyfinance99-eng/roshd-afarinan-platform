@@ -44,6 +44,7 @@ import {
   type FeasibilityActor,
   type FeasibilityStatus,
 } from './domain/feasibility-status';
+import { isFinallyApproved } from './domain/report-approval';
 import { QuestionnaireReader } from './questionnaire-reader';
 
 const MANAGE_PERMISSION = 'feasibility:manage';
@@ -518,8 +519,14 @@ export class FeasibilityProjectsService {
     const workedOn = (FEASIBILITY_WORK_STATUSES as readonly FeasibilityStatus[]).includes(
       view.status,
     );
+    const steps = [...new Set(actors.flatMap((actor) => allowedTransitions(view.status, actor)))];
+    // The delivery is offered once the report can be delivered (ST-35.14).
+    const held =
+      steps.includes('DELIVERED') && !(await this.deliverable(this.prisma, id))
+        ? 'DELIVERED'
+        : null;
     const access = {
-      transitions: [...new Set(actors.flatMap((actor) => allowedTransitions(view.status, actor)))],
+      transitions: steps.filter((step) => step !== held),
       edit: relation.owner && isEditable(view.status),
       remove: relation.owner && view.status === 'DRAFT' && sourceRequestId === null,
       assignExperts: relation.manager && !relation.owner && view.status !== 'ARCHIVED',
@@ -698,14 +705,7 @@ export class FeasibilityProjectsService {
         // Under the lock versions are issued and decided on with: what is delivered is the
         // newest version, and it has both of its approvals (ST-35.14, OQ-37).
         await this.lock(tx, id);
-        const newest = await tx.feasibilityReportVersion.findFirst({
-          where: { projectId: id },
-          orderBy: { number: 'desc' },
-          select: { approvals: { select: { step: true, decision: true } } },
-        });
-        const approved = (step: 'OFFICER' | 'ADMIN') =>
-          newest?.approvals.some((a) => a.step === step && a.decision === 'APPROVED') ?? false;
-        if (!approved('OFFICER') || !approved('ADMIN')) {
+        if (!(await this.deliverable(tx, id))) {
           throw new ConflictError(
             'گزارش پس از تأیید مسئول امکان‌سنجی و تأیید نهایی مدیر تحویل می‌شود. آخرین نسخه گزارش هنوز هر دو تأیید را ندارد.',
           );
@@ -964,6 +964,19 @@ export class FeasibilityProjectsService {
     });
     if (!project) throw new NotFoundError();
     return project;
+  }
+
+  /** Whether the newest version of the report of a project has both of its approvals. */
+  private async deliverable(
+    db: Pick<Prisma.TransactionClient, 'feasibilityReportVersion'>,
+    id: string,
+  ): Promise<boolean> {
+    const newest = await db.feasibilityReportVersion.findFirst({
+      where: { projectId: id },
+      orderBy: { number: 'desc' },
+      select: { approvals: { select: { step: true, decision: true } } },
+    });
+    return newest !== null && isFinallyApproved(newest.approvals);
   }
 
   /** Locks the project row until the transaction ends and returns its status; 404 when gone. */

@@ -10,6 +10,9 @@ import {
   reportStructureSchema,
   reportTemplateChoiceSchema,
   reportViewQuerySchema,
+  decideReportVersionSchema,
+  REPORT_APPROVAL_STATE_LABELS_FA,
+  REPORT_APPROVAL_STATES,
   saveReportChapterSchema,
   selectReportRunSchema,
   updateReportTemplateSchema,
@@ -131,5 +134,58 @@ describe('run and view', () => {
     expect(selectReportRunSchema.safeParse({ runId: '1' }).success).toBe(false);
     expect(reportViewQuerySchema.parse({})).toEqual({ unit: '1000000' });
     expect(reportViewQuerySchema.safeParse({ unit: '10' }).success).toBe(false);
+  });
+});
+
+describe('decision on a report version', () => {
+  it('takes an approval with or without a note', () => {
+    expect(decideReportVersionSchema.parse({ step: 'officer', decision: 'approved' })).toEqual({
+      step: 'officer',
+      decision: 'approved',
+    });
+    expect(
+      decideReportVersionSchema.parse({ step: 'admin', decision: 'approved', note: '  خوب  ' })
+        .note,
+    ).toBe('خوب');
+  });
+
+  it('wants the reason of a refusal', () => {
+    for (const note of [undefined, '', '   ']) {
+      const result = decideReportVersionSchema.safeParse({
+        step: 'officer',
+        decision: 'rejected',
+        note,
+      });
+      expect(result.success).toBe(false);
+      expect(result.error?.issues[0]?.path).toEqual(['note']);
+    }
+    expect(
+      decideReportVersionSchema.safeParse({ step: 'admin', decision: 'rejected', note: 'ناقص' })
+        .success,
+    ).toBe(true);
+  });
+
+  it('refuses another step, another decision and a note that is no text', () => {
+    expect(
+      decideReportVersionSchema.safeParse({ step: 'board', decision: 'approved' }).success,
+    ).toBe(false);
+    expect(decideReportVersionSchema.safeParse({ step: 'admin', decision: 'later' }).success).toBe(
+      false,
+    );
+    expect(
+      decideReportVersionSchema.safeParse({ step: 'admin', decision: 'approved', note: null })
+        .success,
+    ).toBe(false);
+    expect(
+      decideReportVersionSchema.safeParse({
+        step: 'admin',
+        decision: 'rejected',
+        note: 'ن'.repeat(2001),
+      }).success,
+    ).toBe(false);
+  });
+
+  it('labels every state', () => {
+    expect(Object.keys(REPORT_APPROVAL_STATE_LABELS_FA)).toEqual([...REPORT_APPROVAL_STATES]);
   });
 });

@@ -13,6 +13,7 @@ import {
   type RunReportRenderer,
 } from '../financial-model/ports/run-report-renderer';
 import type { Principal } from '../rbac/principal';
+import { isFinallyApproved } from './domain/report-approval';
 import { ProjectReportService } from './project-report.service';
 
 const FILE_ENTITY = 'feasibility_project';
@@ -50,9 +51,9 @@ const isUniqueViolation = (error: unknown): boolean =>
  * - A version has one file. It is written the first time somebody who may read the version asks
  *   for it, from the version's stored content and its calculation run, and kept as a private
  *   file with the hash of its bytes. From then on everybody gets that same file.
- * - The cover names the approvals of the version (ST-35.14). A file that was written before an
- *   approval is written again at the next request, so the file of an approved version is the
- *   approved report.
+ * - The cover names the two approvals of an approved version (ST-35.14). A file that was written
+ *   before the final approval is written again at the next request, so the file of an approved
+ *   version is the approved report.
  * - Whoever may read a version may download its file: those who work on the study every
  *   version, the applicant the newest one once the study is with them. For everybody else the
  *   version does not exist.
@@ -113,15 +114,19 @@ export class ProjectReportFileService {
       select: FILE_SELECT,
     });
     if (row?.file.status !== 'ACTIVE') return null;
-    return row.approvals === (await this.approvalsOf(this.prisma, versionId)) ? row : null;
+    return row.approvals === (await this.approvalsOf(versionId)) ? row : null;
   }
 
-  /** How many approvals a version has; a refusal is not on the cover and does not count. */
-  private approvalsOf(
-    db: Pick<Prisma.TransactionClient, 'feasibilityReportApproval'>,
-    versionId: string,
-  ): Promise<number> {
-    return db.feasibilityReportApproval.count({ where: { versionId, decision: 'APPROVED' } });
+  /**
+   * How many approvals the cover of a version shows now: both of an approved version, none of
+   * any other (`ProjectReportService.study`).
+   */
+  private async approvalsOf(versionId: string): Promise<number> {
+    const approvals = await this.prisma.feasibilityReportApproval.findMany({
+      where: { versionId },
+      select: { step: true, decision: true },
+    });
+    return isFinallyApproved(approvals) ? approvals.length : 0;
   }
 
   private async write(
@@ -156,10 +161,13 @@ export class ProjectReportFileService {
             where: { versionId: version.id },
             select: { fileId: true, approvals: true, file: { select: { status: true } } },
           });
-          // A file the staff removed, or one of before an approval, makes room for this one.
-          // One that is as good as this one stays: the unique row then refuses this file.
-          if (old && (old.file.status !== 'ACTIVE' || old.approvals !== shown)) {
-            await tx.feasibilityReportFile.delete({ where: { versionId: version.id } });
+          // A file the staff removed, or one of before the approval, makes room for this one.
+          // One that shows as much as this one stays: the unique row then refuses this file.
+          if (old && (old.file.status !== 'ACTIVE' || old.approvals < shown)) {
+            // Only that very row: somebody else may have replaced it a moment ago.
+            await tx.feasibilityReportFile.deleteMany({
+              where: { versionId: version.id, fileId: old.fileId },
+            });
             replaced = old.file.status === 'ACTIVE' ? old.fileId : null;
           }
           return tx.feasibilityReportFile.create({
@@ -182,9 +190,15 @@ export class ProjectReportFileService {
           .catch((cleanup: unknown) => {
             this.logger.warn({ err: cleanup, fileId: stored.id }, 'spare report file not removed');
           });
-        // Somebody else wrote the file of this version meanwhile: theirs is the file.
-        const winner = isUniqueViolation(error) ? await this.existing(version.id) : null;
-        if (winner) return winner;
+        // Somebody else wrote the file of this version meanwhile: theirs is the file, also when
+        // an approval came in since (the next request then writes the newer one).
+        const winner = isUniqueViolation(error)
+          ? await this.prisma.feasibilityReportFile.findUnique({
+              where: { versionId: version.id },
+              select: FILE_SELECT,
+            })
+          : null;
+        if (winner?.file.status === 'ACTIVE') return winner;
         throw error;
       }
       if (replaced) {
