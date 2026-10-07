@@ -83,6 +83,9 @@ test.describe('the cost estimate of a feasibility study', () => {
     await page.route('**/api/v1/feasibility-projects/p1/documents', (route) =>
       json(route, { slots: [], access: { upload: false } }),
     );
+    await page.route('**/api/v1/feasibility-projects/p1/contract', (route) =>
+      json(route, { files: [], access: { upload: false, confirm: false } }),
+    );
     await page.route('**/api/v1/feasibility-projects/p1/questionnaire', (route) =>
       fail(route, 404, 'پرسشنامه‌ای برای این پروژه نیست.'),
     );

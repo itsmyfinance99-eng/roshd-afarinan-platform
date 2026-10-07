@@ -148,6 +148,18 @@ export const feasibilityCostEstimateSchema = z.object({
 });
 export type FeasibilityCostEstimateInput = z.infer<typeof feasibilityCostEstimateSchema>;
 
+/** Copies of the contract one project takes (versions; a bound against runaway use). */
+export const MAX_CONTRACT_FILES = 10;
+
+/**
+ * The staff confirm a copy of the signed contract, and with it the work on the study starts
+ * (ST-35.09). The note goes with the step and is read by the applicant.
+ */
+export const confirmContractSchema = z.object({
+  note: optionalText(FEASIBILITY_NOTE_MAX).optional(),
+});
+export type ConfirmContractInput = z.infer<typeof confirmContractSchema>;
+
 export const assignExpertSchema = z.object({
   expertId: z.uuid({ error: 'کارشناس انتخاب‌شده معتبر نیست.' }),
 });

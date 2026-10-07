@@ -44,6 +44,23 @@ describe('Feasibility projects (e2e)', () => {
   };
   const estimate = (actor: Account, id: string, body: object = ESTIMATE) =>
     http().post(`${base}/${id}/cost-estimate`).set(auth(actor.token)).send(body);
+  /** The staff hand in the signed contract and confirm it, which starts the work (ST-35.09). */
+  const startWork = async (staff: Account, id: string) => {
+    const handed = await http()
+      .post(`${base}/${id}/contract`)
+      .set(auth(staff.token))
+      .attach('file', Buffer.from('%PDF-1.7\n%%EOF\n'), {
+        filename: 'قرارداد.pdf',
+        contentType: 'application/pdf',
+      })
+      .expect(201);
+    const copy = (handed.body.data.files as { id: string }[])[0]!;
+    return http()
+      .post(`${base}/${id}/contract/${copy.id}/confirm`)
+      .set(auth(staff.token))
+      .send({})
+      .expect(200);
+  };
   const assign = (actor: Account, id: string, expertId: string) =>
     http().post(`${base}/${id}/experts`).set(auth(actor.token)).send({ expertId });
   const statusOf = async (id: string) =>
@@ -227,7 +244,7 @@ describe('Feasibility projects (e2e)', () => {
     await estimate(officer, id).expect(200);
     await move(owner, id, 'CONTRACT_PENDING').expect(200);
     await assign(officer, id, expert.id).expect(200);
-    const started = await move(officer, id, 'IN_PROGRESS').expect(200);
+    const started = await startWork(officer, id);
     expect(started.body.data.access.transitions).toEqual(['EXPERT_REVIEW']);
     expect(await inbox(expert.token)).toContainEqual(
       expect.objectContaining({ title: `وضعیت پروژه ${code}: در حال انجام` }),
@@ -393,7 +410,7 @@ describe('Feasibility projects (e2e)', () => {
     await move(both, id, 'INITIAL_REVIEW').expect(200);
     await estimate(both, id).expect(200);
     await move(owner, id, 'CONTRACT_PENDING').expect(200);
-    await move(both, id, 'IN_PROGRESS').expect(200);
+    await startWork(both, id);
     await move(both, id, 'EXPERT_REVIEW').expect(200);
     // Staff rights alone do not pass the expert's review.
     await move(both, id, 'CLIENT_REVIEW').expect(403);

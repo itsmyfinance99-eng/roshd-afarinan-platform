@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   assignExpertSchema,
+  confirmContractSchema,
   convertRequestToProjectSchema,
   createFeasibilityProjectSchema,
   FEASIBILITY_ACTOR_LABELS_FA,
@@ -132,6 +133,14 @@ describe('feasibility schemas', () => {
     expect(listFeasibilityProjectsQuerySchema.safeParse({ sourceRequestId: 'r1' }).success).toBe(
       false,
     );
+  });
+
+  it('confirms a contract with an optional note of bounded length', () => {
+    expect(confirmContractSchema.parse({})).toEqual({});
+    expect(confirmContractSchema.parse({ note: '  قرارداد دریافت شد  ' })).toEqual({
+      note: 'قرارداد دریافت شد',
+    });
+    expect(confirmContractSchema.safeParse({ note: 'ن'.repeat(2001) }).success).toBe(false);
   });
 
   it('needs the id of the expert', () => {

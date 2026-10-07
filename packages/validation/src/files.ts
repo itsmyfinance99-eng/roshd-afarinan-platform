@@ -10,13 +10,14 @@ export type FilePurpose = (typeof FILE_PURPOSES)[number];
 
 /**
  * Every purpose stored in the database. Uploads accept only `FILE_PURPOSES`; a media-library
- * image is created by the CMS and a document of a feasibility project through its project, and
- * staff must still be able to list and filter them (ST-27.02, ST-35.06).
+ * image is created by the CMS, a document and a contract of a feasibility project through its
+ * project, and staff must still be able to list and filter them (ST-27.02, ST-35.06, ST-35.09).
  */
 export const ALL_FILE_PURPOSES = [
   ...FILE_PURPOSES,
   'PUBLIC_IMAGE',
   'FEASIBILITY_DOCUMENT',
+  'FEASIBILITY_CONTRACT',
 ] as const;
 export type AnyFilePurpose = (typeof ALL_FILE_PURPOSES)[number];
 
@@ -26,6 +27,7 @@ export const FILE_PURPOSE_LABELS_FA: Record<AnyFilePurpose, string> = {
   USER_DOCUMENT: 'مدرک کاربر',
   PUBLIC_IMAGE: 'تصویر کتابخانه رسانه',
   FEASIBILITY_DOCUMENT: 'مدرک پروژه امکان‌سنجی',
+  FEASIBILITY_CONTRACT: 'قرارداد پروژه امکان‌سنجی',
 };
 
 export const FILE_STATUSES = ['ACTIVE', 'DELETED'] as const;

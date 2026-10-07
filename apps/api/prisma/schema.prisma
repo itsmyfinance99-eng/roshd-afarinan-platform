@@ -69,6 +69,8 @@ model User {
   projectQuestionnaireItemsAdded ProjectQuestionnaireItem[]     @relation("ProjectQuestionnaireItemAuthor")
   projectDocumentsUploaded       ProjectDocument[]              @relation("ProjectDocumentUploader")
   feasibilityCostEstimates       FeasibilityCostEstimate[]      @relation("FeasibilityCostEstimateAuthor")
+  feasibilityContractsUploaded   FeasibilityContract[]          @relation("FeasibilityContractUploader")
+  feasibilityContractsConfirmed  FeasibilityContract[]          @relation("FeasibilityContractConfirmer")
 
   @@map("users")
 }
@@ -627,6 +629,8 @@ enum FilePurpose {
   PUBLIC_IMAGE
   /// A document of a feasibility project (ST-35.06); read through the project only.
   FEASIBILITY_DOCUMENT
+  /// A copy of the contract of a feasibility study (ST-35.09); read through the project only.
+  FEASIBILITY_CONTRACT
 }
 
 enum FileAccessLevel {
@@ -661,8 +665,9 @@ model FileObject {
   createdAt    DateTime        @default(now())
   deletedAt    DateTime?
 
-  owner           User             @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  projectDocument ProjectDocument?
+  owner               User                 @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  projectDocument     ProjectDocument?
+  feasibilityContract FeasibilityContract?
 
   @@index([ownerId, createdAt])
   @@index([entityType, entityId])
@@ -879,6 +884,7 @@ model FeasibilityProject {
   sourceRequest      ServiceRequest?               @relation(fields: [sourceRequestId], references: [id], onDelete: SetNull)
   events             FeasibilityStatusEvent[]
   costEstimates      FeasibilityCostEstimate[]
+  contracts          FeasibilityContract[]
   experts            ExpertAssignment[]
 
   @@index([ownerId, updatedAt])
@@ -927,6 +933,31 @@ model FeasibilityCostEstimate {
 
   @@index([projectId, createdAt])
   @@map("feasibility_cost_estimates")
+}
+
+/// A copy of the signed contract of a study (ST-35.09), handed in by the applicant or by the
+/// staff while the project waits for its contract. A copy is never overwritten: handing in
+/// another one is the next version. The staff confirm one copy, and with it the work starts.
+model FeasibilityContract {
+  id            String           @id @default(uuid(7)) @db.Uuid
+  projectId     String           @db.Uuid
+  version       Int
+  fileId        String           @unique @db.Uuid
+  uploadedById  String?          @db.Uuid
+  /// In which capacity it was handed in: `applicant` or `staff`.
+  uploadedAs    FeasibilityActor
+  createdAt     DateTime         @default(now())
+  /// Set once, together with the step to IN_PROGRESS: the copy the staff confirmed.
+  confirmedAt   DateTime?
+  confirmedById String?          @db.Uuid
+
+  project     FeasibilityProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  file        FileObject         @relation(fields: [fileId], references: [id], onDelete: Restrict)
+  uploadedBy  User?              @relation("FeasibilityContractUploader", fields: [uploadedById], references: [id], onDelete: SetNull)
+  confirmedBy User?              @relation("FeasibilityContractConfirmer", fields: [confirmedById], references: [id], onDelete: SetNull)
+
+  @@unique([projectId, version])
+  @@map("feasibility_contracts")
 }
 
 enum QuestionnaireVersionStatus {

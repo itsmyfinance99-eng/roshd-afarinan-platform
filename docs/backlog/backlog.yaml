@@ -2295,6 +2295,7 @@ epics:
         sprint: S21
         points: 3
         priority: high
+        status: done
         area: [api, web]
         depends: [ST-35.08]
         story: 'به‌عنوان کارشناس می‌خواهم پس از امضای قرارداد، پروژه را وارد مرحله اجرا کنم.'
