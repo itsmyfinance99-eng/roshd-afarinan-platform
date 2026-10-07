@@ -639,6 +639,9 @@ enum FilePurpose {
   FEASIBILITY_DOCUMENT
   /// A copy of the contract of a feasibility study (ST-35.09); read through the project only.
   FEASIBILITY_CONTRACT
+  /// The PDF of a version of the report of a feasibility study (ST-35.13), written by the
+  /// server; read through the project only.
+  FEASIBILITY_REPORT
 }
 
 enum FileAccessLevel {
@@ -676,6 +679,7 @@ model FileObject {
   owner               User                 @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   projectDocument     ProjectDocument?
   feasibilityContract FeasibilityContract?
+  reportFile          FeasibilityReportFile?
 
   @@index([ownerId, createdAt])
   @@index([entityType, entityId])
@@ -1128,10 +1132,30 @@ model FeasibilityReportVersion {
   project        FeasibilityProject @relation(fields: [projectId], references: [id], onDelete: Restrict)
   calculationRun CalculationRun?    @relation("FeasibilityReportVersionRun", fields: [calculationRunId], references: [id], onDelete: Restrict)
   issuedBy       User?              @relation("FeasibilityReportVersionIssuer", fields: [issuedById], references: [id], onDelete: SetNull)
+  file           FeasibilityReportFile?
 
   @@unique([projectId, number])
   @@index([calculationRunId])
   @@map("feasibility_report_versions")
+}
+
+/// The PDF of a version of a report (ST-35.13): written once, from the version and its
+/// calculation run, and kept as a private file. Its hash is that of the bytes of the file.
+model FeasibilityReportFile {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  versionId String   @unique @db.Uuid
+  fileId    String   @unique @db.Uuid
+  /// SHA-256 (hex) of the bytes of the file.
+  sha256    String
+  size      Int
+  /// The display unit of the amounts in local currency the file was written with.
+  unit      String
+  createdAt DateTime @default(now())
+
+  version FeasibilityReportVersion @relation(fields: [versionId], references: [id], onDelete: Restrict)
+  file    FileObject               @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  @@map("feasibility_report_files")
 }
 
 enum QuestionnaireVersionStatus {

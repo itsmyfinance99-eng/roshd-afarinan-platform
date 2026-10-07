@@ -506,6 +506,7 @@ export class FeasibilityProjectsService {
           ? await this.files.listForEntity(FILE_ENTITY, id, [
               'FEASIBILITY_DOCUMENT',
               'FEASIBILITY_CONTRACT',
+              'FEASIBILITY_REPORT',
             ])
           : [],
       // The price is between the applicant and the staff; an expert works without it.

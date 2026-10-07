@@ -1,7 +1,7 @@
 import { createRequire } from 'node:module';
 import { Worker } from 'node:worker_threads';
 import { Injectable, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
-import type { RunReportSource } from '@roshd/financial-report';
+import type { RunReportSource, StudyDocument } from '@roshd/financial-report';
 import { reportFonts } from '@roshd/financial-report/fonts';
 import type { CalculationExportFormat } from '@roshd/validation';
 import {
@@ -22,8 +22,8 @@ export const RENDER_QUEUE_LIMIT = 4;
  */
 const WORKER_SOURCE = `
 const { parentPort, workerData } = require('node:worker_threads');
-const { renderRunReport } = require(workerData.renderPath);
-renderRunReport(workerData.source, workerData.format).then(
+const render = require(workerData.renderPath)[workerData.job.fn];
+render(...workerData.job.args).then(
   (file) => {
     const bytes = new Uint8Array(file);
     parentPort.postMessage({ ok: true, bytes }, [bytes.buffer]);
@@ -33,6 +33,11 @@ renderRunReport(workerData.source, workerData.format).then(
 `;
 
 type WorkerMessage = { ok: true; bytes: Uint8Array } | { ok: false; message?: string };
+
+/** What the worker is asked to write: a function of the report package and its arguments. */
+type Job =
+  | { fn: 'renderRunReport'; args: [RunReportSource, CalculationExportFormat] }
+  | { fn: 'renderStudyReport'; args: [StudyDocument, Date] };
 
 /**
  * Writes each file in a worker thread, one at a time per API process, with a time budget — like
@@ -48,6 +53,19 @@ export class WorkerRunReportRenderer implements RunReportRenderer, OnModuleInit,
   private closed = false;
 
   render(source: RunReportSource, format: CalculationExportFormat): Promise<Buffer> {
+    return this.enqueue({ fn: 'renderRunReport', args: [source, format] });
+  }
+
+  renderStudy(study: StudyDocument): Promise<Buffer> {
+    // The file carries the time its version was issued, so the same version is the same file.
+    const issued = new Date(study.version.issuedAt);
+    return this.enqueue({
+      fn: 'renderStudyReport',
+      args: [study, Number.isNaN(issued.getTime()) ? new Date(0) : issued],
+    });
+  }
+
+  private enqueue(job: Job): Promise<Buffer> {
     if (this.closed || this.waiting >= RENDER_QUEUE_LIMIT) {
       return Promise.reject(new RenderBusyError());
     }
@@ -55,7 +73,7 @@ export class WorkerRunReportRenderer implements RunReportRenderer, OnModuleInit,
     const next = this.tail.then(() => {
       // Queued files are dropped once the module is shutting down.
       if (this.closed) throw new RenderBusyError();
-      return this.renderInWorker(source, format);
+      return this.renderInWorker(job);
     });
     // The queue moves on whether this file succeeds or fails.
     this.tail = next
@@ -79,11 +97,11 @@ export class WorkerRunReportRenderer implements RunReportRenderer, OnModuleInit,
     await Promise.all([...this.workers].map((worker) => worker.terminate()));
   }
 
-  private renderInWorker(source: RunReportSource, format: CalculationExportFormat) {
+  private renderInWorker(job: Job) {
     return new Promise<Buffer>((resolve, reject) => {
       const worker = new Worker(WORKER_SOURCE, {
         eval: true,
-        workerData: { renderPath: this.renderPath, source, format },
+        workerData: { renderPath: this.renderPath, job },
         resourceLimits: { maxOldGenerationSizeMb: 512 },
       });
       this.workers.add(worker);

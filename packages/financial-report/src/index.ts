@@ -12,5 +12,6 @@ export * from './inputs';
 export * from './numbers';
 export * from './report';
 export * from './schedules';
+export * from './study';
 export * from './tables';
 export * from './warnings';

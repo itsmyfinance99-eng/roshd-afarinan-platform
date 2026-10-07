@@ -30,12 +30,14 @@ export interface PdfOptions {
   fonts: PdfFonts;
   /** Written into the file as its creation time. */
   created?: Date;
+  /** `false` leaves the page contents readable in the file, for tests. */
+  compress?: boolean;
 }
 
-type Font = 'regular' | 'bold';
+export type Font = 'regular' | 'bold';
 type Align = 'left' | 'right' | 'center';
 
-interface TextStyle {
+export interface TextStyle {
   font?: Font;
   size?: number;
   color?: string;
@@ -43,26 +45,22 @@ interface TextStyle {
   align?: Align;
 }
 
-// A4 landscape in points.
-const PAGE_WIDTH = 841.89;
-const PAGE_HEIGHT = 595.28;
-const MARGIN = 34;
-const LEFT = MARGIN;
-const RIGHT = PAGE_WIDTH - MARGIN;
-const TOP = MARGIN;
-const BOTTOM = PAGE_HEIGHT - MARGIN - 14;
-const CONTENT = RIGHT - LEFT;
+// A4 in points.
+const A4_LONG = 841.89;
+const A4_SHORT = 595.28;
+export const MARGIN = 34;
+export const TOP = MARGIN;
 
-const INK = '#1f2328';
-const MUTED = '#5b6168';
-const LINE = '#d9d4cd';
-const HEAD_FILL = '#efebe5';
+export const INK = '#1f2328';
+export const MUTED = '#5b6168';
+export const LINE = '#d9d4cd';
+export const HEAD_FILL = '#efebe5';
 const GROUP_FILL = '#faf8f5';
-const ACCENT = '#b4662a';
+export const ACCENT = '#b4662a';
 const NOTE = '#8a4b1c';
 
 const CELL_SIZE = 7.5;
-const TEXT_SIZE = 8.5;
+export const TEXT_SIZE = 8.5;
 const MIN_SIZE = 4.5;
 const ROW = 12.5;
 const PAD = 4;
@@ -72,19 +70,30 @@ const MAX_COLUMN = 92;
 const MAX_CACHE = 20_000;
 
 /** Lays the report out page by page. */
-class Writer {
+export class Writer {
   readonly doc: PDFKit.PDFDocument;
-  private y = TOP;
-  private readonly widths = new Map<string, number>();
-  private readonly pieces = new Map<string, Piece[]>();
+  protected y = TOP;
+  /** Whether the page being written lies on its side; a page of text stands upright. */
+  protected landscape: boolean;
+  /** The same for every page written so far. */
+  protected readonly layouts: boolean[];
+  protected readonly widths = new Map<string, number>();
+  protected readonly pieces = new Map<string, Piece[]>();
 
-  constructor(document: ReportDocument, options: PdfOptions) {
+  constructor(
+    document: Pick<ReportDocument, 'title' | 'subtitle'>,
+    options: PdfOptions,
+    landscape = true,
+  ) {
+    this.landscape = landscape;
+    this.layouts = [landscape];
     this.doc = new PDFDocument({
       size: 'A4',
-      layout: 'landscape',
+      layout: landscape ? 'landscape' : 'portrait',
       // The layout keeps its own margins; PDFKit must never break a page by itself.
       margin: 0,
       bufferPages: true,
+      compress: options.compress ?? true,
       lang: 'fa-IR',
       displayTitle: true,
       info: {
@@ -97,9 +106,33 @@ class Writer {
     this.doc.registerFont('bold', options.fonts.bold);
   }
 
+  protected get pageWidth(): number {
+    return this.landscape ? A4_LONG : A4_SHORT;
+  }
+
+  protected get pageHeight(): number {
+    return this.landscape ? A4_SHORT : A4_LONG;
+  }
+
+  protected get left(): number {
+    return MARGIN;
+  }
+
+  protected get right(): number {
+    return this.pageWidth - MARGIN;
+  }
+
+  protected get bottom(): number {
+    return this.pageHeight - MARGIN - 14;
+  }
+
+  protected get content(): number {
+    return this.right - this.left;
+  }
+
   // ── text ────────────────────────────────────────────────────────────────────────────────
 
-  private piecesOf(text: string, direction: Direction): Piece[] {
+  protected piecesOf(text: string, direction: Direction): Piece[] {
     const key = `${direction}|${text}`;
     let pieces = this.pieces.get(key);
     if (!pieces) {
@@ -111,7 +144,7 @@ class Writer {
   }
 
   /** Width of one piece at size 1; widths scale with the font size. */
-  private unitWidth(text: string, font: Font): number {
+  protected unitWidth(text: string, font: Font): number {
     const key = `${font}|${text}`;
     let width = this.widths.get(key);
     if (width === undefined) {
@@ -122,7 +155,7 @@ class Writer {
     return width;
   }
 
-  private pieceWidth(piece: Piece, font: Font, size: number): number {
+  protected pieceWidth(piece: Piece, font: Font, size: number): number {
     return this.unitWidth(piece.space ? ' ' : piece.text, font) * size;
   }
 
@@ -168,7 +201,7 @@ class Writer {
   }
 
   /** A paragraph from the right edge; returns its height. */
-  private paragraph(text: string, x: number, width: number, style: TextStyle, leading: number) {
+  protected paragraph(text: string, x: number, width: number, style: TextStyle, leading: number) {
     const font = style.font ?? 'regular';
     const size = style.size ?? TEXT_SIZE;
     const lines = this.wrap(text, width, font, size);
@@ -181,51 +214,54 @@ class Writer {
 
   // ── pages ───────────────────────────────────────────────────────────────────────────────
 
-  private newPage(): void {
-    this.doc.addPage();
+  /** A new page; `landscape` turns it, otherwise it is like the one before. */
+  protected newPage(landscape = this.landscape): void {
+    this.landscape = landscape;
+    this.layouts.push(landscape);
+    this.doc.addPage({ size: 'A4', layout: landscape ? 'landscape' : 'portrait', margin: 0 });
     this.y = TOP;
   }
 
   /** Makes room for `height`; true when that took a new page. */
-  private ensure(height: number): boolean {
-    if (this.y + height <= BOTTOM) return false;
+  protected ensure(height: number): boolean {
+    if (this.y + height <= this.bottom) return false;
     this.newPage();
     return true;
   }
 
-  private rule(y: number, color = LINE, weight = 0.4, from = LEFT, to = RIGHT): void {
+  protected rule(y: number, color = LINE, weight = 0.4, from = this.left, to = this.right): void {
     this.doc.moveTo(from, y).lineTo(to, y).lineWidth(weight).strokeColor(color).stroke();
   }
 
-  private fill(x: number, y: number, width: number, height: number, color: string): void {
+  protected fill(x: number, y: number, width: number, height: number, color: string): void {
     this.doc.rect(x, y, width, height).fillColor(color).fill();
   }
 
   // ── blocks ──────────────────────────────────────────────────────────────────────────────
 
   cover(document: ReportDocument): void {
-    this.line(document.title, LEFT, this.y, CONTENT, { font: 'bold', size: 15 });
+    this.line(document.title, this.left, this.y, this.content, { font: 'bold', size: 15 });
     this.y += 22;
-    this.line(document.subtitle, LEFT, this.y, CONTENT, { size: 9, color: MUTED });
+    this.line(document.subtitle, this.left, this.y, this.content, { size: 9, color: MUTED });
     this.y += 20;
   }
 
   partTitle(title: string, first: boolean): void {
     if (!first) this.newPage();
-    this.line(title, LEFT, this.y, CONTENT, { font: 'bold', size: 13 });
+    this.line(title, this.left, this.y, this.content, { font: 'bold', size: 13 });
     this.y += 19;
     this.rule(this.y, ACCENT, 1.2);
     this.y += 10;
   }
 
-  private heading(title: string | undefined, suffix = ''): void {
+  protected heading(title: string | undefined, suffix = ''): void {
     if (title === undefined) return;
-    this.line(`${title}${suffix}`, LEFT, this.y, CONTENT, { font: 'bold', size: 10 });
+    this.line(`${title}${suffix}`, this.left, this.y, this.content, { font: 'bold', size: 10 });
     this.y += 16;
   }
 
   /** A value in its cell: numbers and Latin texts run left to right. */
-  private value(value: ReportValue, x: number, y: number, width: number, style: TextStyle): void {
+  protected value(value: ReportValue, x: number, y: number, width: number, style: TextStyle): void {
     const ltr = value.number !== undefined || value.ltr === true;
     this.line(value.text, x + PAD, y, width - 2 * PAD, {
       ...style,
@@ -235,8 +271,8 @@ class Writer {
     });
   }
 
-  private table(block: TableBlock): void {
-    const available = CONTENT - LABEL_WIDTH;
+  protected table(block: TableBlock): void {
+    const available = this.content - LABEL_WIDTH;
     const perPart = Math.max(1, Math.floor(available / MIN_COLUMN));
     const parts = Math.max(1, Math.ceil(block.columns.length / perPart));
     const size = Math.ceil(block.columns.length / parts);
@@ -245,7 +281,7 @@ class Writer {
       const from = part * size;
       const columns = block.columns.slice(from, from + size);
       const width = Math.min(MAX_COLUMN, available / Math.max(1, columns.length));
-      const labelX = RIGHT - LABEL_WIDTH;
+      const labelX = this.right - LABEL_WIDTH;
       const columnX = (index: number) => labelX - (index + 1) * width;
       const tableLeft = columnX(columns.length - 1);
       const of =
@@ -253,7 +289,7 @@ class Writer {
 
       const head = (continued: boolean) => {
         this.heading(block.title, `${note}${of}${continued ? ' (ادامه)' : ''}`);
-        this.fill(tableLeft, this.y, RIGHT - tableLeft, 24, HEAD_FILL);
+        this.fill(tableLeft, this.y, this.right - tableLeft, 24, HEAD_FILL);
         this.line('شرح', labelX + PAD, this.y + 12, LABEL_WIDTH - 2 * PAD, {
           font: 'bold',
           size: CELL_SIZE,
@@ -286,8 +322,8 @@ class Writer {
       for (const section of block.sections) {
         if (section.title !== undefined) {
           room(2 * ROW);
-          this.fill(tableLeft, this.y, RIGHT - tableLeft, ROW, GROUP_FILL);
-          this.line(section.title, tableLeft + PAD, this.y + 2, RIGHT - tableLeft - 2 * PAD, {
+          this.fill(tableLeft, this.y, this.right - tableLeft, ROW, GROUP_FILL);
+          this.line(section.title, tableLeft + PAD, this.y + 2, this.right - tableLeft - 2 * PAD, {
             font: 'bold',
             size: CELL_SIZE,
             color: MUTED,
@@ -312,16 +348,16 @@ class Writer {
             }
           });
           this.y += height;
-          this.rule(this.y, LINE, 0.4, tableLeft, RIGHT);
+          this.rule(this.y, LINE, 0.4, tableLeft, this.right);
         }
       }
       this.y += 14;
     }
   }
 
-  private pairs(block: PairsBlock): void {
+  protected pairs(block: PairsBlock): void {
     const labelWidth = 300;
-    const valueWidth = CONTENT - labelWidth - 2 * PAD;
+    const valueWidth = this.content - labelWidth - 2 * PAD;
     this.ensure(16 + 2 * 14);
     this.heading(block.title);
     for (const row of block.rows) {
@@ -336,12 +372,12 @@ class Writer {
       const lines = Math.max(label.length, value.length);
       this.ensure(lines * 13 + notes.length * 11 + 3);
       label.forEach((text, index) =>
-        this.line(text, RIGHT - labelWidth + PAD, this.y + index * 13, labelWidth - 2 * PAD, {
+        this.line(text, this.right - labelWidth + PAD, this.y + index * 13, labelWidth - 2 * PAD, {
           color: MUTED,
         }),
       );
       value.forEach((text, index) =>
-        this.line(text, LEFT + PAD, this.y + index * 13, valueWidth, {
+        this.line(text, this.left + PAD, this.y + index * 13, valueWidth, {
           font,
           direction: ltr ? 'ltr' : 'rtl',
           align: 'right',
@@ -349,7 +385,7 @@ class Writer {
       );
       this.y += lines * 13;
       for (const note of notes) {
-        this.line(note, LEFT + PAD, this.y, valueWidth, { size: 7.5, color: NOTE });
+        this.line(note, this.left + PAD, this.y, valueWidth, { size: 7.5, color: NOTE });
         this.y += 11;
       }
       this.y += 2;
@@ -358,10 +394,10 @@ class Writer {
     this.y += 12;
   }
 
-  private grid(block: GridBlock): void {
+  protected grid(block: GridBlock): void {
     const count = Math.max(1, block.head.length);
-    const width = CONTENT / count;
-    const columnX = (index: number) => RIGHT - (index + 1) * width;
+    const width = this.content / count;
+    const columnX = (index: number) => this.right - (index + 1) * width;
     const leading = 10;
     const head = (continued: boolean) => {
       this.heading(block.title, continued ? ' (ادامه)' : '');
@@ -369,7 +405,7 @@ class Writer {
         this.wrap(name, width - 2 * PAD, 'bold', CELL_SIZE, 3),
       );
       const height = Math.max(1, ...titles.map((lines) => lines.length)) * leading + 5;
-      this.fill(LEFT, this.y, CONTENT, height, HEAD_FILL);
+      this.fill(this.left, this.y, this.content, height, HEAD_FILL);
       titles.forEach((lines, index) =>
         lines.forEach((text, n) =>
           this.line(text, columnX(index) + PAD, this.y + 3 + n * leading, width - 2 * PAD, {
@@ -411,15 +447,15 @@ class Writer {
     this.y += 14;
   }
 
-  private list(block: ListBlock): void {
+  protected list(block: ListBlock): void {
     this.ensure(16 + 2 * 13);
     this.heading(block.title);
     for (const item of block.items) {
-      const lines = this.wrap(item, CONTENT - 14, 'regular', TEXT_SIZE);
+      const lines = this.wrap(item, this.content - 14, 'regular', TEXT_SIZE);
       lines.forEach((text, index) => {
         this.ensure(13);
-        if (index === 0) this.line('•', RIGHT - 10, this.y, 10, { color: ACCENT });
-        this.line(text, LEFT, this.y, CONTENT - 14);
+        if (index === 0) this.line('•', this.right - 10, this.y, 10, { color: ACCENT });
+        this.line(text, this.left, this.y, this.content - 14);
         this.y += 13;
       });
     }
@@ -437,7 +473,7 @@ class Writer {
       case 'list':
         return this.list(block);
       case 'text':
-        this.paragraph(block.text, LEFT, CONTENT, {}, 14);
+        this.paragraph(block.text, this.left, this.content, {}, 14);
         this.y += 8;
     }
   }
@@ -447,20 +483,27 @@ class Writer {
     const { start, count } = this.doc.bufferedPageRange();
     for (let index = 0; index < count; index += 1) {
       this.doc.switchToPage(start + index);
-      const y = PAGE_HEIGHT - MARGIN - 4;
+      this.landscape = this.layouts[index] ?? this.landscape;
+      const y = this.pageHeight - MARGIN - 4;
       this.rule(y - 5);
-      this.line(title, LEFT + 120, y, CONTENT - 120, { size: 7, color: MUTED });
-      this.line(`صفحه ${toPersianDigits(index + 1)} از ${toPersianDigits(count)}`, LEFT, y, 110, {
-        size: 7,
-        color: MUTED,
-        align: 'left',
-      });
+      this.line(title, this.left + 120, y, this.content - 120, { size: 7, color: MUTED });
+      this.line(
+        `صفحه ${toPersianDigits(index + 1)} از ${toPersianDigits(count)}`,
+        this.left,
+        y,
+        110,
+        {
+          size: 7,
+          color: MUTED,
+          align: 'left',
+        },
+      );
     }
   }
 }
 
 /** Text without the directional marks that only steer the order on a page. */
-const plain = (value: string): string =>
+export const plain = (value: string): string =>
   value.replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069]/g, '');
 
 /** The PDF of a report. */

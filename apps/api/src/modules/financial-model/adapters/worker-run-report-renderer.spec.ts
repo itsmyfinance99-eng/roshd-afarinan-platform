@@ -45,6 +45,19 @@ describe('WorkerRunReportRenderer', () => {
     expect(pdf.subarray(0, 5).toString('latin1')).toBe('%PDF-');
   });
 
+  it('writes the PDF of a study, the same bytes for the same version', async () => {
+    const study = {
+      project: { code: 'FS-1', title: 'طرح فولاد', sector: null, location: null },
+      version: { number: 1, issuedAt: '2026-10-07T07:30:00.000Z', contentHash: 'f'.repeat(64) },
+      chapters: [{ title: 'خلاصه', body: 'متن **خلاصه**', answers: [] }],
+    };
+    const first = await renderer.renderStudy(study);
+    expect(first.subarray(0, 5).toString('latin1')).toBe('%PDF-');
+    expect((await renderer.renderStudy(study)).equals(first)).toBe(true);
+    const later = { ...study, version: { ...study.version, issuedAt: '2026-10-08T07:30:00Z' } };
+    expect((await renderer.renderStudy(later)).equals(first)).toBe(false);
+  });
+
   it('writes queued files in turn and turns away a burst beyond the queue', async () => {
     const attempts = Array.from({ length: RENDER_QUEUE_LIMIT + 2 }, () =>
       renderer.render(source, 'html').then(

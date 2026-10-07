@@ -2,7 +2,9 @@ import type { CalculationExportFormat } from '@roshd/validation';
 import { reportFonts } from '../fonts';
 import { reportHtml } from '../html';
 import { dateTimeFa, runReport, type RunReportSource } from '../report';
+import type { StudyDocument } from '../study';
 import { reportPdf } from './pdf';
+import { studyPdf } from './study-pdf';
 import { reportXlsx } from './xlsx';
 
 /**
@@ -38,5 +40,14 @@ export async function renderRunReport(
   }
 }
 
+/** The PDF of a version of the report of a feasibility study (ST-35.13). */
+export function renderStudyReport(
+  study: StudyDocument,
+  generated: Date = new Date(),
+): Promise<Uint8Array> {
+  return studyPdf(study, { fonts: reportFonts().ttf, created: generated });
+}
+
 export { reportPdf, type PdfFonts, type PdfOptions } from './pdf';
+export { studyPdf } from './study-pdf';
 export { reportXlsx } from './xlsx';
