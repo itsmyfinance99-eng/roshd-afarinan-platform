@@ -438,6 +438,49 @@ test.describe('the report of a feasibility project', () => {
 
     await page.goto('/dashboard/manage/feasibility/p1/report/versions/2');
     await expect(page.getByRole('heading', { name: '۱. تحلیل بازار و بازاریابی' })).toBeVisible();
+
+    // The PDF of the version: the server writes it and answers with a signed address.
+    let fileStatus = 503;
+    const fileAsked: string[] = [];
+    await page.route('**/api/v1/feasibility-projects/p1/report/versions/2/file', (route) => {
+      fileAsked.push(route.request().method());
+      return fileStatus === 200
+        ? json(route, {
+            number: 2,
+            fileName: 'feasibility-report-FS-1-v2.pdf',
+            size: 1234,
+            sha256: 'ab'.repeat(32),
+            createdAt: '2026-10-07T09:00:00Z',
+            url: '/api/v1/files/f1/content?exp=1&sig=s',
+            expiresAt: '2026-10-07T09:05:00Z',
+          })
+        : route.fulfill({
+            status: 503,
+            contentType: 'application/json',
+            body: JSON.stringify({
+              error: { code: 'SERVICE_UNAVAILABLE', message: 'فایل‌های زیادی در صف ساخت است.' },
+              meta: { requestId: 't' },
+            }),
+          });
+    });
+    await page.route('**/api/v1/files/f1/content?*', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/pdf',
+        headers: { 'content-disposition': 'attachment; filename="report.pdf"' },
+        body: '%PDF-1.3',
+      }),
+    );
+    await page.getByRole('button', { name: 'دریافت PDF نسخه ۲' }).click();
+    await expect(page.getByText('فایل‌های زیادی در صف ساخت است.')).toBeVisible();
+    fileStatus = 200;
+    const saved = page.waitForEvent('download');
+    await page.getByRole('button', { name: 'دریافت PDF نسخه ۲' }).click();
+    await saved;
+    await expect(page.getByText(/فایل PDF نسخه ۲ آماده شد/)).toBeVisible();
+    await expect(page.getByText('ab'.repeat(32))).toBeVisible();
+    await expect(page.getByText('فایل‌های زیادی در صف ساخت است.')).toHaveCount(0);
+    expect(fileAsked).toEqual(['POST', 'POST']);
     await expect(page.getByText(/نسخه ۲، صادرشده در/)).toBeVisible();
     await expect(page.getByText('اصلاح فصل بازار')).toBeVisible();
     await expect(page.getByText(/اجرای شماره ۳ مدل مالی/)).toBeVisible();
@@ -572,6 +615,8 @@ test.describe('the report of a feasibility project', () => {
     versions = [{ number: 2, contentHash: 'f'.repeat(64), createdAt: '2026-10-07T09:00:00Z' }];
     await page.reload();
     await expect(page.getByRole('heading', { name: '۱. تحلیل بازار و بازاریابی' })).toBeVisible();
+    // The applicant can take the PDF of the version they read.
+    await expect(page.getByRole('button', { name: 'دریافت PDF نسخه ۲' })).toBeVisible();
     // Nothing of the staff: no note of the version and no name.
     await expect(page.getByText('صادرکننده')).toHaveCount(0);
     await expect(page.getByText('یادداشت این نسخه')).toHaveCount(0);
