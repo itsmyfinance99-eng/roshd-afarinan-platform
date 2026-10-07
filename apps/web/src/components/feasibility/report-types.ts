@@ -139,7 +139,7 @@ export interface ReportVersionSummary {
   number: number;
   contentHash: string;
   createdAt: string;
-  approval?: ReportApproval;
+  approval: ReportApproval;
   note?: string | null;
   issuedBy?: StaffRef | null;
 }

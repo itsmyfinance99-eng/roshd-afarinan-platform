@@ -305,6 +305,7 @@ test.describe('the report of a feasibility project', () => {
         createdAt: '2026-10-07T09:00:00Z',
         note: 'نسخه نخست',
         issuedBy: { id: 'u1', fullName: 'مریم احمدی' },
+        approval: { state: 'pending_officer', steps: [] },
       };
       versions = [issued];
       return json(route, issued, 201);
@@ -621,7 +622,14 @@ test.describe('the report of a feasibility project', () => {
     await page.goto('/dashboard/feasibility/p1/report');
     await expect(page.getByText('گزارشی برای خواندن نیست')).toBeVisible();
 
-    versions = [{ number: 2, contentHash: 'f'.repeat(64), createdAt: '2026-10-07T09:00:00Z' }];
+    versions = [
+      {
+        number: 2,
+        contentHash: 'f'.repeat(64),
+        createdAt: '2026-10-07T09:00:00Z',
+        approval: { state: 'pending', steps: [] },
+      },
+    ];
     await page.reload();
     await expect(page.getByRole('heading', { name: '۱. تحلیل بازار و بازاریابی' })).toBeVisible();
     // The applicant can take the PDF of the version they read.
@@ -807,7 +815,8 @@ test.describe('the report of a feasibility project', () => {
     await page.route('**/api/v1/feasibility-projects/p1/report/versions/2/approvals', (route) => {
       const body = route.request().postDataJSON() as { step: string; decision: string };
       sent.push(body);
-      if (refuse) return fail(route, 409, 'فقط آخرین نسخه گزارش تأیید یا رد می‌شود.');
+      if (refuse)
+        return fail(route, 409, 'گزارش فقط هنگام انجام و بازبینی مطالعه تأیید یا رد می‌شود.');
       approval =
         body.decision === 'rejected'
           ? { state: 'rejected', steps: [{ ...officerStep, decision: 'rejected', note: 'ناقص' }] }
@@ -834,7 +843,9 @@ test.describe('the report of a feasibility project', () => {
 
     // What the API refuses is said.
     await panel.getByRole('button', { name: 'تأیید این نسخه (مسئول امکان‌سنجی)' }).click();
-    await expect(panel.getByText('فقط آخرین نسخه گزارش تأیید یا رد می‌شود.')).toBeVisible();
+    await expect(
+      panel.getByText('گزارش فقط هنگام انجام و بازبینی مطالعه تأیید یا رد می‌شود.'),
+    ).toBeVisible();
 
     refuse = false;
     await panel.getByRole('button', { name: 'تأیید این نسخه (مسئول امکان‌سنجی)' }).click();
@@ -861,6 +872,11 @@ test.describe('the report of a feasibility project', () => {
     await panel.getByLabel('یادداشت (برای رد لازم است)').fill('ارقام فصل مالی بازبینی شود');
     page.once('dialog', (dialog) => void dialog.dismiss());
     await panel.getByRole('button', { name: 'رد این نسخه' }).click();
+    // Nothing is sent for a refusal that was not confirmed; the note is still there.
+    await expect(panel.getByLabel('یادداشت (برای رد لازم است)')).toHaveValue(
+      'ارقام فصل مالی بازبینی شود',
+    );
+    await page.waitForTimeout(300);
     expect(sent).toHaveLength(2);
     page.once('dialog', (dialog) => void dialog.accept());
     await panel.getByRole('button', { name: 'رد این نسخه' }).click();
@@ -878,7 +894,7 @@ test.describe('the report of a feasibility project', () => {
   }) => {
     await signIn(page, []);
     const mine = project({
-      status: 'DELIVERED',
+      status: 'CLIENT_REVIEW',
       applicant: undefined,
       experts: undefined,
       financialModel: undefined,
@@ -912,6 +928,7 @@ test.describe('the report of a feasibility project', () => {
     };
     await page.reload();
     await expect(panel.getByText('تأیید نهایی شده')).toBeVisible();
+    await expect(panel.getByText('این نسخه هر دو تأیید را دارد.')).toBeVisible();
     await expect(panel.getByRole('listitem')).toHaveCount(2);
     await expect(panel.getByText(/تأیید مدیر:/)).toBeVisible();
     await expect(panel.getByText(/رضا مدیری/)).toBeVisible();

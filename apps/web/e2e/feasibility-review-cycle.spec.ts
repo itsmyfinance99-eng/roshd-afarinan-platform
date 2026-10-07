@@ -553,15 +553,19 @@ test.describe('the review cycle of a feasibility study', () => {
       void dialog.accept();
     });
     await cycle.getByRole('button', { name: 'تحویل گزارش نهایی به متقاضی' }).click();
-    await expect(cycle.getByText('گزارش نهایی به متقاضی تحویل شد.')).toBeVisible();
-    await expect(cycle.getByRole('button')).toHaveText(['بایگانی پروژه']);
+    // The cycle has no further step; what was done is still said.
+    await expect(page.getByText('گزارش نهایی به متقاضی تحویل شد.')).toBeVisible();
+    await expect(page.getByRole('form', { name: 'چرخه بازبینی و تحویل' })).toHaveCount(0);
+    // The delivered study is filed away with the step the page had before: one button, not two.
+    await expect(page.getByRole('button', { name: 'بایگانی پروژه' })).toHaveCount(1);
     await audit(page);
 
     page.once('dialog', (dialog) => void dialog.accept());
-    await cycle.getByRole('button', { name: 'بایگانی پروژه' }).click();
-    await expect(page.getByText('پروژه بایگانی شد.')).toBeVisible();
-    await expect(page.getByRole('form', { name: 'چرخه بازبینی و تحویل' })).toHaveCount(0);
-    expect(sent).toEqual([{ to: 'DELIVERED' }, { to: 'DELIVERED' }, { to: 'ARCHIVED' }]);
+    await page.getByRole('button', { name: 'بایگانی پروژه' }).click();
+    await expect
+      .poll(() => sent)
+      .toEqual([{ to: 'DELIVERED' }, { to: 'DELIVERED' }, { to: 'ARCHIVED' }]);
+    await expect(page.getByRole('button', { name: 'بایگانی پروژه' })).toHaveCount(0);
   });
 
   test('does not offer the delivery to the applicant', async ({ page }) => {

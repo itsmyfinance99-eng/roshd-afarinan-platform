@@ -94,25 +94,14 @@ function stepsOf(project: FeasibilityProjectDetail, side: Side): Step[] {
           },
         ]
       : []),
-    ...(side === 'staff' && project.status === 'DELIVERED' && open('ARCHIVED')
-      ? [
-          {
-            to: 'ARCHIVED' as const,
-            label: 'بایگانی پروژه',
-            busy: 'در حال ثبت…',
-            done: 'پروژه بایگانی شد.',
-            confirm: 'پروژه بایگانی شود؟ پروژه بایگانی‌شده دیگر تغییر نمی‌کند.',
-          },
-        ]
-      : []),
   ];
 }
 
 /**
  * The steps of the review cycle of a study (ST-35.11): to the review of the experts, on to the
  * review of the applicant, and back to the work; then, for the staff, the delivery of the
- * approved report and the filing away of the delivered study (ST-35.14). Only the steps the API
- * offers the caller are shown.
+ * approved report (ST-35.14). Only the steps the API offers the caller are shown. The filing
+ * away of a delivered study is a step of the staff's `ReviewActions`.
  */
 export function ReviewSteps({
   project,

@@ -743,11 +743,9 @@ export function ReportVersions({
               >
                 نسخه {toPersianDigits(version.number)} ‹
               </Link>
-              {version.approval ? (
-                <span className="ms-3">
-                  <ApprovalBadge state={version.approval.state} />
-                </span>
-              ) : null}
+              <span className="ms-3">
+                <ApprovalBadge state={version.approval.state} />
+              </span>
               <p className="mt-1 text-[13px] text-ink-5">
                 {version.issuedBy?.fullName ?? 'کاربر حذف‌شده'} ·{' '}
                 {formatDateTimeFa(version.createdAt)}
