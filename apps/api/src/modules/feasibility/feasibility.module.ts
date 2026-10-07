@@ -10,6 +10,8 @@ import { ProjectDocumentsController } from './project-documents.controller';
 import { ProjectDocumentsService } from './project-documents.service';
 import { ProjectQuestionnaireController } from './project-questionnaire.controller';
 import { ProjectQuestionnaireService } from './project-questionnaire.service';
+import { ProjectReviewController } from './project-review.controller';
+import { ProjectReviewService } from './project-review.service';
 import { ProjectWorkspaceController } from './project-workspace.controller';
 import { ProjectWorkspaceService } from './project-workspace.service';
 import { QuestionnaireReader } from './questionnaire-reader';
@@ -22,8 +24,8 @@ import { QuestionnaireTemplatesService } from './questionnaire-templates.service
  * with its answers and its own items (ST-35.03), the documents of a project (ST-35.06), the
  * cost estimate the applicant accepts or declines (ST-35.08) and the signed contract the staff
  * confirm to start the work (ST-35.09), and the workspace of the staff and the experts: the
- * financial model of the study and their internal notes (ST-35.10). Deliverables join in later
- * stories.
+ * financial model of the study and their internal notes (ST-35.10), and the comments of the review
+ * of a study, in threads on its parts (ST-35.11). Deliverables join in later stories.
  */
 @Module({
   imports: [UsersModule, ServiceRequestsModule, FinancialModelModule],
@@ -32,6 +34,7 @@ import { QuestionnaireTemplatesService } from './questionnaire-templates.service
     ProjectContractController,
     ProjectDocumentsController,
     ProjectQuestionnaireController,
+    ProjectReviewController,
     ProjectWorkspaceController,
     QuestionnaireTemplatesController,
   ],
@@ -40,6 +43,7 @@ import { QuestionnaireTemplatesService } from './questionnaire-templates.service
     ProjectContractService,
     ProjectDocumentsService,
     ProjectQuestionnaireService,
+    ProjectReviewService,
     ProjectWorkspaceService,
     QuestionnaireReader,
     QuestionnaireTemplatesService,

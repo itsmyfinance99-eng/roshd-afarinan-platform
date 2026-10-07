@@ -143,6 +143,11 @@ export interface FeasibilityProjectDetail extends FeasibilityProjectSummary {
     createModel: boolean;
     /** Write an internal note (`POST …/notes`; staff and experts). */
     addNote: boolean;
+    /**
+     * Start a review thread (`POST …/review-threads`): the applicant while the study is with
+     * them, the staff and the experts while it is worked on.
+     */
+    comment: boolean;
   };
   /** The experts working on the project; staff and experts see them, the applicant does not. */
   experts?: ProjectExpertView[];
@@ -502,17 +507,18 @@ export class FeasibilityProjectsService {
     const actors = actorsOf(relation);
     // Who works on the study: its staff and its experts, never its applicant.
     const works = !relation.owner && (relation.manager || relation.expert);
+    const workedOn = (FEASIBILITY_WORK_STATUSES as readonly FeasibilityStatus[]).includes(
+      view.status,
+    );
     const access = {
       transitions: [...new Set(actors.flatMap((actor) => allowedTransitions(view.status, actor)))],
       edit: relation.owner && isEditable(view.status),
       remove: relation.owner && view.status === 'DRAFT' && sourceRequestId === null,
       assignExperts: relation.manager && !relation.owner && view.status !== 'ARCHIVED',
       releaseExperts: relation.manager && !relation.owner,
-      createModel:
-        works &&
-        financialModelId === null &&
-        (FEASIBILITY_WORK_STATUSES as readonly FeasibilityStatus[]).includes(view.status),
+      createModel: works && financialModelId === null && workedOn,
       addNote: works && view.status !== 'ARCHIVED',
+      comment: relation.owner ? view.status === 'CLIENT_REVIEW' : works && workedOn,
     };
     if (relation.owner) {
       return {

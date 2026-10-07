@@ -72,6 +72,9 @@ model User {
   feasibilityContractsUploaded   FeasibilityContract[]          @relation("FeasibilityContractUploader")
   feasibilityContractsConfirmed  FeasibilityContract[]          @relation("FeasibilityContractConfirmer")
   feasibilityInternalNotes       FeasibilityInternalNote[]      @relation("FeasibilityInternalNoteAuthor")
+  feasibilityReviewThreads       FeasibilityReviewThread[]      @relation("FeasibilityReviewThreadStarter")
+  feasibilityReviewThreadsDone   FeasibilityReviewThread[]      @relation("FeasibilityReviewThreadHandler")
+  feasibilityReviewComments      FeasibilityReviewComment[]     @relation("FeasibilityReviewCommentAuthor")
 
   @@map("users")
 }
@@ -888,6 +891,7 @@ model FeasibilityProject {
   costEstimates      FeasibilityCostEstimate[]
   contracts          FeasibilityContract[]
   internalNotes      FeasibilityInternalNote[]
+  reviewThreads      FeasibilityReviewThread[]
   experts            ExpertAssignment[]
 
   @@index([ownerId, updatedAt])
@@ -977,6 +981,49 @@ model FeasibilityInternalNote {
 
   @@index([projectId, createdAt])
   @@map("feasibility_internal_notes")
+}
+
+/// A thread of comments on one part of a study (ST-35.11), started in its review by the
+/// applicant, the staff or an expert. The comments are in `feasibility_review_comments`; the
+/// first one is written together with the thread.
+model FeasibilityReviewThread {
+  id          String    @id @default(uuid(7)) @db.Uuid
+  projectId   String    @db.Uuid
+  /// One of FEASIBILITY_REVIEW_SECTIONS (@roshd/validation).
+  section     String
+  /// Whether the applicant reads the thread. Always true for a thread of the applicant; a
+  /// thread of the staff or of an expert is between them unless they share it. Never changed.
+  shared      Boolean
+  startedById String?   @db.Uuid
+  createdAt   DateTime  @default(now())
+  /// Set while the thread counts as handled; null again when it is opened once more.
+  handledAt   DateTime?
+  handledById String?   @db.Uuid
+
+  project   FeasibilityProject         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  startedBy User?                      @relation("FeasibilityReviewThreadStarter", fields: [startedById], references: [id], onDelete: SetNull)
+  handledBy User?                      @relation("FeasibilityReviewThreadHandler", fields: [handledById], references: [id], onDelete: SetNull)
+  comments  FeasibilityReviewComment[]
+
+  @@index([projectId, createdAt])
+  @@map("feasibility_review_threads")
+}
+
+/// One comment of a review thread. Written once: a correction is another comment.
+model FeasibilityReviewComment {
+  id        String           @id @default(uuid(7)) @db.Uuid
+  threadId  String           @db.Uuid
+  authorId  String?          @db.Uuid
+  /// In which capacity it was written: `applicant`, `staff` or `expert`.
+  authorAs  FeasibilityActor
+  body      String
+  createdAt DateTime         @default(now())
+
+  thread FeasibilityReviewThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  author User?                   @relation("FeasibilityReviewCommentAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+
+  @@index([threadId, createdAt])
+  @@map("feasibility_review_comments")
 }
 
 enum QuestionnaireVersionStatus {

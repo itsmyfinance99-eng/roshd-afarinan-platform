@@ -90,6 +90,9 @@ async function audit(page: Page) {
 
 test.describe('the workspace of a feasibility project', () => {
   test.beforeEach(async ({ page }) => {
+    await page.route('**/api/v1/feasibility-projects/p1/review-threads?*', (route) =>
+      json(route, []),
+    );
     await page.route('**/api/v1/feasibility-projects/p1/documents', (route) =>
       json(route, { slots: [], access: { upload: false } }),
     );

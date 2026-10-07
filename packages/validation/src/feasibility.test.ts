@@ -13,7 +13,13 @@ import {
   listFeasibilityProjectsQuerySchema,
   updateFeasibilityProjectSchema,
   createInternalNoteSchema,
+  createReviewReplySchema,
+  createReviewThreadSchema,
+  FEASIBILITY_REVIEW_SECTION_LABELS_FA,
+  FEASIBILITY_REVIEW_SECTIONS,
   FEASIBILITY_WORK_STATUSES,
+  listReviewThreadsQuerySchema,
+  setReviewThreadHandledSchema,
 } from './feasibility';
 
 describe('feasibility schemas', () => {
@@ -162,5 +168,51 @@ describe('feasibility schemas', () => {
 
   it('counts the work on a study from the confirmed contract to the delivery', () => {
     expect(FEASIBILITY_WORK_STATUSES).toEqual(['IN_PROGRESS', 'EXPERT_REVIEW', 'CLIENT_REVIEW']);
+  });
+
+  it('names every part of a study a review comment is written on', () => {
+    expect(new Set(FEASIBILITY_REVIEW_SECTIONS).size).toBe(FEASIBILITY_REVIEW_SECTIONS.length);
+    expect(FEASIBILITY_REVIEW_SECTIONS[0]).toBe('general');
+    for (const section of FEASIBILITY_REVIEW_SECTIONS) {
+      expect(FEASIBILITY_REVIEW_SECTION_LABELS_FA[section]).toBeTruthy();
+    }
+  });
+
+  it('takes a review comment on a known part of the study', () => {
+    expect(createReviewThreadSchema.parse({ section: 'market', body: '  رقم تقاضا  ' })).toEqual({
+      section: 'market',
+      body: 'رقم تقاضا',
+    });
+    expect(
+      createReviewThreadSchema.parse({ section: 'general', body: 'متن', shared: true }).shared,
+    ).toBe(true);
+    expect(createReviewThreadSchema.safeParse({ section: 'chapter-9', body: 'متن' }).success).toBe(
+      false,
+    );
+    expect(createReviewThreadSchema.safeParse({ section: 'market', body: '  ' }).success).toBe(
+      false,
+    );
+    expect(
+      createReviewThreadSchema.safeParse({ section: 'market', body: 'متن', shared: 'yes' }).success,
+    ).toBe(false);
+    expect(createReviewReplySchema.safeParse({ body: 'ی'.repeat(4000) }).success).toBe(true);
+    expect(createReviewReplySchema.safeParse({ body: 'ی'.repeat(4001) }).success).toBe(false);
+    expect(createReviewReplySchema.safeParse({}).success).toBe(false);
+  });
+
+  it('marks a thread handled or open with an explicit value only', () => {
+    expect(setReviewThreadHandledSchema.parse({ handled: false })).toEqual({ handled: false });
+    expect(setReviewThreadHandledSchema.safeParse({}).success).toBe(false);
+    expect(setReviewThreadHandledSchema.safeParse({ handled: 'true' }).success).toBe(false);
+  });
+
+  it('lists review threads by part and by state, a bounded page at a time', () => {
+    expect(listReviewThreadsQuerySchema.parse({})).toEqual({ page: 1, pageSize: 20 });
+    expect(
+      listReviewThreadsQuerySchema.parse({ section: 'financial', state: 'open', pageSize: '50' }),
+    ).toEqual({ page: 1, pageSize: 50, section: 'financial', state: 'open' });
+    expect(listReviewThreadsQuerySchema.safeParse({ pageSize: 51 }).success).toBe(false);
+    expect(listReviewThreadsQuerySchema.safeParse({ state: 'closed' }).success).toBe(false);
+    expect(listReviewThreadsQuerySchema.safeParse({ section: 'x' }).success).toBe(false);
   });
 });
