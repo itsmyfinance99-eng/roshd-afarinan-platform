@@ -48,6 +48,7 @@ const EXPERT_PERMISSION = 'financial-models:work';
 const MANAGE_PERMISSION = 'financial-models:manage';
 /** Text of the database error raised when an approved run would be deleted (see the migration). */
 const APPROVED_RUN_KEPT = 'an approved calculation run cannot be deleted';
+const PROJECT_MODEL_KEPT = 'مدل مالی یک پروژه امکان‌سنجی حذف نمی‌شود.';
 const FROZEN_MODEL = 'مدل مالی پروژه بایگانی‌شده تغییر نمی‌کند.';
 
 const SUMMARY_SELECT = {
@@ -297,6 +298,8 @@ export class FinancialModelsService {
   async remove(id: string, principal: Principal, meta: RequestMeta): Promise<void> {
     const relation = await this.visible(id, principal);
     if (!relation.owner && !relation.manager) throw new ForbiddenError();
+    // The model of a feasibility project belongs to the study; the foreign key is the backstop.
+    if (relation.link) throw new ConflictError(PROJECT_MODEL_KEPT);
     const kept = 'مدلی که اجرای تأییدشده دارد حذف نمی‌شود.';
     await this.prisma
       .$transaction(async (tx) => {
@@ -314,7 +317,7 @@ export class FinancialModelsService {
         }
         // The model of a feasibility project belongs to the study (foreign key, ADR-0010 §6).
         if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2003') {
-          throw new ConflictError('مدل مالی یک پروژه امکان‌سنجی حذف نمی‌شود.');
+          throw new ConflictError(PROJECT_MODEL_KEPT);
         }
         throw error;
       });

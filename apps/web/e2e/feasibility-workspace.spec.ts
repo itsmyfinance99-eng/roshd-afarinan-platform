@@ -382,8 +382,10 @@ test.describe('the workspace of a feasibility project', () => {
 
   test('leads from the model of a project back to the project', async ({ page }) => {
     await signIn(page, ['feasibility:work']);
-    await page.route('**/api/v1/financial-models/m1', (route) =>
-      json(route, {
+    const methods: string[] = [];
+    await page.route('**/api/v1/financial-models/m1', (route) => {
+      methods.push(route.request().method());
+      return json(route, {
         id: 'm1',
         title: 'مدل مالی کارخانه فرآوری سنگ آهن',
         version: 1,
@@ -395,8 +397,8 @@ test.describe('the workspace of a feasibility project', () => {
         assignee: null,
         // The project of this model is archived.
         access: { edit: false, approve: false, assign: false, remove: false },
-      }),
-    );
+      });
+    });
 
     await page.goto('/dashboard/models/m1');
     await expect(page.getByRole('link', { name: /بازگشت به پروژه/ })).toHaveAttribute(
@@ -405,6 +407,13 @@ test.describe('the workspace of a feasibility project', () => {
     );
     await expect(page.getByRole('link', { name: /بازگشت به فهرست/ })).toHaveCount(0);
     await expect(page.getByText(/پروژه این مدل بایگانی شده است/)).toBeVisible();
+    // Nothing of a closed model is sent: no save of a change, and no run to store.
+    await expect(page.getByText(/این مدل فقط خواندنی است/)).toBeVisible();
+    await expect(page.getByRole('button', { name: 'ثبت اجرای محاسبه' })).toHaveCount(0);
+    await page.getByLabel('عنوان مدل').fill('عنوانی دیگر برای مدل');
+    await page.waitForTimeout(2500);
+    expect(methods).toEqual(['GET']);
+    await expect(page.getByText(/در جای دیگری تغییر کرده است/)).toHaveCount(0);
   });
 
   test('fits a phone without scrolling sideways', async ({ page }) => {
