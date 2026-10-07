@@ -2332,6 +2332,7 @@ epics:
         sprint: S22
         points: 8
         priority: critical
+        status: done
         area: [api, web]
         depends: [ST-35.10, ST-34.06]
         story: 'به‌عنوان کارشناس می‌خواهم گزارش امکان‌سنجی را از بخش‌های متنی، پاسخ‌های منتخب و نتایج مالی تأییدشده بسازم.'

@@ -129,6 +129,13 @@ function ProjectView({
             {project.costEstimate ? <EstimateFacts estimate={project.costEstimate} /> : null}
             <EstimateDecision project={project} onChanged={onChanged} />
             <ProjectContract project={project} side="applicant" onChanged={onChanged} />
+            {project.access.report ? (
+              <p className="text-[15px]">
+                <Link href={`/dashboard/feasibility/${project.id}/report`} className="font-bold">
+                  گزارش مطالعه ‹
+                </Link>
+              </p>
+            ) : null}
             <ReviewSteps project={project} side="applicant" onChanged={onChanged} />
             {hasReview(project) ? (
               <ReviewThreads key={`threads-${project.status}`} project={project} side="applicant" />

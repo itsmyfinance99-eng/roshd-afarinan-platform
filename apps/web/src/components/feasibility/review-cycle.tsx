@@ -232,12 +232,15 @@ export const hasReview = (project: FeasibilityProjectDetail): boolean =>
 export function ReviewThreads({
   project,
   side,
+  initialSection = ALL,
 }: {
   project: FeasibilityProjectDetail;
   side: Side;
+  /** The part the list opens on: the chapter of the report the reader came from (ST-35.12). */
+  initialSection?: string;
 }) {
   const [page, setPage] = useState(1);
-  const [section, setSection] = useState(ALL);
+  const [section, setSection] = useState(initialSection);
   const [only, setOnly] = useState(ALL);
   const { state, reload } = useApi<ReviewThread[]>(
     `/feasibility-projects/${project.id}/review-threads?page=${page}&pageSize=${PAGE_SIZE}` +
