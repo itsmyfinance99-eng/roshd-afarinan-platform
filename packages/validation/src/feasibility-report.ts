@@ -6,7 +6,7 @@ import {
   FEASIBILITY_REVIEW_SECTIONS,
   type FeasibilityReviewSection,
 } from './feasibility';
-import { REPORTING_UNITS } from './financial-model';
+import { REPORTING_UNITS, type ReportingUnit } from './financial-model';
 import { questionnaireKeySchema } from './questionnaire';
 
 /**
@@ -40,6 +40,12 @@ export const MAX_REPORT_CHAPTER_ANSWERS = 50;
 export const MAX_REPORT_TEMPLATES = 50;
 /** Versions one project's report is issued in (a bound against runaway use). */
 export const MAX_REPORT_VERSIONS = 50;
+
+/**
+ * The display unit of the amounts in the PDF of a version (ST-35.13, OQ-55): the one the page of
+ * the report opens with. A version has one file, so the unit is not a choice of the reader.
+ */
+export const REPORT_FILE_UNIT: ReportingUnit = '1000000';
 
 /** A chapter of a report template: which chapter, under which title, with what guidance. */
 export const reportTemplateChapterSchema = z

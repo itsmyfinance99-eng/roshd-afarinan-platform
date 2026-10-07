@@ -26,6 +26,6 @@ import { RunExportService } from './run-export.service';
     { provide: CALCULATION_RUNNER, useClass: WorkerCalculationRunner },
     { provide: RUN_REPORT_RENDERER, useClass: WorkerRunReportRenderer },
   ],
-  exports: [AssumptionTemplatesService, FinancialModelsService],
+  exports: [AssumptionTemplatesService, FinancialModelsService, RUN_REPORT_RENDERER],
 })
 export class FinancialModelModule {}

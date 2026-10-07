@@ -17,6 +17,8 @@ export interface Piece {
   text: string;
   /** A space between words: only its width is used. */
   space: boolean;
+  /** Where the piece starts in the line it was resolved from (its first character there). */
+  index: number;
 }
 
 /** Directional marks, embeddings and isolates: they steer the order and are never drawn. */
@@ -52,16 +54,22 @@ export function visualPieces(line: string, direction: Direction): Piece[] {
   const { levels } = resolved;
   const mirrored = bidi.getMirroredCharactersMap(line, levels);
   const pieces: Piece[] = [];
-  let current: { kind: Kind; level: number; last: number; chars: string[] } | undefined;
+  let current:
+    { kind: Kind; level: number; first: number; last: number; chars: string[] } | undefined;
   const close = () => {
     if (!current) return;
-    if (current.kind === 'space') pieces.push({ text: '', space: true });
+    const { first } = current;
+    if (current.kind === 'space') pieces.push({ text: '', space: true, index: first });
     else {
       const rtl = current.level % 2 === 1;
       // Visual order of a right-to-left run is the reverse of its logical order.
       const logical = rtl ? [...current.chars].reverse() : current.chars;
       const reversed = !rtl && current.kind === 'number';
-      pieces.push({ text: (reversed ? [...logical].reverse() : logical).join(''), space: false });
+      pieces.push({
+        text: (reversed ? [...logical].reverse() : logical).join(''),
+        space: false,
+        index: first,
+      });
     }
     current = undefined;
   };
@@ -81,8 +89,9 @@ export function visualPieces(line: string, direction: Direction): Piece[] {
     ) {
       close();
     }
-    current ??= { kind, level, last: index, chars: [] };
+    current ??= { kind, level, first: index, last: index, chars: [] };
     current.last = index;
+    current.first = Math.min(current.first, index);
     current.chars.push(rtl ? (mirrored.get(index) ?? char) : char);
   }
   close();

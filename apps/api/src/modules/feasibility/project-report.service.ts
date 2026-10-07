@@ -1,5 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { runReport, type ReportPart } from '@roshd/financial-report';
+import {
+  runCharts,
+  runReport,
+  type ReportPart,
+  type RunReportSource,
+  type StudyDocument,
+} from '@roshd/financial-report';
 import {
   DEFAULT_REPORT_STRUCTURE,
   FEASIBILITY_REPORT_READ_STATUSES,
@@ -567,17 +573,7 @@ export class ProjectReportService {
     principal: Principal,
     query: ReportViewQuery,
   ): Promise<ReportView> {
-    const viewer = await this.viewerOf(id, principal);
-    if (viewer.applicant) {
-      // For the applicant only the newest version exists, and not before the study is with them.
-      const newest = (await this.applicantReads(id))
-        ? await this.prisma.feasibilityReportVersion.aggregate({
-            where: { projectId: id },
-            _max: { number: true },
-          })
-        : null;
-      if (newest?._max.number !== number) throw new NotFoundError();
-    }
+    const viewer = await this.readerOf(id, number, principal);
     const row = await this.prisma.feasibilityReportVersion.findUnique({
       where: { projectId_number: { projectId: id, number } },
       select: { ...VERSION_SUMMARY_SELECT, content: true },
@@ -598,6 +594,57 @@ export class ProjectReportService {
               await this.users.namesByIds(row.issuedById ? [row.issuedById] : []),
             ),
           }),
+    };
+  }
+
+  /**
+   * A version the caller may read, for the file of ST-35.13: its row and the code of its
+   * project. For anybody who may not read it the version does not exist (404).
+   */
+  async versionRef(
+    id: string,
+    number: number,
+    principal: Principal,
+  ): Promise<{ id: string; number: number; code: string }> {
+    await this.readerOf(id, number, principal);
+    const row = await this.prisma.feasibilityReportVersion.findUnique({
+      where: { projectId_number: { projectId: id, number } },
+      select: { id: true, number: true, project: { select: { code: true } } },
+    });
+    if (!row) throw new NotFoundError();
+    return { id: row.id, number: row.number, code: row.project.code };
+  }
+
+  /**
+   * A version as the document its PDF is written from: the chapters with their text and quoted
+   * answers, the schedules of the run in `unit` and the charts of the run. No note and no name:
+   * the file is the same for everybody who may read the version. The caller has checked that
+   * (`versionRef`).
+   */
+  async study(id: string, number: number, unit: ReportingUnit): Promise<StudyDocument> {
+    const row = await this.prisma.feasibilityReportVersion.findUnique({
+      where: { projectId_number: { projectId: id, number } },
+      select: { number: true, contentHash: true, createdAt: true, content: true },
+    });
+    if (!row) throw new NotFoundError();
+    const content = row.content as unknown as ReportContent;
+    const source = await this.runSource(id, content, unit);
+    const { chapters } = this.shown(content, this.partsFrom(content, source));
+    const charts = source ? runCharts(source) : [];
+    return {
+      project: content.project,
+      version: { number: row.number, issuedAt: row.createdAt, contentHash: row.contentHash },
+      chapters: chapters.map(({ title, body, answers, parts }) => ({
+        title,
+        body,
+        answers: answers.map(({ label, value }) => ({ label, value })),
+        ...(parts
+          ? {
+              parts,
+              charts: charts.filter((chart) => parts.some((part) => part.id === chart.part)),
+            }
+          : {}),
+      })),
     };
   }
 
@@ -679,6 +726,15 @@ export class ProjectReportService {
     content: ReportContent,
     unit: ReportingUnit,
   ): Promise<ReportPart[] | null> {
+    return this.partsFrom(content, await this.runSource(id, content, unit));
+  }
+
+  /** The stored run of a version as the report package reads it; null when it cannot be found. */
+  private async runSource(
+    id: string,
+    content: ReportContent,
+    unit: ReportingUnit,
+  ): Promise<RunReportSource | null> {
     if (!content.run) return null;
     const { financialModelId } = await this.prisma.feasibilityProject.findUniqueOrThrow({
       where: { id },
@@ -688,8 +744,14 @@ export class ProjectReportService {
       ? await this.models.approvedRunSource(financialModelId, content.run.id)
       : null;
     return source
-      ? runReport({ ...source, modelTitle: content.run.modelTitle ?? source.modelTitle, unit })
-          .parts
+      ? { ...source, modelTitle: content.run.modelTitle ?? source.modelTitle, unit }
+      : null;
+  }
+
+  private partsFrom(content: ReportContent, source: RunReportSource | null): ReportPart[] | null {
+    if (!content.run) return null;
+    return source
+      ? runReport(source).parts
       : // The run of a version is kept by the database; this is for a row nobody expects.
         [{ id: 'summary', title: 'نتایج', blocks: [{ kind: 'text', text: UNREADABLE_RUN }] }];
   }
@@ -765,6 +827,24 @@ export class ProjectReportService {
       select: { status: true },
     });
     return project !== null && isReadByApplicant(project.status);
+  }
+
+  /**
+   * The caller as a reader of one version. For the applicant only the newest version exists,
+   * and not before the study is with them; anything else is 404, like a project of others.
+   */
+  private async readerOf(id: string, number: number, principal: Principal): Promise<Viewer> {
+    const viewer = await this.viewerOf(id, principal);
+    if (viewer.applicant) {
+      const newest = (await this.applicantReads(id))
+        ? await this.prisma.feasibilityReportVersion.aggregate({
+            where: { projectId: id },
+            _max: { number: true },
+          })
+        : null;
+      if (newest?._max.number !== number) throw new NotFoundError();
+    }
+    return viewer;
   }
 
   /** 404 for a project the caller has no relation to. */

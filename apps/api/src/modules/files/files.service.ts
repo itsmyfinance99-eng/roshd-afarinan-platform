@@ -83,6 +83,9 @@ const toMedia = <T extends { id: string }>(row: T): T & { url: string } => ({
   url: mediaUrl(row.id),
 });
 
+/** `source` of a file the server wrote itself (an upload is `upload`). */
+const GENERATED = 'generated';
+
 /** Entities whose attached files staff may read, and the permission that grants it. */
 const ENTITY_READ_PERMISSION = {
   service_request: 'requests:read-all',
@@ -262,6 +265,47 @@ export class FilesService {
     });
   }
 
+  /**
+   * A private file the server wrote for a business record (the PDF of a report). Nothing of it
+   * came from a request, so there is nothing to sniff. It is read through its record only: the
+   * user it was written for has no right of an owner to it (`GENERATED`).
+   */
+  async storeGenerated(
+    actor: Principal,
+    file: { name: string; mimeType: AllowedMimeType; body: Buffer },
+    purpose: StoredPurpose,
+    entity: { entityType: string; entityId: string },
+    meta: RequestMeta,
+  ): Promise<FileView> {
+    const now = new Date();
+    const storageKey = `files/${now.getUTCFullYear()}/${String(now.getUTCMonth() + 1).padStart(2, '0')}/${randomUUID()}`;
+    await this.storage.put(storageKey, file.body, file.mimeType);
+    const created = await this.prisma.fileObject.create({
+      data: {
+        ownerId: actor.userId,
+        purpose,
+        accessLevel: 'PRIVATE',
+        originalName: sanitizeFileName(file.name),
+        mimeType: file.mimeType,
+        size: file.body.length,
+        checksum: createHash('sha256').update(file.body).digest('hex'),
+        storageKey,
+        source: GENERATED,
+        ...entity,
+      },
+      select: VIEW_SELECT,
+    });
+    await this.audit.record({
+      action: 'file.generated',
+      actorId: actor.userId,
+      entityType: 'file',
+      entityId: created.id,
+      metadata: { purpose, mimeType: file.mimeType, size: created.size },
+      meta,
+    });
+    return created;
+  }
+
   /** Bytes of the owner's files of one purpose that are still there, whatever they belong to. */
   async bytesOf(ownerId: string, purpose: StoredPurpose): Promise<number> {
     const { _sum } = await this.prisma.fileObject.aggregate({
@@ -334,6 +378,8 @@ export class FilesService {
           // to be (the process died in between), nothing lists the file and nothing removes it.
           { purpose: 'FEASIBILITY_DOCUMENT', projectDocument: { is: null } },
           { purpose: 'FEASIBILITY_CONTRACT', feasibilityContract: { is: null } },
+          // The PDF of a report that lost the race to become the file of its version.
+          { purpose: 'FEASIBILITY_REPORT', reportFile: { is: null } },
         ],
       },
       select: { id: true, storageKey: true },
@@ -359,7 +405,11 @@ export class FilesService {
   }
 
   async listMine(userId: string, page: number, pageSize: number): Promise<PageResult<FileView>> {
-    const where: Prisma.FileObjectWhereInput = { ownerId: userId, status: 'ACTIVE' };
+    const where: Prisma.FileObjectWhereInput = {
+      ownerId: userId,
+      status: 'ACTIVE',
+      source: { not: GENERATED },
+    };
     const [items, total] = await this.prisma.$transaction([
       this.prisma.fileObject.findMany({
         where,
@@ -411,10 +461,10 @@ export class FilesService {
   async getVisible(id: string, principal: Principal): Promise<FileView> {
     const file = await this.prisma.fileObject.findFirst({
       where: { id, status: 'ACTIVE' },
-      select: { ...VIEW_SELECT, ownerId: true },
+      select: { ...VIEW_SELECT, ownerId: true, source: true },
     });
     if (!file || !this.canRead(principal, file)) throw new NotFoundError();
-    const { ownerId: _owner, ...view } = file;
+    const { ownerId: _owner, source: _source, ...view } = file;
     return view;
   }
 
@@ -506,11 +556,11 @@ export class FilesService {
   async remove(id: string, principal: Principal, meta: RequestMeta): Promise<void> {
     const file = await this.prisma.fileObject.findFirst({
       where: { id, status: 'ACTIVE' },
-      select: { ownerId: true, entityType: true, entityId: true, storageKey: true },
+      select: { ownerId: true, entityType: true, entityId: true, storageKey: true, source: true },
     });
     const staff = hasPermission(principal, 'files:read-all');
-    if (!file || (file.ownerId !== principal.userId && !staff)) throw new NotFoundError();
-    const own = file.ownerId === principal.userId;
+    const own = file?.ownerId === principal.userId && file.source !== GENERATED;
+    if (!file || (!own && !staff)) throw new NotFoundError();
     if (file.entityId && !staff) {
       throw new ConflictError('این فایل به یک درخواست پیوست شده و قابل حذف نیست.');
     }
@@ -599,9 +649,13 @@ export class FilesService {
     });
   }
 
-  private canRead(principal: Principal, file: { ownerId: string; entityType: string | null }) {
-    if (file.ownerId === principal.userId || hasPermission(principal, 'files:read-all'))
-      return true;
+  private canRead(
+    principal: Principal,
+    file: { ownerId: string; entityType: string | null; source: string },
+  ) {
+    // A file the server wrote has no owner in this sense: it is read through its record.
+    const own = file.ownerId === principal.userId && file.source !== GENERATED;
+    if (own || hasPermission(principal, 'files:read-all')) return true;
     const permission =
       file.entityType &&
       ENTITY_READ_PERMISSION[file.entityType as keyof typeof ENTITY_READ_PERMISSION];

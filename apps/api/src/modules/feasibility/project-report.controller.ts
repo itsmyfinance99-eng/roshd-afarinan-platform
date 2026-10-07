@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put } from '@nestjs/common';
+import { Controller, Get, HttpCode, Post, Put } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
   FEASIBILITY_REPORT_CHAPTERS,
@@ -20,6 +20,7 @@ import {
 import { Meta, type RequestMeta } from '../../common/http/request-meta';
 import { ZodBody, ZodParam, ZodQuery } from '../../common/http/zod';
 import { CurrentUser, type Principal } from '../rbac/principal';
+import { ProjectReportFileService } from './project-report-file.service';
 import { ProjectReportService } from './project-report.service';
 
 const chapterKeySchema = z.enum(FEASIBILITY_REPORT_CHAPTERS);
@@ -33,7 +34,10 @@ const chapterKeySchema = z.enum(FEASIBILITY_REPORT_CHAPTERS);
 @ApiTags('feasibility')
 @Controller('feasibility-projects/:id/report')
 export class ProjectReportController {
-  constructor(private readonly report: ProjectReportService) {}
+  constructor(
+    private readonly report: ProjectReportService,
+    private readonly file: ProjectReportFileService,
+  ) {}
 
   @Get()
   @ApiOperation({
@@ -143,5 +147,20 @@ export class ProjectReportController {
     @ZodQuery(reportViewQuerySchema) query: ReportViewQuery,
   ) {
     return this.report.version(id, number, user, query);
+  }
+
+  @Post('versions/:number/file')
+  @HttpCode(200)
+  @ApiOperation({
+    summary:
+      'A signed, expiring address of the PDF of a version; the file is written on the first request (audited)',
+  })
+  download(
+    @CurrentUser() user: Principal,
+    @ZodParam('id', idSchema) id: string,
+    @ZodParam('number', reportVersionNumberSchema) number: number,
+    @Meta() meta: RequestMeta,
+  ) {
+    return this.file.download(id, number, user, meta);
   }
 }

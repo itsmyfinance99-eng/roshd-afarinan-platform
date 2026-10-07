@@ -26,7 +26,7 @@ Forces:
 ## Consequences
 
 - The page, the xlsx, the PDF and the HTML show the same lines and the same rounded figures; a new line of a schedule is added in one place.
-- The API image grows by PDFKit and its font library (about 18 MB unpacked) and by four font files (about 350 kB); no browser and no system fonts are needed. ADR-0010's deliverable PDF can reuse the text layer and the layout code.
+- The API image grows by PDFKit and its font library (about 18 MB unpacked) and by four font files (about 350 kB); no browser and no system fonts are needed. ADR-0010's deliverable PDF can reuse the text layer and the layout code. It does since ST-35.13: the report of a study is written by the same writer, which lays a page upright or on its side (ADR-0010, «As built in ST-35.13»).
 - The PDF layout is our own code: tables, page breaks and bidirectional text are covered by tests and were checked by eye, but a new kind of block needs layout work. Characters outside the font (other scripts, emoji) are drawn as missing glyphs.
 - The xlsx writer supports exactly what the report needs. It was checked by opening the file in Excel; it is not a general spreadsheet library.
 - The queue and the per-user limits live in the memory of each API process, like those of the calculation.
