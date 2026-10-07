@@ -2,8 +2,11 @@ import { cn } from '@roshd/ui';
 import Markdown from 'react-markdown';
 import { safeMarkdownUrl } from '@/lib/safe-url';
 
-/** Headings of a text that is a part of a page section: two levels down. */
-const NESTED_HEADINGS = { h1: 'h3', h2: 'h4', h3: 'h5', h4: 'h6', h5: 'h6' } as const;
+/**
+ * Headings of a text that is a part of a page section: the two top levels both come right under
+ * the heading of the section (writers start with either), the others follow.
+ */
+const NESTED_HEADINGS = { h1: 'h3', h2: 'h3', h3: 'h4', h4: 'h5', h5: 'h6' } as const;
 
 /**
  * Renders CMS Markdown safely: raw HTML is not rendered (react-markdown default),

@@ -442,7 +442,7 @@ test.describe('the report of a feasibility project', () => {
     await expect(page.getByText('اصلاح فصل بازار')).toBeVisible();
     await expect(page.getByText(/اجرای شماره ۳ مدل مالی/)).toBeVisible();
     // Markdown is rendered, the answers are quoted in Persian digits.
-    await expect(page.getByRole('heading', { name: 'اندازه بازار', level: 4 })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'اندازه بازار', level: 3 })).toBeVisible();
     await expect(page.getByText('۱۰۰٬۰۰۰ تن')).toBeVisible();
     await expect(page.getByText('پاسخی ثبت نشده است')).toBeVisible();
     await expect(page.getByRole('cell', { name: 'کنسانتره' })).toBeVisible();

@@ -32,9 +32,12 @@ const card = 'flex flex-col gap-3 rounded-card border border-line p-4';
 const UNSAVED = 'نخست فصل‌هایی را که تغییر ذخیره‌نشده دارند ذخیره کنید:';
 /** The chapters whose editor holds a text that was not saved: key and title. */
 type Unsaved = RefObject<Map<string, string>>;
-/** Why something waits for the unsaved chapters, with their names. */
-const unsavedMessage = (unsaved: Unsaved): string =>
-  `${UNSAVED} ${[...unsaved.current.values()].map((title) => `«${title}»`).join('، ')}`;
+/** Why something waits for the unsaved chapters, with their names in the order of the report. */
+const unsavedMessage = (unsaved: Unsaved, draft: ReportDraft): string =>
+  `${UNSAVED} ${(draft.report?.chapters ?? [])
+    .filter((chapter) => unsaved.current.has(chapter.key))
+    .map((chapter) => `«${chapter.title}»`)
+    .join('، ')}`;
 const LEAVE =
   'فصلی از گزارش تغییر ذخیره‌نشده دارد. با رفتن از این صفحه آن تغییر از دست می‌رود. می‌روید؟';
 const heading = 'text-base font-extrabold text-brand-900';
@@ -118,9 +121,15 @@ function Structure({
   onChanged: () => void;
 }) {
   const report = draft.report!;
-  /** What the reader chose; until then the select shows the template of the draft. */
-  const [choice, setChoice] = useState<string | null>(null);
-  const templateId = choice ?? report.template?.id ?? STANDARD;
+  /**
+   * What the reader chose, with the template the draft had then. The choice counts until the
+   * draft has another template (their own change arrived, or a colleague's): from then on the
+   * select shows the template of the draft again.
+   */
+  const current = report.template?.id ?? STANDARD;
+  const [choice, setChoiceAt] = useState<{ value: string; at: string } | null>(null);
+  const templateId = choice && choice.at === current ? choice.value : current;
+  const setChoice = (value: string) => setChoiceAt({ value, at: current });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [applied, setApplied] = useState(false);
@@ -133,7 +142,7 @@ function Structure({
     setApplied(false);
     // A chapter the new structure leaves out would take its unsaved text with it.
     if (unsaved.current.size > 0) {
-      setError(unsavedMessage(unsaved));
+      setError(unsavedMessage(unsaved, draft));
       return;
     }
     setBusy(true);
@@ -142,10 +151,8 @@ function Structure({
       body: { templateId: templateId || null },
     });
     setBusy(false);
-    if (result.ok) {
-      setApplied(true);
-      setChoice(null);
-    } else setError(result.details[0]?.message ?? result.message);
+    if (result.ok) setApplied(true);
+    else setError(result.details[0]?.message ?? result.message);
     onChanged();
   };
 
@@ -224,9 +231,11 @@ function RunChoice({
   onChanged: () => void;
 }) {
   const report = draft.report!;
-  /** What the reader chose; until then the select shows the run of the draft. */
-  const [choice, setChoice] = useState<string | null>(null);
-  const runId = choice ?? report.run?.id ?? NO_RUN;
+  /** As in `Structure`: the choice counts until the draft has another run. */
+  const current = report.run?.id ?? NO_RUN;
+  const [choice, setChoiceAt] = useState<{ value: string; at: string } | null>(null);
+  const runId = choice && choice.at === current ? choice.value : current;
+  const setChoice = (value: string) => setChoiceAt({ value, at: current });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -242,10 +251,8 @@ function RunChoice({
       body: { runId: runId || null },
     });
     setBusy(false);
-    if (result.ok) {
-      setSaved(true);
-      setChoice(null);
-    } else setError(result.details.find((d) => d.path === 'runId')?.message ?? result.message);
+    if (result.ok) setSaved(true);
+    else setError(result.details.find((d) => d.path === 'runId')?.message ?? result.message);
     onChanged();
   };
 
@@ -537,10 +544,12 @@ function ChapterEditor({
 /** Issues the draft as the next version, and says what is still missing when it is refused. */
 function IssueVersion({
   projectId,
+  draft,
   unsaved,
   onIssued,
 }: {
   projectId: string;
+  draft: ReportDraft;
   unsaved: Unsaved;
   onIssued: () => void;
 }) {
@@ -557,7 +566,7 @@ function IssueVersion({
     setIssued(null);
     // A version is written from what is stored, not from what is in the fields.
     if (unsaved.current.size > 0) {
-      setError(unsavedMessage(unsaved));
+      setError(unsavedMessage(unsaved, draft));
       return;
     }
     setBusy(true);
@@ -702,7 +711,7 @@ export function ReportComposer({
         ))}
       </section>
       {draft.access.issue ? (
-        <IssueVersion projectId={project.id} unsaved={unsaved} onIssued={onIssued} />
+        <IssueVersion projectId={project.id} draft={draft} unsaved={unsaved} onIssued={onIssued} />
       ) : null}
     </div>
   );

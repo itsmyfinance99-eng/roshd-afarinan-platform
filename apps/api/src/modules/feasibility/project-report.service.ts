@@ -330,8 +330,8 @@ export class ProjectReportService {
       const report = await this.editable(tx, id);
       const structure = await this.structure(tx, templateId);
       const kept = structure.map((chapter) => chapter.key);
-      // Only the rows that change are written, so that the time of the last save of a chapter
-      // stays the time its text was saved.
+      // Only the rows that change are written: a chapter the new structure leaves as it is
+      // keeps the time of its last save.
       await tx.feasibilityReportChapter.updateMany({
         where: { reportId: report.id, included: true, key: { notIn: kept } },
         data: { included: false },

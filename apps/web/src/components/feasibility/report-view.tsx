@@ -242,7 +242,6 @@ function Block({ block }: { block: ReportBlock }) {
                   {section.title ? (
                     <tr className="border-t border-line">
                       <th
-                        scope="colgroup"
                         colSpan={block.columns.length + 1}
                         className="bg-paper px-3 pt-3 pb-1 text-start text-[13px] font-bold text-ink-3"
                       >
@@ -336,7 +335,7 @@ function Chapter({
         <MarkdownBody
           source={chapter.body}
           nested
-          className="max-w-none [overflow-wrap:anywhere] [&_h3]:text-lg [&_h4]:text-base [&_h4]:font-bold [&_h5]:font-bold [&_h6]:font-bold"
+          className="max-w-none [overflow-wrap:anywhere] [&_h3]:text-lg [&_h4]:mt-6 [&_h4]:mb-2 [&_h4]:text-[17px] [&_h4]:font-bold [&_h4]:text-ink [&_h5]:mt-4 [&_h5]:font-bold [&_h5]:text-ink [&_h6]:mt-4 [&_h6]:font-bold [&_h6]:text-ink"
         />
       ) : null}
       <QuotedAnswers answers={chapter.answers} />
