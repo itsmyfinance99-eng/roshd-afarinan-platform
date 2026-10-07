@@ -54,6 +54,8 @@ export interface FeasibilityProjectDetail extends FeasibilityProjectItem {
     addNote: boolean;
     /** Start a review thread (the applicant in their review; staff and experts during the work). */
     comment: boolean;
+    /** Open the report of the study: its draft and versions, or (the applicant) its newest version. */
+    report?: boolean;
   };
   /** Staff and experts only. */
   experts?: { expert: StaffRef; since: string }[];

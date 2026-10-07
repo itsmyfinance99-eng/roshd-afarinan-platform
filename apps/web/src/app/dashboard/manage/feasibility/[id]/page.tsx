@@ -20,8 +20,8 @@ import { useApi } from '@/lib/use-api';
  * A project as staff and its experts see it, with the steps of the intake review (ST-35.07),
  * the cost estimate (ST-35.08) and the contract (ST-35.09) for staff, and the workspace of the
  * staff and the assigned experts (ST-35.10): the answers, the documents, the financial model, the
- * experts and the internal notes, and the review cycle with its comments (ST-35.11). The later
- * steps join in their own stories.
+ * experts and the internal notes, the review cycle with its comments (ST-35.11) and the way to
+ * the report of the study (ST-35.12). The later steps join in their own stories.
  */
 export default function ManageFeasibilityProjectPage() {
   const { id } = useParams<{ id: string }>();
@@ -108,6 +108,16 @@ export default function ManageFeasibilityProjectPage() {
                     emptyText="پرسشنامه این پروژه مدرک یا فایلی نمی‌خواهد یا هنوز شروع نشده است."
                   />
                 </section>
+                {!own && project.access.report ? (
+                  <p className="text-[15px]">
+                    <Link
+                      href={`/dashboard/manage/feasibility/${project.id}/report`}
+                      className="font-bold"
+                    >
+                      گزارش مطالعه: پیش‌نویس و نسخه‌ها ‹
+                    </Link>
+                  </p>
+                ) : null}
                 {own ? null : (
                   <>
                     <ProjectModel project={project} onChanged={() => reload({ silent: true })} />

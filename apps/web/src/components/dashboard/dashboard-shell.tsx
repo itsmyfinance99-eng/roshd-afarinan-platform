@@ -53,6 +53,11 @@ const NAV: NavItem[] = [
     label: 'قالب‌های پرسشنامه',
     permission: 'feasibility:manage',
   },
+  {
+    href: '/dashboard/manage/report-templates',
+    label: 'قالب‌های گزارش',
+    permission: 'feasibility:manage',
+  },
   { href: '/dashboard/manage/tickets', label: 'مدیریت تیکت‌ها', permission: 'tickets:read-all' },
   { href: '/dashboard/content', label: 'مدیریت محتوا', permission: 'cms:write' },
   { href: '/dashboard/pages', label: 'صفحات سازمانی', permission: 'cms:write' },

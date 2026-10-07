@@ -1,0 +1,557 @@
+import AxeBuilder from '@axe-core/playwright';
+import { expect, type Page, type Route, test } from '@playwright/test';
+
+/**
+ * The report of a feasibility study (ST-35.12): the staff arrange report templates, the staff
+ * and the assigned experts write the draft and issue versions, and the applicant reads the
+ * newest version.
+ */
+
+const envelope = (data: unknown, total = 1) =>
+  JSON.stringify({ data, meta: { requestId: 't', page: 1, pageSize: 20, total } });
+const json = (route: Route, data: unknown, status = 200, total = 1) =>
+  route.fulfill({ status, contentType: 'application/json', body: envelope(data, total) });
+const fail = (route: Route, status: number, message: string, details: object[] = []) =>
+  route.fulfill({
+    status,
+    contentType: 'application/json',
+    body: JSON.stringify({ error: { code: 'ERROR', message, details, requestId: 't' } }),
+  });
+
+async function signIn(page: Page, permissions: string[]) {
+  await page.goto('/');
+  await page.context().addCookies([{ name: 'ra_session', value: '1', url: page.url() }]);
+  await page.route('**/api/v1/auth/me', (route) =>
+    json(route, {
+      id: 'u1',
+      email: 'user@example.com',
+      mobile: null,
+      fullName: 'مریم احمدی',
+      roles: ['user'],
+      permissions,
+      emailVerifiedAt: '2026-09-01T00:00:00Z',
+      createdAt: '2026-09-01T00:00:00Z',
+    }),
+  );
+}
+
+async function audit(page: Page) {
+  const results = await new AxeBuilder({ page })
+    .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+    .analyze();
+  const blocking = results.violations
+    .filter((v) => v.impact === 'serious' || v.impact === 'critical' || v.id === 'heading-order')
+    .map((v) => ({ rule: v.id, nodes: v.nodes.slice(0, 3).map((n) => n.target.join(' ')) }));
+  expect(blocking, `axe violations on ${page.url()}`).toEqual([]);
+}
+
+const ACCESS = {
+  transitions: [],
+  edit: false,
+  remove: false,
+  assignExperts: false,
+  releaseExperts: false,
+  createModel: false,
+  addNote: false,
+  comment: false,
+  report: true,
+};
+
+const project = (over: Record<string, unknown> = {}) => ({
+  id: 'p1',
+  code: 'FP-7K3M9QPD',
+  title: 'کارخانه فرآوری سنگ آهن',
+  sector: 'معدنی',
+  location: 'یزد',
+  summary: null,
+  status: 'IN_PROGRESS',
+  createdAt: '2026-10-01T08:00:00Z',
+  updatedAt: '2026-10-06T08:00:00Z',
+  sourceRequest: null,
+  attachments: [],
+  costEstimate: null,
+  applicant: { id: 'u2', fullName: 'رضا کریمی' },
+  experts: [],
+  financialModel: { id: 'm1' },
+  events: [
+    {
+      fromStatus: 'CONTRACT_PENDING',
+      toStatus: 'IN_PROGRESS',
+      actor: 'staff',
+      note: null,
+      createdAt: '2026-10-06T08:00:00Z',
+      by: { id: 'u1', fullName: 'مریم احمدی' },
+    },
+  ],
+  access: ACCESS,
+  ...over,
+});
+
+const RUN = {
+  id: 'r1',
+  number: 3,
+  modelVersion: 7,
+  engineVersion: '0.7.0',
+  inputHash: 'abc',
+  createdAt: '2026-10-05T08:00:00Z',
+  approvedAt: '2026-10-05T10:00:00Z',
+};
+
+const chapter = (key: string, kind: string, title: string, over: object = {}) => ({
+  key,
+  kind,
+  title,
+  guidance: null,
+  body: '',
+  answerKeys: [],
+  version: 1,
+  updatedAt: '2026-10-06T08:00:00Z',
+  updatedBy: null,
+  ...over,
+});
+
+const QUESTIONS = [
+  { key: 'capacity', label: 'ظرفیت سالانه', type: 'number', answered: true },
+  { key: 'land', label: 'وضعیت زمین', type: 'single_choice', answered: false },
+];
+const TEMPLATES = [{ id: 't1', name: 'قالب صنایع معدنی' }];
+
+const version = (over: Record<string, unknown> = {}) => ({
+  number: 2,
+  issuedAt: '2026-10-07T09:00:00Z',
+  contentHash: 'f'.repeat(64),
+  project: {
+    code: 'FP-7K3M9QPD',
+    title: 'کارخانه فرآوری سنگ آهن',
+    sector: 'معدنی',
+    location: 'یزد',
+  },
+  run: { ...RUN, id: undefined },
+  chapters: [
+    {
+      key: 'market',
+      kind: 'text',
+      title: 'تحلیل بازار و بازاریابی',
+      body: '## اندازه بازار\n\nبازار داخلی **رو به رشد** است.',
+      answers: [
+        {
+          key: 'capacity',
+          label: 'ظرفیت سالانه',
+          value: { kind: 'number', value: '100000', unit: 'تن' },
+        },
+        { key: 'land', label: 'وضعیت زمین', value: { kind: 'none' } },
+        {
+          key: 'products',
+          label: 'محصولات',
+          value: {
+            kind: 'table',
+            columns: ['نام', 'از تاریخ'],
+            rows: [
+              [
+                { kind: 'text', text: 'کنسانتره' },
+                { kind: 'date', value: '2027-03-21' },
+              ],
+            ],
+          },
+        },
+      ],
+    },
+    {
+      key: 'financial',
+      kind: 'financial',
+      title: 'تحلیل مالی و ارزیابی سرمایه‌گذاری',
+      body: '',
+      answers: [],
+      parts: [
+        {
+          id: 'summary',
+          title: 'خلاصه و شاخص‌ها',
+          blocks: [
+            {
+              kind: 'pairs',
+              title: 'شاخص‌های کل سرمایه',
+              rows: [{ label: 'خالص ارزش فعلی', value: { text: '۳۳۰٫۸' } }],
+            },
+            { kind: 'list', title: 'هشدارهای محاسبه', items: ['کسری نقدی در سال نخست'] },
+          ],
+        },
+        {
+          id: 'income',
+          title: 'سود و زیان',
+          blocks: [
+            {
+              kind: 'table',
+              title: 'صورت سود و زیان',
+              note: 'مبلغ‌ها به میلیون IRR',
+              columns: [
+                { label: '۱۴۰۶/۱۲', group: 'ساخت' },
+                { label: '۱۴۰۷/۱۲', group: 'تولید' },
+              ],
+              sections: [
+                {
+                  rows: [
+                    {
+                      label: 'درآمد فروش',
+                      strong: true,
+                      values: [{ text: '۰' }, { text: '۱٬۰۰۰' }],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+  ],
+  note: 'اصلاح فصل بازار',
+  issuedBy: { id: 'u1', fullName: 'مریم احمدی' },
+  ...over,
+});
+
+test.describe('the report of a feasibility project', () => {
+  test('lets an expert start the report, choose the run, write a chapter and issue a version', async ({
+    page,
+  }) => {
+    await signIn(page, ['feasibility:work']);
+    let report: Record<string, unknown> | null = null;
+    let versions: object[] = [];
+    let saves = 0;
+    const sent: Record<string, unknown[]> = { start: [], run: [], chapter: [], issue: [] };
+    const draft = () => ({
+      report,
+      runs: [RUN],
+      questions: QUESTIONS,
+      templates: TEMPLATES,
+      access: { edit: true, issue: report !== null },
+    });
+    await page.route('**/api/v1/feasibility-projects/p1', (route) => json(route, project()));
+    await page.route('**/api/v1/feasibility-projects/p1/report', (route) => {
+      if (route.request().method() === 'POST') {
+        sent.start!.push(route.request().postDataJSON());
+        report = {
+          template: TEMPLATES[0],
+          run: null,
+          chapters: [
+            chapter('market', 'text', 'تحلیل بازار و بازاریابی', {
+              guidance: 'اندازه بازار و رقبا را بنویسید.',
+            }),
+            chapter('financial', 'financial', 'تحلیل مالی و ارزیابی سرمایه‌گذاری'),
+          ],
+          excluded: [],
+          createdAt: '2026-10-06T08:00:00Z',
+          updatedAt: '2026-10-06T08:00:00Z',
+        };
+        return json(route, draft(), 201);
+      }
+      return json(route, draft());
+    });
+    await page.route('**/api/v1/feasibility-projects/p1/report/run', (route) => {
+      sent.run!.push(route.request().postDataJSON());
+      report = { ...report, run: RUN };
+      return json(route, draft());
+    });
+    await page.route('**/api/v1/feasibility-projects/p1/report/chapters/market', (route) => {
+      const body = route.request().postDataJSON() as { version: number; body: string };
+      sent.chapter!.push(body);
+      saves += 1;
+      if (saves === 1) {
+        return fail(route, 409, 'این فصل پس از بازشدن در ویرایشگر شما تغییر کرده است.');
+      }
+      return json(
+        route,
+        chapter('market', 'text', 'تحلیل بازار و بازاریابی', {
+          body: body.body,
+          answerKeys: ['capacity'],
+          version: body.version + 1,
+          updatedBy: { id: 'u1', fullName: 'مریم احمدی' },
+        }),
+      );
+    });
+    await page.route('**/api/v1/feasibility-projects/p1/report/versions', (route) => {
+      if (route.request().method() !== 'POST') return json(route, versions);
+      sent.issue!.push(route.request().postDataJSON());
+      if (sent.issue!.length === 1) {
+        return fail(route, 400, 'گزارش برای صدور کامل نیست.', [
+          { path: 'runId', message: 'اجرای تأییدشده‌ای را انتخاب کنید.' },
+        ]);
+      }
+      const issued = {
+        number: 1,
+        contentHash: 'a'.repeat(64),
+        createdAt: '2026-10-07T09:00:00Z',
+        note: 'نسخه نخست',
+        issuedBy: { id: 'u1', fullName: 'مریم احمدی' },
+      };
+      versions = [issued];
+      return json(route, issued, 201);
+    });
+
+    // The project page of the staff and the experts leads to the report.
+    await page.route('**/api/v1/feasibility-projects/p1/review-threads?*', (route) =>
+      json(route, [], 200, 0),
+    );
+    await page.route('**/api/v1/feasibility-projects/p1/documents', (route) =>
+      json(route, { slots: [], access: { upload: false } }),
+    );
+    await page.route('**/api/v1/feasibility-projects/p1/notes?*', (route) =>
+      json(route, [], 200, 0),
+    );
+    await page.goto('/dashboard/manage/feasibility/p1');
+    await page.getByRole('link', { name: 'گزارش مطالعه: پیش‌نویس و نسخه‌ها ‹' }).click();
+    await expect(page).toHaveURL(/\/dashboard\/manage\/feasibility\/p1\/report$/);
+
+    // Start with a template.
+    await expect(page.getByText('هنوز نسخه‌ای از این گزارش صادر نشده است.')).toBeVisible();
+    await page.getByLabel('قالب گزارش').selectOption('t1');
+    await page.getByRole('button', { name: 'شروع گزارش' }).click();
+    await expect(page.getByText('قالب کنونی: قالب صنایع معدنی')).toBeVisible();
+    expect(sent.start).toEqual([{ templateId: 't1' }]);
+    await expect(page.getByText('اجرای کنونی: انتخاب نشده است')).toBeVisible();
+    await audit(page);
+
+    // Issuing an incomplete draft says what is missing.
+    await page.getByRole('button', { name: 'صدور نسخه تازه' }).click();
+    await expect(page.getByText('گزارش برای صدور کامل نیست.')).toBeVisible();
+    await expect(page.getByText('اجرای تأییدشده‌ای را انتخاب کنید.')).toBeVisible();
+
+    // The run: only the approved ones are offered.
+    await page.getByLabel('اجرای تأییدشده').selectOption('r1');
+    await page.getByRole('button', { name: 'ثبت اجرا' }).click();
+    await expect(page.getByText(/اجرای کنونی: اجرای شماره ۳/)).toBeVisible();
+    expect(sent.run).toEqual([{ runId: 'r1' }]);
+
+    // A chapter: text and quoted answers; a colleague saved meanwhile, then it goes through.
+    await expect(page.getByText('اندازه بازار و رقبا را بنویسید.')).toBeVisible();
+    const save = page
+      .getByRole('form', { name: /تحلیل بازار و بازاریابی/ })
+      .getByRole('button', { name: 'ذخیره فصل' });
+    await expect(save).toBeDisabled();
+    await page.getByLabel('متن فصل «تحلیل بازار و بازاریابی»').fill('بازار رو به رشد است.');
+    await page
+      .getByText(/پاسخ‌های منتخب پرسشنامه/)
+      .first()
+      .click();
+    await page.getByLabel('ظرفیت سالانه').first().check();
+    await expect(page.getByText('تغییر ذخیره‌نشده دارد.')).toBeVisible();
+    await save.click();
+    await expect(
+      page.getByText('این فصل پس از بازشدن در ویرایشگر شما تغییر کرده است.'),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'کنار گذاشتن متن من و بارگذاری نسخه تازه' }),
+    ).toBeVisible();
+    await save.click();
+    await expect(page.getByText('فصل ذخیره شد.')).toBeVisible();
+    await expect(page.getByText(/آخرین ذخیره: مریم احمدی/)).toBeVisible();
+    expect(sent.chapter).toEqual([
+      { version: 1, body: 'بازار رو به رشد است.', answerKeys: ['capacity'] },
+      { version: 1, body: 'بازار رو به رشد است.', answerKeys: ['capacity'] },
+    ]);
+    await expect(save).toBeDisabled();
+
+    // Issue: the version joins the list.
+    await page.getByLabel('یادداشت این نسخه (اختیاری)').fill('نسخه نخست');
+    await page.getByRole('button', { name: 'صدور نسخه تازه' }).click();
+    await expect(page.getByText('نسخه ۱ گزارش صادر شد.')).toBeVisible();
+    await expect(page.getByRole('link', { name: 'نسخه ۱ ‹' })).toHaveAttribute(
+      'href',
+      '/dashboard/manage/feasibility/p1/report/versions/1',
+    );
+    expect(sent.issue).toEqual([{ note: '' }, { note: 'نسخه نخست' }]);
+    await audit(page);
+  });
+
+  test('shows a version with its text, quoted answers and schedules, and its review threads', async ({
+    page,
+  }) => {
+    await signIn(page, ['feasibility:manage']);
+    const asked: string[] = [];
+    await page.route('**/api/v1/feasibility-projects/p1', (route) =>
+      json(route, project({ status: 'EXPERT_REVIEW', access: { ...ACCESS, comment: true } })),
+    );
+    await page.route('**/api/v1/feasibility-projects/p1/report/versions/2?*', (route) => {
+      asked.push(new URL(route.request().url()).searchParams.get('unit') ?? '');
+      return json(route, version());
+    });
+    const threads: string[] = [];
+    await page.route('**/api/v1/feasibility-projects/p1/review-threads?*', (route) => {
+      threads.push(new URL(route.request().url()).searchParams.get('section') ?? '');
+      return json(route, [], 200, 0);
+    });
+
+    await page.goto('/dashboard/manage/feasibility/p1/report/versions/2');
+    await expect(page.getByRole('heading', { name: '۱. تحلیل بازار و بازاریابی' })).toBeVisible();
+    await expect(page.getByText(/نسخه ۲، صادرشده در/)).toBeVisible();
+    await expect(page.getByText('اصلاح فصل بازار')).toBeVisible();
+    await expect(page.getByText(/اجرای شماره ۳ مدل مالی/)).toBeVisible();
+    // Markdown is rendered, the answers are quoted in Persian digits.
+    await expect(page.getByRole('heading', { name: 'اندازه بازار' })).toBeVisible();
+    await expect(page.getByText('۱۰۰٬۰۰۰ تن')).toBeVisible();
+    await expect(page.getByText('پاسخی ثبت نشده است')).toBeVisible();
+    await expect(page.getByRole('cell', { name: 'کنسانتره' })).toBeVisible();
+    // The schedules of the run: the first part is open, the others open on demand.
+    await expect(page.getByText('خالص ارزش فعلی')).toBeVisible();
+    await page.getByText('سود و زیان', { exact: true }).click();
+    await expect(page.getByRole('rowheader', { name: 'درآمد فروش' })).toBeVisible();
+    await audit(page);
+
+    await page.getByLabel('واحد نمایش مبلغ‌ها').selectOption('1000');
+    await expect.poll(() => asked).toEqual(['1000000', '1000']);
+
+    // The threads of a chapter open on that chapter.
+    await page.getByRole('button', { name: /نظرهای بازبینی این فصل.*تحلیل مالی/ }).click();
+    await expect(page.getByLabel('بخش', { exact: true })).toHaveValue('financial');
+    await expect(page.getByLabel('بخش', { exact: true })).toBeFocused();
+    await expect.poll(() => threads.at(-1)).toBe('financial');
+  });
+
+  test('shows the preview of the draft with what is still missing', async ({ page }) => {
+    await signIn(page, ['feasibility:work']);
+    await page.route('**/api/v1/feasibility-projects/p1', (route) => json(route, project()));
+    await page.route('**/api/v1/feasibility-projects/p1/review-threads?*', (route) =>
+      json(route, [], 200, 0),
+    );
+    await page.route('**/api/v1/feasibility-projects/p1/report/preview?*', (route) =>
+      json(
+        route,
+        version({
+          number: null,
+          issuedAt: null,
+          contentHash: null,
+          note: undefined,
+          issuedBy: undefined,
+          run: null,
+          chapters: [version().chapters[0]],
+          issues: [{ path: 'runId', message: 'اجرای تأییدشده‌ای را انتخاب کنید.' }],
+          omitted: [{ key: 'economic', title: 'تحلیل اقتصادی' }],
+        }),
+      ),
+    );
+    await page.goto('/dashboard/manage/feasibility/p1/report/preview');
+    await expect(page.getByText('پیش‌نمایش پیش‌نویس (صادر نشده)')).toBeVisible();
+    await expect(page.getByText('این پیش‌نویس هنوز قابل صدور نیست:')).toBeVisible();
+    await expect(page.getByText('اجرای تأییدشده‌ای را انتخاب کنید.')).toBeVisible();
+    await expect(page.getByText(/«تحلیل اقتصادی»/)).toBeVisible();
+    // Without a run there are no amounts to choose a unit for.
+    await expect(page.getByLabel('واحد نمایش مبلغ‌ها')).toHaveCount(0);
+    await audit(page);
+  });
+
+  test('gives the applicant the newest version, or says that there is none yet', async ({
+    page,
+  }) => {
+    await signIn(page, []);
+    let versions: object[] = [];
+    const mine = project({
+      status: 'CLIENT_REVIEW',
+      applicant: undefined,
+      experts: undefined,
+      financialModel: undefined,
+      access: { ...ACCESS, comment: true },
+    });
+    await page.route('**/api/v1/feasibility-projects/p1', (route) => json(route, mine));
+    await page.route('**/api/v1/feasibility-projects/p1/report/versions', (route) =>
+      json(route, versions),
+    );
+    await page.route('**/api/v1/feasibility-projects/p1/report/versions/2?*', (route) =>
+      json(route, version({ note: undefined, issuedBy: undefined })),
+    );
+    await page.route('**/api/v1/feasibility-projects/p1/review-threads?*', (route) =>
+      json(route, [], 200, 0),
+    );
+
+    await page.goto('/dashboard/feasibility/p1/report');
+    await expect(page.getByText('گزارشی برای خواندن نیست')).toBeVisible();
+
+    versions = [{ number: 2, contentHash: 'f'.repeat(64), createdAt: '2026-10-07T09:00:00Z' }];
+    await page.reload();
+    await expect(page.getByRole('heading', { name: '۱. تحلیل بازار و بازاریابی' })).toBeVisible();
+    // Nothing of the staff: no note of the version and no name.
+    await expect(page.getByText('صادرکننده')).toHaveCount(0);
+    await expect(page.getByText('یادداشت این نسخه')).toHaveCount(0);
+    // The applicant comments on a chapter from here.
+    await page.getByRole('button', { name: /نظرهای بازبینی این فصل.*تحلیل بازار/ }).click();
+    await expect(page.getByLabel('بخش', { exact: true })).toHaveValue('market');
+    await audit(page);
+  });
+
+  test('lets staff write, change and archive report templates', async ({ page }) => {
+    await signIn(page, ['feasibility:manage']);
+    let templates: Record<string, unknown>[] = [];
+    const sent: unknown[] = [];
+    await page.route('**/api/v1/report-templates?*', (route) => json(route, templates));
+    await page.route('**/api/v1/report-templates', (route) => {
+      const body = route.request().postDataJSON() as { name: string; chapters: object[] };
+      sent.push(body);
+      templates = [
+        {
+          id: 't1',
+          ...body,
+          createdAt: '2026-10-07T09:00:00Z',
+          updatedAt: '2026-10-07T09:00:00Z',
+          archivedAt: null,
+        },
+      ];
+      return json(route, templates[0], 201);
+    });
+    await page.route('**/api/v1/report-templates/t1', (route) => {
+      const body = route.request().postDataJSON() as { archived?: boolean };
+      sent.push(body);
+      templates = [{ ...templates[0], archivedAt: body.archived ? '2026-10-07T10:00:00Z' : null }];
+      return json(route, templates[0]);
+    });
+
+    await page.goto('/dashboard/manage/report-templates');
+    await expect(page.getByText('قالبی ساخته نشده است')).toBeVisible();
+    await page.getByRole('button', { name: 'قالب تازه' }).click();
+    await audit(page);
+
+    // A name is needed.
+    await page.getByRole('button', { name: 'ذخیره قالب' }).click();
+    await expect(page.getByLabel('نام قالب')).toBeFocused();
+    await page.getByLabel('نام قالب').fill('قالب کوتاه');
+
+    // Keep two chapters, the financial one first, with a title of our own.
+    for (const name of [
+      'خلاصه مدیریتی',
+      'پیشینه و ایده اصلی طرح',
+      'مواد اولیه و ملزومات',
+      'مکان، ساختگاه و محیط زیست',
+      'مهندسی و فناوری',
+      'سازمان و هزینه‌های سربار',
+      'نیروی انسانی',
+      'برنامه اجرا و بودجه‌بندی',
+      'تحلیل اقتصادی',
+    ]) {
+      await page.getByRole('checkbox', { name, exact: true }).uncheck();
+    }
+    const up = page.getByRole('button', {
+      name: 'بالا بردن فصل «تحلیل مالی و ارزیابی سرمایه‌گذاری»',
+    });
+    for (let i = 0; i < 9; i++) await up.click();
+    await expect(up).toBeDisabled();
+    await page.getByLabel('عنوان فصل «تحلیل بازار و بازاریابی» در گزارش').fill('بازار هدف');
+    await page
+      .getByLabel('راهنمای کارشناس برای فصل «تحلیل بازار و بازاریابی» (اختیاری)')
+      .fill('اندازه بازار');
+    await page.getByRole('button', { name: 'ذخیره قالب' }).click();
+    await expect(page.getByText('قالب ذخیره شد.')).toBeVisible();
+    expect(sent).toEqual([
+      {
+        name: 'قالب کوتاه',
+        chapters: [
+          { key: 'financial', title: 'تحلیل مالی و ارزیابی سرمایه‌گذاری' },
+          { key: 'market', title: 'بازار هدف', guidance: 'اندازه بازار' },
+        ],
+      },
+    ]);
+    await expect(page.getByText('۲ فصل')).toBeVisible();
+
+    await page.getByRole('button', { name: 'بایگانی قالب «قالب کوتاه»' }).click();
+    await expect(page.getByText('قالب «قالب کوتاه» بایگانی شد.')).toBeVisible();
+    await expect(page.getByText('بایگانی‌شده', { exact: true })).toBeVisible();
+    expect(sent.at(-1)).toEqual({ archived: true });
+    await audit(page);
+  });
+});
