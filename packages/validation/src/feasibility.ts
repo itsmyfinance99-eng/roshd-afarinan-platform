@@ -109,6 +109,20 @@ export const FEASIBILITY_STAFF_NOTE_REQUIRED = [
   'ARCHIVED',
 ] as const satisfies readonly FeasibilityStatus[];
 
+/**
+ * What the staff narrow the pipeline by (ST-35.15): the sector of the project, and the expert
+ * working on it — `none` for the projects nobody is assigned to.
+ */
+const pipelineFilterFields = {
+  sector: z.enum(FEASIBILITY_SECTORS, { error: 'حوزه طرح معتبر نیست.' }).optional(),
+  expertId: z
+    .union([z.uuid(), z.literal('none')], { error: 'کارشناس انتخاب‌شده معتبر نیست.' })
+    .optional(),
+};
+
+/** `recent`: the last changed first; `waiting`: the longest in its status first. */
+export const FEASIBILITY_PROJECT_SORTS = ['recent', 'waiting'] as const;
+
 export const listFeasibilityProjectsQuerySchema = paginationQuerySchema.extend({
   scope: z.enum(FEASIBILITY_PROJECT_SCOPES).default('mine'),
   /** `review`: what waits for the intake review, the longest waiting first (staff, scope `all`). */
@@ -116,8 +130,25 @@ export const listFeasibilityProjectsQuerySchema = paginationQuerySchema.extend({
   status: z.enum(FEASIBILITY_STATUSES).optional(),
   /** The project a service request was converted into, if the caller may see it. */
   sourceRequestId: z.uuid().optional(),
+  /** Staff, scope `all` only. */
+  ...pipelineFilterFields,
+  sort: z.enum(FEASIBILITY_PROJECT_SORTS).optional(),
 });
 export type ListFeasibilityProjectsQuery = z.infer<typeof listFeasibilityProjectsQuerySchema>;
+
+/** The pipeline of the staff (ST-35.15): how many projects are in every status, and how long. */
+export const feasibilityPipelineQuerySchema = z.object(pipelineFilterFields);
+export type FeasibilityPipelineQuery = z.infer<typeof feasibilityPipelineQuerySchema>;
+
+/** The export of the pipeline: the same filters, and a status. */
+export const exportFeasibilityProjectsQuerySchema = z.object({
+  status: z.enum(FEASIBILITY_STATUSES).optional(),
+  ...pipelineFilterFields,
+});
+export type ExportFeasibilityProjectsQuery = z.infer<typeof exportFeasibilityProjectsQuerySchema>;
+
+/** Upper bound of one export; narrower filters are required beyond it. */
+export const FEASIBILITY_EXPORT_MAX_ROWS = 10_000;
 
 export const feasibilityTransitionSchema = z.object({
   to: z.enum(FEASIBILITY_STATUSES, { error: 'وضعیت مقصد معتبر نیست.' }),

@@ -45,6 +45,7 @@ import {
   type FeasibilityStatus,
 } from './domain/feasibility-status';
 import { isFinallyApproved } from './domain/report-approval';
+import { pipelineWhere } from './project-pipeline.service';
 import { QuestionnaireReader } from './questionnaire-reader';
 
 const MANAGE_PERMISSION = 'feasibility:manage';
@@ -80,6 +81,8 @@ const SUMMARY_SELECT = {
   sector: true,
   location: true,
   status: true,
+  /** Since when the project is in its status (ST-35.15). */
+  statusSince: true,
   createdAt: true,
   updatedAt: true,
 } satisfies Prisma.FeasibilityProjectSelect;
@@ -236,12 +239,21 @@ export class FeasibilityProjectsService {
         { path: 'queue', message: 'صف بررسی فقط برای همه پروژه‌ها (scope=all) است.' },
       ]);
     }
+    // The filters of the pipeline are the staff's, over every project (ST-35.15).
+    for (const path of ['sector', 'expertId'] as const) {
+      if (query[path] !== undefined && query.scope !== 'all') {
+        throw new ValidationFailedError([
+          { path, message: 'این فیلتر فقط برای همه پروژه‌ها (scope=all) است.' },
+        ]);
+      }
+    }
     // A status narrows the queue and never widens it: one outside the queue matches nothing.
     const queued = FEASIBILITY_REVIEW_QUEUE_STATUSES.filter(
       (status) => !query.status || status === query.status,
     );
     const where: Prisma.FeasibilityProjectWhereInput = {
       ...scope,
+      ...pipelineWhere(query),
       ...(queue ? { status: { in: queued } } : query.status ? { status: query.status } : {}),
       ...(query.sourceRequestId ? { sourceRequestId: query.sourceRequestId } : {}),
     };
@@ -249,9 +261,12 @@ export class FeasibilityProjectsService {
       this.prisma.feasibilityProject.findMany({
         where,
         select: { ...SUMMARY_SELECT, ownerId: true },
-        orderBy: queue
-          ? [{ updatedAt: 'asc' }, { id: 'asc' }]
-          : [{ updatedAt: 'desc' }, { id: 'desc' }],
+        orderBy:
+          query.sort === 'waiting'
+            ? [{ statusSince: 'asc' }, { id: 'asc' }]
+            : queue && query.sort !== 'recent'
+              ? [{ updatedAt: 'asc' }, { id: 'asc' }]
+              : [{ updatedAt: 'desc' }, { id: 'desc' }],
         skip: (query.page - 1) * query.pageSize,
         take: query.pageSize,
       }),
@@ -693,6 +708,8 @@ export class FeasibilityProjectsService {
 
     // Conditional update: a concurrent change makes this a no-op and is reported as a conflict.
     const updated = await this.prisma.$transaction(async (tx) => {
+      // The project is in its new status since its event, to the millisecond.
+      const at = new Date();
       if (decision.to === 'SUBMITTED') {
         // Under the lock the answers are saved with, so what is checked is what is submitted.
         await this.lock(tx, id);
@@ -718,7 +735,7 @@ export class FeasibilityProjectsService {
           // The details that were checked above are still there.
           ...(decision.to === 'SUBMITTED' ? { sector: { not: null }, summary: { not: null } } : {}),
         },
-        data: { status: decision.to },
+        data: { status: decision.to, statusSince: at },
       });
       if (count !== 1) return false;
       await tx.feasibilityStatusEvent.create({
@@ -729,6 +746,7 @@ export class FeasibilityProjectsService {
           actor: decision.actor,
           actorId: principal.userId,
           note: input.note || null,
+          createdAt: at,
         },
       });
       if (estimate) {

@@ -1,10 +1,12 @@
-import { Controller, Delete, Get, HttpCode, Patch, Post } from '@nestjs/common';
+import { Controller, Delete, Get, HttpCode, Patch, Post, Res } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
   assignExpertSchema,
   convertRequestToProjectSchema,
   createFeasibilityProjectSchema,
+  exportFeasibilityProjectsQuerySchema,
   feasibilityCostEstimateSchema,
+  feasibilityPipelineQuerySchema,
   feasibilityTransitionSchema,
   idSchema,
   listFeasibilityProjectsQuerySchema,
@@ -12,16 +14,21 @@ import {
   type AssignExpertInput,
   type ConvertRequestToProjectInput,
   type CreateFeasibilityProjectInput,
+  type ExportFeasibilityProjectsQuery,
   type FeasibilityCostEstimateInput,
+  type FeasibilityPipelineQuery,
   type FeasibilityTransitionInput,
   type ListFeasibilityProjectsQuery,
   type UpdateFeasibilityProjectInput,
 } from '@roshd/validation';
+import type { Response } from 'express';
+import { RawResponse } from '../../common/http/envelope.interceptor';
 import { Meta, type RequestMeta } from '../../common/http/request-meta';
 import { ZodBody, ZodParam, ZodQuery } from '../../common/http/zod';
 import { RequirePermissions } from '../rbac/permissions.decorator';
 import { CurrentUser, type Principal } from '../rbac/principal';
 import { FeasibilityProjectsService } from './feasibility-projects.service';
+import { ProjectPipelineService } from './project-pipeline.service';
 
 /**
  * Feasibility projects (ST-35.01). Every route needs a signed-in user; the service checks the
@@ -30,7 +37,10 @@ import { FeasibilityProjectsService } from './feasibility-projects.service';
 @ApiTags('feasibility')
 @Controller('feasibility-projects')
 export class FeasibilityProjectsController {
-  constructor(private readonly projects: FeasibilityProjectsService) {}
+  constructor(
+    private readonly projects: FeasibilityProjectsService,
+    private readonly pipelineOf: ProjectPipelineService,
+  ) {}
 
   @Get()
   @ApiOperation({ summary: 'Your projects; scope=assigned (expert) or scope=all (staff)' })
@@ -56,6 +66,40 @@ export class FeasibilityProjectsController {
   @ApiOperation({ summary: 'Active users who can be assigned to a project as experts' })
   assignableExperts(@CurrentUser() user: Principal) {
     return this.projects.assignableExperts(user);
+  }
+
+  @Get('pipeline')
+  @RequirePermissions('feasibility:manage')
+  @ApiOperation({
+    summary:
+      'How many projects are in every status and for how long; sector and expertId (or none) narrow it',
+  })
+  pipeline(
+    @CurrentUser() user: Principal,
+    @ZodQuery(feasibilityPipelineQuerySchema) query: FeasibilityPipelineQuery,
+  ) {
+    return this.pipelineOf.summary(query, user);
+  }
+
+  @Get('export')
+  @RequirePermissions('feasibility:manage')
+  @RawResponse()
+  @ApiOperation({
+    summary: 'CSV export (UTF-8 BOM) of the projects by status, sector and expert; audited',
+  })
+  async export(
+    @CurrentUser() user: Principal,
+    @ZodQuery(exportFeasibilityProjectsQuerySchema) query: ExportFeasibilityProjectsQuery,
+    @Meta() meta: RequestMeta,
+    @Res() res: Response,
+  ): Promise<void> {
+    const { fileName, csv, rows } = await this.pipelineOf.exportCsv(query, user, meta);
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Export-Rows', String(rows));
+    res.send(csv);
   }
 
   @Post('from-request')

@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  exportFeasibilityProjectsQuerySchema,
+  feasibilityPipelineQuerySchema,
   assignExpertSchema,
   confirmContractSchema,
   convertRequestToProjectSchema,
@@ -63,6 +65,27 @@ describe('feasibility schemas', () => {
     });
     expect(listFeasibilityProjectsQuerySchema.safeParse({ scope: 'everyone' }).success).toBe(false);
     expect(listFeasibilityProjectsQuerySchema.safeParse({ status: 'OPEN' }).success).toBe(false);
+  });
+
+  it('narrows the pipeline by sector and by an expert, or by nobody', () => {
+    const expertId = '0199c2a4-7b1e-7c3a-9d2f-3b5a6c7d8e9f';
+    expect(feasibilityPipelineQuerySchema.parse({})).toEqual({});
+    expect(feasibilityPipelineQuerySchema.parse({ sector: 'معدنی', expertId })).toEqual({
+      sector: 'معدنی',
+      expertId,
+    });
+    expect(feasibilityPipelineQuerySchema.parse({ expertId: 'none' }).expertId).toBe('none');
+    expect(feasibilityPipelineQuerySchema.safeParse({ expertId: 'me' }).success).toBe(false);
+    expect(feasibilityPipelineQuerySchema.safeParse({ sector: 'ناشناخته' }).success).toBe(false);
+    // The list takes the same filters and an order; the export a status beside them.
+    expect(
+      listFeasibilityProjectsQuerySchema.parse({ scope: 'all', expertId: 'none', sort: 'waiting' }),
+    ).toMatchObject({ expertId: 'none', sort: 'waiting' });
+    expect(listFeasibilityProjectsQuerySchema.safeParse({ sort: 'oldest' }).success).toBe(false);
+    expect(
+      exportFeasibilityProjectsQuerySchema.parse({ status: 'IN_PROGRESS', sector: 'انرژی' }),
+    ).toEqual({ status: 'IN_PROGRESS', sector: 'انرژی' });
+    expect(exportFeasibilityProjectsQuerySchema.safeParse({ status: 'OPEN' }).success).toBe(false);
   });
 
   it('takes a known target status with an optional note', () => {
