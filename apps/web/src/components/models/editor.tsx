@@ -89,6 +89,12 @@ export function ModelEditor({
   const latest = useRef({ title, draft, revision });
   const inFlight = useRef<Promise<boolean> | null>(null);
   const blocked = useRef(false);
+  /**
+   * The model takes no change (the model of an archived feasibility project): nothing is sent,
+   * and what is tried on this page lives in the live result only.
+   */
+  const [readOnly, setReadOnly] = useState(!model.access.edit);
+  const closed = useRef(!model.access.edit);
   /** The last valid title: the inputs are saved with it while the typed one is not valid. */
   const goodTitle = useRef(model.title);
   /**
@@ -113,7 +119,7 @@ export function ModelEditor({
       while (inFlight.current) await inFlight.current;
       const snapshot = latest.current;
       if (snapshot.revision === stored.current) return true;
-      if (blocked.current) return false;
+      if (blocked.current || closed.current) return false;
       const typed = snapshot.title.trim();
       if (typed.length >= 3 && typed.length <= 150) goodTitle.current = typed;
       const name = goodTitle.current;
@@ -147,6 +153,13 @@ export function ModelEditor({
           // what this editor sent — now, or in the save that got no answer — nobody else changed
           // the model: the editor takes the server's version and goes on.
           const server = await apiFetch<FinancialModelDetail>(url);
+          if (server.ok && !server.data.access.edit) {
+            // Not a conflict: the project of the model was archived while it was open here.
+            closed.current = true;
+            setReadOnly(true);
+            setFailure(null);
+            return false;
+          }
           if (server.ok) {
             const held = canonical(server.data.inputs);
             if (server.data.title === name && held === canonical(snapshot.draft)) {
@@ -185,11 +198,12 @@ export function ModelEditor({
 
   const dirty = revision !== savedRevision;
   useEffect(() => {
-    if (!dirty) return;
+    // What cannot be saved is not lost by leaving.
+    if (!dirty || readOnly) return;
     const warn = (event: BeforeUnloadEvent) => event.preventDefault();
     window.addEventListener('beforeunload', warn);
     return () => window.removeEventListener('beforeunload', warn);
-  }, [dirty]);
+  }, [dirty, readOnly]);
   // Leaving the editor inside the app: store what is still pending.
   useEffect(() => () => void flush(), [flush]);
 
@@ -296,6 +310,7 @@ export function ModelEditor({
             />
           </FieldShell>
           <SaveStatus
+            readOnly={readOnly}
             saving={saving}
             dirty={dirty}
             failure={failure}
@@ -319,7 +334,8 @@ export function ModelEditor({
           currency={textAt(draft, ['localCurrency'])}
           onGo={setSection}
           run={run}
-          onCalculate={() => void calculate()}
+          // A run is a record of the model, and a closed model takes none.
+          onCalculate={readOnly ? undefined : () => void calculate()}
         />
 
         <div
@@ -375,6 +391,7 @@ export function ModelEditor({
 }
 
 function SaveStatus({
+  readOnly,
   saving,
   dirty,
   failure,
@@ -382,6 +399,7 @@ function SaveStatus({
   onReload,
   onExport,
 }: {
+  readOnly: boolean;
   saving: boolean;
   dirty: boolean;
   failure: SaveFailure | null;
@@ -389,6 +407,13 @@ function SaveStatus({
   onReload: () => void;
   onExport: () => void;
 }) {
+  if (readOnly) {
+    return (
+      <p role="status" aria-live="polite" className="pb-3 text-sm text-ink-3">
+        این مدل فقط خواندنی است؛ تغییرهای این صفحه ذخیره نمی‌شود و فقط در نتیجه زنده دیده می‌شود.
+      </p>
+    );
+  }
   if (failure?.kind === 'conflict') {
     return (
       <div role="alert" className="flex flex-col items-start gap-2 text-sm text-danger">
@@ -527,7 +552,7 @@ function LivePanel({
     | { status: 'busy' }
     | { status: 'done'; number: number; id: string }
     | { status: 'failed'; message: string; details: string[] };
-  onCalculate: () => void;
+  onCalculate?: () => void;
 }) {
   return (
     <section
@@ -542,13 +567,15 @@ function LivePanel({
           <Link href={`/dashboard/models/${modelId}/runs`} className="text-sm">
             اجراها و نتایج
           </Link>
-          <Button
-            size="sm"
-            disabled={run.status === 'busy' || !fresh || live.status !== 'done'}
-            onClick={onCalculate}
-          >
-            {run.status === 'busy' ? 'در حال ثبت…' : 'ثبت اجرای محاسبه'}
-          </Button>
+          {onCalculate ? (
+            <Button
+              size="sm"
+              disabled={run.status === 'busy' || !fresh || live.status !== 'done'}
+              onClick={onCalculate}
+            >
+              {run.status === 'busy' ? 'در حال ثبت…' : 'ثبت اجرای محاسبه'}
+            </Button>
+          ) : null}
         </div>
       </div>
       <p role="status" className="min-h-6 text-sm text-ink-3">

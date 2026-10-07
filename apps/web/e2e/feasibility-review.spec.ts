@@ -78,6 +78,9 @@ const MANAGE = ['feasibility:manage'];
 
 test.describe('the intake review of feasibility projects', () => {
   test.beforeEach(async ({ page }) => {
+    // The workspace of the staff and the experts (ST-35.10) asks for these on the staff page.
+    await page.route('**/api/v1/feasibility-projects/p1/notes?*', (route) => json(route, []));
+    await page.route('**/api/v1/feasibility-projects/experts', (route) => json(route, []));
     await page.route('**/api/v1/feasibility-projects/p1/documents', (route) =>
       json(route, { slots: [], access: { upload: false } }),
     );

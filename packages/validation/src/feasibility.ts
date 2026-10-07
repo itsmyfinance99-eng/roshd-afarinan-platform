@@ -164,3 +164,29 @@ export const assignExpertSchema = z.object({
   expertId: z.uuid({ error: 'کارشناس انتخاب‌شده معتبر نیست.' }),
 });
 export type AssignExpertInput = z.infer<typeof assignExpertSchema>;
+
+/**
+ * Statuses in which the study is being worked on: the experts start its financial model
+ * (ST-35.10) from the confirmed contract on, until the study is delivered.
+ */
+export const FEASIBILITY_WORK_STATUSES = [
+  'IN_PROGRESS',
+  'EXPERT_REVIEW',
+  'CLIENT_REVIEW',
+] as const satisfies readonly FeasibilityStatus[];
+
+export const FEASIBILITY_INTERNAL_NOTE_MAX = 4000;
+/** Internal notes one project takes (a bound against runaway use). */
+export const MAX_PROJECT_INTERNAL_NOTES = 500;
+
+/**
+ * A note the staff and the experts of a project write for each other (ST-35.10); the applicant
+ * never reads it.
+ */
+export const createInternalNoteSchema = z.object({
+  body: text(1, FEASIBILITY_INTERNAL_NOTE_MAX),
+});
+export type CreateInternalNoteInput = z.infer<typeof createInternalNoteSchema>;
+
+export const listInternalNotesQuerySchema = paginationQuerySchema;
+export type ListInternalNotesQuery = z.infer<typeof listInternalNotesQuerySchema>;

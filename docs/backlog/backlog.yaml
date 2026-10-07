@@ -2307,6 +2307,7 @@ epics:
         sprint: S21
         points: 8
         priority: critical
+        status: done
         area: [api, web, security]
         depends: [ST-35.09, ST-34.08]
         story: 'به‌عنوان کارشناس می‌خواهم پروژه‌های منتسب به خودم را با پرسشنامه، مدارک و مدل مالی یکجا ببینم.'

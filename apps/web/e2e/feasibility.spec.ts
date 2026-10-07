@@ -470,6 +470,10 @@ test.describe('feasibility projects for staff', () => {
       }),
     );
 
+    // The workspace of the staff and the experts (ST-35.10) asks for these on the staff page.
+    await page.route('**/api/v1/feasibility-projects/p1/notes?*', (route) => json(route, []));
+    await page.route('**/api/v1/feasibility-projects/experts', (route) => json(route, []));
+
     await page.goto('/dashboard/manage/feasibility');
     await expect(page.getByText(/متقاضی: رضا کریمی/)).toBeVisible();
     expect(queries[0]?.get('scope')).toBe('all');

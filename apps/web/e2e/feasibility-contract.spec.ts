@@ -94,6 +94,9 @@ const STAFF = { applicant: { id: 'u2', fullName: 'رضا کریمی' }, experts:
 
 test.describe('the contract of a feasibility study', () => {
   test.beforeEach(async ({ page }) => {
+    // The workspace of the staff and the experts (ST-35.10) asks for these on the staff page.
+    await page.route('**/api/v1/feasibility-projects/p1/notes?*', (route) => json(route, []));
+    await page.route('**/api/v1/feasibility-projects/experts', (route) => json(route, []));
     await page.route('**/api/v1/feasibility-projects/p1/documents', (route) =>
       json(route, { slots: [], access: { upload: false } }),
     );

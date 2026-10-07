@@ -5,6 +5,7 @@ import {
   FEASIBILITY_SECTORS,
   FEASIBILITY_STAFF_NOTE_REQUIRED,
   FEASIBILITY_STATUS_LABELS_FA,
+  FEASIBILITY_WORK_STATUSES,
   MAX_FEASIBILITY_DRAFTS,
   MAX_PROJECT_EXPERTS,
   type AssignExpertInput,
@@ -138,9 +139,18 @@ export interface FeasibilityProjectDetail extends FeasibilityProjectSummary {
     remove: boolean;
     assignExperts: boolean;
     releaseExperts: boolean;
+    /** Make the financial model of the study (`POST …/financial-model`; staff and experts). */
+    createModel: boolean;
+    /** Write an internal note (`POST …/notes`; staff and experts). */
+    addNote: boolean;
   };
   /** The experts working on the project; staff and experts see them, the applicant does not. */
   experts?: ProjectExpertView[];
+  /**
+   * The financial model of the study, once it was made (ST-35.10); it is opened through the
+   * routes of the financial models. Staff and experts see it, the applicant does not.
+   */
+  financialModel?: { id: string } | null;
 }
 
 const isEditable = (status: FeasibilityStatus): boolean =>
@@ -451,6 +461,7 @@ export class FeasibilityProjectsService {
         summary: true,
         ownerId: true,
         sourceRequestId: true,
+        financialModelId: true,
         events: {
           orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
           select: {
@@ -470,7 +481,7 @@ export class FeasibilityProjectsService {
       },
     });
     if (!project) throw new NotFoundError();
-    const { ownerId, sourceRequestId, events, experts, ...rest } = project;
+    const { ownerId, sourceRequestId, financialModelId, events, experts, ...rest } = project;
     const trackingCode = sourceRequestId
       ? await this.requests.trackingCodeOf(sourceRequestId)
       : null;
@@ -489,12 +500,19 @@ export class FeasibilityProjectsService {
       costEstimate: relation.owner || relation.manager ? await this.estimateOf(id) : null,
     };
     const actors = actorsOf(relation);
+    // Who works on the study: its staff and its experts, never its applicant.
+    const works = !relation.owner && (relation.manager || relation.expert);
     const access = {
       transitions: [...new Set(actors.flatMap((actor) => allowedTransitions(view.status, actor)))],
       edit: relation.owner && isEditable(view.status),
       remove: relation.owner && view.status === 'DRAFT' && sourceRequestId === null,
       assignExperts: relation.manager && !relation.owner && view.status !== 'ARCHIVED',
       releaseExperts: relation.manager && !relation.owner,
+      createModel:
+        works &&
+        financialModelId === null &&
+        (FEASIBILITY_WORK_STATUSES as readonly FeasibilityStatus[]).includes(view.status),
+      addNote: works && view.status !== 'ARCHIVED',
     };
     if (relation.owner) {
       return {
@@ -516,6 +534,7 @@ export class FeasibilityProjectsService {
         expert: staffRef(assignment.expertId, names)!,
         since: assignment.createdAt,
       })),
+      financialModel: financialModelId ? { id: financialModelId } : null,
       access,
     };
   }
