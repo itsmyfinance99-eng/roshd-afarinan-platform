@@ -8,6 +8,7 @@ import { ProjectContractController } from './project-contract.controller';
 import { ProjectContractService } from './project-contract.service';
 import { ProjectDocumentsController } from './project-documents.controller';
 import { ProjectDocumentsService } from './project-documents.service';
+import { ProjectPipelineService } from './project-pipeline.service';
 import { ProjectQuestionnaireController } from './project-questionnaire.controller';
 import { ProjectQuestionnaireService } from './project-questionnaire.service';
 import { ProjectReportApprovalService } from './project-report-approval.service';
@@ -34,7 +35,7 @@ import { ReportTemplatesService } from './report-templates.service';
  * of a study, in threads on its parts (ST-35.11), and the report of the study: templates of its
  * chapters, the draft the experts write and the versions it is issued in (ST-35.12), and the PDF
  * of a version (ST-35.13), and the two approvals a version needs before the study is delivered
- * (ST-35.14).
+ * (ST-35.14), and the pipeline of all projects for the staff, with its CSV export (ST-35.15).
  */
 @Module({
   imports: [UsersModule, ServiceRequestsModule, FinancialModelModule],
@@ -53,6 +54,7 @@ import { ReportTemplatesService } from './report-templates.service';
     FeasibilityProjectsService,
     ProjectContractService,
     ProjectDocumentsService,
+    ProjectPipelineService,
     ProjectQuestionnaireService,
     ProjectReportApprovalService,
     ProjectReportFileService,

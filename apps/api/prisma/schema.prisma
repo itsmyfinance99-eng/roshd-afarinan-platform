@@ -882,6 +882,8 @@ model FeasibilityProject {
   location          String?
   summary           String?
   status            FeasibilityStatus @default(DRAFT)
+  /// Since when the project is in its status (ST-35.15); written with every change of the status.
+  statusSince       DateTime          @default(now())
   /// The financial model of the study (EPIC-34), made when the experts start working (ST-35.10).
   financialModelId  String?           @unique @db.Uuid
   /// The Phase 1 service request this project was converted from (ST-35.02).
@@ -910,6 +912,7 @@ model FeasibilityProject {
 
   @@index([ownerId, updatedAt])
   @@index([status, updatedAt])
+  @@index([status, statusSince])
   @@index([updatedAt])
   @@index([templateVersionId])
   @@map("feasibility_projects")

@@ -6,26 +6,9 @@ import {
   type ServiceRequestType,
 } from '@roshd/validation';
 import { excelText, raw, type CsvRaw } from '../../../common/csv/csv';
-import { TEHRAN_OFFSET_MS } from '../../../common/time/iran-time';
+import { formatTehranDateTime, tehranFileStamp } from '../../../common/time/iran-time';
 
-export { tehranDayRange } from '../../../common/time/iran-time';
-
-const jalali = new Intl.DateTimeFormat('fa-IR-u-ca-persian-nu-latn', {
-  timeZone: 'Asia/Tehran',
-  year: 'numeric',
-  month: '2-digit',
-  day: '2-digit',
-  hour: '2-digit',
-  minute: '2-digit',
-  hourCycle: 'h23',
-});
-
-/** Jalali date-time in Iran time with Latin digits (sortable in spreadsheets): 1405/06/20 14:30. */
-export function formatTehranDateTime(date: Date): string {
-  const part = (type: Intl.DateTimeFormatPartTypes) =>
-    jalali.formatToParts(date).find((p) => p.type === type)?.value ?? '';
-  return `${part('year')}/${part('month')}/${part('day')} ${part('hour')}:${part('minute')}`;
-}
+export { formatTehranDateTime, tehranDayRange } from '../../../common/time/iran-time';
 
 export const EXPORT_HEADER = [
   'کد پیگیری',
@@ -79,10 +62,5 @@ export function exportRow(r: ExportableRequest): CsvRaw[] {
 
 /** ASCII file name (Content-Disposition safe): service-requests-20260926-1430.csv */
 export function exportFileName(now: Date): string {
-  const stamp = new Date(now.getTime() + TEHRAN_OFFSET_MS)
-    .toISOString()
-    .slice(0, 16)
-    .replace(/[-:]/g, '')
-    .replace('T', '-');
-  return `service-requests-${stamp}.csv`;
+  return `service-requests-${tehranFileStamp(now)}.csv`;
 }
