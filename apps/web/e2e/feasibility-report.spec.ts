@@ -441,6 +441,7 @@ test.describe('the report of a feasibility project', () => {
 
     // The PDF of the version: the server writes it and answers with a signed address.
     let fileStatus = 503;
+    let fileUrl = 'https://example.org/api/v1/files/f1/content?exp=1&sig=s';
     const fileAsked: string[] = [];
     await page.route('**/api/v1/feasibility-projects/p1/report/versions/2/file', (route) => {
       fileAsked.push(route.request().method());
@@ -451,7 +452,7 @@ test.describe('the report of a feasibility project', () => {
             size: 1234,
             sha256: 'ab'.repeat(32),
             createdAt: '2026-10-07T09:00:00Z',
-            url: '/api/v1/files/f1/content?exp=1&sig=s',
+            url: fileUrl,
             expiresAt: '2026-10-07T09:05:00Z',
           })
         : route.fulfill({
@@ -473,14 +474,20 @@ test.describe('the report of a feasibility project', () => {
     );
     await page.getByRole('button', { name: 'دریافت PDF نسخه ۲' }).click();
     await expect(page.getByText('فایل‌های زیادی در صف ساخت است.')).toBeVisible();
+    // An address that is not a file of this site is never followed.
     fileStatus = 200;
+    await page.getByRole('button', { name: 'دریافت PDF نسخه ۲' }).click();
+    await expect(page.getByText('نشانی دریافت فایل معتبر نیست. دوباره تلاش کنید.')).toBeVisible();
+    await expect(page).toHaveURL(/\/report\/versions\/2$/);
+    fileUrl = '/api/v1/files/f1/content?exp=1&sig=s';
     const saved = page.waitForEvent('download');
     await page.getByRole('button', { name: 'دریافت PDF نسخه ۲' }).click();
-    await saved;
+    // The browser saves what the signed address of the answer serves.
+    expect((await saved).url()).toContain('/api/v1/files/f1/content?exp=1&sig=s');
     await expect(page.getByText(/فایل PDF نسخه ۲ آماده شد/)).toBeVisible();
     await expect(page.getByText('ab'.repeat(32))).toBeVisible();
     await expect(page.getByText('فایل‌های زیادی در صف ساخت است.')).toHaveCount(0);
-    expect(fileAsked).toEqual(['POST', 'POST']);
+    expect(fileAsked).toEqual(['POST', 'POST', 'POST']);
     await expect(page.getByText(/نسخه ۲، صادرشده در/)).toBeVisible();
     await expect(page.getByText('اصلاح فصل بازار')).toBeVisible();
     await expect(page.getByText(/اجرای شماره ۳ مدل مالی/)).toBeVisible();
@@ -581,6 +588,8 @@ test.describe('the report of a feasibility project', () => {
     await expect(page.getByText('این پیش‌نویس هنوز قابل صدور نیست:')).toBeVisible();
     await expect(page.getByText('اجرای تأییدشده‌ای را انتخاب کنید.')).toBeVisible();
     await expect(page.getByText(/«تحلیل اقتصادی»/)).toBeVisible();
+    // A file belongs to an issued version: the preview has none.
+    await expect(page.getByRole('button', { name: /دریافت PDF/ })).toHaveCount(0);
     // Without a run there are no amounts to choose a unit for.
     await expect(page.getByLabel('واحد نمایش مبلغ‌ها')).toHaveCount(0);
     await audit(page);
@@ -616,7 +625,32 @@ test.describe('the report of a feasibility project', () => {
     await page.reload();
     await expect(page.getByRole('heading', { name: '۱. تحلیل بازار و بازاریابی' })).toBeVisible();
     // The applicant can take the PDF of the version they read.
-    await expect(page.getByRole('button', { name: 'دریافت PDF نسخه ۲' })).toBeVisible();
+    const asked: string[] = [];
+    await page.route('**/api/v1/feasibility-projects/p1/report/versions/2/file', (route) => {
+      asked.push(route.request().method());
+      return json(route, {
+        number: 2,
+        fileName: 'feasibility-report-FS-1-v2.pdf',
+        size: 1234,
+        sha256: 'cd'.repeat(32),
+        createdAt: '2026-10-07T09:00:00Z',
+        url: '/api/v1/files/f2/content?exp=1&sig=s',
+        expiresAt: '2026-10-07T09:05:00Z',
+      });
+    });
+    await page.route('**/api/v1/files/f2/content?*', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/pdf',
+        headers: { 'content-disposition': 'attachment; filename="report.pdf"' },
+        body: '%PDF-1.3',
+      }),
+    );
+    const mineSaved = page.waitForEvent('download');
+    await page.getByRole('button', { name: 'دریافت PDF نسخه ۲' }).click();
+    await mineSaved;
+    await expect(page.getByText('cd'.repeat(32))).toBeVisible();
+    expect(asked).toEqual(['POST']);
     // Nothing of the staff: no note of the version and no name.
     await expect(page.getByText('صادرکننده')).toHaveCount(0);
     await expect(page.getByText('یادداشت این نسخه')).toHaveCount(0);
