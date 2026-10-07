@@ -14,11 +14,12 @@ import { ARGON2_OPTIONS } from '../src/modules/auth/argon2-options';
 import { PrismaClient } from '../src/generated/prisma/client';
 import { DEMO_QUESTIONNAIRE_DEFINITION, DEMO_QUESTIONNAIRE_TITLE } from './demo-questionnaire';
 
+// The environment file is read first, so that a production setting written there counts too.
+loadEnvFile(__dirname);
 if (process.env.NODE_ENV === 'production') {
   console.error('Refusing to seed demo content in production.');
   process.exit(1);
 }
-loadEnvFile(__dirname);
 
 const DEMO_NOTE = '> این محتوا نمونه نمایشی است و پس از تأیید محتوای واقعی جایگزین می‌شود.';
 
@@ -459,7 +460,7 @@ async function seedQuestionnaire(prisma: PrismaClient): Promise<void> {
 }
 
 /** One sample account per role that has a part of the dashboard of its own. */
-export const DEMO_ACCOUNTS = [
+const DEMO_ACCOUNTS = [
   { role: 'user', name: 'عضو' },
   { role: 'applicant', name: 'متقاضی' },
   { role: 'expert', name: 'کارشناس' },
@@ -472,14 +473,15 @@ export const DEMO_ACCOUNTS = [
 ] as const;
 
 /** The address of the sample account of a role, e.g. `feasibility-officer@demo.roshd.test`. */
-export const demoAccountEmail = (role: string): string =>
-  `${role.replaceAll('_', '-')}@demo.roshd.test`;
+const demoAccountEmail = (role: string): string => `${role.replaceAll('_', '-')}@demo.roshd.test`;
 
 /**
  * Sample accounts for trying the dashboard of every role, created when SEED_DEMO_PASSWORD is set
  * (at least 12 characters; all sample accounts share it). The password is never written anywhere
- * else and an existing account keeps the one it has. The names say «نمونه نمایشی», and the
- * addresses end in the reserved `.test` domain, so no mail ever leaves for them.
+ * else. An address that is taken already is left alone, roles included: whoever registered it
+ * first must not be handed a role by the seed. The names say «نمونه نمایشی» (a user has no
+ * `isDemo` column), and the addresses end in the reserved `.test` domain, so no mail ever leaves
+ * for them.
  */
 async function seedDemoAccounts(prisma: PrismaClient): Promise<void> {
   const password = process.env.SEED_DEMO_PASSWORD;
@@ -487,25 +489,29 @@ async function seedDemoAccounts(prisma: PrismaClient): Promise<void> {
   if (password.length < 12) throw new Error('SEED_DEMO_PASSWORD must be at least 12 characters');
   const passwordHash = await hash(password, ARGON2_OPTIONS);
   const roles = new Map((await prisma.role.findMany()).map((role) => [role.key, role.id]));
+  let created = 0;
   for (const account of DEMO_ACCOUNTS) {
     const email = demoAccountEmail(account.role);
-    const user = await prisma.user.upsert({
-      where: { email },
-      update: {},
-      create: {
+    const roleIds = [...new Set(['user', account.role])].map((key) => {
+      const id = roles.get(key);
+      if (!id) throw new Error(`Role ${key} is missing; run the base seed first (db:seed).`);
+      return id;
+    });
+    if (await prisma.user.findUnique({ where: { email }, select: { id: true } })) continue;
+    await prisma.user.create({
+      data: {
         email,
         fullName: `${account.name} (نمونه نمایشی)`,
         passwordHash,
         emailVerifiedAt: new Date(),
+        roles: { create: roleIds.map((roleId) => ({ roleId })) },
       },
     });
-    const roleIds = [...new Set(['user', account.role])].flatMap((key) => roles.get(key) ?? []);
-    await prisma.userRole.createMany({
-      data: roleIds.map((roleId) => ({ userId: user.id, roleId })),
-      skipDuplicates: true,
-    });
+    created += 1;
   }
-  console.warn(`Ensured ${DEMO_ACCOUNTS.length} sample accounts (@demo.roshd.test).`);
+  console.warn(
+    `Sample accounts (@demo.roshd.test): ${created} created, ${DEMO_ACCOUNTS.length - created} already there and left as they are.`,
+  );
 }
 
 main().catch((error: unknown) => {

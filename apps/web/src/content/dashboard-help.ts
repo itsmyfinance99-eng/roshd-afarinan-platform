@@ -1,4 +1,5 @@
-import type { Role } from '@roshd/types';
+import type { Permission, Role } from '@roshd/types';
+import { SERVICE_REQUEST_STATUS_LABELS_FA } from '@roshd/validation';
 
 /**
  * The guide of the dashboard («راهنما»): what each part of the menu is for, in plain words. The
@@ -10,8 +11,22 @@ export interface HelpSection {
   /** What the part is for, in one or two sentences. */
   summary: string;
   /** What one can do there, one short line each. */
-  steps: string[];
+  steps: HelpStep[];
 }
+
+/** A step everybody who sees the part can take, or one that needs a permission of its own. */
+export type HelpStep = string | { text: string; permission: Permission };
+
+/** The steps of a part a holder of `permissions` can take. */
+export function visibleSteps(section: HelpSection, permissions: readonly Permission[]): string[] {
+  return section.steps.flatMap((step) =>
+    typeof step === 'string' ? [step] : permissions.includes(step.permission) ? [step.text] : [],
+  );
+}
+
+const REQUEST_STATUSES_FA = Object.values(SERVICE_REQUEST_STATUS_LABELS_FA)
+  .map((label) => `«${label}»`)
+  .join('، ');
 
 /** What a role is for. Roles without work of their own in the dashboard are not listed. */
 export const ROLE_HELP_FA: Partial<Record<Role, string>> = {
@@ -44,13 +59,13 @@ export const DASHBOARD_HELP_TIPS_FA = [
 export const DASHBOARD_HELP_FA: Record<string, HelpSection> = {
   '/dashboard': {
     summary: 'صفحه اول پنل است و خلاصه‌ای از کارهای شما را نشان می‌دهد.',
-    steps: ['تازه‌ترین درخواست‌های خود را ببینید.', 'از اینجا به بخش‌های دیگر پنل بروید.'],
+    steps: ['تازه‌ترین درخواست‌های خود را ببینید.', 'با دکمه‌های همین صفحه درخواست تازه ثبت کنید.'],
   },
   '/dashboard/requests': {
     summary: 'درخواست‌هایی که از سایت ثبت کرده‌اید (مثل مشاوره یا امکان‌سنجی) اینجا فهرست می‌شود.',
     steps: [
-      'هر درخواست یک کد پیگیری و یک وضعیت دارد: جدید، در حال بررسی، پاسخ داده‌شده یا بسته‌شده.',
-      'روی هر درخواست بزنید تا جزئیات و پاسخ کارشناسان را ببینید.',
+      `هر درخواست یک کد پیگیری و یک وضعیت دارد: ${REQUEST_STATUSES_FA}.`,
+      'روی هر درخواست بزنید تا جزئیات و روند تغییر وضعیت آن را ببینید.',
     ],
   },
   '/dashboard/feasibility': {
@@ -105,16 +120,28 @@ export const DASHBOARD_HELP_FA: Record<string, HelpSection> = {
     summary: 'همه درخواست‌هایی که کاربران از سایت ثبت کرده‌اند اینجاست.',
     steps: [
       'درخواست‌ها را با وضعیت و نوع فیلتر کنید و هر کدام را باز کنید.',
-      'وضعیت درخواست را عوض کنید و برای کاربر پاسخ بنویسید.',
-      'درخواست امکان‌سنجی را به پروژه امکان‌سنجی تبدیل کنید.',
+      {
+        permission: 'requests:manage',
+        text: 'وضعیت درخواست را عوض کنید. یادداشتی که کنار آن می‌نویسید داخلی است و متقاضی آن را نمی‌بیند.',
+      },
+      {
+        permission: 'feasibility:manage',
+        text: 'درخواست امکان‌سنجی را به پروژه امکان‌سنجی تبدیل کنید.',
+      },
     ],
   },
   '/dashboard/manage/feasibility': {
     summary:
       'پروژه‌های امکان‌سنجی برای کارکنان و کارشناسان اینجاست. کارشناس فقط پروژه‌هایی را می‌بیند که به او سپرده شده است.',
     steps: [
-      'پروژه‌های تازه را بررسی اولیه کنید و برآورد هزینه را برای متقاضی بفرستید.',
-      'قرارداد را تأیید کنید و برای پروژه کارشناس تعیین کنید.',
+      {
+        permission: 'feasibility:manage',
+        text: 'پروژه‌های تازه را بررسی اولیه کنید و برآورد هزینه را برای متقاضی بفرستید.',
+      },
+      {
+        permission: 'feasibility:manage',
+        text: 'قرارداد را تأیید کنید و برای پروژه کارشناس تعیین کنید.',
+      },
       'در فضای کار پروژه، پرسشنامه و مدارک متقاضی را ببینید، مدل مالی بسازید و یادداشت داخلی بنویسید.',
       'گزارش مطالعه را فصل به فصل بنویسید، پیش‌نمایش آن را ببینید و نسخه صادر کنید.',
       'به نظرهای بازبینی متقاضی و همکاران پاسخ دهید.',
@@ -156,7 +183,7 @@ export const DASHBOARD_HELP_FA: Record<string, HelpSection> = {
     summary: 'فهرست‌های سایت که کاربران مرور می‌کنند (مثل دوره‌های آموزشی) اینجا مدیریت می‌شود.',
     steps: [
       'نوع فهرست را انتخاب کنید و مورد تازه اضافه کنید یا مورد موجود را ویرایش کنید.',
-      'مورد را منتشر کنید یا از انتشار بردارید.',
+      'مورد را منتشر یا بایگانی کنید.',
     ],
   },
   '/dashboard/manage/orders': {
@@ -179,7 +206,7 @@ export const DASHBOARD_HELP_FA: Record<string, HelpSection> = {
   },
   '/dashboard/manage/audit': {
     summary: 'هر کار مهمی که در سامانه انجام می‌شود اینجا ثبت است: چه کسی، چه کاری و چه زمانی.',
-    steps: ['رویدادها را فیلتر کنید تا ببینید روی یک مورد چه کارهایی انجام شده است.'],
+    steps: ['رویدادها را با نوع رویداد، ایمیل انجام‌دهنده و بازه تاریخ فیلتر کنید.'],
   },
   '/dashboard/help': {
     summary: 'همین صفحه است: راهنمای کوتاه بخش‌های پنل شما.',

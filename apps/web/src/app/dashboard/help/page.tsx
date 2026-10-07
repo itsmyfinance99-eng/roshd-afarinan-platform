@@ -10,6 +10,7 @@ import {
   DASHBOARD_HELP_INTRO_FA,
   DASHBOARD_HELP_TIPS_FA,
   ROLE_HELP_FA,
+  visibleSteps,
 } from '@/content/dashboard-help';
 
 /** The guide of the dashboard: the parts of the reader's own menu, each in plain words. */
@@ -18,7 +19,9 @@ export default function DashboardHelpPage() {
   const roles = me.roles.filter((role) => ROLE_HELP_FA[role] !== undefined);
   const sections = visibleNav(me.permissions).flatMap((item) => {
     const help = DASHBOARD_HELP_FA[item.href];
-    return help ? [{ ...item, ...help }] : [];
+    return help
+      ? [{ ...item, summary: help.summary, steps: visibleSteps(help, me.permissions) }]
+      : [];
   });
 
   return (

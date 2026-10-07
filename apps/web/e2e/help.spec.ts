@@ -39,7 +39,9 @@ test.describe('guide of the dashboard', () => {
     await expect(main.getByRole('link', { name: 'مدیریت کاربران', exact: true })).toHaveCount(0);
     await expect(main.getByText('عضو سایت هستید', { exact: false })).toBeVisible();
     await expect(
-      page.getByRole('navigation', { name: 'منوی داشبورد' }).getByRole('link', { name: 'راهنما' }),
+      page
+        .getByRole('navigation', { name: 'منوی داشبورد' })
+        .getByRole('link', { name: 'راهنما', exact: true }),
     ).toHaveAttribute('aria-current', 'page');
     const results = await new AxeBuilder({ page }).analyze();
     expect(
@@ -55,5 +57,7 @@ test.describe('guide of the dashboard', () => {
     await expect(main.getByRole('link', { name: 'مدیریت تیکت‌ها', exact: true })).toBeVisible();
     await expect(main.getByRole('link', { name: 'مدیریت درخواست‌ها', exact: true })).toBeVisible();
     await expect(main.getByRole('link', { name: 'گزارش رویدادها', exact: true })).toHaveCount(0);
+    // A step that needs a permission the reader lacks is not offered.
+    await expect(main.getByText('به پروژه امکان‌سنجی تبدیل کنید', { exact: false })).toHaveCount(0);
   });
 });
