@@ -73,6 +73,10 @@ model User {
   feasibilityContractsConfirmed  FeasibilityContract[]          @relation("FeasibilityContractConfirmer")
   feasibilityInternalNotes       FeasibilityInternalNote[]      @relation("FeasibilityInternalNoteAuthor")
   feasibilityReviewThreads       FeasibilityReviewThread[]      @relation("FeasibilityReviewThreadStarter")
+  feasibilityReportTemplates     FeasibilityReportTemplate[]    @relation("FeasibilityReportTemplateCreator")
+  feasibilityReports             FeasibilityReport[]            @relation("FeasibilityReportCreator")
+  feasibilityReportChapters      FeasibilityReportChapter[]     @relation("FeasibilityReportChapterEditor")
+  feasibilityReportVersions      FeasibilityReportVersion[]     @relation("FeasibilityReportVersionIssuer")
   feasibilityReviewThreadsDone   FeasibilityReviewThread[]      @relation("FeasibilityReviewThreadHandler")
   feasibilityReviewComments      FeasibilityReviewComment[]     @relation("FeasibilityReviewCommentAuthor")
 
@@ -823,9 +827,12 @@ model CalculationRun {
   approvedById  String?   @db.Uuid
   approvedAt    DateTime?
 
-  model      FinancialModel @relation(fields: [modelId], references: [id], onDelete: Cascade)
-  createdBy  User?          @relation("CalculationRunCreator", fields: [createdById], references: [id], onDelete: SetNull)
-  approvedBy User?          @relation("CalculationRunApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+  model          FinancialModel             @relation(fields: [modelId], references: [id], onDelete: Cascade)
+  createdBy      User?                      @relation("CalculationRunCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  approvedBy     User?                      @relation("CalculationRunApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+  /// The feasibility reports that take their figures from this run (ST-35.12).
+  reports        FeasibilityReport[]        @relation("FeasibilityReportRun")
+  reportVersions FeasibilityReportVersion[] @relation("FeasibilityReportVersionRun")
 
   @@unique([modelId, number])
   @@map("calculation_runs")
@@ -892,6 +899,8 @@ model FeasibilityProject {
   contracts          FeasibilityContract[]
   internalNotes      FeasibilityInternalNote[]
   reviewThreads      FeasibilityReviewThread[]
+  report             FeasibilityReport?
+  reportVersions     FeasibilityReportVersion[]
   experts            ExpertAssignment[]
 
   @@index([ownerId, updatedAt])
@@ -1024,6 +1033,105 @@ model FeasibilityReviewComment {
 
   @@index([threadId, createdAt])
   @@map("feasibility_review_comments")
+}
+
+/// The chapters a feasibility report is made of, as the staff arranged them (ST-35.12, OQ-35).
+/// A report copies the chapters when it takes the template, so a later change of the template
+/// never changes a report that was started.
+model FeasibilityReportTemplate {
+  id          String    @id @default(uuid(7)) @db.Uuid
+  name        String
+  /// reportStructureSchema of @roshd/validation: chapters in their order with title and guidance.
+  chapters    Json
+  createdById String?   @db.Uuid
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  /// An archived template is not offered to new reports.
+  archivedAt  DateTime?
+
+  createdBy User?               @relation("FeasibilityReportTemplateCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  reports   FeasibilityReport[]
+
+  @@index([archivedAt, name])
+  @@map("feasibility_report_templates")
+}
+
+/// The draft of the report of a study (ST-35.12): its chapters are in
+/// `feasibility_report_chapters`. The experts and the staff of the project edit it while the
+/// study is worked on; what is handed on is a version (`feasibility_report_versions`).
+model FeasibilityReport {
+  id               String   @id @default(uuid(7)) @db.Uuid
+  projectId        String   @unique @db.Uuid
+  /// The template the chapters were taken from; null for the standard structure.
+  templateId       String?  @db.Uuid
+  /// The approved calculation run of the project's financial model the report takes its
+  /// financial and economic chapters from.
+  calculationRunId String?  @db.Uuid
+  createdById      String?  @db.Uuid
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  project        FeasibilityProject         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  template       FeasibilityReportTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  calculationRun CalculationRun?            @relation("FeasibilityReportRun", fields: [calculationRunId], references: [id], onDelete: Restrict)
+  createdBy      User?                      @relation("FeasibilityReportCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  chapters       FeasibilityReportChapter[]
+
+  @@index([calculationRunId])
+  @@map("feasibility_reports")
+}
+
+/// One chapter of the draft of a report. A chapter that is not in the structure any more
+/// (`included` false) keeps its text, in case the structure takes it back.
+model FeasibilityReportChapter {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  reportId    String   @db.Uuid
+  /// One of FEASIBILITY_REPORT_CHAPTERS (@roshd/validation).
+  key         String
+  position    Int
+  included    Boolean  @default(true)
+  title       String
+  guidance    String?
+  /// Markdown.
+  body        String   @default("")
+  /// Keys of the questions of the project's questionnaire whose answers the chapter quotes.
+  answerKeys  Json     @default("[]")
+  /// Incremented on every save; a save on top of an older version is refused.
+  version     Int      @default(1)
+  updatedById String?  @db.Uuid
+  updatedAt   DateTime @updatedAt
+
+  report    FeasibilityReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  updatedBy User?             @relation("FeasibilityReportChapterEditor", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@unique([reportId, key])
+  @@map("feasibility_report_chapters")
+}
+
+/// A version of the report as it was issued (ST-35.12): written once and never changed or
+/// deleted (see the migration). `content` holds the chapters with their text and the quoted
+/// answers as they were; the figures are those of the calculation run, which never changes.
+model FeasibilityReportVersion {
+  id               String   @id @default(uuid(7)) @db.Uuid
+  projectId        String   @db.Uuid
+  /// Sequence within the project, from 1.
+  number           Int
+  content          Json
+  /// SHA-256 of the canonical JSON of `content`.
+  contentHash      String
+  calculationRunId String?  @db.Uuid
+  /// What changed in this version, for those who work on the study.
+  note             String?
+  issuedById       String?  @db.Uuid
+  createdAt        DateTime @default(now())
+
+  project        FeasibilityProject @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  calculationRun CalculationRun?    @relation("FeasibilityReportVersionRun", fields: [calculationRunId], references: [id], onDelete: Restrict)
+  issuedBy       User?              @relation("FeasibilityReportVersionIssuer", fields: [issuedById], references: [id], onDelete: SetNull)
+
+  @@unique([projectId, number])
+  @@index([calculationRunId])
+  @@map("feasibility_report_versions")
 }
 
 enum QuestionnaireVersionStatus {

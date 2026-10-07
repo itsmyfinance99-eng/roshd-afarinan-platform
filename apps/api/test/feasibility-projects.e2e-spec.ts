@@ -148,6 +148,7 @@ describe('Feasibility projects (e2e)', () => {
       createModel: false,
       addNote: true,
       comment: false,
+      report: false,
     });
 
     expect(await audits(project.id, 'feasibility_project.created')).toHaveLength(1);
@@ -263,6 +264,7 @@ describe('Feasibility projects (e2e)', () => {
       createModel: true,
       addNote: true,
       comment: true,
+      report: true,
     });
     await move(expert, id, 'EXPERT_REVIEW').expect(200);
     // Staff alone do not pass the expert's review.
@@ -280,6 +282,7 @@ describe('Feasibility projects (e2e)', () => {
       createModel: false,
       addNote: false,
       comment: false,
+      report: true,
     });
 
     const events = done.body.data.events as {
@@ -396,6 +399,7 @@ describe('Feasibility projects (e2e)', () => {
       createModel: false,
       addNote: false,
       comment: false,
+      report: false,
     });
     expect(own.body.data).not.toHaveProperty('experts');
 
