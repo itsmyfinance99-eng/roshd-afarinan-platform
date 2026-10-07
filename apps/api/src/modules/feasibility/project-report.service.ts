@@ -330,10 +330,20 @@ export class ProjectReportService {
       const report = await this.editable(tx, id);
       const structure = await this.structure(tx, templateId);
       const kept = structure.map((chapter) => chapter.key);
+      // Only the rows that change are written, so that the time of the last save of a chapter
+      // stays the time its text was saved.
       await tx.feasibilityReportChapter.updateMany({
-        where: { reportId: report.id, key: { notIn: kept } },
+        where: { reportId: report.id, included: true, key: { notIn: kept } },
         data: { included: false },
       });
+      const current = new Map(
+        (
+          await tx.feasibilityReportChapter.findMany({
+            where: { reportId: report.id },
+            select: { key: true, position: true, included: true, title: true, guidance: true },
+          })
+        ).map((row) => [row.key, row]),
+      );
       for (const [position, chapter] of structure.entries()) {
         const data = {
           position,
@@ -341,6 +351,16 @@ export class ProjectReportService {
           title: chapter.title,
           guidance: chapter.guidance || null,
         };
+        const row = current.get(chapter.key);
+        if (
+          row &&
+          row.included &&
+          row.position === position &&
+          row.title === data.title &&
+          row.guidance === data.guidance
+        ) {
+          continue;
+        }
         await tx.feasibilityReportChapter.upsert({
           where: { reportId_key: { reportId: report.id, key: chapter.key } },
           create: { reportId: report.id, key: chapter.key, ...data },

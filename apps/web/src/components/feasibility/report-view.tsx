@@ -73,6 +73,7 @@ function Quoted({ value, label }: { value: QuotedValue; label: string }) {
         className="overflow-x-auto rounded-card border border-line"
       >
         <table className="w-full border-collapse text-sm">
+          <caption className="sr-only">{label}</caption>
           <thead>
             <tr>
               {value.columns.map((column, index) => (
@@ -241,6 +242,7 @@ function Block({ block }: { block: ReportBlock }) {
                   {section.title ? (
                     <tr className="border-t border-line">
                       <th
+                        scope="colgroup"
                         colSpan={block.columns.length + 1}
                         className="bg-paper px-3 pt-3 pb-1 text-start text-[13px] font-bold text-ink-3"
                       >
@@ -333,7 +335,8 @@ function Chapter({
       {chapter.body ? (
         <MarkdownBody
           source={chapter.body}
-          className="max-w-none [&_h2]:text-lg [&_h3]:text-base"
+          nested
+          className="max-w-none [overflow-wrap:anywhere] [&_h3]:text-lg [&_h4]:text-base [&_h4]:font-bold [&_h5]:font-bold [&_h6]:font-bold"
         />
       ) : null}
       <QuotedAnswers answers={chapter.answers} />

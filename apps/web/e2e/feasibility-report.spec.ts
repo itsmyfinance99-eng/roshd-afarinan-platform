@@ -217,7 +217,13 @@ test.describe('the report of a feasibility project', () => {
     let report: Record<string, unknown> | null = null;
     let versions: object[] = [];
     let saves = 0;
-    const sent: Record<string, unknown[]> = { start: [], run: [], chapter: [], issue: [] };
+    const sent: Record<string, unknown[]> = {
+      start: [],
+      template: [],
+      run: [],
+      chapter: [],
+      issue: [],
+    };
     const draft = () => ({
       report,
       runs: [RUN],
@@ -244,6 +250,11 @@ test.describe('the report of a feasibility project', () => {
         };
         return json(route, draft(), 201);
       }
+      return json(route, draft());
+    });
+    await page.route('**/api/v1/feasibility-projects/p1/report/template', (route) => {
+      sent.template!.push(route.request().postDataJSON());
+      report = { ...report, template: null };
       return json(route, draft());
     });
     await page.route('**/api/v1/feasibility-projects/p1/report/run', (route) => {
@@ -350,10 +361,26 @@ test.describe('the report of a feasibility project', () => {
     await expect(page.getByText('تغییر ذخیره‌نشده دارد.')).toBeVisible();
     await save.click();
     await expect(page.getByText(/همکار دیگری این فصل را ذخیره کرده است/)).toBeVisible();
+    // With unsaved text nothing is issued, no other structure is taken, and a link of the
+    // dashboard asks before it leaves the page.
+    const unsaved =
+      /نخست فصل‌هایی را که تغییر ذخیره‌نشده دارند ذخیره کنید: «تحلیل بازار و بازاریابی»/;
     await page.getByRole('button', { name: 'صدور نسخه تازه' }).click();
+    await expect(page.getByRole('form', { name: 'صدور نسخه' }).getByText(unsaved)).toBeVisible();
+    await page.getByLabel('گرفتن فصل‌ها از قالب', { exact: true }).selectOption('');
+    await page.getByRole('button', { name: 'اعمال قالب' }).click();
     await expect(
-      page.getByText('نخست فصل‌هایی را که تغییر ذخیره‌نشده دارند ذخیره کنید.'),
+      page.getByRole('region', { name: 'ساختار گزارش' }).getByText(unsaved),
     ).toBeVisible();
+    expect(sent.template).toEqual([]);
+    const asked: string[] = [];
+    page.once('dialog', (dialog) => {
+      asked.push(dialog.message());
+      void dialog.dismiss();
+    });
+    await page.getByRole('link', { name: 'بازگشت به پروژه ‹' }).click();
+    expect(asked).toEqual([expect.stringContaining('تغییر ذخیره‌نشده')]);
+    await expect(page).toHaveURL(/\/report$/);
     await page.getByRole('button', { name: 'کنار گذاشتن متن من و بارگذاری نسخه تازه' }).click();
     await expect(text).toHaveValue('متن همکار');
     await expect(page.getByText(/آخرین ذخیره: نرگس کارشناس/)).toBeVisible();
@@ -368,6 +395,11 @@ test.describe('the report of a feasibility project', () => {
       { version: 2, body: 'بازار رو به رشد است.', answerKeys: ['capacity'] },
     ]);
     await expect(save).toBeDisabled();
+    // Everything is saved: now the structure can be changed, and the message stays.
+    await page.getByRole('button', { name: 'اعمال قالب' }).click();
+    await expect(page.getByText('ساختار گزارش به‌روز شد.')).toBeVisible();
+    await expect(page.getByText('قالب کنونی: ساختار استاندارد')).toBeVisible();
+    expect(sent.template).toEqual([{ templateId: null }]);
     // The preview opens beside the editor, so that the forms stay as they are.
     await expect(page.getByRole('link', { name: /پیش‌نمایش گزارش و کمبودهای آن/ })).toHaveAttribute(
       'target',
@@ -410,7 +442,7 @@ test.describe('the report of a feasibility project', () => {
     await expect(page.getByText('اصلاح فصل بازار')).toBeVisible();
     await expect(page.getByText(/اجرای شماره ۳ مدل مالی/)).toBeVisible();
     // Markdown is rendered, the answers are quoted in Persian digits.
-    await expect(page.getByRole('heading', { name: 'اندازه بازار' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'اندازه بازار', level: 4 })).toBeVisible();
     await expect(page.getByText('۱۰۰٬۰۰۰ تن')).toBeVisible();
     await expect(page.getByText('پاسخی ثبت نشده است')).toBeVisible();
     await expect(page.getByRole('cell', { name: 'کنسانتره' })).toBeVisible();
@@ -432,6 +464,51 @@ test.describe('the report of a feasibility project', () => {
     await again.focus();
     await again.click();
     await expect(page.getByLabel('بخش', { exact: true })).toBeFocused();
+  });
+
+  test('shows a closed draft read-only, and says when there is no approved run', async ({
+    page,
+  }) => {
+    await signIn(page, ['feasibility:work']);
+    await page.route('**/api/v1/feasibility-projects/p1', (route) =>
+      json(route, project({ status: 'DELIVERED' })),
+    );
+    await page.route('**/api/v1/feasibility-projects/p1/report/versions', (route) =>
+      json(route, []),
+    );
+    await page.route('**/api/v1/feasibility-projects/p1/report', (route) =>
+      json(route, {
+        report: {
+          template: null,
+          run: null,
+          chapters: [
+            chapter('market', 'text', 'تحلیل بازار و بازاریابی', { body: 'متن ذخیره‌شده' }),
+          ],
+          excluded: [{ key: 'location', title: 'مکان، ساختگاه و محیط زیست', hasText: true }],
+          createdAt: '2026-10-06T08:00:00Z',
+          updatedAt: '2026-10-06T08:00:00Z',
+        },
+        runs: [],
+        questions: [],
+        templates: [],
+        access: { edit: false, issue: false },
+      }),
+    );
+    await page.goto('/dashboard/manage/feasibility/p1/report');
+    await expect(page.getByText(/پیش‌نویس فقط خوانده می‌شود/)).toBeVisible();
+    const text = page.getByLabel('متن فصل «تحلیل بازار و بازاریابی»', { exact: true });
+    await expect(text).toHaveValue('متن ذخیره‌شده');
+    await expect(text).not.toBeEditable();
+    await expect(page.getByRole('button', { name: 'ذخیره فصل' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'اعمال قالب' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'صدور نسخه تازه' })).toHaveCount(0);
+    await expect(page.getByText('مکان، ساختگاه و محیط زیست (متن دارد)')).toBeVisible();
+    await expect(page.getByText(/مدل مالی این پروژه هنوز اجرای تأییدشده‌ای ندارد/)).toBeVisible();
+    await expect(page.getByRole('link', { name: 'اجراهای محاسبه ‹' })).toHaveAttribute(
+      'href',
+      '/dashboard/models/m1/runs',
+    );
+    await audit(page);
   });
 
   test('shows the preview of the draft with what is still missing', async ({ page }) => {
@@ -504,7 +581,7 @@ test.describe('the report of a feasibility project', () => {
     await audit(page);
   });
 
-  test('lets staff write and archive report templates', async ({ page }) => {
+  test('lets staff write, change and archive report templates', async ({ page }) => {
     await signIn(page, ['feasibility:manage']);
     let templates: Record<string, unknown>[] = [];
     const sent: unknown[] = [];
@@ -524,9 +601,18 @@ test.describe('the report of a feasibility project', () => {
       return json(route, templates[0], 201);
     });
     await page.route('**/api/v1/report-templates/t1', (route) => {
-      const body = route.request().postDataJSON() as { archived?: boolean };
+      const body = route.request().postDataJSON() as { archived?: boolean; name?: string };
       sent.push(body);
-      templates = [{ ...templates[0], archivedAt: body.archived ? '2026-10-07T10:00:00Z' : null }];
+      const { archived, ...changes } = body;
+      templates = [
+        {
+          ...templates[0],
+          ...changes,
+          ...(archived === undefined
+            ? {}
+            : { archivedAt: archived ? '2026-10-07T10:00:00Z' : null }),
+        },
+      ];
       return json(route, templates[0]);
     });
 
@@ -581,5 +667,37 @@ test.describe('the report of a feasibility project', () => {
     await expect(page.getByText('بایگانی‌شده', { exact: true })).toBeVisible();
     expect(sent.at(-1)).toEqual({ archived: true });
     await audit(page);
+
+    // Change it: the form opens with what the template has; a chapter without a title is
+    // told by its name, and its field is focused.
+    await page.getByRole('button', { name: 'ویرایش قالب «قالب کوتاه»' }).click();
+    await expect(page.getByLabel('نام قالب')).toHaveValue('قالب کوتاه');
+    const title = page.getByLabel('عنوان فصل «تحلیل بازار و بازاریابی» در گزارش', { exact: true });
+    await expect(title).toHaveValue('بازار هدف');
+    await title.fill('');
+    await page.getByRole('button', { name: 'ذخیره قالب' }).click();
+    await expect(page.getByText(/^فصل «تحلیل بازار و بازاریابی»:/)).toBeVisible();
+    await expect(title).toBeFocused();
+    await title.fill('بازار');
+    // The keyboard stays on the row that moves.
+    const down = page.getByRole('button', {
+      name: 'پایین بردن فصل «تحلیل مالی و ارزیابی سرمایه‌گذاری»',
+    });
+    await down.focus();
+    await page.keyboard.press('Enter');
+    await expect(down).toBeFocused();
+    await page.getByLabel('نام قالب').fill('قالب کوتاه ۲');
+    await page.getByRole('button', { name: 'ذخیره قالب' }).click();
+    await expect(page.getByText('قالب ذخیره شد.')).toBeVisible();
+    expect(sent.at(-1)).toEqual({
+      name: 'قالب کوتاه ۲',
+      chapters: [
+        { key: 'market', title: 'بازار', guidance: 'اندازه بازار' },
+        { key: 'financial', title: 'تحلیل مالی و ارزیابی سرمایه‌گذاری' },
+      ],
+    });
+    await page.getByRole('button', { name: 'فعال‌کردن قالب «قالب کوتاه ۲»' }).click();
+    await expect(page.getByText('قالب «قالب کوتاه ۲» دوباره فعال شد.')).toBeVisible();
+    expect(sent.at(-1)).toEqual({ archived: false });
   });
 });

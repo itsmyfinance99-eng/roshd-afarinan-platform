@@ -29,9 +29,14 @@ const runLabel = (run: ApprovedRun): string =>
   `اجرای شماره ${toPersianDigits(run.number)} — تأییدشده در ${formatDateTimeFa(run.approvedAt)}`;
 
 const card = 'flex flex-col gap-3 rounded-card border border-line p-4';
-const UNSAVED = 'نخست فصل‌هایی را که تغییر ذخیره‌نشده دارند ذخیره کنید.';
-/** The keys of the chapters whose editor holds a text that was not saved. */
-type Unsaved = RefObject<Set<string>>;
+const UNSAVED = 'نخست فصل‌هایی را که تغییر ذخیره‌نشده دارند ذخیره کنید:';
+/** The chapters whose editor holds a text that was not saved: key and title. */
+type Unsaved = RefObject<Map<string, string>>;
+/** Why something waits for the unsaved chapters, with their names. */
+const unsavedMessage = (unsaved: Unsaved): string =>
+  `${UNSAVED} ${[...unsaved.current.values()].map((title) => `«${title}»`).join('، ')}`;
+const LEAVE =
+  'فصلی از گزارش تغییر ذخیره‌نشده دارد. با رفتن از این صفحه آن تغییر از دست می‌رود. می‌روید؟';
 const heading = 'text-base font-extrabold text-brand-900';
 
 /** Starts the report of a project with the chapters of a template or the standard structure. */
@@ -113,7 +118,9 @@ function Structure({
   onChanged: () => void;
 }) {
   const report = draft.report!;
-  const [templateId, setTemplateId] = useState(report.template?.id ?? STANDARD);
+  /** What the reader chose; until then the select shows the template of the draft. */
+  const [choice, setChoice] = useState<string | null>(null);
+  const templateId = choice ?? report.template?.id ?? STANDARD;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [applied, setApplied] = useState(false);
@@ -126,7 +133,7 @@ function Structure({
     setApplied(false);
     // A chapter the new structure leaves out would take its unsaved text with it.
     if (unsaved.current.size > 0) {
-      setError(UNSAVED);
+      setError(unsavedMessage(unsaved));
       return;
     }
     setBusy(true);
@@ -135,8 +142,10 @@ function Structure({
       body: { templateId: templateId || null },
     });
     setBusy(false);
-    if (result.ok) setApplied(true);
-    else setError(result.details[0]?.message ?? result.message);
+    if (result.ok) {
+      setApplied(true);
+      setChoice(null);
+    } else setError(result.details[0]?.message ?? result.message);
     onChanged();
   };
 
@@ -159,7 +168,7 @@ function Structure({
               id="structure-template"
               value={templateId}
               onChange={(event) => {
-                setTemplateId(event.target.value);
+                setChoice(event.target.value);
                 setApplied(false);
               }}
             >
@@ -215,7 +224,9 @@ function RunChoice({
   onChanged: () => void;
 }) {
   const report = draft.report!;
-  const [runId, setRunId] = useState(report.run?.id ?? NO_RUN);
+  /** What the reader chose; until then the select shows the run of the draft. */
+  const [choice, setChoice] = useState<string | null>(null);
+  const runId = choice ?? report.run?.id ?? NO_RUN;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -231,8 +242,10 @@ function RunChoice({
       body: { runId: runId || null },
     });
     setBusy(false);
-    if (result.ok) setSaved(true);
-    else setError(result.details.find((d) => d.path === 'runId')?.message ?? result.message);
+    if (result.ok) {
+      setSaved(true);
+      setChoice(null);
+    } else setError(result.details.find((d) => d.path === 'runId')?.message ?? result.message);
     onChanged();
   };
 
@@ -252,7 +265,9 @@ function RunChoice({
         <Notice>
           مدل مالی این پروژه هنوز اجرای تأییدشده‌ای ندارد.{' '}
           {modelId ? (
-            <Link href={`/dashboard/models/${modelId}/runs`}>اجراهای محاسبه ‹</Link>
+            <Link href={`/dashboard/models/${modelId}/runs`} className="font-bold underline">
+              اجراهای محاسبه ‹
+            </Link>
           ) : (
             'نخست مدل مالی مطالعه را در صفحه پروژه بسازید.'
           )}
@@ -268,7 +283,7 @@ function RunChoice({
               id="report-run"
               value={runId}
               onChange={(event) => {
-                setRunId(event.target.value);
+                setChoice(event.target.value);
                 setSaved(false);
               }}
             >
@@ -338,10 +353,10 @@ function ChapterEditor({
   // The forms beside this one ask whether a chapter still holds unsaved text.
   useEffect(() => {
     const keys = unsaved.current;
-    if (dirty) keys.add(chapter.key);
+    if (dirty) keys.set(chapter.key, chapter.title);
     else keys.delete(chapter.key);
     return () => void keys.delete(chapter.key);
-  }, [dirty, chapter.key, unsaved]);
+  }, [dirty, chapter.key, chapter.title, unsaved]);
 
   const take = (next: DraftChapter) => {
     setStored(next);
@@ -354,36 +369,39 @@ function ChapterEditor({
     setError(null);
     setSaved(false);
     setBusy(true);
-    const result = await apiFetch<DraftChapter>(
-      `/feasibility-projects/${projectId}/report/chapters/${chapter.key}`,
-      { method: 'PUT', body: { version: stored.version, body, answerKeys } },
-    );
-    setBusy(false);
-    if (result.ok) {
-      // What was typed while the request was on its way stays in the field.
-      setStored(result.data);
-      setStale(false);
-      setSaved(true);
-      return;
-    }
-    if (result.status === 409) {
-      // Refused on top of an older version, or because the draft is closed: the chapter as it
-      // is stored now tells the two apart.
-      const now = await apiFetch<ReportDraft>(`/feasibility-projects/${projectId}/report`);
-      const fresh = now.ok
-        ? now.data.report?.chapters.find((item) => item.key === chapter.key)
-        : undefined;
-      if (fresh && fresh.version !== stored.version) {
-        setStale(true);
-        setError(
-          'همکار دیگری این فصل را ذخیره کرده است. اگر متن خود را لازم دارید آن را جایی نگه دارید، سپس نسخه تازه فصل را بارگذاری کنید.',
-        );
+    try {
+      const result = await apiFetch<DraftChapter>(
+        `/feasibility-projects/${projectId}/report/chapters/${chapter.key}`,
+        { method: 'PUT', body: { version: stored.version, body, answerKeys } },
+      );
+      if (result.ok) {
+        // What was typed while the request was on its way stays in the field.
+        setStored(result.data);
+        setStale(false);
+        setSaved(true);
         return;
       }
-      onRefused();
+      if (result.status === 409) {
+        // Refused on top of an older version, or because the draft is closed: the chapter as
+        // it is stored now tells the two apart.
+        const now = await apiFetch<ReportDraft>(`/feasibility-projects/${projectId}/report`);
+        const fresh = now.ok
+          ? now.data.report?.chapters.find((item) => item.key === chapter.key)
+          : undefined;
+        if (fresh && fresh.version !== stored.version) {
+          setStale(true);
+          setError(
+            'همکار دیگری این فصل را ذخیره کرده است. اگر متن خود را لازم دارید آن را جایی نگه دارید، سپس نسخه تازه فصل را بارگذاری کنید.',
+          );
+          return;
+        }
+        onRefused();
+      }
+      setStale(false);
+      setError(result.details[0]?.message ?? result.message);
+    } finally {
+      setBusy(false);
     }
-    setStale(false);
-    setError(result.details[0]?.message ?? result.message);
   };
 
   /** Drops what is in the field and loads the chapter as it is stored now. */
@@ -539,7 +557,7 @@ function IssueVersion({
     setIssued(null);
     // A version is written from what is stored, not from what is in the fields.
     if (unsaved.current.size > 0) {
-      setError(UNSAVED);
+      setError(unsavedMessage(unsaved));
       return;
     }
     setBusy(true);
@@ -636,7 +654,25 @@ export function ReportComposer({
   onChanged: () => void;
   onIssued: () => void;
 }) {
-  const unsaved = useRef(new Set<string>());
+  const unsaved = useRef(new Map<string, string>());
+
+  // A link of the dashboard leaves the page without loading another document, so the browser
+  // does not ask on its own: with unsaved text, the reader is asked here.
+  useEffect(() => {
+    const ask = (event: MouseEvent) => {
+      if (unsaved.current.size === 0 || event.defaultPrevented || event.button !== 0) return;
+      if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      const link = event.target instanceof Element ? event.target.closest('a[href]') : null;
+      if (!link || link.getAttribute('target') === '_blank') return;
+      if (link.getAttribute('href')?.startsWith('#')) return;
+      if (!window.confirm(LEAVE)) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    };
+    document.addEventListener('click', ask, true);
+    return () => document.removeEventListener('click', ask, true);
+  }, []);
   const report = draft.report;
   if (!report) return <StartReport projectId={project.id} draft={draft} onChanged={onChanged} />;
   return (

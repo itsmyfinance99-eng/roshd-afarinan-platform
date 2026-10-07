@@ -85,7 +85,7 @@ describe('The report of a feasibility project (e2e)', () => {
       .send(body as object);
 
   /** The model of the project, filled in and calculated by `by`; the id of the run. */
-  const calculated = async (id: string, by: Account) => {
+  const calculated = async (id: string, by: Account, inputs: object = modelInputs) => {
     const made = await http()
       .post(`${projects}/${id}/financial-model`)
       .set(auth(by.token))
@@ -94,7 +94,7 @@ describe('The report of a feasibility project (e2e)', () => {
     await http()
       .put(`${models}/${modelId}`)
       .set(auth(by.token))
-      .send({ title: 'مدل مالی کارخانه', inputs: modelInputs, version: 1 })
+      .send({ title: 'مدل مالی کارخانه', inputs, version: 1 })
       .expect(200);
     const run = await http().post(`${models}/${modelId}/runs`).set(auth(by.token)).expect(201);
     return { modelId, runId: run.body.data.id as string };
@@ -299,6 +299,16 @@ describe('The report of a feasibility project (e2e)', () => {
         version: 2,
       });
       expect(await audits(id, 'feasibility_project.report_template_applied')).toHaveLength(2);
+
+      // Taking the same structure again changes no chapter: the time of its last save stays.
+      const saved = (standard.chapters as (Chapter & { updatedAt: string })[]).map((c) => [
+        c.key,
+        c.updatedAt,
+      ]);
+      const same = (await applyTemplate(expert, id, null).expect(200)).body.data.report;
+      expect(
+        (same.chapters as (Chapter & { updatedAt: string })[]).map((c) => [c.key, c.updatedAt]),
+      ).toEqual(saved);
       await applyTemplate(owner, id, null).expect(403);
     });
 
@@ -550,6 +560,89 @@ describe('The report of a feasibility project (e2e)', () => {
         ),
       ).toEqual([2, 1]);
       await version(officer, id, 3).expect(404);
+
+      // A version names the model as it was called when the version was issued.
+      await http()
+        .put(`${models}/${modelId}`)
+        .set(auth(expert.token))
+        .send({ title: 'نام تازه مدل', inputs: modelInputs, version: 2 })
+        .expect(200);
+      const afterRename = JSON.stringify((await version(officer, id, 1).expect(200)).body.data);
+      expect(afterRename).toContain('مدل مالی کارخانه');
+      expect(afterRename).not.toContain('نام تازه مدل');
+      // The applicant reads the same financial chapter once the study is with them.
+      await setStatus(id, 'CLIENT_REVIEW');
+      const mine = (await version(owner, id, 2).expect(200)).body.data;
+      expect(
+        (mine.chapters as { key: string; parts?: { id: string }[] }[])
+          .find((c) => c.key === 'financial')
+          ?.parts?.map((part) => part.id),
+      ).toEqual(expect.arrayContaining(['summary', 'income']));
+      expect(mine.run).not.toHaveProperty('id');
+    });
+
+    it('builds the economic chapter from a run that has an economic analysis', async () => {
+      const owner = await registerUser(app);
+      const expert = await registerUser(app, ['expert']);
+      const { id } = await projectAt(owner, 'IN_PROGRESS', [expert]);
+      const template = (
+        await newTemplate(officer, {
+          name: 'قالب مالی و اقتصادی',
+          chapters: [
+            { key: 'financial', title: 'تحلیل مالی' },
+            { key: 'economic', title: 'تحلیل اقتصادی' },
+          ],
+        }).expect(201)
+      ).body.data;
+      await start(expert, id, { templateId: template.id }).expect(201);
+      const { modelId, runId } = await calculated(id, expert, {
+        ...modelInputs,
+        economic: {
+          discountRate: '0.08',
+          costs: [{ item: 'office', nature: 'MATERIALS' }],
+          investment: [],
+          dividendTax: { local: '0', foreign: '0' },
+        },
+      });
+      await approve(modelId, runId, officer).expect(200);
+      await selectRun(expert, id, runId).expect(200);
+
+      const shown = (await preview(expert, id).expect(200)).body.data;
+      expect(shown.omitted).toEqual([]);
+      expect(shown.issues).toEqual([]);
+      await issue(expert, id).expect(201);
+      const chapters = (await version(officer, id, 1).expect(200)).body.data.chapters as {
+        key: string;
+        parts: { id: string; title: string }[];
+      }[];
+      expect(chapters.map((c) => c.key)).toEqual(['financial', 'economic']);
+      // The economic analysis is in its own chapter and in no other.
+      expect(chapters[1]!.parts.map((part) => part.id)).toEqual(['economic']);
+      expect(chapters[0]!.parts.map((part) => part.id)).not.toContain('economic');
+      expect(JSON.stringify(chapters[1]!.parts)).toContain('ارزش افزوده');
+    });
+
+    it('issues no more versions than a project takes', async () => {
+      const owner = await registerUser(app);
+      const { id } = await projectAt(owner, 'IN_PROGRESS');
+      const template = (
+        await newTemplate(officer, {
+          name: 'قالب سقف نسخه',
+          chapters: [{ key: 'market', title: 'بازار' }],
+        }).expect(201)
+      ).body.data;
+      await start(officer, id, { templateId: template.id }).expect(201);
+      await fill(officer, id);
+      await prisma().feasibilityReportVersion.createMany({
+        data: Array.from({ length: 50 }, (_, i) => ({
+          projectId: id,
+          number: i + 1,
+          content: { schema: 1 },
+          contentHash: 'x',
+        })),
+      });
+      expect((await issue(officer, id).expect(409)).body.error.message).toContain('حداکثر');
+      expect(await prisma().feasibilityReportVersion.count({ where: { projectId: id } })).toBe(50);
     });
 
     it('keeps a version from being changed or deleted in the database', async () => {

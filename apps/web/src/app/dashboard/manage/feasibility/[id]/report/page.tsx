@@ -3,7 +3,7 @@
 import { ErrorMessage } from '@roshd/ui';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useCan } from '@/components/dashboard/me-context';
 import { AsyncBoundary, PageTitle } from '@/components/dashboard/ui';
 import { ReportComposer, ReportVersions } from '@/components/feasibility/report-composer';
@@ -30,8 +30,12 @@ export default function ManageProjectReportPage() {
 
   // Read without the loading state: the forms stay mounted, and so does a text that is being
   // written when the read fails.
+  const asked = useRef(0);
   const refresh = async () => {
+    const mine = ++asked.current;
     const result = await apiFetch<ReportDraft>(`${base}/report`);
+    // Of two reads on their way, the one that was asked for last counts.
+    if (mine !== asked.current) return;
     if (result.ok) setFresh(result.data);
     setRefreshError(
       result.ok ? null : `پیش‌نویس دوباره خوانده نشد (${result.message}). صفحه را تازه کنید.`,
