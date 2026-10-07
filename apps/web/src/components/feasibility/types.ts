@@ -48,7 +48,13 @@ export interface FeasibilityProjectDetail extends FeasibilityProjectItem {
     remove: boolean;
     assignExperts: boolean;
     releaseExperts: boolean;
+    /** Make the financial model of the study (staff and experts, while the work lasts). */
+    createModel: boolean;
+    /** Write an internal note (staff and experts). */
+    addNote: boolean;
   };
   /** Staff and experts only. */
   experts?: { expert: StaffRef; since: string }[];
+  /** Staff and experts only; `null` until the model of the study is made. */
+  financialModel?: { id: string } | null;
 }

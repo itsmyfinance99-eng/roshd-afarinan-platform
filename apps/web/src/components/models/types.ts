@@ -17,6 +17,8 @@ export interface FinancialModelDetail extends FinancialModelSummary {
   inputs: unknown;
   access: { edit: boolean; approve: boolean; assign: boolean; remove: boolean };
   assignee?: StaffRef | null;
+  /** The feasibility project the model belongs to; `null` for a personal model. */
+  projectId: string | null;
 }
 
 export interface CalculationRunRef {

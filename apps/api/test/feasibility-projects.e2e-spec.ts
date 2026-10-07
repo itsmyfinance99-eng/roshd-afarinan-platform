@@ -145,6 +145,8 @@ describe('Feasibility projects (e2e)', () => {
       remove: false,
       assignExperts: true,
       releaseExperts: true,
+      createModel: false,
+      addNote: true,
     });
 
     expect(await audits(project.id, 'feasibility_project.created')).toHaveLength(1);
@@ -257,6 +259,8 @@ describe('Feasibility projects (e2e)', () => {
       remove: false,
       assignExperts: false,
       releaseExperts: false,
+      createModel: true,
+      addNote: true,
     });
     await move(expert, id, 'EXPERT_REVIEW').expect(200);
     // Staff alone do not pass the expert's review.
@@ -271,6 +275,8 @@ describe('Feasibility projects (e2e)', () => {
       remove: false,
       assignExperts: false,
       releaseExperts: true,
+      createModel: false,
+      addNote: false,
     });
 
     const events = done.body.data.events as {
@@ -384,6 +390,8 @@ describe('Feasibility projects (e2e)', () => {
       remove: true,
       assignExperts: false,
       releaseExperts: false,
+      createModel: false,
+      addNote: false,
     });
     expect(own.body.data).not.toHaveProperty('experts');
 
@@ -552,6 +560,7 @@ describe('Feasibility projects (e2e)', () => {
 
   it('keeps the financial model that a project is linked to', async () => {
     const owner = await registerUser(app);
+    const officer = await registerUser(app, ['feasibility_officer']);
     const { id } = await createProject(owner);
     const model = await http()
       .post('/api/v1/financial-models')
@@ -564,12 +573,16 @@ describe('Feasibility projects (e2e)', () => {
       data: { financialModelId: modelId },
     });
 
+    // The model of a project is reached through the project (ST-35.10): its staff cannot delete
+    // it, and for the applicant it is not there, whoever made the row.
     const refused = await http()
       .delete(`/api/v1/financial-models/${modelId}`)
-      .set(auth(owner.token))
+      .set(auth(officer.token))
       .expect(409);
     expect(refused.body.error.message).toContain('پروژه امکان‌سنجی');
-    await http().get(`/api/v1/financial-models/${modelId}`).set(auth(owner.token)).expect(200);
+    await http().get(`/api/v1/financial-models/${modelId}`).set(auth(officer.token)).expect(200);
+    await http().get(`/api/v1/financial-models/${modelId}`).set(auth(owner.token)).expect(404);
+    await http().delete(`/api/v1/financial-models/${modelId}`).set(auth(owner.token)).expect(404);
 
     await prisma().feasibilityProject.update({ where: { id }, data: { financialModelId: null } });
     await http().delete(`/api/v1/financial-models/${modelId}`).set(auth(owner.token)).expect(200);

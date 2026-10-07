@@ -12,6 +12,8 @@ import {
   feasibilityTransitionSchema,
   listFeasibilityProjectsQuerySchema,
   updateFeasibilityProjectSchema,
+  createInternalNoteSchema,
+  FEASIBILITY_WORK_STATUSES,
 } from './feasibility';
 
 describe('feasibility schemas', () => {
@@ -146,5 +148,19 @@ describe('feasibility schemas', () => {
   it('needs the id of the expert', () => {
     expect(assignExpertSchema.safeParse({ expertId: 'someone' }).success).toBe(false);
     expect(assignExpertSchema.safeParse({}).success).toBe(false);
+  });
+
+  it('takes an internal note of bounded length and never an empty one', () => {
+    expect(createInternalNoteSchema.parse({ body: '  با متقاضی تماس گرفته شد  ' })).toEqual({
+      body: 'با متقاضی تماس گرفته شد',
+    });
+    expect(createInternalNoteSchema.safeParse({ body: '   ' }).success).toBe(false);
+    expect(createInternalNoteSchema.safeParse({}).success).toBe(false);
+    expect(createInternalNoteSchema.safeParse({ body: 'ی'.repeat(4000) }).success).toBe(true);
+    expect(createInternalNoteSchema.safeParse({ body: 'ی'.repeat(4001) }).success).toBe(false);
+  });
+
+  it('counts the work on a study from the confirmed contract to the delivery', () => {
+    expect(FEASIBILITY_WORK_STATUSES).toEqual(['IN_PROGRESS', 'EXPERT_REVIEW', 'CLIENT_REVIEW']);
   });
 });

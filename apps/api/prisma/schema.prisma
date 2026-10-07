@@ -71,6 +71,7 @@ model User {
   feasibilityCostEstimates       FeasibilityCostEstimate[]      @relation("FeasibilityCostEstimateAuthor")
   feasibilityContractsUploaded   FeasibilityContract[]          @relation("FeasibilityContractUploader")
   feasibilityContractsConfirmed  FeasibilityContract[]          @relation("FeasibilityContractConfirmer")
+  feasibilityInternalNotes       FeasibilityInternalNote[]      @relation("FeasibilityInternalNoteAuthor")
 
   @@map("users")
 }
@@ -769,8 +770,8 @@ model AssumptionTemplate {
 model FinancialModel {
   id            String   @id @default(uuid(7)) @db.Uuid
   ownerId       String   @db.Uuid
-  /// Expert working on the model (holds financial-models:work when assigned). Moves to the
-  /// experts of the feasibility project when a model is opened through its project (ST-35.10).
+  /// Expert working on the model (holds financial-models:work when assigned). Not used for the
+  /// model of a feasibility project: there the experts of the project work on it (ST-35.10).
   assigneeId    String?  @db.Uuid
   title         String
   /// Draft inputs in the shape of the engine's ProjectInput (projectInputSchema in
@@ -786,7 +787,8 @@ model FinancialModel {
   owner    User                @relation("FinancialModelOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   assignee User?               @relation("FinancialModelAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
   runs     CalculationRun[]
-  /// The feasibility project this model belongs to, if any; such a model cannot be deleted.
+  /// The feasibility project this model belongs to, if any; such a model cannot be deleted and
+  /// is reached only through the project (its staff and its assigned experts).
   project  FeasibilityProject?
 
   @@index([ownerId, updatedAt])
@@ -865,7 +867,7 @@ model FeasibilityProject {
   location          String?
   summary           String?
   status            FeasibilityStatus @default(DRAFT)
-  /// The financial model of the study (EPIC-34), linked when the experts start working (ST-35.10).
+  /// The financial model of the study (EPIC-34), made when the experts start working (ST-35.10).
   financialModelId  String?           @unique @db.Uuid
   /// The Phase 1 service request this project was converted from (ST-35.02).
   sourceRequestId   String?           @unique @db.Uuid
@@ -885,6 +887,7 @@ model FeasibilityProject {
   events             FeasibilityStatusEvent[]
   costEstimates      FeasibilityCostEstimate[]
   contracts          FeasibilityContract[]
+  internalNotes      FeasibilityInternalNote[]
   experts            ExpertAssignment[]
 
   @@index([ownerId, updatedAt])
@@ -958,6 +961,22 @@ model FeasibilityContract {
 
   @@unique([projectId, version])
   @@map("feasibility_contracts")
+}
+
+/// A note the staff and the experts of a project write for each other (ST-35.10). The applicant
+/// never reads it. Written once: a correction is another note.
+model FeasibilityInternalNote {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  projectId String   @db.Uuid
+  authorId  String?  @db.Uuid
+  body      String
+  createdAt DateTime @default(now())
+
+  project FeasibilityProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  author  User?              @relation("FeasibilityInternalNoteAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+
+  @@index([projectId, createdAt])
+  @@map("feasibility_internal_notes")
 }
 
 enum QuestionnaireVersionStatus {
