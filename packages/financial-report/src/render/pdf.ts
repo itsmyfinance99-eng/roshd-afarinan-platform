@@ -30,6 +30,8 @@ export interface PdfOptions {
   fonts: PdfFonts;
   /** Written into the file as its creation time. */
   created?: Date;
+  /** `false` leaves the page contents readable in the file, for tests. */
+  compress?: boolean;
 }
 
 export type Font = 'regular' | 'bold';
@@ -91,6 +93,7 @@ export class Writer {
       // The layout keeps its own margins; PDFKit must never break a page by itself.
       margin: 0,
       bufferPages: true,
+      compress: options.compress ?? true,
       lang: 'fa-IR',
       displayTitle: true,
       info: {

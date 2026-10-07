@@ -218,6 +218,17 @@ describe('The PDF of a report version (e2e)', () => {
     const listed = await http().get('/api/v1/files/mine').set(auth(owner.token)).expect(200);
     expect(JSON.stringify(listed.body.data)).not.toContain(fileId);
 
+    // Nor is it an attachment of the project, for the applicant or for the staff.
+    for (const reader of [owner, officer]) {
+      const detail = await http().get(`${projects}/${id}`).set(auth(reader.token)).expect(200);
+      expect(JSON.stringify(detail.body.data)).not.toContain(fileId);
+      expect(JSON.stringify(detail.body.data)).not.toContain('feasibility-report-');
+    }
+    // The staff of the project take it by the route of the report, which is audited, and not
+    // by the files of the project.
+    await http().get(`/api/v1/files/${fileId}`).set(auth(officer.token)).expect(404);
+    await http().post(`/api/v1/files/${fileId}/download-url`).set(auth(officer.token)).expect(404);
+
     // A newer version takes the place of the older one for the applicant, file included.
     await save(expert, id, 2, 'خلاصه دوم');
     await issue(expert, id);

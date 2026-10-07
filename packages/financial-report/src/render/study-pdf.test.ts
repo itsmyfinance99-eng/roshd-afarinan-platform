@@ -220,6 +220,27 @@ describe('PDF of a study', () => {
     expect(pagesOf(many)).toBe(63);
   });
 
+  it('keeps every line of the contents when the report ends on a page on its side', async () => {
+    // More lines than a page on its side would hold, and fewer than an upright one does.
+    const wide = await studyPdf(
+      {
+        ...study,
+        chapters: [
+          ...Array.from({ length: 20 }, (_, index) => ({
+            title: `فصل ${index + 1}`,
+            body: 'متن',
+            answers: [],
+          })),
+          { title: 'تحلیل مالی', body: '', answers: [], parts, charts },
+        ],
+      },
+      { fonts, created: CREATED, compress: false },
+    );
+    // Uncompressed, the page of the contents shows how many leaders it drew: one a line.
+    const leaders = wide.toString('latin1').match(/\[1 2\] 0 d/g)?.length ?? 0;
+    expect(leaders).toBe(20 + 1 + parts.length);
+  });
+
   it('draws texts of any content without failing', async () => {
     const odd = "=cmd|' /C calc'!A0 <b>😀</b> ‮\u0000 **" + 'واژه '.repeat(300) + '**';
     const pdf = await studyPdf(

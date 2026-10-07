@@ -653,9 +653,12 @@ export class FilesService {
     principal: Principal,
     file: { ownerId: string; entityType: string | null; source: string },
   ) {
-    // A file the server wrote has no owner in this sense: it is read through its record.
-    const own = file.ownerId === principal.userId && file.source !== GENERATED;
-    if (own || hasPermission(principal, 'files:read-all')) return true;
+    if (hasPermission(principal, 'files:read-all')) return true;
+    // A file the server wrote is handed out by its record alone, which knows who may read it
+    // and writes that down: neither the user it was written for nor the staff of the record
+    // reach it from here.
+    if (file.source === GENERATED) return false;
+    if (file.ownerId === principal.userId) return true;
     const permission =
       file.entityType &&
       ENTITY_READ_PERMISSION[file.entityType as keyof typeof ENTITY_READ_PERMISSION];

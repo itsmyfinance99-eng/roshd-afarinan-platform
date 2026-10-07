@@ -130,8 +130,9 @@ export class ProjectReportFileService {
         { entityType: FILE_ENTITY, entityId: id },
         meta,
       );
+      let row: FileRow;
       try {
-        const row = await this.prisma.$transaction(async (tx) => {
+        row = await this.prisma.$transaction(async (tx) => {
           // A file the staff removed makes room for the one written now.
           await tx.feasibilityReportFile.deleteMany({
             where: { versionId: version.id, file: { status: { not: 'ACTIVE' } } },
@@ -147,20 +148,6 @@ export class ProjectReportFileService {
             select: FILE_SELECT,
           });
         });
-        await this.audit.record({
-          action: 'feasibility_project.report_file_created',
-          actorId: principal.userId,
-          entityType: FILE_ENTITY,
-          entityId: id,
-          metadata: {
-            number: version.number,
-            fileId: stored.id,
-            sha256: row.sha256,
-            size: row.size,
-          },
-          meta,
-        });
-        return row;
       } catch (error) {
         // The file was stored for a row that did not come to be. If it cannot be removed now,
         // the sweep of the files collects it.
@@ -174,6 +161,20 @@ export class ProjectReportFileService {
         if (winner) return winner;
         throw error;
       }
+      await this.audit.record({
+        action: 'feasibility_project.report_file_created',
+        actorId: principal.userId,
+        entityType: FILE_ENTITY,
+        entityId: id,
+        metadata: {
+          number: version.number,
+          fileId: stored.id,
+          sha256: row.sha256,
+          size: row.size,
+        },
+        meta,
+      });
+      return row;
     } finally {
       this.active.delete(principal.userId);
     }

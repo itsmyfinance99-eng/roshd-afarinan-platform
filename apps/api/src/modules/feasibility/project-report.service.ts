@@ -629,6 +629,8 @@ export class ProjectReportService {
     if (!row) throw new NotFoundError();
     const content = row.content as unknown as ReportContent;
     const source = await this.runSource(id, content, unit);
+    // A file is written once: it must not keep a message in place of the schedules.
+    if (content.run && !source) throw new ConflictError(UNREADABLE_RUN);
     const { chapters } = this.shown(content, this.partsFrom(content, source));
     const charts = source ? runCharts(source) : [];
     return {

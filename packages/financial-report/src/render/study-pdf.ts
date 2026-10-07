@@ -125,6 +125,10 @@ class StudyWriter extends Writer {
     return { text, owner };
   }
 
+  /**
+   * The pieces of a line with their faces. A piece takes the face of its first character: a
+   * change of face inside one word does not split it, because that would break its joining.
+   */
   private layoutOf(words: Word[], size: number, direction: Direction) {
     const { text, owner } = this.joined(words);
     const pieces = this.piecesOf(text, direction).map((piece) => {
@@ -329,8 +333,12 @@ class StudyWriter extends Writer {
       (sum, chapter) => sum + 1 + (chapter.parts?.length ?? 0),
       0,
     );
-    const perPage = Math.max(1, Math.floor((this.bottom - TOP - TOC_HEAD) / TOC_LINE));
-    return Math.max(1, Math.ceil(lines / perPage));
+    return Math.max(1, Math.ceil(lines / this.contentsLines()));
+  }
+
+  /** The lines of one page of the contents; only asked on an upright page. */
+  private contentsLines(): number {
+    return Math.max(1, Math.floor((this.bottom - TOP - TOC_HEAD) / TOC_LINE));
   }
 
   private mark(title: string, level: 0 | 1): void {
@@ -469,10 +477,11 @@ class StudyWriter extends Writer {
 
   /** Writes the contents into the pages kept for them, once every page number is known. */
   private contents(first: number, pages: number): void {
-    const perPage = Math.max(1, Math.floor((this.bottom - TOP - TOC_HEAD) / TOC_LINE));
+    // The pages of the contents stand upright, whatever the last page of the report did.
+    this.landscape = false;
+    const perPage = this.contentsLines();
     for (let page = 0; page < pages; page += 1) {
       this.doc.switchToPage(first + page);
-      this.landscape = false;
       this.y = TOP;
       this.line(page === 0 ? 'فهرست' : 'فهرست (ادامه)', this.left, this.y, this.content, {
         font: 'bold',
