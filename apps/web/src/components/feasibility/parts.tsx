@@ -23,6 +23,7 @@ import Link from 'next/link';
 import { type FormEvent, type ReactNode, useState } from 'react';
 import type { ApiErrorDetail } from '@roshd/types';
 import { FileList } from '@/components/files/files';
+import { daysFa, stageDays } from './stage-age';
 import type {
   FeasibilityProjectDetail,
   FeasibilityProjectItem,
@@ -60,9 +61,12 @@ export function ProjectList({
   items,
   hrefBase,
   empty,
+  stageAsOf,
 }: {
   items: FeasibilityProjectItem[];
   hrefBase: string;
+  /** With it, every project says how long it has been in its status at that moment. */
+  stageAsOf?: string;
   empty: { title: string; description: string; action?: ReactNode };
 }) {
   if (items.length === 0) {
@@ -85,6 +89,9 @@ export function ProjectList({
                 {formatDateFa(item.updatedAt)}
                 {item.applicant !== undefined
                   ? ` · متقاضی: ${item.applicant?.fullName ?? 'کاربر حذف‌شده'}`
+                  : ''}
+                {stageAsOf && item.statusSince
+                  ? ` · ${daysFa(stageDays(item.statusSince, stageAsOf))} در این مرحله`
                   : ''}
               </span>
             </span>

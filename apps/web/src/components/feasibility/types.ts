@@ -10,10 +10,31 @@ export interface FeasibilityProjectItem {
   sector: string | null;
   location: string | null;
   status: FeasibilityStatus;
+  /** Since when the project is in its status (ST-35.15). */
+  statusSince?: string;
   createdAt: string;
   updatedAt: string;
   /** Staff and expert lists only. */
   applicant?: StaffRef | null;
+}
+
+/** One status of the pipeline of the staff (ST-35.15). */
+export interface FeasibilityPipelineStage {
+  status: FeasibilityStatus;
+  count: number;
+  /** Null, not zero, when no project is in the status. */
+  oldestSince: string | null;
+  longestDays: number | null;
+  averageDays: number | null;
+}
+
+export interface FeasibilityPipeline {
+  total: number;
+  /** The moment the ages are counted to. */
+  asOf: string;
+  stages: FeasibilityPipelineStage[];
+  /** Everybody who works on a project now, for the filter. */
+  experts: StaffRef[];
 }
 
 export interface FeasibilityStatusEvent {
