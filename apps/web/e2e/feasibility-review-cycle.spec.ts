@@ -508,4 +508,76 @@ test.describe('the review cycle of a feasibility study', () => {
     await expect(section.getByRole('form', { name: 'نظر تازه' })).toHaveCount(0);
     await audit(page);
   });
+
+  test('lets the staff deliver the approved report and file the study away', async ({ page }) => {
+    await signIn(page, ['feasibility:manage']);
+    let current = project('CLIENT_REVIEW', { transitions: ['IN_PROGRESS', 'DELIVERED'] }, STAFF);
+    let approved = false;
+    const sent: unknown[] = [];
+    await page.route('**/api/v1/feasibility-projects/p1/review-threads?*', (route) =>
+      json(route, [], 200, 0),
+    );
+    await page.route('**/api/v1/feasibility-projects/p1', (route) => json(route, current));
+    await page.route('**/api/v1/feasibility-projects/p1/transitions', (route) => {
+      const body = route.request().postDataJSON() as { to: string };
+      sent.push(body);
+      if (body.to === 'DELIVERED' && !approved) {
+        return fail(
+          route,
+          409,
+          'گزارش پس از تأیید مسئول امکان‌سنجی و تأیید نهایی مدیر تحویل می‌شود.',
+        );
+      }
+      current =
+        body.to === 'DELIVERED'
+          ? project('DELIVERED', { transitions: ['ARCHIVED'] }, STAFF)
+          : project('ARCHIVED', {}, STAFF);
+      return json(route, current);
+    });
+
+    await page.goto('/dashboard/manage/feasibility/p1');
+    const cycle = page.getByRole('form', { name: 'چرخه بازبینی و تحویل' });
+    await expect(cycle.getByRole('button')).toHaveText([
+      'برگرداندن به انجام کار',
+      'تحویل گزارش نهایی به متقاضی',
+    ]);
+
+    // Without both approvals the API refuses, and the page says why.
+    page.once('dialog', (dialog) => void dialog.accept());
+    await cycle.getByRole('button', { name: 'تحویل گزارش نهایی به متقاضی' }).click();
+    await expect(cycle.getByText(/تأیید نهایی مدیر تحویل می‌شود/)).toBeVisible();
+
+    approved = true;
+    page.once('dialog', (dialog) => {
+      expect(dialog.message()).toContain('گزارش نهایی به متقاضی تحویل شود؟');
+      void dialog.accept();
+    });
+    await cycle.getByRole('button', { name: 'تحویل گزارش نهایی به متقاضی' }).click();
+    // The cycle has no further step; what was done is still said.
+    await expect(page.getByText('گزارش نهایی به متقاضی تحویل شد.')).toBeVisible();
+    await expect(page.getByRole('form', { name: 'چرخه بازبینی و تحویل' })).toHaveCount(0);
+    // The delivered study is filed away with the step the page had before: one button, not two.
+    await expect(page.getByRole('button', { name: 'بایگانی پروژه' })).toHaveCount(1);
+    await audit(page);
+
+    page.once('dialog', (dialog) => void dialog.accept());
+    await page.getByRole('button', { name: 'بایگانی پروژه' }).click();
+    await expect
+      .poll(() => sent)
+      .toEqual([{ to: 'DELIVERED' }, { to: 'DELIVERED' }, { to: 'ARCHIVED' }]);
+    await expect(page.getByRole('button', { name: 'بایگانی پروژه' })).toHaveCount(0);
+  });
+
+  test('does not offer the delivery to the applicant', async ({ page }) => {
+    await signIn(page, []);
+    await page.route('**/api/v1/feasibility-projects/p1/review-threads?*', (route) =>
+      json(route, [], 200, 0),
+    );
+    await page.route('**/api/v1/feasibility-projects/p1', (route) =>
+      json(route, project('CLIENT_REVIEW', { transitions: ['IN_PROGRESS', 'DELIVERED'] })),
+    );
+    await page.goto('/dashboard/feasibility/p1');
+    const cycle = page.getByRole('form', { name: 'بازبینی مطالعه' });
+    await expect(cycle.getByRole('button')).toHaveText(['درخواست اصلاح مطالعه']);
+  });
 });
