@@ -1,4 +1,9 @@
-import type { ReportStructure } from '@roshd/validation';
+import type {
+  ReportApprovalDecision,
+  ReportApprovalState,
+  ReportApprovalStep,
+  ReportStructure,
+} from '@roshd/validation';
 import type { StaffRef } from '@/components/dashboard/types';
 
 export type ChapterKind = 'text' | 'financial' | 'economic';
@@ -99,6 +104,19 @@ export interface ReportChapter {
   parts?: ReportPart[];
 }
 
+/** Where the two approvals of a version stand (ST-35.14). */
+export interface ReportApproval {
+  state: ReportApprovalState;
+  steps: {
+    step: ReportApprovalStep;
+    decision: ReportApprovalDecision;
+    at: string;
+    by: string;
+    /** Staff and experts only. */
+    note?: string | null;
+  }[];
+}
+
 /** A version of a report, or the preview of its draft (`number` null). */
 export interface ReportDocument {
   number: number | null;
@@ -109,6 +127,10 @@ export interface ReportDocument {
   chapters: ReportChapter[];
   note?: string | null;
   issuedBy?: StaffRef | null;
+  /** A version only. */
+  approval?: ReportApproval;
+  /** Staff only: which decision the reader may take on this version now. */
+  access?: { officer: boolean; admin: boolean };
   omitted?: { key: string; title: string }[];
   issues?: { path: string; message: string }[];
 }
@@ -117,6 +139,7 @@ export interface ReportVersionSummary {
   number: number;
   contentHash: string;
   createdAt: string;
+  approval?: ReportApproval;
   note?: string | null;
   issuedBy?: StaffRef | null;
 }

@@ -19,6 +19,7 @@ import {
 import Link from 'next/link';
 import { type FormEvent, type RefObject, useEffect, useRef, useState } from 'react';
 import { apiFetch } from '@/lib/api-client';
+import { ApprovalBadge } from './report-approval';
 import type { ApprovedRun, DraftChapter, ReportDraft, ReportVersionSummary } from './report-types';
 import type { FeasibilityProjectDetail } from './types';
 
@@ -742,6 +743,11 @@ export function ReportVersions({
               >
                 نسخه {toPersianDigits(version.number)} ‹
               </Link>
+              {version.approval ? (
+                <span className="ms-3">
+                  <ApprovalBadge state={version.approval.state} />
+                </span>
+              ) : null}
               <p className="mt-1 text-[13px] text-ink-5">
                 {version.issuedBy?.fullName ?? 'کاربر حذف‌شده'} ·{' '}
                 {formatDateTimeFa(version.createdAt)}

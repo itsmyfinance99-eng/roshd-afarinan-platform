@@ -81,13 +81,38 @@ function stepsOf(project: FeasibilityProjectDetail, side: Side): Step[] {
           },
         ]
       : []),
+    // The delivery is the staff's step; the API takes it once the report has both approvals.
+    ...(side === 'staff' && project.status === 'CLIENT_REVIEW' && open('DELIVERED')
+      ? [
+          {
+            to: 'DELIVERED' as const,
+            label: 'تحویل گزارش نهایی به متقاضی',
+            busy: 'در حال ثبت…',
+            done: 'گزارش نهایی به متقاضی تحویل شد.',
+            confirm:
+              'گزارش نهایی به متقاضی تحویل شود؟ پس از تحویل، نسخه تازه‌ای صادر نمی‌شود. تحویل فقط هنگامی ثبت می‌شود که آخرین نسخه گزارش هر دو تأیید را داشته باشد.',
+          },
+        ]
+      : []),
+    ...(side === 'staff' && project.status === 'DELIVERED' && open('ARCHIVED')
+      ? [
+          {
+            to: 'ARCHIVED' as const,
+            label: 'بایگانی پروژه',
+            busy: 'در حال ثبت…',
+            done: 'پروژه بایگانی شد.',
+            confirm: 'پروژه بایگانی شود؟ پروژه بایگانی‌شده دیگر تغییر نمی‌کند.',
+          },
+        ]
+      : []),
   ];
 }
 
 /**
  * The steps of the review cycle of a study (ST-35.11): to the review of the experts, on to the
- * review of the applicant, and back to the work. Only the steps the API offers the caller are
- * shown. The delivery of the study is not a step of this cycle.
+ * review of the applicant, and back to the work; then, for the staff, the delivery of the
+ * approved report and the filing away of the delivered study (ST-35.14). Only the steps the API
+ * offers the caller are shown.
  */
 export function ReviewSteps({
   project,
@@ -146,7 +171,7 @@ export function ReviewSteps({
       className="flex flex-col gap-3 rounded-card border border-line p-4"
     >
       <h2 id="cycle-title" className="text-base font-extrabold text-brand-900">
-        {side === 'applicant' ? 'بازبینی مطالعه' : 'چرخه بازبینی'}
+        {side === 'applicant' ? 'بازبینی مطالعه' : 'چرخه بازبینی و تحویل'}
       </h2>
       <FieldShell
         id="cycle-note"

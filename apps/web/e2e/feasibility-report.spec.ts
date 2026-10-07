@@ -779,4 +779,144 @@ test.describe('the report of a feasibility project', () => {
     await expect(page.getByText('قالب «قالب کوتاه ۲» دوباره فعال شد.')).toBeVisible();
     expect(sent.at(-1)).toEqual({ archived: false });
   });
+
+  test('lets the officer and then an admin approve a version, or refuse it with a note', async ({
+    page,
+  }) => {
+    await signIn(page, ['feasibility:manage', 'feasibility:approve-report']);
+    await page.route('**/api/v1/feasibility-projects/p1', (route) =>
+      json(route, project({ status: 'CLIENT_REVIEW' })),
+    );
+    await page.route('**/api/v1/feasibility-projects/p1/review-threads?*', (route) =>
+      json(route, [], 200, 0),
+    );
+    const officerStep = {
+      step: 'officer',
+      decision: 'approved',
+      at: '2026-10-08T08:00:00Z',
+      by: 'مریم احمدی',
+      note: null,
+    };
+    let approval: { state: string; steps: object[] } = { state: 'pending_officer', steps: [] };
+    let access = { officer: true, admin: false };
+    await page.route('**/api/v1/feasibility-projects/p1/report/versions/2?*', (route) =>
+      json(route, version({ approval, access })),
+    );
+    const sent: unknown[] = [];
+    let refuse = true;
+    await page.route('**/api/v1/feasibility-projects/p1/report/versions/2/approvals', (route) => {
+      const body = route.request().postDataJSON() as { step: string; decision: string };
+      sent.push(body);
+      if (refuse) return fail(route, 409, 'فقط آخرین نسخه گزارش تأیید یا رد می‌شود.');
+      approval =
+        body.decision === 'rejected'
+          ? { state: 'rejected', steps: [{ ...officerStep, decision: 'rejected', note: 'ناقص' }] }
+          : { state: 'pending_admin', steps: [officerStep] };
+      access = { officer: false, admin: false };
+      return json(route, approval);
+    });
+
+    await page.goto('/dashboard/manage/feasibility/p1/report/versions/2');
+    const panel = page.getByRole('region', { name: 'تأیید گزارش' });
+    await expect(panel.getByText('در انتظار تأیید مسئول امکان‌سنجی')).toBeVisible();
+    await expect(panel.getByRole('button')).toHaveText([
+      'تأیید این نسخه (مسئول امکان‌سنجی)',
+      'رد این نسخه',
+    ]);
+    await audit(page);
+
+    // A refusal says why, before anything is sent.
+    await panel.getByRole('button', { name: 'رد این نسخه' }).click();
+    await expect(
+      panel.getByText('دلیل رد این نسخه را بنویسید تا پیش‌نویس اصلاح شود.'),
+    ).toBeVisible();
+    expect(sent).toEqual([]);
+
+    // What the API refuses is said.
+    await panel.getByRole('button', { name: 'تأیید این نسخه (مسئول امکان‌سنجی)' }).click();
+    await expect(panel.getByText('فقط آخرین نسخه گزارش تأیید یا رد می‌شود.')).toBeVisible();
+
+    refuse = false;
+    await panel.getByRole('button', { name: 'تأیید این نسخه (مسئول امکان‌سنجی)' }).click();
+    await expect(panel.getByText('تأیید شما ثبت شد.')).toBeVisible();
+    await expect(panel.getByText('در انتظار تأیید نهایی مدیر')).toBeVisible();
+    await expect(panel.getByText(/تأیید مسئول امکان‌سنجی:/)).toBeVisible();
+    await expect(panel.getByText(/مریم احمدی/)).toBeVisible();
+    // Whoever gave the first approval has nothing more to decide.
+    await expect(panel.getByRole('button')).toHaveCount(0);
+    expect(sent).toEqual([
+      { step: 'officer', decision: 'approved' },
+      { step: 'officer', decision: 'approved' },
+    ]);
+    await audit(page);
+
+    // The admin's turn: a refusal with its note, after a confirmation.
+    approval = { state: 'pending_admin', steps: [officerStep] };
+    access = { officer: false, admin: true };
+    await page.reload();
+    await expect(panel.getByRole('button')).toHaveText([
+      'تأیید نهایی این نسخه (مدیر)',
+      'رد این نسخه',
+    ]);
+    await panel.getByLabel('یادداشت (برای رد لازم است)').fill('ارقام فصل مالی بازبینی شود');
+    page.once('dialog', (dialog) => void dialog.dismiss());
+    await panel.getByRole('button', { name: 'رد این نسخه' }).click();
+    expect(sent).toHaveLength(2);
+    page.once('dialog', (dialog) => void dialog.accept());
+    await panel.getByRole('button', { name: 'رد این نسخه' }).click();
+    await expect(panel.getByText('این نسخه رد شد.')).toBeVisible();
+    await expect(panel.getByText('رد شده', { exact: true })).toBeVisible();
+    expect(sent.at(-1)).toEqual({
+      step: 'admin',
+      decision: 'rejected',
+      note: 'ارقام فصل مالی بازبینی شود',
+    });
+  });
+
+  test('shows the applicant the approvals of the approved report and no decision to take', async ({
+    page,
+  }) => {
+    await signIn(page, []);
+    const mine = project({
+      status: 'DELIVERED',
+      applicant: undefined,
+      experts: undefined,
+      financialModel: undefined,
+    });
+    await page.route('**/api/v1/feasibility-projects/p1', (route) => json(route, mine));
+    let approval: { state: string; steps: object[] } = { state: 'pending', steps: [] };
+    await page.route('**/api/v1/feasibility-projects/p1/report/versions', (route) =>
+      json(route, [
+        { number: 2, contentHash: 'f'.repeat(64), createdAt: '2026-10-07T09:00:00Z', approval },
+      ]),
+    );
+    await page.route('**/api/v1/feasibility-projects/p1/report/versions/2?*', (route) =>
+      json(route, version({ note: undefined, issuedBy: undefined, approval })),
+    );
+    await page.route('**/api/v1/feasibility-projects/p1/review-threads?*', (route) =>
+      json(route, [], 200, 0),
+    );
+
+    await page.goto('/dashboard/feasibility/p1/report');
+    const panel = page.getByRole('region', { name: 'تأیید گزارش' });
+    await expect(panel.getByText('در انتظار تأیید', { exact: true })).toBeVisible();
+    await expect(panel.getByText(/هنوز تأیید نهایی نشده است/)).toBeVisible();
+    await expect(panel.getByRole('button')).toHaveCount(0);
+
+    approval = {
+      state: 'approved',
+      steps: [
+        { step: 'officer', decision: 'approved', at: '2026-10-08T08:00:00Z', by: 'سارا احمدی' },
+        { step: 'admin', decision: 'approved', at: '2026-10-08T09:00:00Z', by: 'رضا مدیری' },
+      ],
+    };
+    await page.reload();
+    await expect(panel.getByText('تأیید نهایی شده')).toBeVisible();
+    await expect(panel.getByRole('listitem')).toHaveCount(2);
+    await expect(panel.getByText(/تأیید مدیر:/)).toBeVisible();
+    await expect(panel.getByText(/رضا مدیری/)).toBeVisible();
+    await expect(panel.getByRole('button')).toHaveCount(0);
+    await expect(panel.getByLabel('یادداشت (برای رد لازم است)')).toHaveCount(0);
+    await audit(page);
+  });
 });

@@ -70,7 +70,8 @@ export function ReportFileDownload({
       </div>
       <p className="text-[13px] leading-6 text-ink-3">
         فایل PDF همین نسخه با همه فصل‌ها، جدول‌ها و نمودارها؛ مبلغ‌های آن به{' '}
-        {REPORTING_UNIT_LABELS_FA[REPORT_FILE_UNIT]} است. ساخت فایل در بار نخست چند لحظه طول می‌کشد.
+        {REPORTING_UNIT_LABELS_FA[REPORT_FILE_UNIT]} است. پس از تأیید نهایی، نام و زمان دو تأیید روی
+        جلد فایل می‌آید. ساخت فایل در بار نخست چند لحظه طول می‌کشد.
       </p>
       {/* One live region: what is going on is said once, also to a screen reader. */}
       <p className="sr-only" role="status">
