@@ -280,6 +280,17 @@ describe('The PDF of a report version (e2e)', () => {
     expect(await reportFiles(id, 'ACTIVE')).toHaveLength(1);
   }, 60_000);
 
+  it('writes no file for a version whose calculation run cannot be read', async () => {
+    const owner = await registerUser(app);
+    const expert = await registerUser(app, ['expert']);
+    const { id } = await projectWithVersion(officer, owner, expert, true);
+    // The project lost its model: a row nobody expects, and nothing to draw the schedules from.
+    await prisma().feasibilityProject.update({ where: { id }, data: { financialModelId: null } });
+    const refused = await file(expert, id, 1).expect(409);
+    expect(refused.body.error.message).toContain('قابل نمایش نیست');
+    expect(await reportFiles(id)).toHaveLength(0);
+  }, 60_000);
+
   it('sweeps a report file that belongs to no version', async () => {
     const owner = await registerUser(app);
     const expert = await registerUser(app, ['expert']);

@@ -9,6 +9,7 @@ import {
 } from '@roshd/validation';
 import { useId, useRef, useState } from 'react';
 import { apiFetch } from '@/lib/api-client';
+import { BAD_FILE_ADDRESS_FA, saveSignedFile } from '@/lib/signed-file';
 
 export interface FileItem {
   id: string;
@@ -47,8 +48,7 @@ export async function downloadFile(id: string): Promise<string | null> {
     body: {},
   });
   if (!result.ok) return result.message;
-  window.location.assign(result.data.url);
-  return null;
+  return saveSignedFile(result.data?.url) ? null : BAD_FILE_ADDRESS_FA;
 }
 
 /** File picker with client-side checks (type, size) mirroring the server rules. */

@@ -14,6 +14,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { StaffRef } from '@/components/dashboard/types';
 import { FILE_ACCEPT, FILE_TYPES_LABEL, fileProblem, formatSize } from '@/components/files/files';
 import { apiFetch } from '@/lib/api-client';
+import { BAD_FILE_ADDRESS_FA, saveSignedFile } from '@/lib/signed-file';
 import { useApi } from '@/lib/use-api';
 
 interface DocumentFile {
@@ -98,8 +99,8 @@ function Slot({
       method: 'POST',
       body: {},
     });
-    if (result.ok) window.location.assign(result.data.url);
-    else setError(result.message);
+    if (!result.ok) setError(result.message);
+    else if (!saveSignedFile(result.data?.url)) setError(BAD_FILE_ADDRESS_FA);
   };
 
   const remove = async (file: DocumentFile) => {
