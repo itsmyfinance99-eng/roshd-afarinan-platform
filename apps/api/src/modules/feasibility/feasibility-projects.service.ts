@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import {
   FEASIBILITY_EDITABLE_STATUSES,
+  FEASIBILITY_REPORT_READ_STATUSES,
   FEASIBILITY_REVIEW_QUEUE_STATUSES,
   FEASIBILITY_SECTORS,
   FEASIBILITY_STAFF_NOTE_REQUIRED,
@@ -148,6 +149,12 @@ export interface FeasibilityProjectDetail extends FeasibilityProjectSummary {
      * them, the staff and the experts while it is worked on.
      */
     comment: boolean;
+    /**
+     * Open the report of the study (`…/report`): the staff and the experts its draft and its
+     * versions from the start of the work on, the applicant the newest version once the study
+     * is with them.
+     */
+    report: boolean;
   };
   /** The experts working on the project; staff and experts see them, the applicant does not. */
   experts?: ProjectExpertView[];
@@ -519,6 +526,11 @@ export class FeasibilityProjectsService {
       createModel: works && financialModelId === null && workedOn,
       addNote: works && view.status !== 'ARCHIVED',
       comment: relation.owner ? view.status === 'CLIENT_REVIEW' : works && workedOn,
+      report: (FEASIBILITY_REPORT_READ_STATUSES as readonly FeasibilityStatus[]).includes(
+        view.status,
+      )
+        ? relation.owner || works
+        : works && workedOn,
     };
     if (relation.owner) {
       return {

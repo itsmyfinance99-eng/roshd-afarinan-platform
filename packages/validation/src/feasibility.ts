@@ -175,6 +175,16 @@ export const FEASIBILITY_WORK_STATUSES = [
   'CLIENT_REVIEW',
 ] as const satisfies readonly FeasibilityStatus[];
 
+/**
+ * Statuses in which the applicant reads the report of the study (ST-35.12): the newest issued
+ * version, from the day the study is with them for review.
+ */
+export const FEASIBILITY_REPORT_READ_STATUSES = [
+  'CLIENT_REVIEW',
+  'DELIVERED',
+  'ARCHIVED',
+] as const satisfies readonly FeasibilityStatus[];
+
 export const FEASIBILITY_INTERNAL_NOTE_MAX = 4000;
 /** Internal notes one project takes (a bound against runaway use). */
 export const MAX_PROJECT_INTERNAL_NOTES = 500;

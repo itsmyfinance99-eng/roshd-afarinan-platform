@@ -70,6 +70,22 @@ const RUN_SUMMARY_SELECT = {
   approvedAt: true,
 } satisfies Prisma.CalculationRunSelect;
 
+const APPROVED_RUN_SELECT = {
+  id: true,
+  number: true,
+  modelVersion: true,
+  engineVersion: true,
+  inputHash: true,
+  createdAt: true,
+  approvedAt: true,
+} satisfies Prisma.CalculationRunSelect;
+
+/** An approved run as a deliverable refers to it. */
+export type ApprovedRunSummary = Omit<
+  Prisma.CalculationRunGetPayload<{ select: typeof APPROVED_RUN_SELECT }>,
+  'approvedAt'
+> & { approvedAt: Date };
+
 export type FinancialModelSummary = Prisma.FinancialModelGetPayload<{
   select: typeof SUMMARY_SELECT;
 }>;
@@ -471,6 +487,58 @@ export class FinancialModelsService {
     if (!run) throw new NotFoundError();
     const { model, input, results, warnings, defaultsUsed, ...facts } = run;
     return { modelTitle: model.title, run: facts, input, results, warnings, defaultsUsed };
+  }
+
+  /**
+   * The approved runs of a model that belongs to something else, newest first: what a
+   * deliverable of that thing may be built from (ST-35.12). The module that owns the link asks,
+   * after it has checked who is asking; inside a transaction it passes that transaction.
+   */
+  async approvedRuns(
+    modelId: string,
+    db: Prisma.TransactionClient | PrismaService = this.prisma,
+  ): Promise<ApprovedRunSummary[]> {
+    const runs = await db.calculationRun.findMany({
+      where: { modelId, approvedAt: { not: null } },
+      select: APPROVED_RUN_SELECT,
+      orderBy: { number: 'desc' },
+    });
+    return runs.map((run) => ({ ...run, approvedAt: run.approvedAt! }));
+  }
+
+  /**
+   * What a deliverable is written from: an approved run of the model as it was stored, or `null`
+   * when the model has no such run or the run is not approved. Like `approvedRuns`, for the
+   * module that owns the link.
+   */
+  async approvedRunSource(
+    modelId: string,
+    runId: string,
+    db: Prisma.TransactionClient | PrismaService = this.prisma,
+  ): Promise<(Omit<RunReportSource, 'unit'> & { summary: ApprovedRunSummary }) | null> {
+    const run = await db.calculationRun.findFirst({
+      where: { id: runId, modelId, approvedAt: { not: null } },
+      select: {
+        ...APPROVED_RUN_SELECT,
+        input: true,
+        results: true,
+        warnings: true,
+        defaultsUsed: true,
+        model: { select: { title: true } },
+      },
+    });
+    if (!run) return null;
+    const { model, input, results, warnings, defaultsUsed, ...facts } = run;
+    const { id: _id, ...shown } = facts;
+    return {
+      modelTitle: model.title,
+      run: shown,
+      input,
+      results,
+      warnings,
+      defaultsUsed,
+      summary: { ...facts, approvedAt: facts.approvedAt! },
+    };
   }
 
   /**
