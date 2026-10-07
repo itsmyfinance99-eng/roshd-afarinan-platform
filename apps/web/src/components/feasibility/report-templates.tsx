@@ -82,7 +82,14 @@ export function ReportTemplateForm({
     const [row] = next.splice(index, 1);
     next.splice(target, 0, row!);
     setRows(next);
-    setMoved(`«${row!.title}» به جایگاه ${toPersianDigits(target + 1)} رفت.`);
+    setMoved(
+      `«${row!.title}» به جایگاه ${toPersianDigits(target + 1)} از ${toPersianDigits(next.length)} رفت.`,
+    );
+    // The row moved in the document and took the focus with it: the keyboard stays on its
+    // button, or on the other one where the row reached an end of the list.
+    const edge = target === 0 || target === next.length - 1;
+    const button = (by === -1) !== edge ? 'up' : 'down';
+    requestAnimationFrame(() => document.getElementById(`template-${button}-${row!.key}`)?.focus());
   };
 
   const submit = async (event: FormEvent) => {
@@ -101,7 +108,16 @@ export function ReportTemplateForm({
         setNameError(issue.message);
         document.getElementById('template-name')?.focus();
       } else {
-        setError(issue?.message ?? 'فصل‌های قالب را کامل کنید.');
+        // An issue of a chapter is told with the name of the chapter, and its field is focused.
+        const included = rows.filter((row) => row.included);
+        const row = issue?.path[0] === 'chapters' ? included[Number(issue.path[1])] : undefined;
+        const field = issue?.path[2] === 'guidance' ? 'guidance' : 'title';
+        setError(
+          row && issue
+            ? `فصل «${FEASIBILITY_REVIEW_SECTION_LABELS_FA[row.key]}»: ${issue.message}`
+            : (issue?.message ?? 'فصل‌های قالب را کامل کنید.'),
+        );
+        if (row) document.getElementById(`template-chapter-${row.key}-${field}`)?.focus();
       }
       return;
     }
@@ -164,6 +180,7 @@ export function ReportTemplateForm({
                     type="button"
                     variant="outline"
                     size="sm"
+                    id={`template-up-${row.key}`}
                     disabled={index === 0}
                     aria-label={`بالا بردن فصل «${usual}»`}
                     onClick={() => move(index, -1)}
@@ -174,6 +191,7 @@ export function ReportTemplateForm({
                     type="button"
                     variant="outline"
                     size="sm"
+                    id={`template-down-${row.key}`}
                     disabled={index === rows.length - 1}
                     aria-label={`پایین بردن فصل «${usual}»`}
                     onClick={() => move(index, 1)}

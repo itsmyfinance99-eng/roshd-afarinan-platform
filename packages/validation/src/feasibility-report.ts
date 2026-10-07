@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { optionalText, text } from './common';
+import { NUL_ERROR, optionalText, text, withoutNul } from './common';
 import {
   FEASIBILITY_NOTE_MAX,
   FEASIBILITY_REVIEW_SECTION_LABELS_FA,
@@ -41,20 +41,13 @@ export const MAX_REPORT_TEMPLATES = 50;
 /** Versions one project's report is issued in (a bound against runaway use). */
 export const MAX_REPORT_VERSIONS = 50;
 
-/** PostgreSQL stores no NUL character in a text. */
-const NUL = String.fromCharCode(0);
-const withoutNul = (value: string): boolean => !value.includes(NUL);
-const NUL_ERROR = 'متن نویسه نامعتبر دارد.';
-
 /** A chapter of a report template: which chapter, under which title, with what guidance. */
 export const reportTemplateChapterSchema = z
   .object({
     key: z.enum(FEASIBILITY_REPORT_CHAPTERS, { error: 'فصل گزارش معتبر نیست.' }),
     title: text(2, REPORT_CHAPTER_TITLE_MAX),
     /** What the experts are expected to write in the chapter; never part of the report. */
-    guidance: optionalText(REPORT_CHAPTER_GUIDANCE_MAX)
-      .refine(withoutNul, { error: NUL_ERROR })
-      .optional(),
+    guidance: optionalText(REPORT_CHAPTER_GUIDANCE_MAX).optional(),
   })
   .strict();
 export type ReportTemplateChapter = z.infer<typeof reportTemplateChapterSchema>;

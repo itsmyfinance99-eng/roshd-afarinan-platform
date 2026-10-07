@@ -10,10 +10,16 @@ export const MESSAGES = {
   invalidSlug: 'نامک فقط می‌تواند شامل حروف کوچک انگلیسی، عدد و خط تیره باشد.',
 } as const;
 
+/** PostgreSQL stores no NUL character in a text, so none is accepted. */
+const NUL = String.fromCharCode(0);
+export const withoutNul = (value: string): boolean => !value.includes(NUL);
+export const NUL_ERROR = 'متن نویسه نامعتبر دارد.';
+
 /** Trimmed, Persian-normalised, non-empty text with a length range. */
 export const text = (min = 1, max = 255) =>
   z
     .string({ error: MESSAGES.required })
+    .refine(withoutNul, { error: NUL_ERROR })
     .transform(normalizePersianText)
     .pipe(
       z
@@ -27,7 +33,8 @@ export const optionalText = (max: number) =>
   z
     .string({ error: 'متن معتبر وارد کنید.' })
     .trim()
-    .max(max, { error: MESSAGES.tooLong(max) });
+    .max(max, { error: MESSAGES.tooLong(max) })
+    .refine(withoutNul, { error: NUL_ERROR });
 
 export const httpUrlSchema = z.url({ protocol: /^https?$/, error: 'نشانی معتبر نیست.' }).max(500);
 

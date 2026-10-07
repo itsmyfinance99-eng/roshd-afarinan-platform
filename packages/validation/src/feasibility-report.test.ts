@@ -3,6 +3,7 @@ import { FEASIBILITY_REVIEW_SECTIONS } from './feasibility';
 import {
   createReportTemplateSchema,
   DEFAULT_REPORT_STRUCTURE,
+  issueReportVersionSchema,
   FEASIBILITY_REPORT_CHAPTERS,
   REPORT_CHAPTER_BODY_MAX,
   reportChapterKind,
@@ -73,6 +74,12 @@ describe('report template requests', () => {
     expect(updateReportTemplateSchema.safeParse({}).success).toBe(false);
     expect(updateReportTemplateSchema.safeParse({ archived: true }).success).toBe(true);
     expect(updateReportTemplateSchema.safeParse({ archived: 'yes' }).success).toBe(false);
+    // No text of a request carries a NUL character: neither a name nor a note.
+    const nul = String.fromCharCode(0);
+    expect(
+      createReportTemplateSchema.safeParse({ name: `قالب${nul}صنعتی`, chapters }).success,
+    ).toBe(false);
+    expect(issueReportVersionSchema.safeParse({ note: `a${nul}` }).success).toBe(false);
   });
 
   it('chooses a template by its id, or none', () => {
