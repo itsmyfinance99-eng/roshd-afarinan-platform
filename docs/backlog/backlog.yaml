@@ -2320,6 +2320,7 @@ epics:
         sprint: S21
         points: 5
         priority: high
+        status: done
         area: [api, web]
         depends: [ST-35.10]
         story: 'به‌عنوان متقاضی می‌خواهم پیش‌نویس مطالعه را ببینم و روی بخش‌ها نظر بدهم.'

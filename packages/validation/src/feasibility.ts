@@ -190,3 +190,77 @@ export type CreateInternalNoteInput = z.infer<typeof createInternalNoteSchema>;
 
 export const listInternalNotesQuerySchema = paginationQuerySchema;
 export type ListInternalNotesQuery = z.infer<typeof listInternalNotesQuerySchema>;
+
+/**
+ * The parts of a study a review comment is written on (ST-35.11): the chapters of the UNIDO
+ * manual for industrial feasibility studies (OQ-35), the economic analysis (EPIC-37) and the
+ * study as a whole. The report template of ST-35.12 takes this list over.
+ */
+export const FEASIBILITY_REVIEW_SECTIONS = [
+  'general',
+  'executive_summary',
+  'background',
+  'market',
+  'materials',
+  'location',
+  'engineering',
+  'organization',
+  'human_resources',
+  'implementation',
+  'financial',
+  'economic',
+] as const;
+export type FeasibilityReviewSection = (typeof FEASIBILITY_REVIEW_SECTIONS)[number];
+
+export const FEASIBILITY_REVIEW_SECTION_LABELS_FA: Record<FeasibilityReviewSection, string> = {
+  general: 'کل مطالعه',
+  executive_summary: 'خلاصه مدیریتی',
+  background: 'پیشینه و ایده اصلی طرح',
+  market: 'تحلیل بازار و بازاریابی',
+  materials: 'مواد اولیه و ملزومات',
+  location: 'مکان، ساختگاه و محیط زیست',
+  engineering: 'مهندسی و فناوری',
+  organization: 'سازمان و هزینه‌های سربار',
+  human_resources: 'نیروی انسانی',
+  implementation: 'برنامه اجرا و بودجه‌بندی',
+  financial: 'تحلیل مالی و ارزیابی سرمایه‌گذاری',
+  economic: 'تحلیل اقتصادی',
+};
+
+export const FEASIBILITY_REVIEW_COMMENT_MAX = 4000;
+/** Threads the review of one project takes (a bound against runaway use). */
+export const MAX_PROJECT_REVIEW_THREADS = 300;
+/** Comments one thread takes, the first one included. */
+export const MAX_REVIEW_THREAD_COMMENTS = 100;
+
+/**
+ * The first comment of a thread on a part of the study. The applicant always reads a thread of
+ * their own; a thread of the staff or of an expert is between them unless it is `shared`.
+ */
+export const createReviewThreadSchema = z.object({
+  section: z.enum(FEASIBILITY_REVIEW_SECTIONS, { error: 'بخش مطالعه را انتخاب کنید.' }),
+  body: text(1, FEASIBILITY_REVIEW_COMMENT_MAX),
+  shared: z.boolean({ error: 'مقدار معتبر نیست.' }).optional(),
+});
+export type CreateReviewThreadInput = z.infer<typeof createReviewThreadSchema>;
+
+export const createReviewReplySchema = z.object({
+  body: text(1, FEASIBILITY_REVIEW_COMMENT_MAX),
+});
+export type CreateReviewReplyInput = z.infer<typeof createReviewReplySchema>;
+
+/** Marks a thread as handled, or opens it again. */
+export const setReviewThreadHandledSchema = z.object({
+  handled: z.boolean({ error: 'وضعیت رسیدگی را مشخص کنید.' }),
+});
+export type SetReviewThreadHandledInput = z.infer<typeof setReviewThreadHandledSchema>;
+
+export const REVIEW_THREAD_STATES = ['open', 'handled'] as const;
+
+export const listReviewThreadsQuerySchema = paginationQuerySchema.extend({
+  /** A thread comes with its comments, so a page holds fewer of them. */
+  pageSize: z.coerce.number().int().min(1).max(50).default(20),
+  section: z.enum(FEASIBILITY_REVIEW_SECTIONS).optional(),
+  state: z.enum(REVIEW_THREAD_STATES).optional(),
+});
+export type ListReviewThreadsQuery = z.infer<typeof listReviewThreadsQuerySchema>;

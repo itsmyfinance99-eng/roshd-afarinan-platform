@@ -14,6 +14,7 @@ import {
   ProjectForm,
   ProjectTimeline,
 } from '@/components/feasibility/parts';
+import { hasReview, ReviewSteps, ReviewThreads } from '@/components/feasibility/review-cycle';
 import type { FeasibilityProjectDetail } from '@/components/feasibility/types';
 import { QuestionnaireCard } from '@/components/questionnaires/card';
 import { apiFetch } from '@/lib/api-client';
@@ -30,6 +31,9 @@ const GUIDANCE: Partial<Record<FeasibilityStatus, string>> = {
   CONTRACT_PENDING:
     'برآورد را پذیرفته‌اید و پروژه در انتظار قرارداد است. نسخه امضاشده قرارداد را در بخش «قرارداد» همین صفحه بارگذاری کنید؛ پس از تأیید کارشناسان، کار مطالعه آغاز می‌شود.',
   IN_PROGRESS: 'قرارداد تأیید شده و مطالعه در حال انجام است.',
+  EXPERT_REVIEW: 'مطالعه در بازبینی کارشناسان است. پس از آن برای بازبینی به شما سپرده می‌شود.',
+  CLIENT_REVIEW:
+    'مطالعه در مرحله بازبینی شما است. نظر خود را روی هر بخش در «نظرهای بازبینی» همین صفحه بنویسید؛ اگر اصلاحی لازم است، مطالعه را برای اصلاح برگردانید.',
 };
 
 export default function MyFeasibilityProjectPage() {
@@ -125,6 +129,10 @@ function ProjectView({
             {project.costEstimate ? <EstimateFacts estimate={project.costEstimate} /> : null}
             <EstimateDecision project={project} onChanged={onChanged} />
             <ProjectContract project={project} side="applicant" onChanged={onChanged} />
+            <ReviewSteps project={project} side="applicant" onChanged={onChanged} />
+            {hasReview(project) ? (
+              <ReviewThreads key={`threads-${project.status}`} project={project} side="applicant" />
+            ) : null}
             {project.sourceRequest ? (
               <p className="text-[15px]">
                 <span className="text-ink-5">ساخته‌شده از درخواست </span>

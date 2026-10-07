@@ -10,6 +10,7 @@ import { ProjectDocuments } from '@/components/feasibility/documents';
 import { EstimateFacts, EstimateForm } from '@/components/feasibility/estimate';
 import { ProjectExperts } from '@/components/feasibility/experts';
 import { ReviewActions } from '@/components/feasibility/review';
+import { hasReview, ReviewSteps, ReviewThreads } from '@/components/feasibility/review-cycle';
 import { ProjectAttachments, ProjectFacts, ProjectTimeline } from '@/components/feasibility/parts';
 import type { FeasibilityProjectDetail } from '@/components/feasibility/types';
 import { InternalNotes, ProjectModel } from '@/components/feasibility/workspace';
@@ -19,7 +20,8 @@ import { useApi } from '@/lib/use-api';
  * A project as staff and its experts see it, with the steps of the intake review (ST-35.07),
  * the cost estimate (ST-35.08) and the contract (ST-35.09) for staff, and the workspace of the
  * staff and the assigned experts (ST-35.10): the answers, the documents, the financial model, the
- * experts and the internal notes. The later steps join in their own stories.
+ * experts and the internal notes, and the review cycle with its comments (ST-35.11). The later
+ * steps join in their own stories.
  */
 export default function ManageFeasibilityProjectPage() {
   const { id } = useParams<{ id: string }>();
@@ -63,6 +65,13 @@ export default function ManageFeasibilityProjectPage() {
                   />
                 ) : null}
                 <ReviewActions project={project} onChanged={() => reload({ silent: true })} />
+                {own ? null : (
+                  <ReviewSteps
+                    project={project}
+                    side="staff"
+                    onChanged={() => reload({ silent: true })}
+                  />
+                )}
                 <dl className="grid grid-cols-[auto_1fr] gap-x-5 gap-y-2 text-[15px]">
                   <dt className="text-ink-5">متقاضی</dt>
                   <dd>{own ? 'خود شما' : (project.applicant?.fullName ?? 'کاربر حذف‌شده')}</dd>
@@ -103,6 +112,13 @@ export default function ManageFeasibilityProjectPage() {
                   <>
                     <ProjectModel project={project} onChanged={() => reload({ silent: true })} />
                     <ProjectExperts project={project} onChanged={() => reload({ silent: true })} />
+                    {hasReview(project) ? (
+                      <ReviewThreads
+                        key={`threads-${project.status}`}
+                        project={project}
+                        side="staff"
+                      />
+                    ) : null}
                     <InternalNotes project={project} />
                   </>
                 )}

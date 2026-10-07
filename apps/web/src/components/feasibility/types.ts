@@ -52,6 +52,8 @@ export interface FeasibilityProjectDetail extends FeasibilityProjectItem {
     createModel: boolean;
     /** Write an internal note (staff and experts). */
     addNote: boolean;
+    /** Start a review thread (the applicant in their review; staff and experts during the work). */
+    comment: boolean;
   };
   /** Staff and experts only. */
   experts?: { expert: StaffRef; since: string }[];
