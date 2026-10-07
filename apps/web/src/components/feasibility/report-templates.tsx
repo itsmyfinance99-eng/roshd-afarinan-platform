@@ -275,10 +275,10 @@ export function ReportTemplateList({
         {templates.map((template) => (
           <li key={template.id} className="flex flex-col gap-2 rounded-card border border-line p-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <h3 className="text-[15px] font-bold text-ink">
+              <h2 className="text-[15px] font-bold text-ink">
                 {template.name}
                 {template.archivedAt ? <Tag className="ms-2">بایگانی‌شده</Tag> : null}
-              </h3>
+              </h2>
               <div className="flex gap-2">
                 <Button
                   variant="outline"

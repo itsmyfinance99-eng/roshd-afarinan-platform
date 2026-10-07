@@ -62,7 +62,10 @@ export default function ReportTemplatesPage() {
                   setSaved(false);
                   setEditing(template);
                 }}
-                onChanged={() => reload({ silent: true })}
+                onChanged={() => {
+                  setSaved(false);
+                  reload({ silent: true });
+                }}
               />
             )}
           </AsyncBoundary>

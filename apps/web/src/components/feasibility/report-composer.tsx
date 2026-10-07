@@ -17,7 +17,7 @@ import {
   REPORT_CHAPTER_BODY_MAX,
 } from '@roshd/validation';
 import Link from 'next/link';
-import { type FormEvent, useEffect, useState } from 'react';
+import { type FormEvent, type RefObject, useEffect, useRef, useState } from 'react';
 import { apiFetch } from '@/lib/api-client';
 import type { ApprovedRun, DraftChapter, ReportDraft, ReportVersionSummary } from './report-types';
 import type { FeasibilityProjectDetail } from './types';
@@ -29,6 +29,9 @@ const runLabel = (run: ApprovedRun): string =>
   `اجرای شماره ${toPersianDigits(run.number)} — تأییدشده در ${formatDateTimeFa(run.approvedAt)}`;
 
 const card = 'flex flex-col gap-3 rounded-card border border-line p-4';
+const UNSAVED = 'نخست فصل‌هایی را که تغییر ذخیره‌نشده دارند ذخیره کنید.';
+/** The keys of the chapters whose editor holds a text that was not saved. */
+type Unsaved = RefObject<Set<string>>;
 const heading = 'text-base font-extrabold text-brand-900';
 
 /** Starts the report of a project with the chapters of a template or the standard structure. */
@@ -54,7 +57,7 @@ function StartReport({
       body: { templateId: templateId || null },
     });
     setBusy(false);
-    if (!result.ok) setError(result.message);
+    if (!result.ok) setError(result.details[0]?.message ?? result.message);
     // Also after a refusal: a colleague may have started the report a moment earlier.
     onChanged();
   };
@@ -101,10 +104,12 @@ function StartReport({
 function Structure({
   projectId,
   draft,
+  unsaved,
   onChanged,
 }: {
   projectId: string;
   draft: ReportDraft;
+  unsaved: Unsaved;
   onChanged: () => void;
 }) {
   const report = draft.report!;
@@ -119,6 +124,11 @@ function Structure({
     event.preventDefault();
     setError(null);
     setApplied(false);
+    // A chapter the new structure leaves out would take its unsaved text with it.
+    if (unsaved.current.size > 0) {
+      setError(UNSAVED);
+      return;
+    }
     setBusy(true);
     const result = await apiFetch(`/feasibility-projects/${projectId}/report/template`, {
       method: 'PUT',
@@ -126,7 +136,7 @@ function Structure({
     });
     setBusy(false);
     if (result.ok) setApplied(true);
-    else setError(result.message);
+    else setError(result.details[0]?.message ?? result.message);
     onChanged();
   };
 
@@ -295,12 +305,17 @@ function ChapterEditor({
   index,
   questions,
   editable,
+  unsaved,
+  onRefused,
 }: {
   projectId: string;
   chapter: DraftChapter;
   index: number;
   questions: ReportDraft['questions'];
   editable: boolean;
+  unsaved: Unsaved;
+  /** A save was refused for a reason of the draft as a whole: the page reads it again. */
+  onRefused: () => void;
 }) {
   const [stored, setStored] = useState(chapter);
   const [body, setBody] = useState(chapter.body);
@@ -319,6 +334,14 @@ function ChapterEditor({
     window.addEventListener('beforeunload', warn);
     return () => window.removeEventListener('beforeunload', warn);
   }, [dirty]);
+
+  // The forms beside this one ask whether a chapter still holds unsaved text.
+  useEffect(() => {
+    const keys = unsaved.current;
+    if (dirty) keys.add(chapter.key);
+    else keys.delete(chapter.key);
+    return () => void keys.delete(chapter.key);
+  }, [dirty, chapter.key, unsaved]);
 
   const take = (next: DraftChapter) => {
     setStored(next);
@@ -343,7 +366,23 @@ function ChapterEditor({
       setSaved(true);
       return;
     }
-    setStale(result.status === 409);
+    if (result.status === 409) {
+      // Refused on top of an older version, or because the draft is closed: the chapter as it
+      // is stored now tells the two apart.
+      const now = await apiFetch<ReportDraft>(`/feasibility-projects/${projectId}/report`);
+      const fresh = now.ok
+        ? now.data.report?.chapters.find((item) => item.key === chapter.key)
+        : undefined;
+      if (fresh && fresh.version !== stored.version) {
+        setStale(true);
+        setError(
+          'همکار دیگری این فصل را ذخیره کرده است. اگر متن خود را لازم دارید آن را جایی نگه دارید، سپس نسخه تازه فصل را بارگذاری کنید.',
+        );
+        return;
+      }
+      onRefused();
+    }
+    setStale(false);
     setError(result.details[0]?.message ?? result.message);
   };
 
@@ -478,7 +517,15 @@ function ChapterEditor({
 }
 
 /** Issues the draft as the next version, and says what is still missing when it is refused. */
-function IssueVersion({ projectId, onIssued }: { projectId: string; onIssued: () => void }) {
+function IssueVersion({
+  projectId,
+  unsaved,
+  onIssued,
+}: {
+  projectId: string;
+  unsaved: Unsaved;
+  onIssued: () => void;
+}) {
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -490,6 +537,11 @@ function IssueVersion({ projectId, onIssued }: { projectId: string; onIssued: ()
     setError(null);
     setMissing([]);
     setIssued(null);
+    // A version is written from what is stored, not from what is in the fields.
+    if (unsaved.current.size > 0) {
+      setError(UNSAVED);
+      return;
+    }
     setBusy(true);
     const result = await apiFetch<ReportVersionSummary>(
       `/feasibility-projects/${projectId}/report/versions`,
@@ -522,8 +574,12 @@ function IssueVersion({ projectId, onIssued }: { projectId: string; onIssued: ()
         فصل‌ها را ذخیره کنید.
       </p>
       <p className="text-[15px]">
-        <Link href={`/dashboard/manage/feasibility/${projectId}/report/preview`}>
-          پیش‌نمایش گزارش و کمبودهای آن ‹
+        <Link
+          href={`/dashboard/manage/feasibility/${projectId}/report/preview`}
+          target="_blank"
+          rel="noopener"
+        >
+          پیش‌نمایش گزارش و کمبودهای آن (در زبانه تازه) ‹
         </Link>
       </p>
       <FieldShell
@@ -580,6 +636,7 @@ export function ReportComposer({
   onChanged: () => void;
   onIssued: () => void;
 }) {
+  const unsaved = useRef(new Set<string>());
   const report = draft.report;
   if (!report) return <StartReport projectId={project.id} draft={draft} onChanged={onChanged} />;
   return (
@@ -589,18 +646,8 @@ export function ReportComposer({
           این پروژه در مرحله‌ای نیست که گزارش آن نوشته شود؛ پیش‌نویس فقط خوانده می‌شود.
         </Notice>
       )}
-      <Structure
-        key={`structure-${report.template?.id ?? STANDARD}`}
-        projectId={project.id}
-        draft={draft}
-        onChanged={onChanged}
-      />
-      <RunChoice
-        key={`run-${report.run?.id ?? NO_RUN}`}
-        project={project}
-        draft={draft}
-        onChanged={onChanged}
-      />
+      <Structure projectId={project.id} draft={draft} unsaved={unsaved} onChanged={onChanged} />
+      <RunChoice project={project} draft={draft} onChanged={onChanged} />
       <section aria-labelledby="chapters-title" className="flex flex-col gap-4">
         <h2 id="chapters-title" className={heading}>
           فصل‌های گزارش
@@ -613,10 +660,14 @@ export function ReportComposer({
             index={index}
             questions={draft.questions}
             editable={draft.access.edit}
+            unsaved={unsaved}
+            onRefused={onChanged}
           />
         ))}
       </section>
-      {draft.access.issue ? <IssueVersion projectId={project.id} onIssued={onIssued} /> : null}
+      {draft.access.issue ? (
+        <IssueVersion projectId={project.id} unsaved={unsaved} onIssued={onIssued} />
+      ) : null}
     </div>
   );
 }

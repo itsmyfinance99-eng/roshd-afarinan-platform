@@ -1,6 +1,6 @@
 'use client';
 
-import { Button, cn, formatDateFa, formatDateTimeFa, Notice, toPersianDigits } from '@roshd/ui';
+import { Button, cn, formatDateTimeFa, Notice, toPersianDigits } from '@roshd/ui';
 import { Fragment } from 'react';
 import { MarkdownBody } from '@/components/content/markdown';
 import type {
@@ -16,13 +16,29 @@ import type {
 
 const NOT_ANSWERED = 'پاسخی ثبت نشده است';
 
+/** A calendar day of an answer (YYYY-MM-DD) in the Persian calendar, whatever the reader's time zone. */
+const DAY = new Intl.DateTimeFormat('fa-IR-u-ca-persian', {
+  timeZone: 'UTC',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
+function dayFa(value: string): string {
+  const date = new Date(`${value}T00:00:00Z`);
+  return Number.isNaN(date.getTime()) ? value : DAY.format(date);
+}
+/** Keeps a number with its sign in one left-to-right run inside Persian text. */
+const LRM = String.fromCharCode(0x200e);
+
 /** A decimal string with Persian digits and thousands separators; the fraction is kept as it is. */
 function decimalFa(value: string): string {
   const match = /^(-?)(\d+)(?:\.(\d+))?$/.exec(value);
   if (!match) return toPersianDigits(value);
   const [, sign, whole = '', fraction] = match;
   const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, '٬');
-  return toPersianDigits(`${sign === '-' ? '−' : ''}${grouped}${fraction ? `٫${fraction}` : ''}`);
+  return toPersianDigits(
+    `${sign === '-' ? `${LRM}−` : ''}${grouped}${fraction ? `٫${fraction}` : ''}`,
+  );
 }
 
 function scalarText(value: QuotedScalar): string {
@@ -32,7 +48,7 @@ function scalarText(value: QuotedScalar): string {
     case 'number':
       return `${decimalFa(value.value)}${value.unit ? ` ${value.unit}` : ''}`;
     case 'date':
-      return formatDateFa(`${value.value}T00:00:00Z`);
+      return dayFa(value.value);
     default:
       return '—';
   }

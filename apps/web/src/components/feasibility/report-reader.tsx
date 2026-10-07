@@ -28,14 +28,16 @@ export function ReportReader({
   path: string;
 }) {
   const [unit, setUnit] = useState<ReportingUnit>(DEFAULT_UNIT);
-  const [section, setSection] = useState('');
+  /** The chapter whose threads were asked for; a new object on every click. */
+  const [focus, setFocus] = useState<{ section: string } | null>(null);
+  const section = focus?.section ?? '';
   const { state, reload } = useApi<ReportDocument>(`${path}?unit=${unit}`);
   const threads = hasReview(project);
 
   // The threads are under the report: the reader is taken to them, with the keyboard too.
   useEffect(() => {
-    if (section) document.getElementById('threads-section')?.focus();
-  }, [section]);
+    if (focus) document.getElementById('threads-section')?.focus();
+  }, [focus]);
 
   return (
     <div className="flex flex-col gap-8">
@@ -79,7 +81,10 @@ export function ReportReader({
                 description="فصلی برای نمایش در این گزارش نیست."
               />
             ) : (
-              <ReportDocumentView report={report} onComments={threads ? setSection : undefined} />
+              <ReportDocumentView
+                report={report}
+                onComments={threads ? (key) => setFocus({ section: key }) : undefined}
+              />
             )}
           </>
         )}

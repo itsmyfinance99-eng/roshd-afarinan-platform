@@ -256,6 +256,18 @@ test.describe('the report of a feasibility project', () => {
       sent.chapter!.push(body);
       saves += 1;
       if (saves === 1) {
+        // A colleague saved the chapter a moment earlier: it is at version 2 now.
+        report = {
+          ...report,
+          chapters: [
+            chapter('market', 'text', 'تحلیل بازار و بازاریابی', {
+              body: 'متن همکار',
+              version: 2,
+              updatedBy: { id: 'u9', fullName: 'نرگس کارشناس' },
+            }),
+            chapter('financial', 'financial', 'تحلیل مالی و ارزیابی سرمایه‌گذاری'),
+          ],
+        };
         return fail(route, 409, 'این فصل پس از بازشدن در ویرایشگر شما تغییر کرده است.');
       }
       return json(
@@ -320,35 +332,47 @@ test.describe('the report of a feasibility project', () => {
     await page.getByRole('button', { name: 'ثبت اجرا' }).click();
     await expect(page.getByText(/اجرای کنونی: اجرای شماره ۳/)).toBeVisible();
     expect(sent.run).toEqual([{ runId: 'r1' }]);
+    await expect(page.getByText('اجرای محاسبه گزارش ثبت شد.')).toBeVisible();
 
-    // A chapter: text and quoted answers; a colleague saved meanwhile, then it goes through.
+    // A chapter: text and quoted answers. A colleague saved it meanwhile: the save is refused,
+    // nothing is issued over unsaved text, and the newer text is loaded before writing on.
     await expect(page.getByText('اندازه بازار و رقبا را بنویسید.')).toBeVisible();
-    const save = page
-      .getByRole('form', { name: /تحلیل بازار و بازاریابی/ })
-      .getByRole('button', { name: 'ذخیره فصل' });
+    const market = page.getByRole('form', { name: /تحلیل بازار و بازاریابی/ });
+    const save = market.getByRole('button', { name: 'ذخیره فصل' });
+    const text = page.getByLabel('متن فصل «تحلیل بازار و بازاریابی»', { exact: true });
+    const quote = async () => {
+      await market.getByText(/پاسخ‌های منتخب پرسشنامه/).click();
+      await market.getByLabel('ظرفیت سالانه', { exact: true }).check();
+    };
     await expect(save).toBeDisabled();
-    await page.getByLabel('متن فصل «تحلیل بازار و بازاریابی»').fill('بازار رو به رشد است.');
-    await page
-      .getByText(/پاسخ‌های منتخب پرسشنامه/)
-      .first()
-      .click();
-    await page.getByLabel('ظرفیت سالانه').first().check();
+    await text.fill('بازار رو به رشد است.');
+    await quote();
     await expect(page.getByText('تغییر ذخیره‌نشده دارد.')).toBeVisible();
     await save.click();
+    await expect(page.getByText(/همکار دیگری این فصل را ذخیره کرده است/)).toBeVisible();
+    await page.getByRole('button', { name: 'صدور نسخه تازه' }).click();
     await expect(
-      page.getByText('این فصل پس از بازشدن در ویرایشگر شما تغییر کرده است.'),
+      page.getByText('نخست فصل‌هایی را که تغییر ذخیره‌نشده دارند ذخیره کنید.'),
     ).toBeVisible();
-    await expect(
-      page.getByRole('button', { name: 'کنار گذاشتن متن من و بارگذاری نسخه تازه' }),
-    ).toBeVisible();
+    await page.getByRole('button', { name: 'کنار گذاشتن متن من و بارگذاری نسخه تازه' }).click();
+    await expect(text).toHaveValue('متن همکار');
+    await expect(page.getByText(/آخرین ذخیره: نرگس کارشناس/)).toBeVisible();
+    await expect(save).toBeDisabled();
+    await text.fill('بازار رو به رشد است.');
+    await market.getByLabel('ظرفیت سالانه', { exact: true }).check();
     await save.click();
     await expect(page.getByText('فصل ذخیره شد.')).toBeVisible();
     await expect(page.getByText(/آخرین ذخیره: مریم احمدی/)).toBeVisible();
     expect(sent.chapter).toEqual([
       { version: 1, body: 'بازار رو به رشد است.', answerKeys: ['capacity'] },
-      { version: 1, body: 'بازار رو به رشد است.', answerKeys: ['capacity'] },
+      { version: 2, body: 'بازار رو به رشد است.', answerKeys: ['capacity'] },
     ]);
     await expect(save).toBeDisabled();
+    // The preview opens beside the editor, so that the forms stay as they are.
+    await expect(page.getByRole('link', { name: /پیش‌نمایش گزارش و کمبودهای آن/ })).toHaveAttribute(
+      'target',
+      '_blank',
+    );
 
     // Issue: the version joins the list.
     await page.getByLabel('یادداشت این نسخه (اختیاری)').fill('نسخه نخست');
@@ -404,6 +428,10 @@ test.describe('the report of a feasibility project', () => {
     await expect(page.getByLabel('بخش', { exact: true })).toHaveValue('financial');
     await expect(page.getByLabel('بخش', { exact: true })).toBeFocused();
     await expect.poll(() => threads.at(-1)).toBe('financial');
+    const again = page.getByRole('button', { name: /نظرهای بازبینی این فصل.*تحلیل مالی/ });
+    await again.focus();
+    await again.click();
+    await expect(page.getByLabel('بخش', { exact: true })).toBeFocused();
   });
 
   test('shows the preview of the draft with what is still missing', async ({ page }) => {
@@ -476,7 +504,7 @@ test.describe('the report of a feasibility project', () => {
     await audit(page);
   });
 
-  test('lets staff write, change and archive report templates', async ({ page }) => {
+  test('lets staff write and archive report templates', async ({ page }) => {
     await signIn(page, ['feasibility:manage']);
     let templates: Record<string, unknown>[] = [];
     const sent: unknown[] = [];

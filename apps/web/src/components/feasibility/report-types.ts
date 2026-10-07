@@ -105,7 +105,7 @@ export interface ReportDocument {
   issuedAt: string | null;
   contentHash: string | null;
   project: { code: string; title: string; sector: string | null; location: string | null };
-  run: Omit<ApprovedRun, 'id'> | null;
+  run: (Omit<ApprovedRun, 'id'> & { modelTitle: string }) | null;
   chapters: ReportChapter[];
   note?: string | null;
   issuedBy?: StaffRef | null;
