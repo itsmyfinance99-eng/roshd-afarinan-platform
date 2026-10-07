@@ -316,6 +316,18 @@ class StudyWriter extends Writer {
           label: 'اثر انگشت محتوای نسخه (SHA-256)',
           value: { text: version.contentHash, ltr: true },
         },
+        ...(version.approvals ?? []).map((approval) => ({
+          label: `تأیید ${approval.role}`,
+          value: { text: `${approval.name} — ${dateTimeFa(approval.at)}` },
+        })),
+        ...(version.approved === false
+          ? [
+              {
+                label: 'وضعیت تأیید',
+                value: { text: 'این نسخه هنوز تأیید نهایی نشده است.' },
+              },
+            ]
+          : []),
       ],
     });
     this.paragraph(

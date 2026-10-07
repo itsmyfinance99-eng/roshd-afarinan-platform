@@ -53,9 +53,25 @@ export interface StudyChapter {
   charts?: StudyChart[];
 }
 
+/** An approval of the version, as it stands on the report. */
+export interface StudyApproval {
+  /** Who approves at this step, e.g. «مسئول امکان‌سنجی». */
+  role: string;
+  name: string;
+  at: Date | string;
+}
+
 export interface StudyDocument {
   project: { code: string; title: string; sector: string | null; location: string | null };
-  version: { number: number; issuedAt: Date | string; contentHash: string };
+  version: {
+    number: number;
+    issuedAt: Date | string;
+    contentHash: string;
+    /** The approvals the version has, in their order; with both it is the approved report. */
+    approvals?: StudyApproval[];
+    /** Whether the version has every approval a report needs. */
+    approved?: boolean;
+  };
   chapters: StudyChapter[];
 }
 

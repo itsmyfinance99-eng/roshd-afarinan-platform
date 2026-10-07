@@ -155,6 +155,61 @@ export const issueReportVersionSchema = z.object({
 });
 export type IssueReportVersionInput = z.infer<typeof issueReportVersionSchema>;
 
+/** The two approvals of a version, in their order (ST-35.14, OQ-37). */
+export const REPORT_APPROVAL_STEPS = ['officer', 'admin'] as const;
+export type ReportApprovalStep = (typeof REPORT_APPROVAL_STEPS)[number];
+
+/** Who gives each approval, as the report names them. */
+export const REPORT_APPROVAL_STEP_LABELS_FA: Record<ReportApprovalStep, string> = {
+  officer: 'مسئول امکان‌سنجی',
+  admin: 'مدیر',
+};
+
+export const REPORT_APPROVAL_DECISIONS = ['approved', 'rejected'] as const;
+export type ReportApprovalDecision = (typeof REPORT_APPROVAL_DECISIONS)[number];
+
+/**
+ * Where the approval of a version stands. The applicant only ever reads `pending` (not yet
+ * approved, whatever the reason) or `approved`.
+ */
+export const REPORT_APPROVAL_STATES = [
+  'pending',
+  'pending_officer',
+  'pending_admin',
+  'approved',
+  'rejected',
+] as const;
+export type ReportApprovalState = (typeof REPORT_APPROVAL_STATES)[number];
+
+export const REPORT_APPROVAL_STATE_LABELS_FA: Record<ReportApprovalState, string> = {
+  pending: 'در انتظار تأیید',
+  pending_officer: 'در انتظار تأیید مسئول امکان‌سنجی',
+  pending_admin: 'در انتظار تأیید نهایی مدیر',
+  approved: 'تأیید نهایی شده',
+  rejected: 'رد شده',
+};
+
+/**
+ * A decision on a version: one of the two approvals, or its refusal. A refusal says why, for
+ * those who correct the draft.
+ */
+export const decideReportVersionSchema = z
+  .object({
+    step: z.enum(REPORT_APPROVAL_STEPS, { error: 'گام تأیید را مشخص کنید.' }),
+    decision: z.enum(REPORT_APPROVAL_DECISIONS, { error: 'تأیید یا رد را مشخص کنید.' }),
+    note: optionalText(FEASIBILITY_NOTE_MAX).optional(),
+  })
+  .superRefine((value, context) => {
+    if (value.decision === 'rejected' && !value.note) {
+      context.addIssue({
+        code: 'custom',
+        path: ['note'],
+        message: 'دلیل رد این نسخه را بنویسید تا پیش‌نویس اصلاح شود.',
+      });
+    }
+  });
+export type DecideReportVersionInput = z.infer<typeof decideReportVersionSchema>;
+
 export const reportVersionNumberSchema = z.coerce
   .number()
   .int()

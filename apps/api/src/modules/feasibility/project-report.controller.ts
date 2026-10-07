@@ -1,6 +1,7 @@
 import { Controller, Get, HttpCode, Post, Put } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
+  decideReportVersionSchema,
   FEASIBILITY_REPORT_CHAPTERS,
   idSchema,
   issueReportVersionSchema,
@@ -10,6 +11,7 @@ import {
   saveReportChapterSchema,
   selectReportRunSchema,
   z,
+  type DecideReportVersionInput,
   type FeasibilityReportChapterKey,
   type IssueReportVersionInput,
   type ReportTemplateChoiceInput,
@@ -20,6 +22,7 @@ import {
 import { Meta, type RequestMeta } from '../../common/http/request-meta';
 import { ZodBody, ZodParam, ZodQuery } from '../../common/http/zod';
 import { CurrentUser, type Principal } from '../rbac/principal';
+import { ProjectReportApprovalService } from './project-report-approval.service';
 import { ProjectReportFileService } from './project-report-file.service';
 import { ProjectReportService } from './project-report.service';
 
@@ -37,6 +40,7 @@ export class ProjectReportController {
   constructor(
     private readonly report: ProjectReportService,
     private readonly file: ProjectReportFileService,
+    private readonly approval: ProjectReportApprovalService,
   ) {}
 
   @Get()
@@ -147,6 +151,22 @@ export class ProjectReportController {
     @ZodQuery(reportViewQuerySchema) query: ReportViewQuery,
   ) {
     return this.report.version(id, number, user, query);
+  }
+
+  @Post('versions/:number/approvals')
+  @HttpCode(200)
+  @ApiOperation({
+    summary:
+      'Approve or refuse the newest version: first the feasibility officer, then an admin, two people (audited)',
+  })
+  decide(
+    @CurrentUser() user: Principal,
+    @ZodParam('id', idSchema) id: string,
+    @ZodParam('number', reportVersionNumberSchema) number: number,
+    @ZodBody(decideReportVersionSchema) body: DecideReportVersionInput,
+    @Meta() meta: RequestMeta,
+  ) {
+    return this.approval.decide(id, number, body, user, meta);
   }
 
   @Post('versions/:number/file')

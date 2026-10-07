@@ -241,6 +241,32 @@ describe('PDF of a study', () => {
     expect(leaders).toBe(20 + 1 + parts.length);
   });
 
+  it('names the approvals of the version on the cover', async () => {
+    const options = { fonts, created: CREATED, compress: false };
+    const pending = await studyPdf(
+      { ...study, version: { ...study.version, approvals: [], approved: false } },
+      options,
+    );
+    const approved = await studyPdf(
+      {
+        ...study,
+        version: {
+          ...study.version,
+          approved: true,
+          approvals: [
+            { role: 'مسئول امکان‌سنجی', name: 'سارا احمدی', at: '2026-10-08T08:00:00Z' },
+            { role: 'مدیر', name: 'رضا کریمی', at: '2026-10-08T09:00:00Z' },
+          ],
+        },
+      },
+      options,
+    );
+    // The cover of each is another page; the rest of the report is the same.
+    expect(pagesOf(approved)).toBe(pagesOf(pending));
+    expect(approved.equals(pending)).toBe(false);
+    expect(approved.equals(await studyPdf(study, options))).toBe(false);
+  });
+
   it('draws texts of any content without failing', async () => {
     const odd = "=cmd|' /C calc'!A0 <b>😀</b> ‮\u0000 **" + 'واژه '.repeat(300) + '**';
     const pdf = await studyPdf(

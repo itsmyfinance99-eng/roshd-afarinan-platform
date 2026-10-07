@@ -13,6 +13,7 @@ import {
   type RunReportRenderer,
 } from '../financial-model/ports/run-report-renderer';
 import type { Principal } from '../rbac/principal';
+import { isFinallyApproved } from './domain/report-approval';
 import { ProjectReportService } from './project-report.service';
 
 const FILE_ENTITY = 'feasibility_project';
@@ -22,6 +23,7 @@ const FILE_SELECT = {
   sha256: true,
   size: true,
   createdAt: true,
+  approvals: true,
   file: { select: { status: true, originalName: true } },
 } satisfies Prisma.FeasibilityReportFileSelect;
 
@@ -49,6 +51,9 @@ const isUniqueViolation = (error: unknown): boolean =>
  * - A version has one file. It is written the first time somebody who may read the version asks
  *   for it, from the version's stored content and its calculation run, and kept as a private
  *   file with the hash of its bytes. From then on everybody gets that same file.
+ * - The cover names the two approvals of an approved version (ST-35.14). A file that was written
+ *   before the final approval is written again at the next request, so the file of an approved
+ *   version is the approved report.
  * - Whoever may read a version may download its file: those who work on the study every
  *   version, the applicant the newest one once the study is with them. For everybody else the
  *   version does not exist.
@@ -99,13 +104,29 @@ export class ProjectReportFileService {
     };
   }
 
-  /** The file of a version, when it was written and is still there. */
+  /**
+   * The file of a version, when it was written, is still there and shows the approvals the
+   * version has now.
+   */
   private async existing(versionId: string): Promise<FileRow | null> {
     const row = await this.prisma.feasibilityReportFile.findUnique({
       where: { versionId },
       select: FILE_SELECT,
     });
-    return row?.file.status === 'ACTIVE' ? row : null;
+    if (row?.file.status !== 'ACTIVE') return null;
+    return row.approvals === (await this.approvalsOf(versionId)) ? row : null;
+  }
+
+  /**
+   * How many approvals the cover of a version shows now: both of an approved version, none of
+   * any other (`ProjectReportService.study`).
+   */
+  private async approvalsOf(versionId: string): Promise<number> {
+    const approvals = await this.prisma.feasibilityReportApproval.findMany({
+      where: { versionId },
+      select: { step: true, decision: true },
+    });
+    return isFinallyApproved(approvals) ? approvals.length : 0;
   }
 
   private async write(
@@ -130,13 +151,25 @@ export class ProjectReportFileService {
         { entityType: FILE_ENTITY, entityId: id },
         meta,
       );
+      const shown = study.version.approvals?.length ?? 0;
       let row: FileRow;
+      /** The file this one takes the place of: written before an approval it does not show. */
+      let replaced: string | null = null;
       try {
         row = await this.prisma.$transaction(async (tx) => {
-          // A file the staff removed makes room for the one written now.
-          await tx.feasibilityReportFile.deleteMany({
-            where: { versionId: version.id, file: { status: { not: 'ACTIVE' } } },
+          const old = await tx.feasibilityReportFile.findUnique({
+            where: { versionId: version.id },
+            select: { fileId: true, approvals: true, file: { select: { status: true } } },
           });
+          // A file the staff removed, or one of before the approval, makes room for this one.
+          // One that shows as much as this one stays: the unique row then refuses this file.
+          if (old && (old.file.status !== 'ACTIVE' || old.approvals < shown)) {
+            // Only that very row: somebody else may have replaced it a moment ago.
+            await tx.feasibilityReportFile.deleteMany({
+              where: { versionId: version.id, fileId: old.fileId },
+            });
+            replaced = old.file.status === 'ACTIVE' ? old.fileId : null;
+          }
           return tx.feasibilityReportFile.create({
             data: {
               versionId: version.id,
@@ -144,6 +177,7 @@ export class ProjectReportFileService {
               sha256: stored.checksum,
               size: stored.size,
               unit: REPORT_FILE_UNIT,
+              approvals: shown,
             },
             select: FILE_SELECT,
           });
@@ -156,10 +190,24 @@ export class ProjectReportFileService {
           .catch((cleanup: unknown) => {
             this.logger.warn({ err: cleanup, fileId: stored.id }, 'spare report file not removed');
           });
-        // Somebody else wrote the file of this version meanwhile: theirs is the file.
-        const winner = isUniqueViolation(error) ? await this.existing(version.id) : null;
-        if (winner) return winner;
+        // Somebody else wrote the file of this version meanwhile: theirs is the file, also when
+        // an approval came in since (the next request then writes the newer one).
+        const winner = isUniqueViolation(error)
+          ? await this.prisma.feasibilityReportFile.findUnique({
+              where: { versionId: version.id },
+              select: FILE_SELECT,
+            })
+          : null;
+        if (winner?.file.status === 'ACTIVE') return winner;
         throw error;
+      }
+      if (replaced) {
+        // The older file has no row any more; if it cannot be removed now, the sweep collects it.
+        await this.files
+          .removeOfEntity({ entityType: FILE_ENTITY, entityId: id }, principal, meta, [replaced])
+          .catch((cleanup: unknown) => {
+            this.logger.warn({ err: cleanup, fileId: replaced }, 'older report file not removed');
+          });
       }
       await this.audit.record({
         action: 'feasibility_project.report_file_created',

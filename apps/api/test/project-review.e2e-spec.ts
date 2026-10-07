@@ -129,9 +129,9 @@ describe('The review cycle of a feasibility project (e2e)', () => {
     await move(expert, id, 'CLIENT_REVIEW').expect(200);
 
     // With the applicant: they send it back; an expert alone does not take it back.
+    // The delivery is offered once the report has both approvals (ST-35.14).
     expect((await detail(owner, id).expect(200)).body.data.access.transitions).toEqual([
       'IN_PROGRESS',
-      'DELIVERED',
     ]);
     await move(expert, id, 'IN_PROGRESS').expect(403);
     await move(outsider, id, 'IN_PROGRESS').expect(404);

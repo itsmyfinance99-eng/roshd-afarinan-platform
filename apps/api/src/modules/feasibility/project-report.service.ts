@@ -11,6 +11,7 @@ import {
   FEASIBILITY_REPORT_READ_STATUSES,
   FEASIBILITY_WORK_STATUSES,
   MAX_REPORT_VERSIONS,
+  REPORT_APPROVAL_STEP_LABELS_FA,
   reportChapterKind,
   type AnswerValue,
   type FeasibilityReportChapterKind,
@@ -38,10 +39,16 @@ import {
   type ApprovedRunSummary,
 } from '../financial-model/financial-models.service';
 import { NotificationsService } from '../notifications/notifications.service';
-import type { Principal } from '../rbac/principal';
+import { hasPermission, type Principal } from '../rbac/principal';
 import { staffRef, type StaffRef } from '../users/staff-ref';
 import { UsersService } from '../users/users.service';
 import type { FeasibilityStatus } from './domain/feasibility-status';
+import {
+  approvalRefusal,
+  approvalState,
+  approvalView,
+  type VersionApprovalView,
+} from './domain/report-approval';
 import {
   composeChapters,
   isQuotable,
@@ -95,12 +102,22 @@ const REPORT_SELECT = {
 
 type ChapterRow = Prisma.FeasibilityReportChapterGetPayload<{ select: typeof CHAPTER_SELECT }>;
 
+const APPROVAL_SELECT = {
+  step: true,
+  decision: true,
+  note: true,
+  decidedById: true,
+  decidedByName: true,
+  createdAt: true,
+} satisfies Prisma.FeasibilityReportApprovalSelect;
+
 const VERSION_SUMMARY_SELECT = {
   number: true,
   contentHash: true,
   note: true,
   createdAt: true,
   issuedById: true,
+  approvals: { select: APPROVAL_SELECT },
 } satisfies Prisma.FeasibilityReportVersionSelect;
 
 type VersionRow = Prisma.FeasibilityReportVersionGetPayload<{
@@ -176,6 +193,10 @@ export interface ReportView {
   /** Staff and experts only: the note of the version and who issued it. */
   note?: string | null;
   issuedBy?: StaffRef | null;
+  /** A version only: where its two approvals stand (ST-35.14). */
+  approval?: VersionApprovalView;
+  /** Staff only: which of the two decisions the caller may take on this version now. */
+  access?: { officer: boolean; admin: boolean };
   /** The preview only: chapters that are left out and what keeps the draft from being issued. */
   omitted?: Composition['omitted'];
   issues?: Composition['issues'];
@@ -185,6 +206,7 @@ export interface ReportVersionSummary {
   number: number;
   contentHash: string;
   createdAt: Date;
+  approval: VersionApprovalView;
   note?: string | null;
   issuedBy?: StaffRef | null;
 }
@@ -585,9 +607,11 @@ export class ProjectReportService {
       issuedAt: row.createdAt,
       contentHash: row.contentHash,
       ...this.shown(content, await this.partsOf(id, content, query.unit)),
+      approval: approvalView(row.approvals, viewer.applicant),
       ...(viewer.applicant
         ? {}
         : {
+            access: await this.decisions(id, row.number, row.approvals, principal),
             note: row.note,
             issuedBy: staffRef(
               row.issuedById,
@@ -624,7 +648,13 @@ export class ProjectReportService {
   async study(id: string, number: number, unit: ReportingUnit): Promise<StudyDocument> {
     const row = await this.prisma.feasibilityReportVersion.findUnique({
       where: { projectId_number: { projectId: id, number } },
-      select: { number: true, contentHash: true, createdAt: true, content: true },
+      select: {
+        number: true,
+        contentHash: true,
+        createdAt: true,
+        content: true,
+        approvals: { select: APPROVAL_SELECT },
+      },
     });
     if (!row) throw new NotFoundError();
     const content = row.content as unknown as ReportContent;
@@ -635,7 +665,19 @@ export class ProjectReportService {
     const charts = source ? runCharts(source) : [];
     return {
       project: content.project,
-      version: { number: row.number, issuedAt: row.createdAt, contentHash: row.contentHash },
+      version: {
+        number: row.number,
+        issuedAt: row.createdAt,
+        contentHash: row.contentHash,
+        // The file is the same for every reader, the applicant included: like them it names
+        // the two approvals of an approved version and nothing of one that is still decided on.
+        approvals: approvalView(row.approvals, true).steps.map((step) => ({
+          role: REPORT_APPROVAL_STEP_LABELS_FA[step.step],
+          name: step.by,
+          at: step.at,
+        })),
+        approved: approvalState(row.approvals) === 'approved',
+      },
       chapters: chapters.map(({ title, body, answers, parts }) => ({
         title,
         body,
@@ -849,6 +891,40 @@ export class ProjectReportService {
     return viewer;
   }
 
+  /**
+   * Which decisions the caller may take on a version now (ST-35.14): staff of the project with
+   * the permission of the step, on the newest version, while the study is worked on, as far as
+   * the order of the two approvals allows. The decision itself is checked again when it is taken.
+   */
+  private async decisions(
+    id: string,
+    number: number,
+    approvals: Parameters<typeof approvalRefusal>[0],
+    principal: Principal,
+  ): Promise<{ officer: boolean; admin: boolean }> {
+    const none = { officer: false, admin: false };
+    const relation = await this.projects.relationOf(id, principal);
+    if (relation.owner || !relation.manager) return none;
+    const project = await this.prisma.feasibilityProject.findUnique({
+      where: { id },
+      select: {
+        status: true,
+        reportVersions: { orderBy: { number: 'desc' }, take: 1, select: { number: true } },
+      },
+    });
+    if (!project || !isWorkedOn(project.status) || project.reportVersions[0]?.number !== number) {
+      return none;
+    }
+    return {
+      officer:
+        hasPermission(principal, 'feasibility:approve-report') &&
+        approvalRefusal(approvals, 'officer', principal.userId) === null,
+      admin:
+        hasPermission(principal, 'feasibility:final-approve') &&
+        approvalRefusal(approvals, 'admin', principal.userId) === null,
+    };
+  }
+
   /** 404 for a project the caller has no relation to. */
   private async viewerOf(id: string, principal: Principal): Promise<Viewer> {
     const relation = await this.projects.relationOf(id, principal);
@@ -886,6 +962,7 @@ export class ProjectReportService {
       number: row.number,
       contentHash: row.contentHash,
       createdAt: row.createdAt,
+      approval: approvalView(row.approvals, names === null),
       ...(names ? { note: row.note, issuedBy: staffRef(row.issuedById, names) } : {}),
     };
   }
