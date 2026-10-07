@@ -20,22 +20,9 @@ import {
   pipelineSummary,
   type PipelineSummary,
 } from './domain/pipeline';
+import { pipelineWhere } from './pipeline-filter';
 
 const MANAGE_PERMISSION = 'feasibility:manage';
-
-/** The projects the filters of the pipeline leave: by sector, and by the expert working on them. */
-export function pipelineWhere(
-  query: FeasibilityPipelineQuery,
-): Prisma.FeasibilityProjectWhereInput {
-  return {
-    ...(query.sector ? { sector: query.sector } : {}),
-    ...(query.expertId === 'none'
-      ? { experts: { none: { endedAt: null } } }
-      : query.expertId
-        ? { experts: { some: { expertId: query.expertId, endedAt: null } } }
-        : {}),
-  };
-}
 
 export interface PipelineView extends PipelineSummary {
   /** The moment the ages are counted to. */
@@ -94,12 +81,6 @@ export class ProjectPipelineService {
       ...pipelineWhere(query),
       ...(query.status ? { status: query.status } : {}),
     };
-    const total = await this.prisma.feasibilityProject.count({ where });
-    if (total > FEASIBILITY_EXPORT_MAX_ROWS) {
-      throw new BadRequestError(
-        `تعداد پروژه‌ها بیش از ${FEASIBILITY_EXPORT_MAX_ROWS.toLocaleString('fa-IR')} است؛ فیلترها را محدودتر کنید.`,
-      );
-    }
     const projects = await this.prisma.feasibilityProject.findMany({
       where,
       select: {
@@ -119,7 +100,14 @@ export class ProjectPipelineService {
       },
       // The longest in its status first: what the file is read for.
       orderBy: [{ statusSince: 'asc' }, { id: 'asc' }],
+      // One row beyond the bound tells that there are too many, whatever is added meanwhile.
+      take: FEASIBILITY_EXPORT_MAX_ROWS + 1,
     });
+    if (projects.length > FEASIBILITY_EXPORT_MAX_ROWS) {
+      throw new BadRequestError(
+        `تعداد پروژه‌ها بیش از ${FEASIBILITY_EXPORT_MAX_ROWS.toLocaleString('fa-IR')} است؛ فیلترها را محدودتر کنید.`,
+      );
+    }
     const names = await this.users.namesByIds(
       projects.flatMap((project) => [
         project.ownerId,

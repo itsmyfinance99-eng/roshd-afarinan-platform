@@ -45,7 +45,7 @@ import {
   type FeasibilityStatus,
 } from './domain/feasibility-status';
 import { isFinallyApproved } from './domain/report-approval';
-import { pipelineWhere } from './project-pipeline.service';
+import { pipelineWhere } from './pipeline-filter';
 import { QuestionnaireReader } from './questionnaire-reader';
 
 const MANAGE_PERMISSION = 'feasibility:manage';
@@ -708,8 +708,6 @@ export class FeasibilityProjectsService {
 
     // Conditional update: a concurrent change makes this a no-op and is reported as a conflict.
     const updated = await this.prisma.$transaction(async (tx) => {
-      // The project is in its new status since its event, to the millisecond.
-      const at = new Date();
       if (decision.to === 'SUBMITTED') {
         // Under the lock the answers are saved with, so what is checked is what is submitted.
         await this.lock(tx, id);
@@ -728,6 +726,9 @@ export class FeasibilityProjectsService {
           );
         }
       }
+      // The project is in its new status since its event, to the millisecond; taken after the
+      // locks above, so that it is the moment of the change.
+      const at = new Date();
       const { count } = await tx.feasibilityProject.updateMany({
         where: {
           id,
