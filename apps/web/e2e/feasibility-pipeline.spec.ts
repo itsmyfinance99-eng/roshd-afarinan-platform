@@ -227,9 +227,7 @@ test.describe('the pipeline of feasibility projects', () => {
     await expect(page.getByText('فایل خروجی با ۲ ردیف آماده شد.')).toHaveCount(0);
   });
 
-  test('shows an empty pipeline and a failed one, and offers it to the staff only', async ({
-    page,
-  }) => {
+  test('shows an empty pipeline and a failed one', async ({ page }) => {
     await signIn(page, MANAGE);
     let broken = false;
     await page.route('**/api/v1/feasibility-projects/pipeline*', (route) =>
@@ -273,6 +271,74 @@ test.describe('the pipeline of feasibility projects', () => {
     broken = false;
     await page.getByRole('button', { name: 'تلاش دوباره' }).click();
     await expect(page.getByRole('table')).toBeVisible();
+  });
+
+  test('keeps the chosen expert in the filter when the pipeline fails, and holds the filters during an export', async ({
+    page,
+  }) => {
+    await signIn(page, MANAGE);
+    const expert = '0199c2a4-7b1e-7c3a-9d2f-3b5a6c7d8e9f';
+    let broken = false;
+    await page.route('**/api/v1/feasibility-projects/pipeline*', (route) =>
+      broken
+        ? route.fulfill({
+            status: 500,
+            contentType: 'application/json',
+            body: JSON.stringify({
+              error: { code: 'INTERNAL_ERROR', message: 'خطای داخلی', requestId: 't' },
+            }),
+          })
+        : json(route, pipeline()),
+    );
+    await page.route('**/api/v1/feasibility-projects?*', (route) => json(route, [project()], 1));
+    let release: () => void = () => undefined;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await page.route('**/api/v1/feasibility-projects/export*', async (route) => {
+      await held;
+      await route.fulfill({
+        status: 200,
+        headers: {
+          'Content-Type': 'text/csv; charset=utf-8',
+          'Content-Disposition': 'attachment; filename="feasibility-projects-20261008-1130.csv"',
+          'X-Export-Rows': '1',
+        },
+        body: 'کد پروژه\r\n',
+      });
+    });
+
+    await page.goto('/dashboard/manage/feasibility');
+    await page.getByRole('button', { name: 'خط لوله' }).click();
+    // The moment the ages are counted to is said with its time, in Iran time.
+    await expect(page.getByText(/محاسبه‌شده در ۱۴۰۵\/۰۷\/۱۶.*۱۱:۳۰/)).toBeVisible();
+    await expect(
+      page.getByText('برای دیدن پروژه‌های یک وضعیت، نام آن را در جدول انتخاب کنید.'),
+    ).toBeVisible();
+
+    broken = true;
+    await page.getByLabel('کارشناس').selectOption({ label: 'سارا رضایی' });
+    await expect(page.getByRole('button', { name: 'تلاش دوباره' })).toBeVisible();
+    // The filter still says who the list and the export are narrowed by.
+    await expect(page.getByLabel('کارشناس')).toHaveValue(expert);
+    await expect(page.getByLabel('کارشناس').locator('option:checked')).toHaveText('سارا رضایی');
+    broken = false;
+    await page.getByRole('button', { name: 'تلاش دوباره' }).click();
+    await expect(page.getByRole('table')).toBeVisible();
+
+    // While a file is prepared its filters stand.
+    const download = page.waitForEvent('download');
+    await page.getByRole('button', { name: 'خروجی Excel (CSV)' }).click();
+    await expect(page.getByRole('button', { name: 'در حال آماده‌سازی…' })).toBeDisabled();
+    await expect(page.getByLabel('حوزه طرح')).toBeDisabled();
+    await expect(page.getByLabel('کارشناس')).toBeDisabled();
+    await expect(
+      page.getByRole('table').getByRole('button', { name: 'در حال انجام' }),
+    ).toBeDisabled();
+    release();
+    await download;
+    await expect(page.getByText('فایل خروجی با ۱ ردیف آماده شد.')).toBeVisible();
+    await expect(page.getByLabel('حوزه طرح')).toBeEnabled();
   });
 
   test('an expert without the staff right is not offered the pipeline', async ({ page }) => {

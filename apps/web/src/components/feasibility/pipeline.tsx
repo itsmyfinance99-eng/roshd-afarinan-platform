@@ -5,7 +5,7 @@ import {
   cn,
   ErrorMessage,
   FieldShell,
-  formatDateFa,
+  formatDateTimeFa,
   Select,
   SuccessMessage,
   toPersianDigits,
@@ -21,6 +21,7 @@ import { apiDownload, saveBlob } from '@/lib/api-client';
 import { useApi } from '@/lib/use-api';
 import { ProjectList } from './parts';
 import { daysFa } from './stage-age';
+import type { StaffRef } from '@/components/dashboard/types';
 import type { FeasibilityPipeline, FeasibilityProjectItem } from './types';
 
 const PAGE_SIZE = 20;
@@ -33,6 +34,8 @@ const PAGE_SIZE = 20;
 export function PipelineDashboard() {
   const [sector, setSector] = useState('');
   const [expertId, setExpertId] = useState('');
+  /** The chosen expert as they were offered, for when the pipeline does not list them. */
+  const [chosenExpert, setChosenExpert] = useState<StaffRef | null>(null);
   const [status, setStatus] = useState<FeasibilityStatus | ''>('');
   const [page, setPage] = useState(1);
   const [exporting, setExporting] = useState(false);
@@ -55,6 +58,13 @@ export function PipelineDashboard() {
   );
   const list = useApi<FeasibilityProjectItem[]>(`/feasibility-projects?${listQuery.toString()}`);
   const asOf = pipeline.state.status === 'success' ? pipeline.state.data.asOf : undefined;
+  const offered = pipeline.state.status === 'success' ? pipeline.state.data.experts : [];
+  // The filter keeps saying who it narrows by, also while the pipeline is loading or has
+  // failed, and when that expert works on no project any more.
+  const experts =
+    chosenExpert && !offered.some((expert) => expert.id === chosenExpert.id)
+      ? [...offered, chosenExpert]
+      : offered;
 
   const narrow = (change: () => void) => {
     change();
@@ -92,6 +102,7 @@ export function PipelineDashboard() {
           <Select
             id="fp-pipeline-sector"
             value={sector}
+            disabled={exporting}
             onChange={(e) => narrow(() => setSector(e.target.value))}
           >
             <option value="">همه حوزه‌ها</option>
@@ -106,17 +117,21 @@ export function PipelineDashboard() {
           <Select
             id="fp-pipeline-expert"
             value={expertId}
-            onChange={(e) => narrow(() => setExpertId(e.target.value))}
+            disabled={exporting}
+            onChange={(e) =>
+              narrow(() => {
+                setExpertId(e.target.value);
+                setChosenExpert(experts.find((expert) => expert.id === e.target.value) ?? null);
+              })
+            }
           >
             <option value="">همه کارشناسان</option>
             <option value="none">بدون کارشناس</option>
-            {(pipeline.state.status === 'success' ? pipeline.state.data.experts : []).map(
-              (expert) => (
-                <option key={expert.id} value={expert.id}>
-                  {expert.fullName}
-                </option>
-              ),
-            )}
+            {experts.map((expert) => (
+              <option key={expert.id} value={expert.id}>
+                {expert.fullName}
+              </option>
+            ))}
           </Select>
         </FieldShell>
       </div>
@@ -129,7 +144,7 @@ export function PipelineDashboard() {
             </h2>
             <p className="text-[13px] text-ink-5">
               {toPersianDigits(data.total)} پروژه · مدت ماندن از آخرین تغییر وضعیت هر پروژه شمرده
-              می‌شود · محاسبه‌شده در {formatDateFa(data.asOf)}
+              می‌شود · محاسبه‌شده در {formatDateTimeFa(data.asOf)}
             </p>
             <div className="overflow-x-auto rounded-card border border-line bg-white">
               <table className="w-full border-collapse text-[15px]">
@@ -163,6 +178,7 @@ export function PipelineDashboard() {
                         <button
                           type="button"
                           aria-pressed={status === stage.status}
+                          disabled={exporting}
                           className="rounded-sm font-bold text-brand-900 underline-offset-4 hover:underline"
                           onClick={() =>
                             narrow(() => setStatus(status === stage.status ? '' : stage.status))
@@ -183,6 +199,9 @@ export function PipelineDashboard() {
                 </tbody>
               </table>
             </div>
+            <p className="text-[13px] text-ink-5">
+              برای دیدن پروژه‌های یک وضعیت، نام آن را در جدول انتخاب کنید.
+            </p>
           </section>
         )}
       </AsyncBoundary>
@@ -196,7 +215,11 @@ export function PipelineDashboard() {
           </h2>
           <div className="flex flex-wrap items-center gap-2">
             {status ? (
-              <Button variant="ghost" onClick={() => narrow(() => setStatus(''))}>
+              <Button
+                variant="ghost"
+                disabled={exporting}
+                onClick={() => narrow(() => setStatus(''))}
+              >
                 همه وضعیت‌ها
               </Button>
             ) : null}
