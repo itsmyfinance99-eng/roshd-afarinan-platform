@@ -107,7 +107,11 @@ export function ReviewSteps({
   // The message of a step is said while the project is where that step took it.
   const done = taken && project.status === taken.to ? taken.done : null;
 
-  if (steps.length === 0) return done ? <SuccessMessage>{done}</SuccessMessage> : null;
+  if (steps.length === 0) {
+    // A refusal is still said when the project it left behind offers no step any more.
+    if (error) return <ErrorMessage>{error}</ErrorMessage>;
+    return done ? <SuccessMessage>{done}</SuccessMessage> : null;
+  }
 
   const take = async (step: Step) => {
     setError(null);
@@ -249,7 +253,9 @@ export function ReviewThreads({
       </h2>
       <p className="text-[13px] leading-relaxed text-ink-5">
         {side === 'applicant'
-          ? 'نظر خود را روی هر بخش مطالعه بنویسید. کارشناسان پاسخ می‌دهند و پس از رسیدگی، وضعیت نظر را ثبت می‌کنند.'
+          ? project.access.comment
+            ? 'نظر خود را روی هر بخش مطالعه بنویسید. کارشناسان پاسخ می‌دهند و پس از رسیدگی، وضعیت نظر را ثبت می‌کنند.'
+            : 'نظرهای بازبینی این مطالعه و پاسخ‌های آن‌ها را اینجا می‌خوانید. نظر تازه را هنگامی می‌نویسید که مطالعه برای بازبینی نزد شما است.'
           : 'هر نظر روی یک بخش مطالعه نوشته می‌شود. نظر متقاضی را همه می‌بینند؛ نظر شما داخلی است مگر آن را با متقاضی در میان بگذارید.'}
       </p>
       {project.access.comment ? (
@@ -306,6 +312,14 @@ export function ReviewThreads({
           <ErrorMessage>{state.message}</ErrorMessage>
           <Button variant="outline" size="sm" onClick={() => reload()}>
             تلاش دوباره
+          </Button>
+        </div>
+      ) : state.data.length === 0 && page > 1 ? (
+        // The page lost its last thread (handled under the filter «باز», for one).
+        <div className="flex flex-col items-start gap-2">
+          <p className="text-[15px] text-ink-5">در این صفحه نظری نمانده است.</p>
+          <Button variant="outline" size="sm" onClick={() => setPage(1)}>
+            بازگشت به صفحه نخست
           </Button>
         </div>
       ) : state.data.length === 0 ? (
