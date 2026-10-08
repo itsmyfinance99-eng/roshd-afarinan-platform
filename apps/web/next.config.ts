@@ -2,6 +2,12 @@ import type { NextConfig } from 'next';
 
 const apiInternalUrl = (process.env.API_INTERNAL_URL ?? 'http://127.0.0.1:4000').replace(/\/$/, '');
 
+/** Hosts other than localhost that may load the dev server's own scripts (next dev only). */
+const allowedDevOrigins = (process.env.DEV_ALLOWED_ORIGINS ?? '')
+  .split(',')
+  .map((host) => host.trim())
+  .filter(Boolean);
+
 /** Baseline security headers (security baseline; CSP tightened once third parties are known). */
 const securityHeaders = [
   { key: 'X-Content-Type-Options', value: 'nosniff' },
@@ -31,6 +37,7 @@ const nextConfig: NextConfig = {
   output: 'standalone',
   reactStrictMode: true,
   poweredByHeader: false,
+  allowedDevOrigins,
   transpilePackages: ['@roshd/ui'],
   images: { formats: ['image/avif', 'image/webp'] },
   async headers() {

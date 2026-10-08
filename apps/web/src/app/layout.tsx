@@ -31,7 +31,8 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <head>
         <script dangerouslySetInnerHTML={{ __html: MOTION_BOOT_SCRIPT }} />
       </head>
-      <body>
+      {/* Browser extensions (reader modes, translators) write attributes on <body> before hydration. */}
+      <body suppressHydrationWarning>
         {children}
         <MotionEngine />
       </body>
