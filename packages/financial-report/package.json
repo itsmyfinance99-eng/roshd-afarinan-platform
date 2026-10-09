@@ -58,7 +58,7 @@
     "@roshd/eslint-config": "workspace:*",
     "@roshd/tsconfig": "workspace:*",
     "@types/markdown-it": "^14.2.0",
-    "@types/node": "^24.13.6",
+    "@types/node": "^24.19.1",
     "@types/pdfkit": "^0.17.6",
     "eslint": "^9.39.5",
     "typescript": "~5.9.3",
